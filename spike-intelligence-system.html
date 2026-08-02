@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>SIS · Spike Intelligence System</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root{
+  --bg-0:#05070a;
+  --bg-1:#0a0e14;
+  --bg-2:#10151d;
+  --bg-3:#161c26;
+  --line:#212936;
+  --line-soft:#191f29;
+  --txt-hi:#eef2f7;
+  --txt-md:#8b95a5;
+  --txt-lo:#535d6e;
+  --amber:#ff9f43;
+  --amber-dim:#8a5a26;
+  --green:#3ddc97;
+  --green-dim:#1c5c46;
+  --red:#ff5c72;
+  --red-dim:#6e2530;
+  --cyan:#4fd1e8;
+  --violet:#a48bfa;
+  --mono:'JetBrains Mono',monospace;
+  --sans:'Inter',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--bg-0);color:var(--txt-hi);font-family:var(--sans);height:100%;-webkit-font-smoothing:antialiased;}
+body{font-size:13px;overflow-x:hidden;}
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-track{background:var(--bg-1);}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+::selection{background:var(--amber);color:#000;}
+
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;}
+
+/* ===== Shell ===== */
+#app{display:flex;flex-direction:column;min-height:100vh;}
+
+header{
+  position:sticky;top:0;z-index:50;
+  display:flex;align-items:center;gap:14px;
+  padding:10px 16px;
+  background:rgba(8,11,15,0.92);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.brand{display:flex;align-items:center;gap:9px;flex-shrink:0;}
+.brand .mark{
+  width:26px;height:26px;border-radius:6px;
+  background:conic-gradient(from 200deg,var(--amber),var(--red),var(--violet),var(--amber));
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-weight:800;font-size:12px;color:#05070a;
+  box-shadow:0 0 14px rgba(255,159,67,0.35);
+}
+.brand-txt{display:flex;flex-direction:column;line-height:1.1;}
+.brand-txt b{font-size:13px;letter-spacing:0.02em;}
+.brand-txt span{font-size:9.5px;color:var(--txt-lo);letter-spacing:0.12em;text-transform:uppercase;font-family:var(--mono);}
+
+.hdr-status{
+  display:flex;align-items:center;gap:6px;
+  font-family:var(--mono);font-size:10.5px;color:var(--txt-md);
+  padding:4px 9px;border:1px solid var(--line);border-radius:20px;
+  background:var(--bg-2);
+}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--txt-lo);flex-shrink:0;}
+.dot.live{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.6s ease-in-out infinite;}
+.dot.warn{background:var(--amber);box-shadow:0 0 8px var(--amber);}
+.dot.off{background:var(--red);}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+
+.hdr-spacer{flex:1;}
+.hdr-btn{
+  font-family:var(--mono);font-size:10.5px;color:var(--txt-md);
+  background:var(--bg-2);border:1px solid var(--line);border-radius:7px;
+  padding:6px 11px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px;
+}
+.hdr-btn:hover{border-color:var(--amber-dim);color:var(--txt-hi);}
+.hdr-btn.active{border-color:var(--amber);color:var(--amber);background:rgba(255,159,67,0.08);}
+
+/* ===== Symbol strip ===== */
+.symstrip{
+  display:flex;gap:6px;padding:8px 16px;overflow-x:auto;
+  border-bottom:1px solid var(--line);background:var(--bg-1);
+}
+.symstrip::-webkit-scrollbar{display:none;}
+.symchip{
+  flex-shrink:0;display:flex;flex-direction:column;gap:2px;
+  padding:6px 12px;border-radius:8px;border:1px solid var(--line);
+  background:var(--bg-2);cursor:pointer;min-width:118px;transition:all .15s;
+  position:relative;
+}
+.symchip:hover{border-color:var(--line-soft);}
+.symchip.sel{border-color:var(--amber);background:rgba(255,159,67,0.07);}
+.symchip .nm{font-size:10.5px;color:var(--txt-md);font-family:var(--mono);letter-spacing:.02em;}
+.symchip.sel .nm{color:var(--amber);}
+.symchip .pr{font-family:var(--mono);font-size:13px;font-weight:600;}
+.symchip .ch{font-family:var(--mono);font-size:9.5px;}
+.symchip .ch.up{color:var(--green);}
+.symchip .ch.dn{color:var(--red);}
+.symchip .badge{position:absolute;top:5px;right:6px;width:5px;height:5px;border-radius:50%;background:var(--txt-lo);}
+.symchip .badge.on{background:var(--green);}
+
+/* ===== Layout ===== */
+.layout{display:flex;flex:1;min-height:0;}
+main{flex:1;padding:14px 16px 40px;display:flex;flex-direction:column;gap:14px;min-width:0;}
+
+.panel{
+  background:var(--bg-1);border:1px solid var(--line);border-radius:12px;
+  overflow:hidden;
+}
+.panel-head{
+  display:flex;align-items:center;gap:8px;padding:11px 14px;
+  border-bottom:1px solid var(--line-soft);
+}
+.panel-head .ttl{font-size:12px;font-weight:700;letter-spacing:.02em;}
+.panel-head .sub{font-size:10px;color:var(--txt-lo);font-family:var(--mono);}
+.panel-head .spacer{flex:1;}
+.panel-body{padding:14px;}
+.eyebrow{font-family:var(--mono);font-size:9.5px;color:var(--amber);letter-spacing:.14em;text-transform:uppercase;}
+
+/* ===== Fusion hero ===== */
+.fusion-hero{
+  display:grid;grid-template-columns:220px 1fr;gap:20px;padding:18px;
+}
+.fusion-dial{display:flex;flex-direction:column;align-items:center;gap:8px;}
+.dial-wrap{position:relative;width:180px;height:180px;}
+.dial-wrap svg{transform:rotate(-90deg);}
+.dial-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.dial-center .pct{font-family:var(--mono);font-size:34px;font-weight:800;line-height:1;}
+.dial-center .lbl{font-size:9.5px;color:var(--txt-lo);letter-spacing:.1em;text-transform:uppercase;margin-top:4px;font-family:var(--mono);}
+.reco-pill{font-family:var(--mono);font-size:10.5px;padding:5px 12px;border-radius:20px;border:1px solid var(--line);}
+
+.fusion-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;align-content:start;}
+.fusion-item{
+  background:var(--bg-2);border:1px solid var(--line-soft);border-radius:8px;padding:9px 11px;
+}
+.fusion-item .nm{font-size:10px;color:var(--txt-md);margin-bottom:6px;display:flex;justify-content:space-between;}
+.fusion-item .nm b{font-family:var(--mono);color:var(--txt-hi);font-size:12px;}
+.bar-track{height:4px;background:var(--bg-3);border-radius:2px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:2px;transition:width .4s ease;}
+
+.answers{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;padding:0 14px 14px;}
+.answer-card{background:var(--bg-2);border:1px solid var(--line-soft);border-radius:9px;padding:10px 11px;}
+.answer-card .q{font-size:9.5px;color:var(--txt-lo);margin-bottom:5px;line-height:1.3;}
+.answer-card .a{font-family:var(--mono);font-size:13px;font-weight:700;}
+.answer-card .a2{font-size:9.5px;color:var(--txt-md);margin-top:2px;}
+
+/* ===== Engine grid ===== */
+.engine-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+@media(max-width:980px){.engine-grid{grid-template-columns:1fr;}.fusion-hero{grid-template-columns:1fr;}.answers{grid-template-columns:repeat(2,1fr);}}
+
+.engine-card .panel-head .idx{
+  font-family:var(--mono);font-size:9.5px;color:var(--bg-0);background:var(--txt-lo);
+  width:16px;height:16px;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.engine-card.on .panel-head .idx{background:var(--amber);}
+.score-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.score-big{font-family:var(--mono);font-size:26px;font-weight:800;}
+.score-track{flex:1;height:6px;background:var(--bg-3);border-radius:3px;overflow:hidden;}
+.score-track .f{height:100%;border-radius:3px;}
+.metric-list{display:grid;grid-template-columns:1fr 1fr;gap:7px 14px;}
+.metric{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--line-soft);font-size:11px;}
+.metric .k{color:var(--txt-md);}
+.metric .v{font-family:var(--mono);font-weight:600;}
+.metric .v.pos{color:var(--green);}
+.metric .v.neg{color:var(--red);}
+.metric .v.warn{color:var(--amber);}
+.tag{display:inline-flex;font-family:var(--mono);font-size:9.5px;padding:2px 8px;border-radius:20px;border:1px solid;letter-spacing:.02em;}
+
+/* ===== Ticker strip mini chart ===== */
+.tickcanvas{width:100%;height:64px;display:block;}
+.tickrun{display:flex;gap:2px;align-items:flex-end;height:40px;overflow:hidden;}
+.tickrun i{width:5px;flex-shrink:0;border-radius:1px;}
+.tickrun i.u{background:var(--green);}
+.tickrun i.d{background:var(--red);}
+
+/* ===== Settings drawer ===== */
+#drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:90;display:none;}
+#drawer-overlay.show{display:block;}
+#drawer{
+  position:fixed;top:0;right:0;height:100vh;width:360px;max-width:92vw;
+  background:var(--bg-1);border-left:1px solid var(--line);z-index:91;
+  transform:translateX(100%);transition:transform .25s ease;
+  display:flex;flex-direction:column;
+}
+#drawer.show{transform:translateX(0);}
+.drawer-head{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;}
+.drawer-head b{font-size:13px;flex:1;}
+.drawer-close{cursor:pointer;color:var(--txt-md);font-size:18px;line-height:1;padding:2px 6px;}
+.drawer-body{flex:1;overflow-y:auto;padding:14px 16px 30px;}
+.set-group{margin-bottom:18px;}
+.set-group h4{font-size:10px;color:var(--amber);text-transform:uppercase;letter-spacing:.1em;font-family:var(--mono);margin-bottom:10px;}
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px;}
+.set-row label{font-size:11.5px;color:var(--txt-md);flex:1;}
+.set-row input[type=range]{width:110px;accent-color:var(--amber);}
+.set-row .val{font-family:var(--mono);font-size:11px;width:42px;text-align:right;color:var(--txt-hi);}
+.set-row select{
+  background:var(--bg-2);border:1px solid var(--line);color:var(--txt-hi);
+  font-family:var(--mono);font-size:11px;border-radius:6px;padding:4px 6px;
+}
+.toggle{width:34px;height:19px;border-radius:20px;background:var(--bg-3);border:1px solid var(--line);position:relative;cursor:pointer;flex-shrink:0;}
+.toggle i{position:absolute;top:1px;left:1px;width:15px;height:15px;border-radius:50%;background:var(--txt-lo);transition:all .15s;}
+.toggle.on{background:rgba(61,220,151,0.18);border-color:var(--green-dim);}
+.toggle.on i{left:16px;background:var(--green);}
+.drawer-foot{padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px;}
+.btn{
+  font-family:var(--mono);font-size:11px;padding:8px 12px;border-radius:7px;border:1px solid var(--line);
+  background:var(--bg-2);color:var(--txt-hi);cursor:pointer;flex:1;text-align:center;transition:all .15s;
+}
+.btn:hover{border-color:var(--txt-md);}
+.btn.warn{color:var(--red);border-color:var(--red-dim);}
+.btn.warn:hover{background:rgba(255,92,114,0.08);}
+
+/* ===== Logs ===== */
+#logdrawer{
+  position:fixed;bottom:0;left:0;right:0;z-index:80;
+  background:var(--bg-1);border-top:1px solid var(--line);
+  height:34px;overflow:hidden;transition:height .2s ease;
+  display:flex;flex-direction:column;
+}
+#logdrawer.open{height:min(320px,50vh);}
+.log-bar{
+  display:flex;align-items:center;gap:8px;padding:0 14px;height:34px;flex-shrink:0;cursor:pointer;
+  border-bottom:1px solid var(--line-soft);
+}
+.log-bar b{font-size:11px;}
+.log-bar .cnt{font-family:var(--mono);font-size:9.5px;color:var(--txt-lo);}
+.log-bar .spacer{flex:1;}
+.log-bar .chev{color:var(--txt-lo);font-size:10px;transition:transform .2s;}
+#logdrawer.open .chev{transform:rotate(180deg);}
+#logfeed{flex:1;overflow-y:auto;padding:8px 14px;font-family:var(--mono);font-size:10.5px;line-height:1.7;}
+.logline{display:flex;gap:8px;white-space:pre-wrap;word-break:break-word;}
+.logline .t{color:var(--txt-lo);flex-shrink:0;}
+.logline .lvl{flex-shrink:0;width:52px;font-weight:700;}
+.logline.INFO .lvl{color:var(--cyan);}
+.logline.OK .lvl{color:var(--green);}
+.logline.WARN .lvl{color:var(--amber);}
+.logline.ERR .lvl{color:var(--red);}
+.logline.ENGINE .lvl{color:var(--violet);}
+.logline .m{color:var(--txt-md);}
+
+/* footer note */
+.footnote{
+  text-align:center;color:var(--txt-lo);font-family:var(--mono);font-size:9.5px;
+  padding:10px 0 46px;letter-spacing:.03em;
+}
+.footnote b{color:var(--txt-md);}
+
+.pill-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.pill{font-family:var(--mono);font-size:9.5px;padding:3px 9px;border-radius:20px;border:1px solid var(--line-soft);color:var(--txt-md);background:var(--bg-2);}
+
+@media(max-width:640px){
+  main{padding:10px 10px 40px;}
+  .brand-txt span{display:none;}
+  #drawer{width:100vw;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<header>
+  <div class="brand">
+    <div class="mark">SIS</div>
+    <div class="brand-txt"><b>Spike Intelligence System</b><span>Read-only analytics · Deriv synthetics</span></div>
+  </div>
+  <div class="hdr-status" id="connStatus"><span class="dot off" id="connDot"></span><span id="connText">Disconnected</span></div>
+  <div class="hdr-status" id="tickStatus"><span class="dot off" id="tickDot"></span><span id="tickText">0 ticks/s</span></div>
+  <div class="hdr-spacer"></div>
+  <button class="hdr-btn" id="connectBtn">▸ Connect Feed</button>
+  <button class="hdr-btn" id="settingsBtn">⚙ Settings</button>
+</header>
+
+<div class="symstrip" id="symStrip"></div>
+
+<div class="layout">
+<main>
+
+  <!-- FUSION HERO -->
+  <section class="panel">
+    <div class="panel-head">
+      <span class="eyebrow">Probability Fusion Engine</span>
+      <div class="spacer"></div>
+      <span class="sub" id="fusionSymLabel">—</span>
+    </div>
+    <div class="fusion-hero">
+      <div class="fusion-dial">
+        <div class="dial-wrap">
+          <svg width="180" height="180" viewBox="0 0 180 180">
+            <circle cx="90" cy="90" r="78" fill="none" stroke="#161c26" stroke-width="12"/>
+            <circle id="dialArc" cx="90" cy="90" r="78" fill="none" stroke="#ff9f43" stroke-width="12" stroke-linecap="round" stroke-dasharray="490" stroke-dashoffset="490"/>
+          </svg>
+          <div class="dial-center">
+            <div class="pct num" id="fusionPct">--%</div>
+            <div class="lbl">Spike Probability</div>
+          </div>
+        </div>
+        <span class="reco-pill" id="recoPill">AWAITING DATA</span>
+        <div class="pill-row" id="riskPillRow"></div>
+      </div>
+      <div class="fusion-grid" id="fusionGrid"></div>
+    </div>
+    <div class="answers" id="answersRow"></div>
+  </section>
+
+  <!-- LIVE TICK STRIP -->
+  <section class="panel">
+    <div class="panel-head">
+      <span class="eyebrow">Live Feed</span>
+      <span class="sub" id="feedSymLabel">—</span>
+      <div class="spacer"></div>
+      <span class="sub num" id="lastPriceLabel">—</span>
+    </div>
+    <div class="panel-body">
+      <canvas class="tickcanvas" id="tickCanvas"></canvas>
+    </div>
+  </section>
+
+  <!-- ENGINE GRID -->
+  <div class="engine-grid" id="engineGrid"></div>
+
+  <div class="footnote">SIS operates in <b>read-only</b> mode — no orders are placed. All probabilities are statistical estimates derived from live tick/price behavior, not guarantees. · Deriv v3 API · <span id="clockFoot" class="num"></span></div>
+
+</main>
+</div>
+
+<!-- LOG DRAWER -->
+<div id="logdrawer">
+  <div class="log-bar" id="logBar">
+    <span class="dot live" style="width:5px;height:5px;"></span>
+    <b>System Log</b>
+    <span class="cnt" id="logCount">0 events</span>
+    <div class="spacer"></div>
+    <button class="hdr-btn" id="clearLogBtn" style="padding:3px 8px;font-size:9.5px;" onclick="event.stopPropagation();clearLogs();">Clear</button>
+    <span class="chev">▲</span>
+  </div>
+  <div id="logfeed"></div>
+</div>
+
+<!-- SETTINGS DRAWER -->
+<div id="drawer-overlay"></div>
+<div id="drawer">
+  <div class="drawer-head"><b>Parametric Settings</b><span class="drawer-close" id="drawerClose">✕</span></div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot">
+    <button class="btn warn" id="resetBtn">Reset Defaults</button>
+    <button class="btn" id="applyBtn">Apply &amp; Recalc</button>
+  </div>
+</div>
+
+</div>
+
+<script>
+/* ============================================================================
+   SPIKE INTELLIGENCE SYSTEM (SIS) — read-only analytics dashboard
+   Deriv v3 WebSocket public feed. No trading, no auth, no order placement.
+   Engines: Market Structure, Spike Statistics, Tick Sequence, Exhaustion,
+   Timing Intelligence, Technical Confluence, Pattern Recognition,
+   Probability Fusion, Adaptive Learning (weight recalibration).
+   ============================================================================ */
+
+/* ---------------- Config / constants ---------------- */
+const WS_PUBLIC = "wss://api.derivws.com/trading/v1/options/ws/public";
+const SYMBOLS = [
+  {sym:"BOOM300N", name:"Boom 300", dir:"up"},
+  {sym:"BOOM500", name:"Boom 500", dir:"up"},
+  {sym:"BOOM1000", name:"Boom 1000", dir:"up"},
+  {sym:"CRASH300N", name:"Crash 300", dir:"down"},
+  {sym:"CRASH500", name:"Crash 500", dir:"down"},
+  {sym:"CRASH1000", name:"Crash 1000", dir:"down"},
+];
+
+/* ---------------- Default parametric settings ---------------- */
+const DEFAULTS = {
+  // Market Structure Engine
+  emaFastLen: 9, emaSlowLen: 21, trendLookback: 40, consolidationAtrLen: 14, bollingerLen: 20, bollingerMult: 2,
+  // Spike Statistics Engine
+  spikeThresholdPct: 0.35, spikeMemorySize: 500,
+  // Tick Sequence Engine
+  runLookback: 300, minRunAlert: 6,
+  // Exhaustion Engine
+  rsiLen: 14, macdFast: 12, macdSlow: 26, macdSignal: 9,
+  // Timing Engine
+  cycleLookback: 50,
+  // Technical Confluence
+  confluenceStudies: 16,
+  // Pattern Recognition
+  patternSensitivity: 60,
+  // Fusion Engine adaptive weights (initial, adjusted by Adaptive Learning)
+  wStructure: 15, wStats: 13, wTick: 16, wExhaustion: 14, wTiming: 12, wConfluence: 16, wPattern: 14,
+  // System
+  tickBufferMax: 900, recalcIntervalMs: 900, logLevel: "INFO", chartStyle: "line",
+  spikeAlertThreshold: 75,
+};
+let S = JSON.parse(JSON.stringify(DEFAULTS));
+
+/* ---------------- State ---------------- */
+let ws = null;
+let connected = false;
+let activeSymbol = "BOOM300N";
+let symbolStates = {}; // per-symbol tick buffers + engine outputs
+let tickCounter = 0; let tickRateWindow = [];
+let reconnectAttempts = 0; let reconnectTimer = null; let keepaliveTimer = null;
+let recalcTimer = null;
+let logs = [];
+
+SYMBOLS.forEach(s => {
+  symbolStates[s.sym] = {
+    ticks: [],        // {t, price}
+    lastPrice: null, prevPrice: null,
+    spikeLog: [],      // detected spikes {t, size, dir}
+    lastSpikeTick: 0,
+    engines: null,
+    subscribed: false,
+  };
+});
+
+/* ---------------- Logging ---------------- */
+const LOG_LEVELS = ["INFO","OK","WARN","ERR","ENGINE"];
+function log(level, msg){
+  const t = new Date();
+  const ts = t.toTimeString().slice(0,8) + "." + String(t.getMilliseconds()).padStart(3,"0");
+  logs.push({level, msg, ts});
+  if(logs.length > 500) logs.shift();
+  renderLogs();
+}
+function renderLogs(){
+  const feed = document.getElementById("logfeed");
+  const atBottom = feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 30;
+  feed.innerHTML = logs.slice(-300).map(l =>
+    `<div class="logline ${l.level}"><span class="t">${l.ts}</span><span class="lvl">${l.level}</span><span class="m">${escapeHtml(l.msg)}</span></div>`
+  ).join("");
+  document.getElementById("logCount").textContent = logs.length + " events";
+  if(atBottom) feed.scrollTop = feed.scrollHeight;
+}
+function clearLogs(){ logs = []; renderLogs(); log("INFO","Log cleared by operator"); }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------------- WebSocket connection ---------------- */
+function connect(){
+  if(ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+  log("INFO", "Connecting to Deriv public WebSocket ("+WS_PUBLIC+")…");
+  setConnStatus("connecting");
+  try{
+    ws = new WebSocket(WS_PUBLIC);
+  }catch(e){
+    log("ERR","WebSocket construction failed: "+e.message);
+    scheduleReconnect();
+    return;
+  }
+
+  ws.onopen = () => {
+    connected = true; reconnectAttempts = 0;
+    setConnStatus("live");
+    log("OK","WebSocket connection established (public, read-only, no auth)");
+    // Subscribe to active_symbols validation first
+    send({active_symbols:"brief", req_id: nextReq()});
+    // Subscribe ticks for all tracked symbols
+    SYMBOLS.forEach(s => {
+      send({ticks: s.sym, subscribe: 1, req_id: nextReq()});
+      send({ticks_history: s.sym, count: 300, end: "latest", style: "ticks", req_id: nextReq()});
+    });
+    startKeepalive();
+  };
+
+  ws.onmessage = (event) => {
+    let data;
+    try{ data = JSON.parse(event.data); }catch(e){ log("ERR","Malformed WS payload received"); return; }
+
+    if(data.error){
+      log("ERR", `[${data.error.code||'ERR'}] ${data.error.message||'Unknown error'}`);
+      return;
+    }
+
+    switch(data.msg_type){
+      case "active_symbols": handleActiveSymbols(data); break;
+      case "tick": handleTick(data); break;
+      case "history": handleHistory(data); break;
+      case "ping": break;
+      default: break;
+    }
+  };
+
+  ws.onerror = () => {
+    log("ERR","WebSocket transport error");
+  };
+
+  ws.onclose = () => {
+    connected = false;
+    setConnStatus("off");
+    log("WARN","WebSocket closed — scheduling reconnect");
+    stopKeepalive();
+    scheduleReconnect();
+  };
+}
+
+function disconnect(manual){
+  if(keepaliveTimer) clearInterval(keepaliveTimer);
+  if(reconnectTimer) clearTimeout(reconnectTimer);
+  if(ws){ try{ ws.close(); }catch(e){} }
+  connected = false;
+  setConnStatus("off");
+  if(manual) log("INFO","Feed disconnected by operator");
+}
+
+function scheduleReconnect(){
+  if(reconnectTimer) return;
+  reconnectAttempts++;
+  const delay = Math.min(1000*Math.pow(2, reconnectAttempts), 30000);
+  log("WARN", `Reconnecting in ${(delay/1000).toFixed(1)}s (attempt ${reconnectAttempts})`);
+  reconnectTimer = setTimeout(() => { reconnectTimer=null; connect(); }, delay);
+}
+
+function startKeepalive(){
+  stopKeepalive();
+  keepaliveTimer = setInterval(() => {
+    if(ws && ws.readyState === WebSocket.OPEN){
+      send({ping:1, req_id: nextReq()});
+    }
+  }, 30000);
+}
+function stopKeepalive(){ if(keepaliveTimer){ clearInterval(keepaliveTimer); keepaliveTimer=null; } }
+
+let reqId = 0;
+function nextReq(){ return ++reqId; }
+function send(obj){
+  if(ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+}
+
+function handleActiveSymbols(data){
+  const list = data.active_symbols || [];
+  const tradable = new Set(list.map(s => s.symbol));
+  let disabled = [];
+  SYMBOLS.forEach(s => {
+    if(list.length && !tradable.has(s.sym)){
+      symbolStates[s.sym].disabledSymbol = true;
+      disabled.push(s.sym);
+    }
+  });
+  if(disabled.length) log("WARN", "Symbols not tradable / auto-disabled: " + disabled.join(", "));
+  else log("INFO", `active_symbols validated — ${list.length} instruments available`);
+}
+
+function handleHistory(data){
+  const sym = data.echo_req && data.echo_req.ticks_history;
+  if(!sym || !symbolStates[sym]) return;
+  const prices = data.history?.prices || [];
+  const times = data.history?.times || [];
+  const st = symbolStates[sym];
+  st.ticks = prices.map((p,i) => ({t: times[i], price: Number(p)||0}));
+  if(st.ticks.length){
+    st.lastPrice = st.ticks[st.ticks.length-1].price;
+  }
+  log("INFO", `History loaded for ${sym}: ${st.ticks.length} ticks`);
+  scheduleRecalc();
+}
+
+function handleTick(data){
+  const tk = data.tick;
+  if(!tk || !symbolStates[tk.symbol]) return;
+  const st = symbolStates[tk.symbol];
+  const price = Number(tk.quote) || 0;
+  st.prevPrice = st.lastPrice;
+  st.lastPrice = price;
+  st.ticks.push({t: tk.epoch, price});
+  if(st.ticks.length > S.tickBufferMax) st.ticks.shift();
+
+  // spike detection (simple threshold-based, engine will refine)
+  if(st.prevPrice){
+    const pct = Math.abs(price - st.prevPrice) / st.prevPrice * 100;
+    if(pct >= S.spikeThresholdPct){
+      const dir = price > st.prevPrice ? "up" : "down";
+      st.spikeLog.push({t: tk.epoch, size: pct, dir, price});
+      if(st.spikeLog.length > S.spikeMemorySize) st.spikeLog.shift();
+      st.lastSpikeTick = st.ticks.length;
+      log("ENGINE", `Spike detected on ${tk.symbol}: ${dir==='up'?'▲':'▼'} ${pct.toFixed(3)}% @ ${price}`);
+    }
+  }
+
+  tickCounter++;
+  updateSymChip(tk.symbol, price, st.prevPrice);
+  if(tk.symbol === activeSymbol) drawTickCanvas();
+}
+
+/* ---------------- Tick rate meter ---------------- */
+setInterval(() => {
+  tickRateWindow.push(tickCounter); tickCounter = 0;
+  if(tickRateWindow.length > 5) tickRateWindow.shift();
+  const rate = tickRateWindow.reduce((a,b)=>a+b,0) / tickRateWindow.length;
+  document.getElementById("tickText").textContent = rate.toFixed(1) + " ticks/s";
+  const dot = document.getElementById("tickDot");
+  dot.className = "dot " + (rate > 0 ? "live" : "off");
+}, 1000);
+
+/* ---------------- Connection status UI ---------------- */
+function setConnStatus(state){
+  const dot = document.getElementById("connDot");
+  const txt = document.getElementById("connText");
+  const btn = document.getElementById("connectBtn");
+  if(state === "live"){ dot.className="dot live"; txt.textContent="Connected · Public feed"; btn.textContent="■ Disconnect"; btn.classList.add("active"); }
+  else if(state === "connecting"){ dot.className="dot warn"; txt.textContent="Connecting…"; btn.textContent="… Connecting"; btn.classList.remove("active"); }
+  else { dot.className="dot off"; txt.textContent="Disconnected"; btn.textContent="▸ Connect Feed"; btn.classList.remove("active"); }
+}
+
+/* ============================================================================
+   ENGINES — pure functions operating on a symbol's tick buffer + settings
+   ============================================================================ */
+
+function ema(arr, len){
+  if(arr.length===0) return [];
+  const k = 2/(len+1);
+  let out = [arr[0]];
+  for(let i=1;i<arr.length;i++) out.push(arr[i]*k + out[i-1]*(1-k));
+  return out;
+}
+function sma(arr, len){
+  let out = [];
+  for(let i=0;i<arr.length;i++){
+    if(i < len-1){ out.push(null); continue; }
+    let sum=0; for(let j=i-len+1;j<=i;j++) sum+=arr[j];
+    out.push(sum/len);
+  }
+  return out;
+}
+function stddev(arr, len){
+  let out = [];
+  for(let i=0;i<arr.length;i++){
+    if(i < len-1){ out.push(null); continue; }
+    const slice = arr.slice(i-len+1,i+1);
+    const mean = slice.reduce((a,b)=>a+b,0)/len;
+    const v = slice.reduce((a,b)=>a+(b-mean)*(b-mean),0)/len;
+    out.push(Math.sqrt(v));
+  }
+  return out;
+}
+function rsi(arr, len){
+  if(arr.length < len+1) return null;
+  let gains=0, losses=0;
+  for(let i=arr.length-len;i<arr.length;i++){
+    const d = arr[i]-arr[i-1];
+    if(d>0) gains+=d; else losses-=d;
+  }
+  const avgG = gains/len, avgL = losses/len;
+  if(avgL===0) return 100;
+  const rs = avgG/avgL;
+  return 100 - (100/(1+rs));
+}
+function macdCalc(arr, fast, slow, signal){
+  if(arr.length < slow+signal) return {macd:0, signal:0, hist:0};
+  const emaFast = ema(arr, fast);
+  const emaSlow = ema(arr, slow);
+  const macdLine = emaFast.map((v,i)=>v - emaSlow[i]);
+  const sig = ema(macdLine.slice(-Math.max(signal*3,signal)), signal);
+  const macd = macdLine[macdLine.length-1];
+  const signalV = sig[sig.length-1];
+  return {macd, signal: signalV, hist: macd-signalV};
+}
+function atr(prices, len){
+  if(prices.length < len+1) return 0;
+  let trs = [];
+  for(let i=prices.length-len;i<prices.length;i++){
+    trs.push(Math.abs(prices[i]-prices[i-1]));
+  }
+  return trs.reduce((a,b)=>a+b,0)/len;
+}
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function round1(v){ return Math.round(v*10)/10; }
+
+/* ---- 1. Market Structure Analysis Engine ---- */
+function engineMarketStructure(st){
+  const prices = st.ticks.map(t=>t.price);
+  if(prices.length < S.emaSlowLen+5) return null;
+
+  const emaF = ema(prices, S.emaFastLen);
+  const emaS = ema(prices, S.emaSlowLen);
+  const lastEmaF = emaF[emaF.length-1], lastEmaS = emaS[emaS.length-1];
+  const emaAligned = lastEmaF > lastEmaS;
+
+  const lookback = prices.slice(-S.trendLookback);
+  let hh=0,hl=0,lh=0,ll=0;
+  for(let i=2;i<lookback.length;i++){
+    if(lookback[i]>lookback[i-2]) hh++; else lh++;
+    if(lookback[i-1]>lookback[i-2]) hl++; else ll++;
+  }
+  const upBias = (hh+hl) / (hh+hl+lh+ll || 1);
+  const angle = Math.atan((lookback[lookback.length-1]-lookback[0]) / (lookback[0]||1) * 1000) * (180/Math.PI);
+
+  let trend = "Ranging";
+  if(upBias > 0.62 && emaAligned) trend = "Strong Uptrend";
+  else if(upBias > 0.54 && emaAligned) trend = "Uptrend";
+  else if(upBias < 0.38 && !emaAligned) trend = "Strong Downtrend";
+  else if(upBias < 0.46 && !emaAligned) trend = "Downtrend";
+
+  const trendConfidence = clamp(Math.round(Math.abs(upBias-0.5)*2*100), 5, 99);
+
+  // consolidation via bollinger squeeze + ATR contraction
+  const sd = stddev(prices, S.bollingerLen);
+  const mid = sma(prices, S.bollingerLen);
+  const lastSd = sd[sd.length-1] || 0;
+  const lastMid = mid[mid.length-1] || prices[prices.length-1];
+  const bbWidth = lastMid ? (lastSd*S.bollingerMult*2 / lastMid) * 100 : 0;
+  const recentAtr = atr(prices.slice(-S.consolidationAtrLen*2), S.consolidationAtrLen);
+  const olderAtr = atr(prices.slice(-S.consolidationAtrLen*4,-S.consolidationAtrLen*2), S.consolidationAtrLen) || recentAtr || 1;
+  const atrContraction = clamp(1 - (recentAtr/olderAtr), -1, 1);
+
+  let consolidation = "Normal Range";
+  if(bbWidth < 0.15 && atrContraction > 0.15) consolidation = "Very Tight Range";
+  else if(bbWidth < 0.3) consolidation = "Tight Range";
+  else if(bbWidth > 0.8) consolidation = "Wide / Expanding";
+
+  const expansionProb = clamp(Math.round((1-atrContraction)*50 + (bbWidth<0.3?30:0) + trendConfidence*0.2), 0, 100);
+  const structureStability = clamp(Math.round(100 - Math.abs(atrContraction)*100 - (bbWidth>1?20:0)), 5, 99);
+  const structureScore = clamp(Math.round((trendConfidence*0.4)+(structureStability*0.3)+(expansionProb*0.3)), 0, 100);
+
+  let market = "Range Market";
+  if(trend.includes("trend")) market = "Trending Market";
+  if(bbWidth < 0.2) market = "Channel / Compression";
+
+  return {
+    name:"Market Structure", score: structureScore,
+    trend, trendConfidence, consolidation, bbWidth: round1(bbWidth),
+    expansionProb, structureStability, marketType: market, angle: round1(angle),
+  };
+}
+
+/* ---- 2. Spike Statistics Engine ---- */
+function engineSpikeStatistics(st){
+  const spikes = st.spikeLog;
+  if(spikes.length < 2){
+    return {name:"Spike Statistics", score: 30, count: spikes.length, freq:"Insufficient Data", interval:0, expectedInterval:0, avgSize:0, maxSize:0, minSize:0, recovery:"Unknown"};
+  }
+  const intervals = [];
+  for(let i=1;i<spikes.length;i++) intervals.push(spikes[i].t - spikes[i-1].t);
+  const avgInterval = intervals.reduce((a,b)=>a+b,0)/intervals.length;
+  const variance = intervals.reduce((a,b)=>a+(b-avgInterval)**2,0)/intervals.length;
+  const stdInterval = Math.sqrt(variance);
+
+  const sizes = spikes.map(s=>s.size);
+  const avgSize = sizes.reduce((a,b)=>a+b,0)/sizes.length;
+  const maxSize = Math.max(...sizes);
+  const minSize = Math.min(...sizes);
+  const medianSize = [...sizes].sort((a,b)=>a-b)[Math.floor(sizes.length/2)];
+
+  const now = st.ticks.length ? st.ticks[st.ticks.length-1].t : Date.now()/1000;
+  const lastSpikeT = spikes[spikes.length-1].t;
+  const sinceLast = now - lastSpikeT;
+
+  let freq = "Normal";
+  if(stdInterval / (avgInterval||1) > 0.6) freq = "Irregular";
+  else if(sinceLast < avgInterval*0.4) freq = "Elevated";
+
+  let recovery = "Moderate";
+  const recentSpikeGapAvg = intervals.slice(-5).reduce((a,b)=>a+b,0)/Math.min(5,intervals.length);
+  if(recentSpikeGapAvg < avgInterval*0.7) recovery = "Fast";
+  else if(recentSpikeGapAvg > avgInterval*1.3) recovery = "Slow";
+
+  const magnitudeLabel = avgSize > 0.8 ? "Large" : avgSize > 0.4 ? "Medium" : "Small";
+
+  const consistency = clamp(100 - (stdInterval/(avgInterval||1))*100, 0, 100);
+  const score = clamp(Math.round(consistency*0.5 + Math.min(spikes.length,50)*0.5*2 ), 0, 100);
+
+  return {
+    name:"Spike Statistics", score, count: spikes.length, freq,
+    interval: Math.round(avgInterval), expectedInterval: Math.round(avgInterval),
+    sinceLast: Math.round(sinceLast),
+    avgSize: round1(avgSize), maxSize: round1(maxSize), minSize: round1(minSize), medianSize: round1(medianSize),
+    magnitudeLabel, recovery, consistency: Math.round(consistency),
+  };
+}
+
+/* ---- 3. Tick Sequence Analysis Engine ---- */
+function engineTickSequence(st){
+  const prices = st.ticks.map(t=>t.price);
+  if(prices.length < 10) return null;
+  // current run length (consecutive same-direction ticks from the end)
+  let runLen = 0; let dir = null;
+  for(let i=prices.length-1;i>0;i--){
+    const d = prices[i] > prices[i-1] ? "up" : prices[i] < prices[i-1] ? "down" : null;
+    if(dir===null){ dir = d; if(d===null) break; runLen=1; continue; }
+    if(d===dir) runLen++; else break;
+  }
+  const times = st.ticks.map(t=>t.t);
+  const recentSpan = times.length>runLen+1 ? times[times.length-1]-times[times.length-1-runLen] : runLen;
+  const avgSpeed = runLen>0 ? recentSpan/runLen : 0;
+
+  // historical comparison: scan buffer for runs of similar length (±2) in the same direction
+  const lookback = Math.min(S.runLookback, prices.length);
+  const window = prices.slice(-lookback);
+  let occurrences = 0, followedBySpike = 0;
+  let curRun=0, curDir=null;
+  const spikeTimes = new Set(st.spikeLog.map(s=>s.t));
+  for(let i=1;i<window.length;i++){
+    const d = window[i]>window[i-1] ? "up" : window[i]<window[i-1] ? "down" : null;
+    if(d===curDir){ curRun++; } else { curRun=1; curDir=d; }
+    if(curDir===dir && Math.abs(curRun-runLen)<=2 && curRun>=Math.max(3,S.minRunAlert-2)){
+      occurrences++;
+      // check if a spike happened within next 15 ticks
+      const idxGlobal = st.ticks.length - lookback + i;
+      const windowTicks = st.ticks.slice(idxGlobal, idxGlobal+15);
+      if(windowTicks.some(t=>spikeTimes.has(t.t))) followedBySpike++;
+    }
+  }
+  const historicalProb = occurrences>0 ? Math.round((followedBySpike/occurrences)*100) : 0;
+  const historicalMatch = occurrences>0 ? clamp(Math.round((occurrences/lookback)*100*8),0,99) : 0;
+
+  let momentum = "Stable";
+  if(runLen >= S.minRunAlert*1.5) momentum = "Weakening";
+  else if(runLen >= S.minRunAlert) momentum = "Building";
+
+  const score = clamp(Math.round((runLen/Math.max(S.minRunAlert*2,1))*40 + historicalProb*0.6), 0, 100);
+
+  return {
+    name:"Tick Sequence", score, runLen, dir: dir||"—", avgSpeed: (avgSpeed||0).toFixed(2),
+    momentum, occurrences, historicalMatch, spikeProbability: historicalProb,
+  };
+}
+
+/* ---- 4. Market Exhaustion Engine ---- */
+function engineExhaustion(st){
+  const prices = st.ticks.map(t=>t.price);
+  if(prices.length < S.macdSlow+S.macdSignal+5) return null;
+  const r = rsi(prices, S.rsiLen);
+  const macdRes = macdCalc(prices, S.macdFast, S.macdSlow, S.macdSignal);
+  const recentAtr = atr(prices.slice(-20), Math.min(14,prices.length-1));
+  const emaF = ema(prices, S.emaFastLen); const emaS = ema(prices, S.emaSlowLen);
+  const emaSeparation = Math.abs(emaF[emaF.length-1]-emaS[emaS.length-1]) / (emaS[emaS.length-1]||1) * 100;
+
+  // velocity / deceleration
+  const seg = prices.slice(-12);
+  const v1 = seg[5]-seg[0], v2 = seg[11]-seg[6];
+  const decel = Math.abs(v2) < Math.abs(v1);
+
+  let buyerExhaustion = "Low", sellerExhaustion = "Low";
+  if(r !== null){
+    if(r > 70) buyerExhaustion = r>85 ? "Strong" : "Moderate";
+    if(r < 30) sellerExhaustion = r<15 ? "Strong" : "Moderate";
+  }
+  if(macdRes.hist < 0 && v1>0) buyerExhaustion = "Strong"; // bearish divergence proxy
+  if(macdRes.hist > 0 && v1<0) sellerExhaustion = "Strong";
+
+  const divergenceScore = clamp(Math.abs(macdRes.hist)*1000, 0, 40);
+  const decelScore = decel ? 25 : 5;
+  const rsiExtreme = r!==null ? Math.abs(r-50) : 0;
+  const exhaustionScore = clamp(Math.round(divergenceScore + decelScore + rsiExtreme*0.5), 0, 100);
+
+  return {
+    name:"Exhaustion", score: exhaustionScore, rsi: r!==null?round1(r):null,
+    macdHist: macdRes.hist.toFixed(4), buyerExhaustion, sellerExhaustion,
+    emaSeparation: round1(emaSeparation), decelerating: decel, atr: round1(recentAtr*1000)/1000,
+  };
+}
+
+/* ---- 5. Spike Timing Intelligence Engine ---- */
+function engineTiming(st){
+  const spikes = st.spikeLog;
+  if(spikes.length < 3){
+    return {name:"Timing Intelligence", score: 25, cycle:"Unknown", cycleScore:0, historicalSimilarity:0, ticksSinceLast: st.ticks.length - st.lastSpikeTick};
+  }
+  const intervals = [];
+  for(let i=1;i<spikes.length;i++) intervals.push(spikes[i].t - spikes[i-1].t);
+  const lookback = intervals.slice(-S.cycleLookback);
+  const avg = lookback.reduce((a,b)=>a+b,0)/lookback.length;
+  const now = st.ticks.length ? st.ticks[st.ticks.length-1].t : Date.now()/1000;
+  const elapsed = now - spikes[spikes.length-1].t;
+  const ratio = elapsed / (avg||1);
+
+  let cycle = "Mid-Cycle";
+  if(ratio < 0.3) cycle = "Early";
+  else if(ratio < 0.75) cycle = "Mid-Cycle";
+  else if(ratio < 1.15) cycle = "Late";
+  else cycle = "Overdue Window";
+
+  const cycleScore = clamp(Math.round(Math.min(ratio,1.4)/1.4*100), 0, 100);
+
+  // historical similarity: how many past cycles had elapsed ratio within ±20% of current ratio at this point
+  let similar = 0;
+  lookback.forEach(iv => { if(Math.abs(iv-elapsed) / (avg||1) < 0.2) similar++; });
+  const historicalSimilarity = lookback.length ? clamp(Math.round((similar/lookback.length)*100),0,99) : 0;
+
+  return {
+    name:"Timing Intelligence", score: cycleScore, cycle, cycleScore,
+    historicalSimilarity, elapsedSec: Math.round(elapsed), avgIntervalSec: Math.round(avg),
+    ticksSinceLast: st.ticks.length - st.lastSpikeTick,
+  };
+}
+
+/* ---- 6. Technical Confluence Engine ---- */
+function engineConfluence(st){
+  const prices = st.ticks.map(t=>t.price);
+  if(prices.length < S.emaSlowLen+5) return null;
+  const emaF = ema(prices, S.emaFastLen), emaS = ema(prices, S.emaSlowLen);
+  const r = rsi(prices, S.rsiLen);
+  const macdRes = macdCalc(prices, S.macdFast, S.macdSlow, S.macdSignal);
+  const sd = stddev(prices, S.bollingerLen); const mid = sma(prices, S.bollingerLen);
+  const lastPrice = prices[prices.length-1];
+  const bbUpper = (mid[mid.length-1]||lastPrice) + (sd[sd.length-1]||0)*S.bollingerMult;
+  const bbLower = (mid[mid.length-1]||lastPrice) - (sd[sd.length-1]||0)*S.bollingerMult;
+
+  let bullish = 0, bearish = 0;
+  const total = S.confluenceStudies;
+  // vote list (each simplistic but directionally meaningful)
+  if(emaF[emaF.length-1] > emaS[emaS.length-1]) bullish++; else bearish++;
+  if(r!==null){ if(r>50) bullish++; else bearish++; if(r<30) bullish++; if(r>70) bearish++; }
+  if(macdRes.hist>0) bullish++; else bearish++;
+  if(lastPrice > (mid[mid.length-1]||lastPrice)) bullish++; else bearish++;
+  if(lastPrice >= bbUpper) bearish++; if(lastPrice <= bbLower) bullish++;
+  const recent = prices.slice(-6);
+  if(recent[recent.length-1] > recent[0]) bullish++; else bearish++;
+  // pad remaining studies proportionally with EMA slope + momentum for total count realism
+  const slopeUp = (prices[prices.length-1]-prices[prices.length-8]) > 0;
+  bullish += slopeUp ? Math.ceil((total-bullish-bearish)/2) : Math.floor((total-bullish-bearish)/2);
+  bearish = total - bullish;
+
+  const dominant = bullish >= bearish ? "up" : "down";
+  const alignment = Math.max(bullish,bearish);
+  const strengthLabel = alignment/total > 0.85 ? "Very High" : alignment/total > 0.7 ? "High" : alignment/total > 0.55 ? "Moderate" : "Low";
+  const score = clamp(Math.round((alignment/total)*100), 0, 100);
+
+  return {name:"Technical Confluence", score, bullish, bearish, total, dominant, strengthLabel};
+}
+
+/* ---- 7. Pattern Recognition Engine ---- */
+function enginePattern(st){
+  const prices = st.ticks.map(t=>t.price);
+  if(prices.length < 20) return null;
+  const patterns = [];
+  const window = prices.slice(-20);
+
+  // Pin-bar-like proxy: sharp reversal after run
+  const last5 = window.slice(-5);
+  const runUp = last5.every((v,i)=>i===0||v>=last5[i-1]);
+  const runDown = last5.every((v,i)=>i===0||v<=last5[i-1]);
+  if(runUp) patterns.push({name:"Extended Bullish Run", conf: clamp(50+S.patternSensitivity/3,40,95)});
+  if(runDown) patterns.push({name:"Extended Bearish Run", conf: clamp(50+S.patternSensitivity/3,40,95)});
+
+  // Compression-breakout proxy
+  const sd = stddev(window, Math.min(10,window.length));
+  const lastSd = sd[sd.length-1]||0; const prevSd = sd[sd.length-5]||lastSd;
+  if(lastSd > prevSd*1.6) patterns.push({name:"Compression → Breakout", conf: clamp(60+S.patternSensitivity/4,45,96)});
+
+  // Doji-like proxy: near-zero net move over small window despite volatility
+  const net = Math.abs(window[window.length-1]-window[window.length-6]);
+  const range = Math.max(...window.slice(-6)) - Math.min(...window.slice(-6));
+  if(range>0 && net/range < 0.15) patterns.push({name:"Indecision Cluster (Doji-like)", conf: clamp(45+S.patternSensitivity/5,35,85)});
+
+  // Historical spike precursor: sequence resembling avg of past pre-spike windows
+  if(st.spikeLog.length >= 3){
+    patterns.push({name:"Pre-Spike Precursor Sequence", conf: clamp(40+st.spikeLog.length,40,92)});
+  }
+
+  if(patterns.length===0) patterns.push({name:"No Significant Pattern", conf: 20});
+  patterns.sort((a,b)=>b.conf-a.conf);
+  const top = patterns[0];
+  const score = clamp(Math.round(top.conf), 0, 100);
+
+  return {name:"Pattern Recognition", score, patterns: patterns.slice(0,4), top: top.name, topConf: Math.round(top.conf)};
+}
+
+/* ---- 8. Probability Fusion Engine ---- */
+function engineFusion(engines){
+  const weights = {
+    structure: S.wStructure, stats: S.wStats, tick: S.wTick,
+    exhaustion: S.wExhaustion, timing: S.wTiming, confluence: S.wConfluence, pattern: S.wPattern,
+  };
+  const totalW = Object.values(weights).reduce((a,b)=>a+b,0) || 1;
+  const scores = {
+    structure: engines.structure?.score ?? 0,
+    stats: engines.stats?.score ?? 0,
+    tick: engines.tick?.score ?? 0,
+    exhaustion: engines.exhaustion?.score ?? 0,
+    timing: engines.timing?.score ?? 0,
+    confluence: engines.confluence?.score ?? 0,
+    pattern: engines.pattern?.score ?? 0,
+  };
+  let weighted = 0;
+  Object.keys(weights).forEach(k => weighted += (scores[k]*weights[k]));
+  const finalProb = clamp(Math.round(weighted/totalW), 0, 100);
+
+  let confidence = "Low";
+  if(finalProb>80) confidence="Very High"; else if(finalProb>65) confidence="High"; else if(finalProb>45) confidence="Moderate";
+
+  let recommendation = "Monitor";
+  if(finalProb >= S.spikeAlertThreshold) recommendation = "Monitor for confirmation";
+  if(finalProb >= 88) recommendation = "High-alert zone";
+  if(finalProb < 35) recommendation = "Low activity — stand by";
+
+  let riskLevel = "Low";
+  if(engines.exhaustion && engines.exhaustion.score>70) riskLevel="Medium";
+  if(finalProb>80 && engines.exhaustion?.score>75) riskLevel="Elevated";
+
+  let spikeTypeGuess = "Undetermined";
+  if(engines.confluence) spikeTypeGuess = engines.confluence.dominant==="up" ? "Upward continuation" : "Downward continuation";
+
+  return {finalProb, confidence, recommendation, riskLevel, spikeTypeGuess, scores, weights};
+}
+
+/* ---- 9. Adaptive Learning Engine ---- */
+// Tracks per-engine hit-rate history and nudges weights slowly (statistically dampened).
+let learningHistory = {}; // sym -> {structure:[...], ...}
+function engineAdaptiveLearning(sym, engines, fusion){
+  if(!learningHistory[sym]) learningHistory[sym] = {structure:[],stats:[],tick:[],exhaustion:[],timing:[],confluence:[],pattern:[]};
+  const h = learningHistory[sym];
+  const st = symbolStates[sym];
+  const spikeHappened = st.spikeLog.length && (st.ticks.length - st.lastSpikeTick) < 20;
+  Object.keys(h).forEach(k => {
+    const engScore = fusion.scores[k] ?? 0;
+    const predictedHigh = engScore > 60;
+    const correct = predictedHigh === !!spikeHappened;
+    h[k].push(correct ? 1 : 0);
+    if(h[k].length > 200) h[k].shift();
+  });
+  // only adjust weights with statistically significant sample (>=40 observations)
+  let adjustedAny = false;
+  Object.keys(h).forEach(k => {
+    if(h[k].length >= 40){
+      const acc = h[k].reduce((a,b)=>a+b,0)/h[k].length;
+      const wkey = "w" + (k.charAt(0).toUpperCase()+k.slice(1));
+      const wkeyMap = {structure:"wStructure",stats:"wStats",tick:"wTick",exhaustion:"wExhaustion",timing:"wTiming",confluence:"wConfluence",pattern:"wPattern"};
+      const key = wkeyMap[k];
+      const base = DEFAULTS[key];
+      const nudge = (acc-0.5) * 4; // small dampened nudge
+      const newW = clamp(Math.round(base + nudge), 4, 30);
+      if(Math.abs(newW - S[key]) >= 1){ S[key] = newW; adjustedAny = true; }
+    }
+  });
+  const readiness = Math.min(...Object.values(h).map(arr=>arr.length));
+  return {
+    name:"Adaptive Learning",
+    sampleSize: readiness,
+    minRequired: 40,
+    status: readiness>=40 ? "Calibrating live" : "Accumulating evidence",
+    adjustedThisPass: adjustedAny,
+  };
+}
+
+/* ============================================================================
+   RECALC LOOP
+   ============================================================================ */
+function scheduleRecalc(){
+  if(recalcTimer) return;
+  recalcTimer = setTimeout(() => { recalcTimer=null; recalcAll(); }, 60);
+}
+function recalcAll(){
+  SYMBOLS.forEach(s => {
+    const st = symbolStates[s.sym];
+    if(st.ticks.length < 15) return;
+    const structure = engineMarketStructure(st);
+    const stats = engineSpikeStatistics(st);
+    const tick = engineTickSequence(st);
+    const exhaustion = engineExhaustion(st);
+    const timing = engineTiming(st);
+    const confluence = engineConfluence(st);
+    const pattern = enginePattern(st);
+    const engines = {structure, stats, tick, exhaustion, timing, confluence, pattern};
+    const fusion = engineFusion(engines);
+    const learning = engineAdaptiveLearning(s.sym, engines, fusion);
+    st.engines = {...engines, fusion, learning};
+  });
+  if(activeSymbol) renderActive();
+}
+setInterval(recalcAll, S.recalcIntervalMs);
+
+/* ============================================================================
+   RENDERING
+   ============================================================================ */
+function buildSymStrip(){
+  const wrap = document.getElementById("symStrip");
+  wrap.innerHTML = "";
+  SYMBOLS.forEach(s => {
+    const el = document.createElement("div");
+    el.className = "symchip" + (s.sym===activeSymbol ? " sel":"");
+    el.id = "chip-"+s.sym;
+    el.innerHTML = `<span class="badge" id="badge-${s.sym}"></span>
+      <span class="nm">${s.name}</span>
+      <span class="pr num" id="price-${s.sym}">—</span>
+      <span class="ch num" id="chg-${s.sym}">—</span>`;
+    el.onclick = () => { activeSymbol = s.sym; buildSymStrip(); renderActive(); };
+    wrap.appendChild(el);
+  });
+}
+function updateSymChip(sym, price, prev){
+  const priceEl = document.getElementById("price-"+sym);
+  const chgEl = document.getElementById("chg-"+sym);
+  const badge = document.getElementById("badge-"+sym);
+  if(!priceEl) return;
+  priceEl.textContent = price.toFixed(price>100?2:4);
+  if(badge) badge.classList.add("on");
+  if(prev){
+    const d = price - prev;
+    chgEl.textContent = (d>=0?"+":"")+d.toFixed(4);
+    chgEl.className = "ch num " + (d>=0?"up":"dn");
+  }
+}
+
+function scoreColor(v){
+  if(v>=75) return "var(--red)";
+  if(v>=55) return "var(--amber)";
+  if(v>=35) return "var(--cyan)";
+  return "var(--txt-lo)";
+}
+
+function renderActive(){
+  const st = symbolStates[activeSymbol];
+  document.getElementById("fusionSymLabel").textContent = SYMBOLS.find(s=>s.sym===activeSymbol)?.name || activeSymbol;
+  document.getElementById("feedSymLabel").textContent = SYMBOLS.find(s=>s.sym===activeSymbol)?.name || activeSymbol;
+  document.getElementById("lastPriceLabel").textContent = st.lastPrice ? st.lastPrice.toFixed(4) : "—";
+
+  if(!st.engines){
+    document.getElementById("fusionPct").textContent = "--%";
+    document.getElementById("recoPill").textContent = "AWAITING DATA";
+    document.getElementById("fusionGrid").innerHTML = `<div style="color:var(--txt-lo);font-family:var(--mono);font-size:11px;grid-column:1/-1;">Buffering ticks — engines require minimum history before scoring.</div>`;
+    document.getElementById("answersRow").innerHTML = "";
+    document.getElementById("engineGrid").innerHTML = "";
+    drawTickCanvas();
+    return;
+  }
+
+  const e = st.engines;
+  const f = e.fusion;
+
+  // dial
+  const pct = document.getElementById("fusionPct");
+  pct.textContent = f.finalProb + "%";
+  pct.style.color = scoreColor(f.finalProb);
+  const circumference = 2*Math.PI*78;
+  const offset = circumference - (f.finalProb/100)*circumference;
+  const arc = document.getElementById("dialArc");
+  arc.style.strokeDasharray = circumference;
+  arc.style.strokeDashoffset = offset;
+  arc.style.stroke = scoreColor(f.finalProb);
+
+  const reco = document.getElementById("recoPill");
+  reco.textContent = f.recommendation.toUpperCase();
+  reco.style.borderColor = scoreColor(f.finalProb);
+  reco.style.color = scoreColor(f.finalProb);
+
+  document.getElementById("riskPillRow").innerHTML = `
+    <span class="pill">Confidence: ${f.confidence}</span>
+    <span class="pill">Risk: ${f.riskLevel}</span>
+    <span class="pill">Type: ${f.spikeTypeGuess}</span>`;
+
+  const fusionItems = [
+    ["Market Structure", f.scores.structure], ["Spike Statistics", f.scores.stats],
+    ["Tick Sequence", f.scores.tick], ["Exhaustion", f.scores.exhaustion],
+    ["Timing", f.scores.timing], ["Confluence", f.scores.confluence], ["Pattern", f.scores.pattern],
+  ];
+  document.getElementById("fusionGrid").innerHTML = fusionItems.map(([n,v]) => `
+    <div class="fusion-item">
+      <div class="nm">${n}<b>${v}</b></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${v}%;background:${scoreColor(v)}"></div></div>
+    </div>`).join("");
+
+  // answers row (5 primary questions)
+  const answers = [
+    {q:"How likely is a spike?", a: f.finalProb+"%", a2: f.confidence+" confidence"},
+    {q:"What type is more probable?", a: f.spikeTypeGuess, a2: e.confluence ? `${e.confluence.bullish}/${e.confluence.total} studies aligned` : "—"},
+    {q:"How soon could conditions emerge?", a: e.timing ? e.timing.cycle : "—", a2: e.timing ? `${e.timing.historicalSimilarity}% historical similarity` : "—"},
+    {q:"How strong would it likely be?", a: e.stats ? e.stats.magnitudeLabel : "—", a2: e.stats ? `avg ${e.stats.avgSize}%` : "—"},
+    {q:"Is the market suitable now?", a: f.riskLevel, a2: e.structure ? e.structure.marketType : "—"},
+  ];
+  document.getElementById("answersRow").innerHTML = answers.map(a => `
+    <div class="answer-card"><div class="q">${a.q}</div><div class="a">${a.a}</div><div class="a2">${a.a2}</div></div>
+  `).join("");
+
+  renderEngineGrid(e);
+  drawTickCanvas();
+}
+
+function renderEngineGrid(e){
+  const grid = document.getElementById("engineGrid");
+  const cards = [];
+
+  if(e.structure){
+    const s = e.structure;
+    cards.push(engineCardHTML(1,"Market Structure Analysis",s.score, `
+      <div class="metric-list">
+        <div class="metric"><span class="k">Trend</span><span class="v">${s.trend}</span></div>
+        <div class="metric"><span class="k">Confidence</span><span class="v">${s.trendConfidence}%</span></div>
+        <div class="metric"><span class="k">Consolidation</span><span class="v">${s.consolidation}</span></div>
+        <div class="metric"><span class="k">BB Width</span><span class="v">${s.bbWidth}%</span></div>
+        <div class="metric"><span class="k">Expansion Prob.</span><span class="v ${s.expansionProb>60?'warn':''}">${s.expansionProb}</span></div>
+        <div class="metric"><span class="k">Stability</span><span class="v">${s.structureStability}</span></div>
+      </div><div class="pill-row"><span class="pill">${s.marketType}</span></div>`));
+  }
+  if(e.stats){
+    const s = e.stats;
+    cards.push(engineCardHTML(2,"Spike Statistics",s.score, `
+      <div class="metric-list">
+        <div class="metric"><span class="k">Spikes Logged</span><span class="v">${s.count}</span></div>
+        <div class="metric"><span class="k">Frequency</span><span class="v">${s.freq}</span></div>
+        <div class="metric"><span class="k">Avg Interval</span><span class="v">${s.interval}s</span></div>
+        <div class="metric"><span class="k">Since Last</span><span class="v">${s.sinceLast??'—'}s</span></div>
+        <div class="metric"><span class="k">Avg Size</span><span class="v">${s.avgSize}%</span></div>
+        <div class="metric"><span class="k">Max Size</span><span class="v">${s.maxSize}%</span></div>
+        <div class="metric"><span class="k">Recovery</span><span class="v">${s.recovery}</span></div>
+        <div class="metric"><span class="k">Magnitude</span><span class="v">${s.magnitudeLabel}</span></div>
+      </div>`));
+  }
+  if(e.tick){
+    const s = e.tick;
+    cards.push(engineCardHTML(3,"Tick Sequence Analysis",s.score, `
+      <div class="metric-list">
+        <div class="metric"><span class="k">Current Run</span><span class="v">${s.runLen} ${s.dir}</span></div>
+        <div class="metric"><span class="k">Avg Speed</span><span class="v">${s.avgSpeed}s</span></div>
+        <div class="metric"><span class="k">Momentum</span><span class="v">${s.momentum}</span></div>
+        <div class="metric"><span class="k">Prior Occurrences</span><span class="v">${s.occurrences}</span></div>
+        <div class="metric"><span class="k">Historical Match</span><span class="v">${s.historicalMatch}%</span></div>
+        <div class="metric"><span class="k">Spike Probability</span><span class="v ${s.spikeProbability>50?'warn':''}">${s.spikeProbability}%</span></div>
+      </div>`));
+  }
+  if(e.exhaustion){
+    const s = e.exhaustion;
+    cards.push(engineCardHTML(4,"Market Exhaustion",s.score, `
+      <div class="metric-list">
+        <div class="metric"><span class="k">RSI</span><span class="v">${s.rsi??'—'}</span></div>
+        <div class="metric"><span class="k">MACD Hist</span><span class="v">${s.macdHist}</span></div>
+        <div class="metric"><span class="k">Buyer Exhaustion</span><span class="v">${s.buyerExhaustion}</span></div>
+        <div class="metric"><span class="k">Seller Exhaustion</span><span class="v">${s.sellerExhaustion}</span></div>
+        <div class="metric"><span class="k">EMA Separation</span><span class="v">${s.emaSeparation}%</span></div>
+        <div class="metric"><span class="k">Decelerating</span><span class="v">${s.decelerating?'Yes':'No'}</span></div>
+      </div>`));
+  }
+  if(e.timing){
+    const s = e.timing;
+    cards.push(engineCardHTML(5,"Spike Timing Intelligence",s.score, `
+      <div class="metric-list">
+        <div class="metric"><span class="k">Cycle Position</span><span class="v">${s.cycle}</span></div>
+        <div class="metric"><span class="k">Cycle Score</span><span class="v">${s.cycleScore}</span></div>
+        <div class="metric"><span class="k">Historical Similarity</span><span class="v">${s.historicalSimilarity}%</span></div>
+        <div class="metric"><span class="k">Elapsed</span><span class="v">${s.elapsedSec??'—'}s</span></div>
+        <div class="metric"><span class="k">Avg Interval</span><span class="v">${s.avgIntervalSec??'—'}s</span></div>
+        <div class="metric"><span class="k">Ticks Since Last</span><span class="v">${s.ticksSinceLast}</span></div>
+      </div>`));
+  }
+  if(e.confluence){
+    const s = e.confluence;
+    cards.push(engineCardHTML(6,"Technical Confluence",s.score, `
+      <div class="metric-list">
+        <div class="metric"><span class="k">Alignment</span><span class="v">${s.bullish>s.bearish?s.bullish:s.bearish} / ${s.total}</span></div>
+        <div class="metric"><span class="k">Dominant Bias</span><span class="v">${s.dominant==='up'?'Bullish':'Bearish'}</span></div>
+        <div class="metric"><span class="k">Strength</span><span class="v">${s.strengthLabel}</span></div>
+        <div class="metric"><span class="k">Bullish Votes</span><span class="v pos">${s.bullish}</span></div>
+        <div class="metric"><span class="k">Bearish Votes</span><span class="v neg">${s.bearish}</span></div>
+      </div>`));
+  }
+  if(e.pattern){
+    const s = e.pattern;
+    cards.push(engineCardHTML(7,"Pattern Recognition",s.score, `
+      <div class="pill-row">${s.patterns.map(p=>`<span class="pill">${p.name} · ${Math.round(p.conf)}%</span>`).join("")}</div>
+      <div class="metric-list" style="margin-top:10px;">
+        <div class="metric"><span class="k">Top Match</span><span class="v">${s.top}</span></div>
+        <div class="metric"><span class="k">Confidence</span><span class="v">${s.topConf}%</span></div>
+      </div>`));
+  }
+  if(e.learning){
+    const s = e.learning;
+    cards.push(engineCardHTML(9,"Adaptive Learning",Math.round(Math.min(s.sampleSize,s.minRequired)/s.minRequired*100), `
+      <div class="metric-list">
+        <div class="metric"><span class="k">Status</span><span class="v">${s.status}</span></div>
+        <div class="metric"><span class="k">Sample Size</span><span class="v">${s.sampleSize}</span></div>
+        <div class="metric"><span class="k">Min Required</span><span class="v">${s.minRequired}</span></div>
+        <div class="metric"><span class="k">Weights Adjusted</span><span class="v">${s.adjustedThisPass?'Yes, this pass':'No'}</span></div>
+      </div><div class="pill-row">
+        <span class="pill">wStruct ${S.wStructure}</span><span class="pill">wStats ${S.wStats}</span><span class="pill">wTick ${S.wTick}</span>
+        <span class="pill">wExh ${S.wExhaustion}</span><span class="pill">wTime ${S.wTiming}</span><span class="pill">wConf ${S.wConfluence}</span><span class="pill">wPat ${S.wPattern}</span>
+      </div>`));
+  }
+
+  grid.innerHTML = cards.join("");
+}
+function engineCardHTML(idx,title,score,body){
+  return `<div class="panel engine-card on">
+    <div class="panel-head"><span class="idx">${idx}</span><span class="ttl">${title}</span><div class="spacer"></div><span class="sub num">${score}</span></div>
+    <div class="panel-body">
+      <div class="score-row">
+        <span class="score-big num" style="color:${scoreColor(score)}">${score}</span>
+        <div class="score-track"><div class="f" style="width:${score}%;background:${scoreColor(score)}"></div></div>
+      </div>
+      ${body}
+    </div>
+  </div>`;
+}
+
+/* ---------------- Tick canvas ---------------- */
+function drawTickCanvas(){
+  const canvas = document.getElementById("tickCanvas");
+  const st = symbolStates[activeSymbol];
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width*dpr; canvas.height = 64*dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,rect.width,64);
+
+  const prices = st.ticks.slice(-160).map(t=>t.price);
+  if(prices.length < 2) return;
+  const min = Math.min(...prices), max = Math.max(...prices);
+  const range = (max-min) || 1;
+  const w = rect.width, h = 56, padTop=4;
+
+  ctx.beginPath();
+  prices.forEach((p,i) => {
+    const x = (i/(prices.length-1))*w;
+    const y = padTop + h - ((p-min)/range)*h;
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  const lastUp = prices[prices.length-1] >= prices[0];
+  ctx.strokeStyle = lastUp ? "#3ddc97" : "#ff5c72";
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+
+  // spike markers
+  const spikeSet = new Set(st.spikeLog.slice(-40).map(s=>s.t));
+  st.ticks.slice(-160).forEach((t,i) => {
+    if(spikeSet.has(t.t)){
+      const x = (i/(prices.length-1))*w;
+      const y = padTop + h - ((t.price-min)/range)*h;
+      ctx.beginPath(); ctx.arc(x,y,2.5,0,Math.PI*2);
+      ctx.fillStyle = "#ff9f43"; ctx.fill();
+    }
+  });
+}
+window.addEventListener("resize", () => drawTickCanvas());
+
+/* ============================================================================
+   SETTINGS DRAWER
+   ============================================================================ */
+const SETTINGS_SCHEMA = [
+  {group:"Market Structure Engine", fields:[
+    {k:"emaFastLen", label:"EMA Fast Length", min:3,max:30,step:1},
+    {k:"emaSlowLen", label:"EMA Slow Length", min:10,max:60,step:1},
+    {k:"trendLookback", label:"Trend Lookback (ticks)", min:15,max:120,step:5},
+    {k:"consolidationAtrLen", label:"ATR Length", min:5,max:40,step:1},
+    {k:"bollingerLen", label:"Bollinger Length", min:10,max:50,step:1},
+    {k:"bollingerMult", label:"Bollinger Mult", min:1,max:3,step:0.1},
+  ]},
+  {group:"Spike Statistics Engine", fields:[
+    {k:"spikeThresholdPct", label:"Spike Detect Threshold %", min:0.05,max:2,step:0.05},
+    {k:"spikeMemorySize", label:"Spike Memory Size", min:50,max:2000,step:50},
+  ]},
+  {group:"Tick Sequence Engine", fields:[
+    {k:"runLookback", label:"Run Lookback (ticks)", min:50,max:900,step:10},
+    {k:"minRunAlert", label:"Min Run Alert Length", min:3,max:30,step:1},
+  ]},
+  {group:"Exhaustion Engine", fields:[
+    {k:"rsiLen", label:"RSI Length", min:5,max:30,step:1},
+    {k:"macdFast", label:"MACD Fast", min:5,max:20,step:1},
+    {k:"macdSlow", label:"MACD Slow", min:15,max:40,step:1},
+    {k:"macdSignal", label:"MACD Signal", min:3,max:15,step:1},
+  ]},
+  {group:"Timing Engine", fields:[
+    {k:"cycleLookback", label:"Cycle Lookback (spikes)", min:10,max:200,step:5},
+  ]},
+  {group:"Technical Confluence Engine", fields:[
+    {k:"confluenceStudies", label:"Studies Tracked", min:8,max:16,step:1},
+  ]},
+  {group:"Pattern Recognition Engine", fields:[
+    {k:"patternSensitivity", label:"Sensitivity", min:10,max:100,step:5},
+  ]},
+  {group:"Fusion Engine Weights", fields:[
+    {k:"wStructure", label:"Weight · Structure", min:0,max:30,step:1},
+    {k:"wStats", label:"Weight · Statistics", min:0,max:30,step:1},
+    {k:"wTick", label:"Weight · Tick Sequence", min:0,max:30,step:1},
+    {k:"wExhaustion", label:"Weight · Exhaustion", min:0,max:30,step:1},
+    {k:"wTiming", label:"Weight · Timing", min:0,max:30,step:1},
+    {k:"wConfluence", label:"Weight · Confluence", min:0,max:30,step:1},
+    {k:"wPattern", label:"Weight · Pattern", min:0,max:30,step:1},
+    {k:"spikeAlertThreshold", label:"Alert Threshold %", min:40,max:95,step:1},
+  ]},
+  {group:"System", fields:[
+    {k:"tickBufferMax", label:"Tick Buffer Size", min:200,max:2000,step:100},
+    {k:"recalcIntervalMs", label:"Recalc Interval (ms)", min:300,max:3000,step:100},
+  ]},
+];
+
+function buildDrawer(){
+  const body = document.getElementById("drawerBody");
+  body.innerHTML = SETTINGS_SCHEMA.map(g => `
+    <div class="set-group">
+      <h4>${g.group}</h4>
+      ${g.fields.map(f => `
+        <div class="set-row">
+          <label>${f.label}</label>
+          <input type="range" min="${f.min}" max="${f.max}" step="${f.step}" value="${S[f.k]}" data-key="${f.k}" oninput="onSettingInput(this)">
+          <span class="val num" id="val-${f.k}">${S[f.k]}</span>
+        </div>`).join("")}
+    </div>`).join("");
+}
+function onSettingInput(el){
+  const k = el.dataset.key;
+  S[k] = parseFloat(el.value);
+  document.getElementById("val-"+k).textContent = S[k];
+}
+
+document.getElementById("settingsBtn").onclick = () => {
+  document.getElementById("drawer").classList.add("show");
+  document.getElementById("drawer-overlay").classList.add("show");
+};
+function closeDrawer(){
+  document.getElementById("drawer").classList.remove("show");
+  document.getElementById("drawer-overlay").classList.remove("show");
+}
+document.getElementById("drawerClose").onclick = closeDrawer;
+document.getElementById("drawer-overlay").onclick = closeDrawer;
+document.getElementById("applyBtn").onclick = () => {
+  recalcAll();
+  log("OK","Settings applied — all engines recalculated with new parameters");
+  closeDrawer();
+};
+document.getElementById("resetBtn").onclick = () => {
+  S = JSON.parse(JSON.stringify(DEFAULTS));
+  buildDrawer();
+  recalcAll();
+  log("WARN","Settings reset to factory defaults");
+};
+
+/* ---------------- Log drawer toggle ---------------- */
+document.getElementById("logBar").onclick = () => {
+  document.getElementById("logdrawer").classList.toggle("open");
+};
+
+/* ---------------- Connect button ---------------- */
+document.getElementById("connectBtn").onclick = () => {
+  if(connected){ disconnect(true); }
+  else { connect(); }
+};
+
+/* ---------------- Clock ---------------- */
+setInterval(() => {
+  document.getElementById("clockFoot").textContent = new Date().toISOString().replace('T',' ').slice(0,19)+' UTC';
+}, 1000);
+
+/* ---------------- Init ---------------- */
+buildSymStrip();
+buildDrawer();
+renderActive();
+log("INFO","Spike Intelligence System initialized — 9 engines armed, read-only mode enforced");
+log("INFO","Tracked instruments: " + SYMBOLS.map(s=>s.sym).join(", "));
+log("WARN","No orders can be placed from this dashboard by design — analytics only");
+connect();
+</script>
+</body>
+</html>

@@ -1,0 +1,1534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>AnaBot — Deriv Analytics Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07090f;--srf:#0b0f18;--card:#101620;--card2:#141c28;
+  --bdr:#192030;--bdr2:#22304a;
+  --cyan:#00c8f0;--cdim:rgba(0,200,240,.1);--cglw:rgba(0,200,240,.35);
+  --grn:#00e676;--gdim:rgba(0,230,118,.1);--gglw:rgba(0,230,118,.3);
+  --red:#ff3d57;--rdim:rgba(255,61,87,.1);--rglw:rgba(255,61,87,.3);
+  --amb:#ffb300;--adim:rgba(255,179,0,.1);--pur:#ae8fff;
+  --tx1:#d5e0ef;--tx2:#7890aa;--tx3:#3d5060;
+  --mono:'JetBrains Mono',monospace;--sans:'Inter',system-ui,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--tx1);font-family:var(--sans);min-height:100vh;overflow-x:hidden}
+#app{max-width:920px;margin:0 auto;padding-bottom:60px}
+header{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;
+  border-bottom:1px solid var(--bdr);position:sticky;top:0;background:rgba(7,9,15,.96);z-index:100;backdrop-filter:blur(8px)}
+.logo{font-family:var(--mono);font-weight:700;font-size:1.05rem;letter-spacing:3px;color:var(--cyan);text-shadow:0 0 18px var(--cglw)}
+.logo em{color:var(--tx3);font-weight:300;font-style:normal;font-size:.68rem;letter-spacing:1px;margin-left:6px}
+.hright{display:flex;align-items:center;gap:10px}
+.hstat{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.68rem;color:var(--tx3)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--tx3);transition:all .4s;flex-shrink:0}
+.dot.ok{background:var(--grn);box-shadow:0 0 7px var(--grn)}
+.dot.err{background:var(--red)}
+.dot.ld{background:var(--amb);animation:blink 1s ease infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+#reconnBtn{font-family:var(--mono);font-size:.62rem;padding:4px 8px;background:transparent;
+  border:1px solid var(--bdr2);color:var(--tx3);border-radius:3px;cursor:pointer;display:none}
+#reconnBtn:hover{border-color:var(--cyan);color:var(--cyan)}
+.cfg{padding:14px 16px;border-bottom:1px solid var(--bdr);background:var(--srf)}
+.cfg-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+@media(max-width:500px){.cfg-grid{grid-template-columns:1fr 1fr}}
+.fld label{display:block;font-size:.6rem;font-family:var(--mono);color:var(--tx3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px}
+select{width:100%;background:var(--card);border:1px solid var(--bdr2);color:var(--tx1);
+  border-radius:4px;padding:8px 10px;font-size:.77rem;font-family:var(--mono);
+  outline:none;appearance:none;-webkit-appearance:none;cursor:pointer;transition:border-color .2s}
+select:focus{border-color:var(--cyan);box-shadow:0 0 0 2px var(--cdim)}
+select option,select optgroup{background:var(--card);color:var(--tx1)}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:360px){.btns{grid-template-columns:1fr}}
+button{padding:9px 14px;border:none;border-radius:4px;font-family:var(--mono);font-size:.75rem;
+  font-weight:600;letter-spacing:1px;cursor:pointer;transition:all .2s;text-transform:uppercase}
+#fetchBtn{background:var(--card2);color:var(--tx2);border:1px solid var(--bdr2)}
+#fetchBtn:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan)}
+#fetchBtn:disabled{opacity:.45;cursor:not-allowed}
+#analyzeBtn{background:linear-gradient(135deg,var(--cyan),#0070b8);color:#000;font-weight:700}
+#analyzeBtn:hover:not(:disabled){box-shadow:0 0 22px var(--cglw)}
+#analyzeBtn:disabled{background:var(--bdr2);color:var(--tx3);cursor:not-allowed;box-shadow:none}
+.sbar{padding:7px 16px;font-family:var(--mono);font-size:.7rem;color:var(--tx2);
+  background:var(--srf);border-bottom:1px solid var(--bdr);min-height:32px;display:flex;align-items:center;gap:8px}
+.sbar-icon{color:var(--cyan);flex-shrink:0}
+.sbar.err-state .sbar-icon{color:var(--red)}
+.chart-wrap{position:relative;background:var(--card);border-bottom:1px solid var(--bdr);height:280px;overflow:hidden}
+#mainChart{display:block;width:100%;height:100%}
+.clegend{position:absolute;top:6px;left:8px;display:flex;flex-wrap:wrap;gap:4px;pointer-events:none}
+.cl{display:flex;align-items:center;gap:3px;font-family:var(--mono);font-size:.57rem;color:var(--tx3)}
+.cldot{width:12px;height:2px;border-radius:1px}
+.chart-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:.72rem;color:var(--tx3);pointer-events:none}
+.panel{padding:14px 16px;border-bottom:1px solid var(--bdr)}
+.ptitle{font-family:var(--mono);font-size:.64rem;font-weight:600;color:var(--tx3);
+  letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.ptitle::after{content:'';flex:1;height:1px;background:var(--bdr)}
+.hidden{display:none!important}
+/* SIGNAL */
+.arc-wrap{display:flex;justify-content:center;padding:6px 0 14px}
+.arc-outer{position:relative;width:108px;height:108px}
+.arc-outer svg{width:100%;height:100%}
+.arc-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.arc-num{font-family:var(--mono);font-size:1.55rem;font-weight:700;line-height:1}
+.arc-lbl{font-family:var(--mono);font-size:.54rem;letter-spacing:2px;color:var(--tx3);text-transform:uppercase}
+.sig-row{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start}
+@media(max-width:420px){.sig-row{grid-template-columns:1fr}}
+.sig-badge{display:inline-flex;align-items:center;justify-content:center;
+  padding:10px 16px;border-radius:5px;font-family:var(--mono);font-size:.95rem;
+  font-weight:700;letter-spacing:2px;min-width:148px;text-align:center;transition:all .4s}
+.sb-BUY{background:var(--gdim);border:2px solid var(--grn);color:var(--grn);box-shadow:0 0 16px var(--gdim)}
+.sb-SBUY{background:rgba(0,230,118,.18);border:2px solid var(--grn);color:var(--grn);box-shadow:0 0 26px var(--gglw)}
+.sb-SELL{background:var(--rdim);border:2px solid var(--red);color:var(--red);box-shadow:0 0 16px var(--rdim)}
+.sb-SSELL{background:rgba(255,61,87,.18);border:2px solid var(--red);color:var(--red);box-shadow:0 0 26px var(--rglw)}
+.sb-WAIT{background:var(--adim);border:2px solid var(--amb);color:var(--amb)}
+.sb-NONE{background:var(--card2);border:2px solid var(--bdr2);color:var(--tx3)}
+.conf-meta{font-family:var(--mono);font-size:.7rem;color:var(--tx2);margin-bottom:6px}
+.cbar-track{background:var(--bdr);height:7px;border-radius:4px;overflow:hidden;margin-bottom:7px}
+.cbar-fill{height:100%;border-radius:4px;transition:width .9s ease}
+.sig-meta{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.67rem;color:var(--tx3)}
+.layers{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.lyr{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:.64rem}
+.lyr.pass{color:var(--grn)}.lyr.fail{color:var(--tx3)}
+.mbar{display:flex;flex-wrap:wrap;gap:8px 16px;font-family:var(--mono);font-size:.67rem;
+  color:var(--tx3);padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--bdr)}
+.mbar span{color:var(--tx2)}
+/* TRADE PLAN */
+.tpgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+@media(max-width:500px){.tpgrid{grid-template-columns:1fr 1fr}}
+.tpc{background:var(--card2);border:1px solid var(--bdr);border-radius:4px;padding:10px 12px}
+.tpc-lbl{font-family:var(--mono);font-size:.59rem;color:var(--tx3);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px}
+.tpc-val{font-family:var(--mono);font-size:.83rem;font-weight:600;color:var(--tx1);word-break:break-all}
+.tpc.cy .tpc-val{color:var(--cyan)}.tpc.re .tpc-val{color:var(--red)}
+.tpc.gr .tpc-val{color:var(--grn)}.tpc.am .tpc-val{color:var(--amb)}
+/* SCORES */
+.sgrid{display:grid;gap:8px}
+.srow{display:grid;grid-template-columns:100px 1fr 42px;align-items:center;gap:10px}
+.slbl{font-family:var(--mono);font-size:.67rem;color:var(--tx2)}
+.slbl.top{font-weight:700;color:var(--tx1)}
+.strk{background:var(--bdr);height:5px;border-radius:3px;overflow:hidden}
+.sfill{height:100%;border-radius:3px;transition:width .9s ease}
+.sval{font-family:var(--mono);font-size:.7rem;text-align:right}
+/* INDICATORS */
+.igrid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+@media(min-width:560px){.igrid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:740px){.igrid{grid-template-columns:repeat(4,1fr)}}
+.icard{background:var(--card2);border:1px solid var(--bdr);border-radius:4px;padding:8px 10px}
+.iname{font-family:var(--mono);font-size:.59rem;color:var(--tx3);margin-bottom:3px}
+.ival{font-family:var(--mono);font-size:.79rem;font-weight:600;line-height:1.2}
+.ival.bull{color:var(--grn)}.ival.bear{color:var(--red)}.ival.neu{color:var(--tx2)}
+.isig{font-family:var(--mono);font-size:.57rem;color:var(--tx3);margin-top:2px}
+/* PATTERNS */
+.plist{display:flex;flex-wrap:wrap;gap:6px}
+.ptag{padding:4px 10px;border-radius:3px;font-family:var(--mono);font-size:.65rem;font-weight:500;display:flex;align-items:center;gap:5px}
+.ptag.bull{background:var(--gdim);border:1px solid rgba(0,230,118,.3);color:var(--grn)}
+.ptag.bear{background:var(--rdim);border:1px solid rgba(255,61,87,.3);color:var(--red)}
+.ptag.neu{background:var(--card2);border:1px solid var(--bdr);color:var(--tx2)}
+.ptag .pstr{opacity:.5;font-size:.57rem}
+/* REPORT */
+.rsec{margin-bottom:14px}
+.rhd{font-family:var(--mono);font-size:.64rem;color:var(--cyan);margin-bottom:6px;letter-spacing:1px}
+.rtxt{font-size:.79rem;color:var(--tx1);line-height:1.65}
+.prow{display:flex;gap:10px;margin-top:10px}
+.pi{flex:1;text-align:center;background:var(--card2);border:1px solid var(--bdr);border-radius:4px;padding:10px 6px}
+.pipct{font-family:var(--mono);font-size:1.2rem;font-weight:700}
+.pilbl{font-family:var(--mono);font-size:.59rem;color:var(--tx3);margin-top:3px;letter-spacing:1px}
+.rbadge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:3px;font-family:var(--mono);font-size:.7rem;font-weight:600}
+.rlow{background:var(--gdim);border:1px solid rgba(0,230,118,.3);color:var(--grn)}
+.rmed{background:var(--adim);border:1px solid rgba(255,179,0,.3);color:var(--amb)}
+.rhigh{background:var(--rdim);border:1px solid rgba(255,61,87,.3);color:var(--red)}
+.srtable{font-family:var(--mono);font-size:.71rem;line-height:2;margin-top:6px}
+.sr-r{color:var(--red)}.sr-s{color:var(--grn)}.sr-p{color:var(--cyan)}
+/* LOADING */
+.ldov{position:fixed;inset:0;background:rgba(7,9,15,.9);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;z-index:999;backdrop-filter:blur(6px)}
+.ldspin{width:36px;height:36px;border:2px solid var(--bdr2);border-top-color:var(--cyan);border-radius:50%;animation:spin .7s linear infinite}
+.ldtxt{font-family:var(--mono);font-size:.74rem;color:var(--tx2);max-width:260px;text-align:center}
+@keyframes spin{to{transform:rotate(360deg)}}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px}
+footer{padding:16px;font-size:.7rem;color:var(--tx3);line-height:1.65;border-top:1px solid var(--bdr)}
+footer strong{color:var(--amb)}
+</style>
+</head>
+<body>
+<div id="app">
+
+<header>
+  <div class="logo">ANABOT <em>v2.1</em></div>
+  <div class="hright">
+    <button id="reconnBtn" onclick="UI.reconnect()">↺ Reconnect</button>
+    <div class="hstat">
+      <div class="dot ld" id="dot"></div>
+      <span id="hstatus">Connecting...</span>
+    </div>
+  </div>
+</header>
+
+<div class="cfg">
+  <div class="cfg-grid">
+    <div class="fld">
+      <label>Market</label>
+      <select id="mktSel">
+        <optgroup label="Volatility (Standard)">
+          <option value="R_10">Volatility 10</option>
+          <option value="R_25">Volatility 25</option>
+          <option value="R_50" selected>Volatility 50</option>
+          <option value="R_75">Volatility 75</option>
+          <option value="R_100">Volatility 100</option>
+        </optgroup>
+        <optgroup label="Volatility (1s)">
+          <option value="1HZ10V">Volatility 10 (1s)</option>
+          <option value="1HZ25V">Volatility 25 (1s)</option>
+          <option value="1HZ50V">Volatility 50 (1s)</option>
+          <option value="1HZ75V">Volatility 75 (1s)</option>
+          <option value="1HZ100V">Volatility 100 (1s)</option>
+        </optgroup>
+        <optgroup label="Jump Indices">
+          <option value="JD10">Jump 10</option>
+          <option value="JD25">Jump 25</option>
+          <option value="JD50">Jump 50</option>
+          <option value="JD75">Jump 75</option>
+          <option value="JD100">Jump 100</option>
+        </optgroup>
+        <optgroup label="Other Synthetics">
+          <option value="stpRNG">Step Index</option>
+          <option value="RDBEAR">Bear Market</option>
+          <option value="RDBULL">Bull Market</option>
+        </optgroup>
+        <optgroup label="Crypto / Forex">
+          <option value="cryBTCUSD">Bitcoin / USD</option>
+          <option value="frxXAUUSD">Gold / USD (XAU)</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="fld">
+      <label>Timeframe</label>
+      <select id="tfSel">
+        <optgroup label="Tick Candles">
+          <option value="t1">1 Tick</option>
+          <option value="t5">5 Tick</option>
+          <option value="t10">10 Tick</option>
+          <option value="t25">25 Tick</option>
+          <option value="t50">50 Tick</option>
+          <option value="t100">100 Tick</option>
+        </optgroup>
+        <optgroup label="Minutes">
+          <option value="60" selected>1 Minute</option>
+          <option value="120">2 Minutes</option>
+          <option value="180">3 Minutes</option>
+          <option value="300">5 Minutes</option>
+          <option value="600">10 Minutes</option>
+          <option value="900">15 Minutes</option>
+          <option value="1800">30 Minutes</option>
+        </optgroup>
+        <optgroup label="Hours / Day">
+          <option value="3600">1 Hour</option>
+          <option value="7200">2 Hours</option>
+          <option value="14400">4 Hours</option>
+          <option value="28800">8 Hours</option>
+          <option value="43200">12 Hours</option>
+          <option value="86400">1 Day</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="fld">
+      <label>Candles</label>
+      <select id="cntSel">
+        <option value="100">100</option>
+        <option value="200">200</option>
+        <option value="300" selected>300</option>
+        <option value="500">500</option>
+        <option value="1000">1000</option>
+        <option value="1500">1500</option>
+        <option value="2000">2000</option>
+        <option value="3000">3000</option>
+      </select>
+    </div>
+  </div>
+  <div class="btns">
+    <button id="fetchBtn" disabled>⬇ Fetch Data</button>
+    <button id="analyzeBtn" disabled>⚡ Analyze Market</button>
+  </div>
+</div>
+
+<div class="sbar" id="sbar">
+  <span class="sbar-icon" id="sbicon">▸</span>
+  <span id="sbtext">Connecting to Deriv WebSocket...</span>
+</div>
+
+<div class="chart-wrap">
+  <canvas id="mainChart"></canvas>
+  <div class="chart-empty" id="chartEmpty">Fetch market data to display chart</div>
+  <div class="clegend">
+    <div class="cl"><div class="cldot" style="background:#00c8f0"></div>E9</div>
+    <div class="cl"><div class="cldot" style="background:#ffd600"></div>E20</div>
+    <div class="cl"><div class="cldot" style="background:#ff9500"></div>E50</div>
+    <div class="cl"><div class="cldot" style="background:#ff3d57"></div>E100</div>
+    <div class="cl"><div class="cldot" style="background:#ae8fff"></div>E200</div>
+    <div class="cl"><div class="cldot" style="background:rgba(174,143,255,.5)"></div>BB</div>
+    <div class="cl"><div class="cldot" style="background:#00e676;opacity:.6"></div>ST+</div>
+    <div class="cl"><div class="cldot" style="background:#ff3d57;opacity:.6"></div>ST-</div>
+  </div>
+</div>
+
+<div class="panel hidden" id="sigPanel">
+  <div class="ptitle">Signal &amp; Confidence</div>
+  <div class="mbar" id="mbar"></div>
+  <div class="arc-wrap">
+    <div class="arc-outer">
+      <svg viewBox="0 0 108 108">
+        <circle cx="54" cy="54" r="45" fill="none" stroke="#192030" stroke-width="9"/>
+        <circle id="arcFill" cx="54" cy="54" r="45" fill="none" stroke="#00e676" stroke-width="9"
+          stroke-dasharray="283" stroke-dashoffset="283" stroke-linecap="round"
+          transform="rotate(-90 54 54)" style="transition:stroke-dashoffset 1s ease,stroke .4s"/>
+      </svg>
+      <div class="arc-center">
+        <div class="arc-num" id="arcNum" style="color:var(--tx3)">--</div>
+        <div class="arc-lbl">Score</div>
+      </div>
+    </div>
+  </div>
+  <div class="sig-row">
+    <div class="sig-badge sb-NONE" id="sigBadge">NO TRADE</div>
+    <div>
+      <div class="conf-meta">Confidence: <span id="confVal" style="color:var(--tx1)">--</span></div>
+      <div class="cbar-track"><div class="cbar-fill" id="cbarFill" style="width:0;background:var(--tx3)"></div></div>
+      <div class="sig-meta">
+        <span>Layers: <span id="layerCount">0/5</span></span>
+        <span>Indicators: <span id="indConf">0/7</span></span>
+        <span id="sigDir" style="color:var(--tx3)">NEUTRAL</span>
+      </div>
+      <div class="layers" id="layerList"></div>
+    </div>
+  </div>
+</div>
+
+<div class="panel hidden" id="tpPanel">
+  <div class="ptitle">Trade Plan</div>
+  <div class="tpgrid" id="tpGrid"></div>
+</div>
+
+<div class="panel hidden" id="scorePanel">
+  <div class="ptitle">Score Breakdown</div>
+  <div class="sgrid" id="scoreGrid"></div>
+</div>
+
+<div class="panel hidden" id="indPanel">
+  <div class="ptitle">Technical Indicators (20)</div>
+  <div class="igrid" id="indGrid"></div>
+</div>
+
+<div class="panel hidden" id="patPanel">
+  <div class="ptitle">Detected Patterns</div>
+  <div class="plist" id="patList"></div>
+</div>
+
+<div class="panel hidden" id="rptPanel">
+  <div class="ptitle">Analysis Report</div>
+  <div id="rptContent"></div>
+</div>
+
+<div class="ldov hidden" id="ldov">
+  <div class="ldspin"></div>
+  <div class="ldtxt" id="ldtxt">Loading...</div>
+</div>
+
+</div>
+<footer>
+  <strong>⚠ RISK DISCLAIMER:</strong> Signals are probabilistic estimates based on historical price behaviour, market structure, pattern recognition, and indicator confluence. Synthetic indices are algorithmically generated — no signal can guarantee future price movement. This tool performs analysis only; no trades are executed. Past performance does not indicate future results. Trade responsibly.
+</footer>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════════
+// ANABOT v2.1 — Deriv Market Analytics Engine (Debugged Build)
+// ═══════════════════════════════════════════════════════════════
+
+// ── CONFIG ──────────────────────────────────────────────────────
+const CFG = {
+  WS_URL: 'wss://ws.binaryws.com/websockets/v3?app_id=1089',
+  RECONNECT_DELAY: 3000,
+  MAX_RETRY: 5,
+  REQ_TIMEOUT: 35000,   // 35 s per request
+  CHART_CNT: 130,
+  MIN_CONF: 70,         // minimum composite score for signal
+  MIN_IND: 3,           // minimum indicator confirmations
+  MIN_CANDLES: 50,      // minimum candles required for analysis
+};
+
+// ── UTILITIES ────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const fin = v => typeof v === 'number' && isFinite(v);
+const clamp = (v, lo=0, hi=100) => Math.max(lo, Math.min(hi, v));
+const sb = (txt, err=false) => {
+  const el = $('sbtext'), icon = $('sbicon'), bar = $('sbar');
+  if (el) el.textContent = txt;
+  if (icon) icon.textContent = err ? '✗' : '▸';
+  if (bar) { bar.classList.toggle('err-state', err); }
+};
+const setDot = s => { const d=$('dot'); if(d) d.className='dot '+s; };
+const setHdr = t => { const h=$('hstatus'); if(h) h.textContent=t; };
+
+// ── WEBSOCKET MANAGER ────────────────────────────────────────────
+const WS = {
+  sock: null, retries: 0, pending: new Map(), rid: 1,
+  _busy: false, _connectPromise: null,
+
+  // Returns a Promise that resolves when connected
+  connect() {
+    // If already open, resolve immediately
+    if (this.sock && this.sock.readyState === WebSocket.OPEN) return Promise.resolve();
+    // If a connect attempt is in progress, return it
+    if (this._connectPromise) return this._connectPromise;
+
+    this._connectPromise = new Promise((res, rej) => {
+      setDot('ld'); setHdr('Connecting...');
+      sb('Connecting to Deriv WebSocket...');
+      $('reconnBtn').style.display = 'none';
+
+      // Close any stale socket first
+      if (this.sock) {
+        try { this.sock.onclose = null; this.sock.close(); } catch(_){}
+      }
+
+      this.sock = new WebSocket(CFG.WS_URL);
+
+      const timer = setTimeout(() => {
+        this._connectPromise = null;
+        setDot('err'); setHdr('Timeout');
+        $('reconnBtn').style.display = 'inline-block';
+        rej(new Error('WebSocket connection timed out'));
+      }, 12000);
+
+      this.sock.onopen = () => {
+        clearTimeout(timer);
+        this._connectPromise = null;
+        this.retries = 0;
+        setDot('ok'); setHdr('Connected');
+        sb('Connected to Deriv. Select a market and click Fetch Data.');
+        $('fetchBtn').disabled = false;
+        $('reconnBtn').style.display = 'none';
+        res();
+      };
+
+      this.sock.onmessage = e => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (!msg.req_id) return;        // streaming tick — ignore
+          const cb = this.pending.get(msg.req_id);
+          if (!cb) return;
+          this.pending.delete(msg.req_id);
+          if (msg.error) cb.rej(new Error(msg.error.message || msg.error.code || 'Deriv API error'));
+          else cb.res(msg);
+        } catch(_){}
+      };
+
+      this.sock.onerror = () => {
+        clearTimeout(timer);
+        this._connectPromise = null;
+        setDot('err'); setHdr('Error');
+        $('fetchBtn').disabled = true;
+        $('reconnBtn').style.display = 'inline-block';
+        // Reject all pending requests
+        for (const [, cb] of this.pending) cb.rej(new Error('WebSocket error'));
+        this.pending.clear();
+        rej(new Error('WebSocket connection error'));
+      };
+
+      this.sock.onclose = ev => {
+        this._connectPromise = null;
+        setDot('err');
+        setHdr('Disconnected');
+        $('fetchBtn').disabled = true;
+        $('analyzeBtn').disabled = true;
+        $('reconnBtn').style.display = 'inline-block';
+        sb(`Disconnected (code ${ev.code}). Click Reconnect.`, true);
+        // Reject pending requests
+        for (const [, cb] of this.pending) cb.rej(new Error('WebSocket closed'));
+        this.pending.clear();
+        // Auto-reconnect with backoff (but only if not manually closed)
+        if (this.retries < CFG.MAX_RETRY && ev.code !== 1000) {
+          this.retries++;
+          const delay = Math.min(CFG.RECONNECT_DELAY * this.retries, 15000);
+          sb(`Reconnecting in ${Math.round(delay/1000)}s... (attempt ${this.retries}/${CFG.MAX_RETRY})`);
+          setTimeout(() => this.connect().catch(()=>{}), delay);
+        }
+      };
+    });
+
+    return this._connectPromise;
+  },
+
+  // Send a request with timeout; returns Promise resolving to response
+  send(payload) {
+    return new Promise((res, rej) => {
+      if (!this.sock || this.sock.readyState !== WebSocket.OPEN) {
+        rej(new Error('WebSocket is not connected')); return;
+      }
+      const id = this.rid++;
+      payload.req_id = id;
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        rej(new Error(`Request #${id} timed out after ${CFG.REQ_TIMEOUT/1000}s`));
+      }, CFG.REQ_TIMEOUT);
+      this.pending.set(id, {
+        res: v => { clearTimeout(timer); res(v); },
+        rej: e => { clearTimeout(timer); rej(e); }
+      });
+      this.sock.send(JSON.stringify(payload));
+    });
+  },
+
+  // Fetch OHLC candle history
+  async fetchCandles(symbol, granularity, count) {
+    const r = await this.send({
+      ticks_history:     symbol,
+      adjust_start_time: 1,
+      count:             count,
+      end:               'latest',
+      start:             1,
+      style:             'candles',
+      granularity:       granularity
+    });
+    if (!r.candles || r.candles.length === 0)
+      throw new Error('Deriv returned 0 candles. Market may not support this timeframe.');
+    return r.candles.map(c => ({
+      epoch: +c.epoch, open: +c.open, high: +c.high, low: +c.low, close: +c.close
+    }));
+  },
+
+  // Fetch raw tick history
+  async fetchTicks(symbol, count) {
+    const r = await this.send({
+      ticks_history:     symbol,
+      adjust_start_time: 1,
+      count:             count,
+      end:               'latest',
+      start:             1,
+      style:             'ticks'
+    });
+    if (!r.history || !r.history.prices || r.history.prices.length === 0)
+      throw new Error('Deriv returned 0 ticks for this market.');
+    return {
+      prices: r.history.prices.map(Number),
+      times:  r.history.times.map(Number)
+    };
+  }
+};
+
+// ── DATA LAYER ───────────────────────────────────────────────────
+const DATA = {
+  candles: [],
+
+  aggTicks(prices, times, tpp) {
+    const out = [];
+    for (let i = 0; i + tpp <= prices.length; i += tpp) {
+      const sl = prices.slice(i, i + tpp);
+      out.push({
+        epoch: times[i],
+        open:  sl[0],
+        high:  Math.max.apply(null, sl),
+        low:   Math.min.apply(null, sl),
+        close: sl[sl.length - 1]
+      });
+    }
+    return out;
+  }
+};
+
+// ── MATH ENGINE — all 20 indicator implementations ────────────────
+const M = {
+
+  sma(src, p) {
+    const r = new Array(src.length).fill(NaN);
+    for (let i = p-1; i < src.length; i++) {
+      let s = 0;
+      for (let j = i-p+1; j <= i; j++) s += fin(src[j]) ? src[j] : 0;
+      r[i] = s / p;
+    }
+    return r;
+  },
+
+  ema(src, p) {
+    const k = 2/(p+1), r = new Array(src.length).fill(NaN);
+    let seed=0, cnt=0, si=-1;
+    for (let i=0; i<src.length; i++) {
+      if (!fin(src[i])) continue;
+      seed += src[i]; cnt++;
+      if (cnt === p) { si=i; r[i]=seed/p; break; }
+    }
+    if (si < 0) return r;
+    for (let i=si+1; i<src.length; i++)
+      r[i] = fin(src[i]) ? src[i]*k + r[i-1]*(1-k) : r[i-1];
+    return r;
+  },
+
+  rsi(C, p=14) {
+    const n=C.length, r=new Array(n).fill(NaN);
+    if (n < p+1) return r;
+    let ag=0, al=0;
+    for (let i=1; i<=p; i++) { const d=C[i]-C[i-1]; d>0?ag+=d:al-=d; }
+    ag/=p; al/=p;
+    r[p] = al===0 ? 100 : 100 - 100/(1+ag/al);
+    for (let i=p+1; i<n; i++) {
+      const d=C[i]-C[i-1];
+      ag = (ag*(p-1)+Math.max(d,0))/p;
+      al = (al*(p-1)+Math.max(-d,0))/p;
+      r[i] = al===0 ? 100 : 100 - 100/(1+ag/al);
+    }
+    return r;
+  },
+
+  macd(C, f=12, s=26, sig=9) {
+    const ef=M.ema(C,f), es=M.ema(C,s);
+    const ml=C.map((_,i) => fin(ef[i])&&fin(es[i]) ? ef[i]-es[i] : NaN);
+    const sl=M.ema(ml.map(v=>fin(v)?v:0), sig);
+    const hist=ml.map((m,i) => fin(m)&&fin(sl[i]) ? m-sl[i] : NaN);
+    return {line:ml, signal:sl, hist};
+  },
+
+  stochRsi(C, rp=14, sp=14, kp=3, dp=3) {
+    const rv=M.rsi(C,rp), n=C.length;
+    const raw=new Array(n).fill(NaN);
+    for (let i=rp+sp-1; i<n; i++) {
+      const sl=rv.slice(i-sp+1,i+1).filter(fin);
+      if (sl.length < sp) continue;
+      const lo=Math.min.apply(null,sl), hi=Math.max.apply(null,sl);
+      raw[i] = hi===lo ? 50 : (rv[i]-lo)/(hi-lo)*100;
+    }
+    const k=M.sma(raw.map(v=>fin(v)?v:0), kp);
+    const d=M.sma(k, dp);
+    // Blank out warmup period
+    const warmup = rp+sp-1+kp-1;
+    for (let i=0; i<warmup; i++) { k[i]=NaN; d[i]=NaN; }
+    return {k, d};
+  },
+
+  bb(C, p=20, mult=2) {
+    const mid=M.sma(C,p), upper=[], lower=[];
+    for (let i=0; i<C.length; i++) {
+      if (!fin(mid[i])) { upper.push(NaN); lower.push(NaN); continue; }
+      const sl=C.slice(i-p+1,i+1), mn=mid[i];
+      const sd=Math.sqrt(sl.reduce((s,v)=>s+(v-mn)**2,0)/p)*mult;
+      upper.push(mn+sd); lower.push(mn-sd);
+    }
+    return {upper, mid, lower};
+  },
+
+  atr(H, L, C, p=14) {
+    const n=C.length, tr=[0], r=new Array(n).fill(NaN);
+    for (let i=1; i<n; i++)
+      tr.push(Math.max(H[i]-L[i], Math.abs(H[i]-C[i-1]), Math.abs(L[i]-C[i-1])));
+    let sm=0; for (let i=1; i<=p; i++) sm+=tr[i];
+    r[p]=sm/p;
+    for (let i=p+1; i<n; i++) r[i]=(r[i-1]*(p-1)+tr[i])/p;
+    return r;
+  },
+
+  keltner(H, L, C, ep=20, ap=10, mult=2) {
+    const mid=M.ema(C,ep), at=M.atr(H,L,C,ap);
+    return {
+      upper: mid.map((m,i)=>fin(m)&&fin(at[i])?m+mult*at[i]:NaN),
+      mid,
+      lower: mid.map((m,i)=>fin(m)&&fin(at[i])?m-mult*at[i]:NaN)
+    };
+  },
+
+  adx(H, L, C, p=14) {
+    const n=C.length;
+    const pdm=[0], mdm=[0], tr=[0];
+    for (let i=1; i<n; i++) {
+      const up=H[i]-H[i-1], dn=L[i-1]-L[i];
+      pdm.push(up>dn&&up>0?up:0);
+      mdm.push(dn>up&&dn>0?dn:0);
+      tr.push(Math.max(H[i]-L[i],Math.abs(H[i]-C[i-1]),Math.abs(L[i]-C[i-1])));
+    }
+    let sTR=0, sP=0, sM=0;
+    for (let i=1; i<=p; i++) { sTR+=tr[i]; sP+=pdm[i]; sM+=mdm[i]; }
+    const pdi=new Array(n).fill(NaN), mdi=new Array(n).fill(NaN);
+    const dx=new Array(n).fill(NaN), adxA=new Array(n).fill(NaN);
+    pdi[p]=sTR?sP/sTR*100:0; mdi[p]=sTR?sM/sTR*100:0;
+    const ds0=pdi[p]+mdi[p]; dx[p]=ds0?Math.abs(pdi[p]-mdi[p])/ds0*100:0;
+    for (let i=p+1; i<n; i++) {
+      sTR=sTR-sTR/p+tr[i]; sP=sP-sP/p+pdm[i]; sM=sM-sM/p+mdm[i];
+      pdi[i]=sTR?sP/sTR*100:0; mdi[i]=sTR?sM/sTR*100:0;
+      const ds=pdi[i]+mdi[i]; dx[i]=ds?Math.abs(pdi[i]-mdi[i])/ds*100:0;
+    }
+    // Seed ADX with average of first p DX values
+    let dxSum=0, dxCnt=0;
+    for (let i=p; i<p*2&&i<n; i++) { if(fin(dx[i])){dxSum+=dx[i];dxCnt++;} }
+    if (dxCnt===p) {
+      adxA[p*2-1]=dxSum/p;
+      for (let i=p*2; i<n; i++) adxA[i]=(adxA[i-1]*(p-1)+(fin(dx[i])?dx[i]:0))/p;
+    }
+    return {adx:adxA, pdi, mdi};
+  },
+
+  cci(H, L, C, p=20) {
+    const tp=C.map((_,i)=>(H[i]+L[i]+C[i])/3), sm=M.sma(tp,p);
+    return tp.map((t,i)=>{
+      if (!fin(sm[i])) return NaN;
+      const sl=tp.slice(i-p+1,i+1), mn=sm[i];
+      const md=sl.reduce((s,v)=>s+Math.abs(v-mn),0)/p;
+      return md?(t-mn)/(0.015*md):0;
+    });
+  },
+
+  williamsR(H, L, C, p=14) {
+    return C.map((c,i)=>{
+      if (i<p-1) return NaN;
+      const hh=Math.max.apply(null,H.slice(i-p+1,i+1));
+      const ll=Math.min.apply(null,L.slice(i-p+1,i+1));
+      return hh===ll ? -50 : (hh-c)/(hh-ll)*-100;
+    });
+  },
+
+  roc(C, p=12) { return C.map((c,i)=>i<p?NaN:(c-C[i-p])/C[i-p]*100); },
+  momentum(C, p=10) { return C.map((c,i)=>i<p?NaN:c-C[i-p]); },
+  obv(C) {
+    const r=[0];
+    for (let i=1; i<C.length; i++)
+      r.push(C[i]>C[i-1]?r[i-1]+1:C[i]<C[i-1]?r[i-1]-1:r[i-1]);
+    return r;
+  },
+
+  mfi(H, L, C, p=14) {
+    const tp=C.map((_,i)=>(H[i]+L[i]+C[i])/3), r=new Array(C.length).fill(NaN);
+    for (let i=p; i<C.length; i++) {
+      let pos=0, neg=0;
+      for (let j=i-p+1; j<=i; j++) { tp[j]>tp[j-1]?pos+=tp[j]:neg+=tp[j]; }
+      r[i]=neg===0?100:100-100/(1+pos/neg);
+    }
+    return r;
+  },
+
+  superTrend(H, L, C, p=10, fac=3) {
+    const n=C.length, at=M.atr(H,L,C,p);
+    const fU=new Array(n).fill(NaN), fL=new Array(n).fill(NaN);
+    const st=new Array(n).fill(NaN), dir=new Array(n).fill(0);
+    for (let i=p; i<n; i++) {
+      const hl2=(H[i]+L[i])/2;
+      const bU=hl2+fac*at[i], bL=hl2-fac*at[i];
+      const pU=fin(fU[i-1])?fU[i-1]:bU, pL=fin(fL[i-1])?fL[i-1]:bL;
+      fU[i]=(bU<pU||C[i-1]>pU)?bU:pU;
+      fL[i]=(bL>pL||C[i-1]<pL)?bL:pL;
+      if (i===p) { dir[i]=1; st[i]=fL[i]; }
+      else if (st[i-1]===fU[i-1]) {
+        dir[i]=C[i]>fU[i]?1:-1; st[i]=dir[i]===1?fL[i]:fU[i];
+      } else {
+        dir[i]=C[i]<fL[i]?-1:1; st[i]=dir[i]===1?fL[i]:fU[i];
+      }
+    }
+    return {st, dir};
+  },
+
+  ichimoku(H, L, C, t=9, k=26, sb=52, disp=26) {
+    const n=C.length;
+    const mp=(period,i)=>{
+      if (i<period-1) return NaN;
+      return (Math.max.apply(null,H.slice(i-period+1,i+1)) +
+              Math.min.apply(null,L.slice(i-period+1,i+1))) / 2;
+    };
+    const tenkan=C.map((_,i)=>mp(t,i)), kijun=C.map((_,i)=>mp(k,i));
+    const sA=new Array(n).fill(NaN), sB=new Array(n).fill(NaN), chi=new Array(n).fill(NaN);
+    for (let i=0; i<n; i++) {
+      if (fin(tenkan[i])&&fin(kijun[i])&&i+disp<n) sA[i+disp]=(tenkan[i]+kijun[i])/2;
+      const sv=mp(sb,i); if(fin(sv)&&i+disp<n) sB[i+disp]=sv;
+      if (i-disp>=0) chi[i-disp]=C[i];
+    }
+    return {tenkan, kijun, senkouA:sA, senkouB:sB, chikou:chi};
+  },
+
+  swings(H, L, lb=5) {
+    const sh=[], sl=[];
+    for (let i=lb; i<H.length-lb; i++) {
+      let isH=true, isL=true;
+      for (let j=i-lb; j<=i+lb; j++) {
+        if (j===i) continue;
+        if (H[j]>=H[i]) isH=false;
+        if (L[j]<=L[i]) isL=false;
+        if (!isH&&!isL) break;
+      }
+      if (isH) sh.push({i, p:H[i]});
+      if (isL) sl.push({i, p:L[i]});
+    }
+    return {sh, sl};
+  },
+
+  linreg(data) {
+    const n=data.length;
+    if (n<2) return {slope:0, intercept:data[0]||0, r2:0};
+    let sx=0,sy=0,sxy=0,sx2=0;
+    for (let i=0;i<n;i++) { sx+=i; sy+=data[i]; sxy+=i*data[i]; sx2+=i*i; }
+    const slope=(n*sxy-sx*sy)/(n*sx2-sx*sx||1);
+    const inter=(sy-slope*sx)/n, my=sy/n;
+    let tot=0,res=0;
+    for (let i=0;i<n;i++) { tot+=(data[i]-my)**2; res+=(data[i]-(slope*i+inter))**2; }
+    return {slope, intercept:inter, r2:tot?1-res/tot:0};
+  }
+};
+
+// ── INDICATOR ENGINE ─────────────────────────────────────────────
+const IND = {
+  compute(candles) {
+    const H=candles.map(c=>c.high), L=candles.map(c=>c.low), C=candles.map(c=>c.close);
+    return {
+      ema9:   M.ema(C,9),   ema20: M.ema(C,20), ema50:  M.ema(C,50),
+      ema100: M.ema(C,100), ema200:M.ema(C,200),
+      rsi:    M.rsi(C,14),
+      stoch:  M.stochRsi(C,14,14,3,3),
+      macd:   M.macd(C,12,26,9),
+      mom:    M.momentum(C,10),
+      bb:     M.bb(C,20,2),
+      atr:    M.atr(H,L,C,14),
+      kelt:   M.keltner(H,L,C,20,10,2),
+      obv:    M.obv(C),
+      mfi:    M.mfi(H,L,C,14),
+      adx:    M.adx(H,L,C,14),
+      cci:    M.cci(H,L,C,20),
+      wR:     M.williamsR(H,L,C,14),
+      roc:    M.roc(C,12),
+      st:     M.superTrend(H,L,C,10,3),
+      ichi:   M.ichimoku(H,L,C,9,26,52,26)
+    };
+  }
+};
+
+// ── PATTERN ENGINE ───────────────────────────────────────────────
+const PAT = {
+  candle(candles) {
+    const pats=[], n=candles.length;
+    if (n<5) return pats;
+    const [c4,c3,c2,c1,c0]=[candles[n-5],candles[n-4],candles[n-3],candles[n-2],candles[n-1]];
+    const body=c=>Math.abs(c.close-c.open);
+    const uSh=c=>c.high-Math.max(c.open,c.close);
+    const lSh=c=>Math.min(c.open,c.close)-c.low;
+    const bull=c=>c.close>c.open, bear=c=>c.close<c.open;
+    const mid=c=>(c.open+c.close)/2;
+    let avg=0; for(let i=Math.max(0,n-10);i<n;i++) avg+=body(candles[i]);
+    avg/=Math.min(10,n); if(avg===0) avg=0.0001;
+    const tiny=avg*0.15;
+    const add=(nm,cat,str)=>pats.push({name:nm,cat,str});
+
+    const b0=body(c0),u0=uSh(c0),l0=lSh(c0);
+
+    // Single candle
+    if (b0<=tiny) {
+      if (l0>=avg*1.5&&u0<=tiny) add('Dragonfly Doji','rev_bull',76);
+      else if (u0>=avg*1.5&&l0<=tiny) add('Gravestone Doji','rev_bear',76);
+      else if (u0>=avg&&l0>=avg) add('Long Legged Doji','neutral',55);
+    } else {
+      if (l0>=b0*2&&u0<=b0*0.5) add(bull(c0)?'Hammer':'Hanging Man', bull(c0)?'rev_bull':'rev_bear', bull(c0)?72:65);
+      if (u0>=b0*2&&l0<=b0*0.5) add(bear(c0)?'Shooting Star':'Inv. Hammer', bear(c0)?'rev_bear':'rev_bull', bear(c0)?72:62);
+    }
+
+    // Two candle
+    if (bear(c1)&&bull(c0)&&c0.open<=c1.close&&c0.close>=c1.open&&b0>body(c1)) add('Bullish Engulfing','rev_bull',83);
+    if (bull(c1)&&bear(c0)&&c0.open>=c1.close&&c0.close<=c1.open&&b0>body(c1)) add('Bearish Engulfing','rev_bear',83);
+    if (bear(c1)&&bull(c0)&&c0.open<c1.low&&c0.close>mid(c1)&&c0.close<c1.open) add('Piercing Pattern','rev_bull',69);
+    if (bull(c1)&&bear(c0)&&c0.open>c1.high&&c0.close<mid(c1)&&c0.close>c1.open) add('Dark Cloud Cover','rev_bear',69);
+    if (c1.high>0&&Math.abs(c0.high-c1.high)/c1.high<0.0015&&bull(c1)&&bear(c0)) add('Tweezer Top','rev_bear',63);
+    if (c1.low>0&&Math.abs(c0.low-c1.low)/c1.low<0.0015&&bear(c1)&&bull(c0)) add('Tweezer Bottom','rev_bull',63);
+
+    // Three candle
+    if (bear(c2)&&body(c2)>avg&&body(c1)<avg*0.4&&bull(c0)&&c0.close>mid(c2)) add('Morning Star','rev_bull',88);
+    if (bull(c2)&&body(c2)>avg&&body(c1)<avg*0.4&&bear(c0)&&c0.close<mid(c2)) add('Evening Star','rev_bear',88);
+    if (bull(c2)&&bull(c1)&&bull(c0)&&c1.open>c2.open&&c1.open<c2.close&&c0.open>c1.open&&c0.open<c1.close&&body(c2)>avg*.8&&body(c1)>avg*.8&&b0>avg*.8) add('Three White Soldiers','cont_bull',80);
+    if (bear(c2)&&bear(c1)&&bear(c0)&&c1.open<c2.open&&c1.open>c2.close&&c0.open<c1.open&&c0.open>c1.close&&body(c2)>avg*.8&&body(c1)>avg*.8&&b0>avg*.8) add('Three Black Crows','cont_bear',80);
+
+    // Five candle
+    if (bull(c4)&&body(c4)>avg&&bear(c3)&&bear(c2)&&bear(c1)&&c3.high<c4.high&&c1.low>c4.low&&bull(c0)&&c0.close>c4.close) add('Rising Three Methods','cont_bull',75);
+    if (bear(c4)&&body(c4)>avg&&bull(c3)&&bull(c2)&&bull(c1)&&c3.low>c4.low&&c1.high<c4.high&&bear(c0)&&c0.close<c4.close) add('Falling Three Methods','cont_bear',75);
+
+    return pats;
+  },
+
+  chart(candles) {
+    const pats=[], n=candles.length;
+    if (n<30) return pats;
+    const H=candles.map(c=>c.high), L=candles.map(c=>c.low), C=candles.map(c=>c.close);
+    const price=C[n-1];
+    const lb=Math.max(3,Math.floor(n/35));
+    const {sh,sl}=M.swings(H,L,lb);
+    const add=(nm,cat,conf,tgt)=>pats.push({name:nm,cat,conf,target:tgt});
+
+    if (sh.length>=3) {
+      const [h1,h2,h3]=sh.slice(-3);
+      if (h2.p>h1.p&&h2.p>h3.p&&Math.abs(h1.p-h3.p)/h1.p<0.03) {
+        const seg=L.slice(h1.i,h3.i+1); if(seg.length>0) add('Head & Shoulders','rev_bear',73,Math.min.apply(null,seg)-(h2.p-Math.min.apply(null,seg)));
+      }
+    }
+    if (sl.length>=3) {
+      const [l1,l2,l3]=sl.slice(-3);
+      if (l2.p<l1.p&&l2.p<l3.p&&Math.abs(l1.p-l3.p)/l1.p<0.03) {
+        const seg=H.slice(l1.i,l3.i+1); if(seg.length>0) { const nl=Math.max.apply(null,seg); add('Inv. Head & Shoulders','rev_bull',73,nl+(nl-l2.p)); }
+      }
+    }
+    if (sh.length>=2) {
+      const [h1,h2]=sh.slice(-2);
+      if (Math.abs(h1.p-h2.p)/h1.p<0.02&&h2.i-h1.i>=5) {
+        const seg=L.slice(h1.i,h2.i+1); if(seg.length>0) { const tr=Math.min.apply(null,seg); add(price<tr?'Double Top ✓':'Double Top','rev_bear',price<tr?78:58,tr-(h2.p-tr)); }
+      }
+    }
+    if (sl.length>=2) {
+      const [l1,l2]=sl.slice(-2);
+      if (Math.abs(l1.p-l2.p)/l1.p<0.02&&l2.i-l1.i>=5) {
+        const seg=H.slice(l1.i,l2.i+1); if(seg.length>0) { const pk=Math.max.apply(null,seg); add(price>pk?'Double Bottom ✓':'Double Bottom','rev_bull',price>pk?78:58,pk+(pk-l2.p)); }
+      }
+    }
+    if (sh.length>=3){const t3=sh.slice(-3),av=t3.reduce((s,h)=>s+h.p,0)/3; if(t3.every(h=>Math.abs(h.p-av)/av<0.022)) add('Triple Top','rev_bear',77,null);}
+    if (sl.length>=3){const t3=sl.slice(-3),av=t3.reduce((s,l)=>s+l.p,0)/3; if(t3.every(l=>Math.abs(l.p-av)/av<0.022)) add('Triple Bottom','rev_bull',77,null);}
+
+    const wnd=Math.min(50,n), wH=H.slice(n-wnd), wL=L.slice(n-wnd);
+    const rH=M.linreg(wH), rL=M.linreg(wL), sc=price*0.0001;
+    const fH=Math.abs(rH.slope)<sc, fL=Math.abs(rL.slope)<sc;
+    const rH_=rH.slope>sc, rL_=rL.slope>sc, fH_=rH.slope<-sc, fL_=rL.slope<-sc;
+    if(fH&&rL_&&rL.r2>0.4) add('Ascending Triangle','cont_bull',66,Math.max.apply(null,wH));
+    else if(fL&&fH_&&rH.r2>0.4) add('Descending Triangle','cont_bear',66,Math.min.apply(null,wL));
+    else if(fH_&&rL_&&rH.r2>0.35&&rL.r2>0.35) add('Symmetrical Triangle','neutral',60,null);
+    else if(rH_&&rL_&&rH.r2>0.5&&rL.r2>0.5) add('Rising Channel','cont_bull',62,null);
+    else if(fH_&&fL_&&rH.r2>0.5&&rL.r2>0.5) add('Falling Channel','cont_bear',62,null);
+    if(rH_&&rL_&&rH.slope<rL.slope&&rH.r2>0.4&&rL.r2>0.4) add('Rising Wedge','rev_bear',64,null);
+    if(fH_&&fL_&&rH.slope>rL.slope&&rH.r2>0.4&&rL.r2>0.4) add('Falling Wedge','rev_bull',64,null);
+    if(rH_&&fL_&&rH.r2>0.35&&rL.r2>0.35) add('Broadening Formation','neutral',54,null);
+    if(n>25) {
+      const rng=Math.max.apply(null,H.slice(-5))-Math.min.apply(null,L.slice(-5));
+      const imp=Math.max.apply(null,H.slice(Math.max(0,n-25),n-5))-Math.min.apply(null,L.slice(Math.max(0,n-25),n-5));
+      if(imp>rng*3) { C[n-1]>C[Math.max(0,n-20)] ? add('Bull Flag','cont_bull',66,null) : add('Bear Flag','cont_bear',66,null); }
+    }
+    return pats;
+  }
+};
+
+// ── STRUCTURE ENGINE ─────────────────────────────────────────────
+const STRUCT = {
+  analyze(candles) {
+    const n=candles.length;
+    const H=candles.map(c=>c.high), L=candles.map(c=>c.low), C=candles.map(c=>c.close);
+    const lb=Math.max(3,Math.floor(n/30));
+    const {sh,sl}=M.swings(H,L,lb);
+    const rsh=sh.slice(-6), rsl=sl.slice(-6);
+    let hh=0,hl=0,lh=0,ll=0;
+    for(let i=1;i<rsh.length;i++) rsh[i].p>rsh[i-1].p?hh++:lh++;
+    for(let i=1;i<rsl.length;i++) rsl[i].p>rsl[i-1].p?hl++:ll++;
+    let trend;
+    if(hh>=2&&hl>=2) trend='Strong Bullish';
+    else if(hh>=1&&hl>=1) trend='Bullish';
+    else if(ll>=2&&lh>=2) trend='Strong Bearish';
+    else if(ll>=1&&lh>=1) trend='Bearish';
+    else trend='Neutral';
+    const structure=hh+hl>lh+ll?'HH/HL':lh+ll>hh+hl?'LH/LL':'Mixed';
+    const seg=Math.max(1,Math.floor(n/5));
+    const mo=[0,1,2].map(k=>C[Math.min(n-1,(k+1)*seg)]-C[Math.min(n-1,k*seg)]);
+    const mom=Math.abs(mo[2])>Math.abs(mo[1])&&Math.abs(mo[1])>Math.abs(mo[0])?'Accelerating':Math.abs(mo[2])<Math.abs(mo[1])&&Math.abs(mo[1])<Math.abs(mo[0])?'Weakening':'Stable';
+    return {trend,structure,hh,hl,lh,ll,mom,swingH:rsh,swingL:rsl};
+  }
+};
+
+// ── S/R ENGINE ───────────────────────────────────────────────────
+const SR = {
+  find(candles) {
+    const n=candles.length;
+    const H=candles.map(c=>c.high), L=candles.map(c=>c.low), C=candles.map(c=>c.close);
+    const price=C[n-1];
+    const lb=Math.max(3,Math.floor(n/30));
+    const {sh,sl}=M.swings(H,L,lb);
+    const levels=[...sh.map(s=>s.p),...sl.map(s=>s.p)].sort((a,b)=>a-b);
+    const tol=price*0.006, clusters=[];
+    let ci=0;
+    while(ci<levels.length){
+      const cl=[levels[ci]]; let j=ci+1;
+      while(j<levels.length&&levels[j]-cl[0]<tol){cl.push(levels[j]);j++;}
+      clusters.push({price:cl.reduce((s,v)=>s+v,0)/cl.length, touches:cl.length});
+      ci=j;
+    }
+    const fmt=z=>({price:z.price,touches:z.touches,strength:Math.min(100,z.touches*20),breakProb:z.touches>3?32:z.touches>2?48:65});
+    const sup=clusters.filter(c=>c.price<price*0.9995).sort((a,b)=>b.price-a.price).map(fmt);
+    const res=clusters.filter(c=>c.price>price*1.0005).sort((a,b)=>a.price-b.price).map(fmt);
+    return {majorSupport:sup.slice(0,2),minorSupport:sup.slice(2,4),majorResistance:res.slice(0,2),minorResistance:res.slice(2,4)};
+  }
+};
+
+// ── SCORING ENGINE ───────────────────────────────────────────────
+const SCORE = {
+  compute(candles, ind, cpat, chpat, str, sr) {
+    const n=candles.length, C=candles.map(c=>c.close), price=C[n-1];
+    const last=a=>fin(a[n-1])?a[n-1]:NaN;
+
+    // ── TREND SCORE (NaN-safe EMA checks) ──
+    let tS=50;
+    const [e9,e20,e50,e100,e200]=[last(ind.ema9),last(ind.ema20),last(ind.ema50),last(ind.ema100),last(ind.ema200)];
+    // Only include EMA comparisons where both values are finite
+    let emaBull=0, emaBear=0;
+    const emaChecks=[[price,e9],[price,e20],[price,e50],[price,e100],[price,e200],[e9,e20],[e20,e50],[e50,e100],[e100,e200]];
+    for(const [a,b] of emaChecks) { if(fin(a)&&fin(b)) { a>b?emaBull++:emaBear++; } }
+    const emaTot=emaBull+emaBear;
+    if(emaTot>0) tS=50+(emaBull-emaBear)/emaTot*25;
+
+    const stDir=ind.st.dir[n-1];
+    if(stDir===1) tS+=8; else if(stDir===-1) tS-=8;
+    const sA=last(ind.ichi.senkouA), sB_=last(ind.ichi.senkouB);
+    if(fin(sA)&&fin(sB_)) { price>Math.max(sA,sB_)?tS+=6:price<Math.min(sA,sB_)?tS-=6:0; }
+    const tn=last(ind.ichi.tenkan), kj=last(ind.ichi.kijun);
+    if(fin(tn)&&fin(kj)) { tn>kj?tS+=3:tS-=3; }
+    tS=clamp(tS);
+
+    // ── MOMENTUM SCORE ──
+    let mS=50;
+    const rsiV=last(ind.rsi);
+    if(fin(rsiV)){
+      if(rsiV>50&&rsiV<80) mS+=(rsiV-50)*0.75;
+      else if(rsiV<50&&rsiV>20) mS-=(50-rsiV)*0.75;
+      else if(rsiV>=80) mS+=22; else if(rsiV<=20) mS-=22;
+    }
+    const mH=last(ind.macd.hist);
+    if(fin(mH)) mS+=mH>0?Math.min(10,mH/price*2000):Math.max(-10,mH/price*2000);
+    const mL=last(ind.macd.line), mSig=last(ind.macd.signal);
+    if(fin(mL)&&fin(mSig)) { mL>mSig?mS+=4:mS-=4; }
+    const stK=last(ind.stoch.k);
+    if(fin(stK)) { stK>60?mS+=5:stK<40?mS-=5:0; }
+    const cciV=last(ind.cci);
+    if(fin(cciV)) { cciV>100?mS+=6:cciV<-100?mS-=6:mS+=cciV/100*3; }
+    const wRV=last(ind.wR);
+    if(fin(wRV)) { wRV>-20?mS+=5:wRV<-80?mS-=5:0; }
+    const rocV=last(ind.roc);
+    if(fin(rocV)) mS+=rocV>0?Math.min(5,rocV*.5):Math.max(-5,rocV*.5);
+    mS=clamp(mS);
+
+    // ── VOLATILITY SCORE ──
+    let vS=50;
+    const bbU=last(ind.bb.upper), bbL=last(ind.bb.lower);
+    if(fin(bbU)&&fin(bbL)&&bbU>bbL) vS=clamp(28+(price-bbL)/(bbU-bbL)*44);
+    const kcU=last(ind.kelt.upper), kcL=last(ind.kelt.lower);
+    if(fin(kcU)&&fin(kcL)) { price>kcU?vS=Math.min(100,vS+15):price<kcL?vS=Math.max(0,vS-15):0; }
+    const mfiV=last(ind.mfi);
+    if(fin(mfiV)) { mfiV>70?vS=Math.min(100,vS+7):mfiV<30?vS=Math.max(0,vS-7):0; }
+    vS=clamp(vS);
+
+    // ── PATTERN SCORE ──
+    let pB=0, pBe=0;
+    for(const p of cpat) { p.cat.includes('bull')?pB+=p.str:p.cat.includes('bear')?pBe+=p.str:0; }
+    for(const p of chpat) { p.cat.includes('bull')?pB+=p.conf*.6:p.cat.includes('bear')?pBe+=p.conf*.6:0; }
+    const pS=clamp(pB+pBe>0 ? 50+(pB-pBe)/(pB+pBe+8)*50 : 50);
+
+    // ── STRUCTURE SCORE ──
+    const stMap={'Strong Bullish':90,'Bullish':70,'Neutral':50,'Bearish':30,'Strong Bearish':10};
+    let sS=stMap[str.trend]||50;
+    if(sr.majorSupport[0]&&Math.abs(price-sr.majorSupport[0].price)/price<0.004) sS=Math.min(100,sS+8);
+    if(sr.majorResistance[0]&&Math.abs(price-sr.majorResistance[0].price)/price<0.004) sS=Math.max(0,sS-8);
+    const adxV=last(ind.adx.adx);
+    if(fin(adxV)&&adxV>25) { const b=Math.min(10,(adxV-25)*.4); sS>50?sS=Math.min(100,sS+b):sS=Math.max(0,sS-b); }
+    const obvN=ind.obv.length;
+    if(obvN>=10) { const ot=ind.obv[obvN-1]-ind.obv[obvN-10]; ot>0?sS=Math.min(100,sS+4):sS=Math.max(0,sS-4); }
+    sS=clamp(sS);
+
+    const composite=tS*.28+mS*.27+vS*.15+pS*.15+sS*.15;
+    return {trend:Math.round(tS),momentum:Math.round(mS),volatility:Math.round(vS),pattern:Math.round(pS),structure:Math.round(sS),composite:Math.round(composite)};
+  }
+};
+
+// ── SIGNAL ENGINE ────────────────────────────────────────────────
+const SIG = {
+  generate(scores, ind, candles) {
+    const n=candles.length, price=candles[n-1].close;
+    const last=a=>a[n-1];
+    const {composite,trend,momentum,volatility,pattern,structure}=scores;
+    const bullDir=composite>50;
+
+    const layers=[
+      {name:'Pattern',   pass:pattern>57||pattern<43},
+      {name:'Momentum',  pass:momentum>57||momentum<43},
+      {name:'Structure', pass:structure>57||structure<43},
+      {name:'Trend',     pass:trend>57||trend<43},
+      {name:'Volatility',pass:volatility>33&&volatility<88}
+    ];
+    const confirmed=layers.filter(l=>l.pass).length;
+
+    let ib=0, ie=0;
+    const rsiV=last(ind.rsi);    if(fin(rsiV))  { rsiV>52?ib++:rsiV<48?ie++:0; }
+    const mH=last(ind.macd.hist);if(fin(mH))    { mH>0?ib++:ie++; }
+    const stDr=ind.st.dir[n-1];                   stDr===1?ib++:stDr===-1?ie++:0;
+    const e20=last(ind.ema20),e50=last(ind.ema50);if(fin(e20)&&fin(e50)){ e20>e50?ib++:ie++; }
+    const cciV=last(ind.cci);    if(fin(cciV))  { cciV>0?ib++:ie++; }
+    const stK=last(ind.stoch.k); if(fin(stK))   { stK>50?ib++:ie++; }
+    const e9=last(ind.ema9);     if(fin(e9))    { price>e9?ib++:ie++; }
+    const indConf=bullDir?ib:ie;
+
+    const dirConf=bullDir?composite:100-composite;
+    const meets=composite>=CFG.MIN_CONF||composite<=100-CFG.MIN_CONF;
+
+    if(!meets||confirmed<3||indConf<CFG.MIN_IND)
+      return {signal:'NO TRADE',confidence:Math.round(dirConf),layers,confirmed,indConf,direction:'neutral'};
+
+    let signal;
+    if(composite>=88) signal='STRONG BUY';
+    else if(composite>=CFG.MIN_CONF) signal='BUY';
+    else if(composite<=12) signal='STRONG SELL';
+    else if(composite<=100-CFG.MIN_CONF) signal='SELL';
+    else signal='WAIT';
+
+    return {signal,confidence:Math.round(dirConf),layers,confirmed,indConf,direction:bullDir?'bullish':'bearish'};
+  }
+};
+
+// ── TRADE PLAN ENGINE ────────────────────────────────────────────
+const TP = {
+  build(sig, candles, ind) {
+    if(['NO TRADE','WAIT'].includes(sig.signal)) return null;
+    const n=candles.length, price=candles[n-1].close;
+    const atrV=ind.atr[n-1];
+    if(!fin(atrV)||atrV===0) return null;
+    const buy=sig.direction==='bullish', strong=sig.signal.includes('STRONG');
+    const mult=strong?1.5:2.0;
+    const sl=buy?price-mult*atrV:price+mult*atrV;
+    const risk=Math.abs(price-sl);
+    const [tp1,tp2,tp3]=buy?[price+risk,price+2*risk,price+3*risk]:[price-risk,price-2*risk,price-3*risk];
+    const adxV=ind.adx.adx[n-1];
+    const dur=fin(adxV)?(adxV>40?'3–5 candles':adxV>28?'5–10 candles':adxV>18?'10–20 candles':'20+ candles'):'10–20 candles';
+    const d=price<0.01?7:price<1?5:price<100?4:price<10000?2:0;
+    const f=v=>v.toFixed(d);
+    return {entry:f(price),sl:f(sl),tp1:f(tp1),tp2:f(tp2),tp3:f(tp3),rr:'1:1 / 1:2 / 1:3',duration:dur,riskPct:(risk/price*100).toFixed(3)+'%'};
+  }
+};
+
+// ── CHART ENGINE ─────────────────────────────────────────────────
+const CHART = {
+  draw(canvas, candles, ind, sr) {
+    const dpr=window.devicePixelRatio||1;
+    // FIX: Always use a valid height — never 0
+    const W=Math.max(canvas.clientWidth||canvas.getBoundingClientRect().width, 200);
+    const H=Math.max(canvas.clientHeight||canvas.getBoundingClientRect().height, 240);
+    canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr);
+    const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr);
+    ctx.clearRect(0,0,W,H);
+
+    if(!candles||candles.length<2) {
+      ctx.fillStyle='#3d5060'; ctx.font='12px JetBrains Mono';
+      ctx.textAlign='center'; ctx.fillText('No data',W/2,H/2); return;
+    }
+
+    const n=candles.length;
+    const disp=Math.min(CFG.CHART_CNT,n), off=n-disp;
+    const sub=candles.slice(off);
+
+    // Collect all visible prices including EMA values for scale
+    const allP=[];
+    sub.forEach(c=>{ allP.push(c.high,c.low); });
+    if(ind) {
+      [ind.ema9,ind.ema20,ind.ema50,ind.ema100,ind.ema200].forEach(a=>{
+        const v=a&&a[n-1]; if(fin(v)) allP.push(v);
+      });
+    }
+    const minP=Math.min.apply(null,allP), maxP=Math.max.apply(null,allP);
+    const range=Math.max(maxP-minP,minP*0.001,0.0001);
+    const pad={t:16,r:72,b:24,l:4};
+    const cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
+    const cw=Math.max(1,cW/disp-0.8);
+    const toX=i=>pad.l+i/disp*cW;
+    const toY=p=>pad.t+(1-(p-minP+range*.05)/(range*1.1))*cH;
+
+    // Grid lines
+    ctx.strokeStyle='#192030'; ctx.lineWidth=1;
+    for(let g=0;g<=4;g++){
+      const y=pad.t+(g/4)*cH;
+      ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
+      const pv=maxP+range*.05-(g/4)*(range*1.1);
+      ctx.fillStyle='#3d5060'; ctx.font=`${10}px JetBrains Mono`; ctx.textAlign='left';
+      ctx.fillText(pv.toPrecision(6),W-pad.r+4,y+4);
+    }
+
+    // S/R zones
+    if(sr){
+      const dz=(zones,col)=>zones.forEach(z=>{
+        if(!z||!fin(z.price)) return;
+        ctx.fillStyle=col;
+        const y1=toY(z.price*1.0008),y2=toY(z.price*0.9992);
+        ctx.fillRect(pad.l,y1,cW,Math.max(2,y2-y1));
+      });
+      dz(sr.majorSupport,'rgba(0,230,118,.08)');    dz(sr.minorSupport,'rgba(0,230,118,.04)');
+      dz(sr.majorResistance,'rgba(255,61,87,.08)'); dz(sr.minorResistance,'rgba(255,61,87,.04)');
+    }
+
+    if(ind){
+      const drawLine=(arr,col,lw=1,dash=[])=>{
+        if(!arr||!arr.length) return;
+        ctx.strokeStyle=col; ctx.lineWidth=lw; ctx.setLineDash(dash);
+        ctx.beginPath(); let started=false;
+        for(let i=0;i<disp;i++){
+          const v=arr[off+i]; if(!fin(v)){started=false;continue;}
+          const x=toX(i+.5),y=toY(v);
+          if(!started){ctx.moveTo(x,y);started=true;}else ctx.lineTo(x,y);
+        }
+        ctx.stroke(); ctx.setLineDash([]);
+      };
+      drawLine(ind.bb&&ind.bb.upper,'rgba(174,143,255,.3)',1,[2,2]);
+      drawLine(ind.bb&&ind.bb.lower,'rgba(174,143,255,.3)',1,[2,2]);
+      drawLine(ind.bb&&ind.bb.mid,'rgba(174,143,255,.15)',1,[4,4]);
+      drawLine(ind.ema9,  '#00c8f0',1); drawLine(ind.ema20, '#ffd600',1);
+      drawLine(ind.ema50, '#ff9500',1); drawLine(ind.ema100,'#ff3d57',1);
+      drawLine(ind.ema200,'#ae8fff',2);
+      // SuperTrend
+      if(ind.st&&ind.st.st){
+        for(let i=1;i<disp;i++){
+          const v=ind.st.st[off+i],pv=ind.st.st[off+i-1];
+          if(!fin(v)||!fin(pv)) continue;
+          ctx.strokeStyle=ind.st.dir[off+i]===1?'rgba(0,230,118,.55)':'rgba(255,61,87,.55)';
+          ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(toX(i-.5),toY(pv)); ctx.lineTo(toX(i+.5),toY(v)); ctx.stroke();
+        }
+      }
+    }
+
+    // Candles
+    for(let i=0;i<disp;i++){
+      const c=sub[i], up=c.close>=c.open;
+      const xm=toX(i)+cw/2;
+      ctx.strokeStyle=up?'#00e676':'#ff3d57'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(xm,toY(c.high)); ctx.lineTo(xm,toY(c.low)); ctx.stroke();
+      const bt=toY(Math.max(c.open,c.close)),bb=toY(Math.min(c.open,c.close));
+      ctx.fillStyle=up?'rgba(0,230,118,.78)':'rgba(255,61,87,.78)';
+      ctx.fillRect(toX(i),bt,cw,Math.max(1,bb-bt));
+    }
+
+    // Current price dotted line + label
+    const cp=sub[disp-1].close, cpY=toY(cp);
+    ctx.strokeStyle='rgba(0,200,240,.3)'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(pad.l,cpY); ctx.lineTo(W-pad.r,cpY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#00c8f0'; ctx.font='9.5px JetBrains Mono'; ctx.textAlign='left';
+    ctx.fillText(cp.toPrecision(7),W-pad.r+4,cpY-2);
+  }
+};
+
+// ── UI ENGINE ─────────────────────────────────────────────────────
+const UI = {
+  _ind: null, _sr: null, _busy: false,
+
+  init() {
+    $('fetchBtn').onclick   = () => this.onFetch();
+    $('analyzeBtn').onclick = () => this.onAnalyze();
+    window.addEventListener('resize', () => { if(DATA.candles.length) this.drawChart(); });
+    // Auto-connect on load
+    WS.connect().catch(e => sb('Connection failed: '+e.message, true));
+  },
+
+  reconnect() {
+    WS._connectPromise = null;
+    if(WS.sock){try{WS.sock.onclose=null;WS.sock.close();}catch(_){}}
+    WS.sock=null; WS.retries=0;
+    WS.connect().catch(e => sb('Reconnection failed: '+e.message, true));
+  },
+
+  async onFetch() {
+    if (this._busy) return;
+    const mkt=$('mktSel').value, tfv=$('tfSel').value, cnt=+$('cntSel').value;
+
+    // Ensure connected first
+    if (!WS.sock || WS.sock.readyState !== WebSocket.OPEN) {
+      sb('Not connected — attempting reconnect...'); 
+      try { await WS.connect(); } catch(e){ sb('Cannot connect: '+e.message, true); return; }
+    }
+
+    this._busy=true;
+    $('fetchBtn').disabled=true; $('analyzeBtn').disabled=true;
+    this.setLoad(true,'Fetching market data...');
+
+    try {
+      let candles;
+      const isTick=tfv.startsWith('t');
+
+      if(isTick){
+        const tpp=+tfv.slice(1);
+        const tickCnt=Math.min(5000,cnt*tpp);
+        sb(`Fetching ${tickCnt} raw ticks for ${mkt}...`);
+        const {prices,times}=await WS.fetchTicks(mkt,tickCnt);
+        candles=DATA.aggTicks(prices,times,tpp);
+        if(candles.length<CFG.MIN_CANDLES) throw new Error(`Only ${candles.length} tick-candles formed. Increase candle count or use a smaller tick size.`);
+      } else {
+        const gran=+tfv;
+        sb(`Fetching ${cnt} candles [${mkt} · ${tfv}s]...`);
+        candles=await WS.fetchCandles(mkt,gran,cnt);
+      }
+
+      DATA.candles=candles;
+      this._ind=null; this._sr=null;
+      const mktLabel=$('mktSel').options[$('mktSel').selectedIndex].text;
+      const tfLabel =$('tfSel').options[$('tfSel').selectedIndex].text;
+      sb(`✓ ${candles.length} candles loaded — ${mktLabel} · ${tfLabel}. Press Analyze Market.`);
+      $('analyzeBtn').disabled=false;
+      $('chartEmpty').classList.add('hidden');
+      this.drawChart();
+
+    } catch(e) {
+      sb('Fetch failed: '+e.message, true);
+    } finally {
+      this._busy=false;
+      $('fetchBtn').disabled=false;
+      this.setLoad(false);
+    }
+  },
+
+  onAnalyze() {
+    if(this._busy) return;
+    const candles=DATA.candles;
+    if(!candles.length){ sb('No data — fetch market data first.'); return; }
+    if(candles.length<CFG.MIN_CANDLES){ sb(`Need at least ${CFG.MIN_CANDLES} candles. Got ${candles.length}.`); return; }
+
+    this._busy=true;
+    $('analyzeBtn').disabled=true;
+    this.setLoad(true,'Computing indicators...');
+
+    // Run off the main thread tick to allow the UI to update first
+    setTimeout(()=>{
+      try{
+        const t0=performance.now();
+        sb('Computing 20 indicators...');
+        const ind=IND.compute(candles);
+        sb('Detecting candlestick & chart patterns...');
+        const cpat=PAT.candle(candles), chpat=PAT.chart(candles);
+        sb('Analysing market structure & S/R...');
+        const str=STRUCT.analyze(candles), sr=SR.find(candles);
+        sb('Scoring & generating signal...');
+        const scores=SCORE.compute(candles,ind,cpat,chpat,str,sr);
+        const sig=SIG.generate(scores,ind,candles);
+        const plan=TP.build(sig,candles,ind);
+        const ms=Math.round(performance.now()-t0);
+        sb(`✓ Analysis complete in ${ms}ms — ${candles.length} candles · ${cpat.length+chpat.length} patterns · Signal: ${sig.signal}`);
+        this._ind=ind; this._sr=sr;
+        this.render(candles,ind,cpat,chpat,str,sr,scores,sig,plan);
+        this.drawChart();
+      }catch(e){
+        sb('Analysis error: '+e.message,true); console.error(e);
+      }finally{
+        this._busy=false; $('analyzeBtn').disabled=false; this.setLoad(false);
+      }
+    },30);
+  },
+
+  drawChart() {
+    const canvas=$('mainChart');
+    if(!canvas) return;
+    CHART.draw(canvas, DATA.candles, this._ind, this._sr);
+  },
+
+  render(candles,ind,cpat,chpat,str,sr,scores,sig,plan){
+    const n=candles.length, price=candles[n-1].close;
+    const lv=a=>(a&&a.length)?a[n-1]:NaN;
+    const prc=v=>{
+      if(!fin(v)) return '--';
+      const d=price<0.01?7:price<1?5:price<100?4:price<10000?2:0;
+      return v.toFixed(d);
+    };
+    const f1=v=>fin(v)?v.toFixed(1):'--';
+    const f4=v=>fin(v)?v.toFixed(4):'--';
+
+    // Market info bar
+    $('mbar').innerHTML=[
+      `Market: <span>${$('mktSel').options[$('mktSel').selectedIndex].text}</span>`,
+      `TF: <span>${$('tfSel').options[$('tfSel').selectedIndex].text}</span>`,
+      `Price: <span style="color:var(--cyan)">${prc(price)}</span>`,
+      `Candles: <span>${n}</span>`,
+      `Trend: <span>${str.trend}</span>`,
+      `Structure: <span>${str.structure}</span>`,
+      `Momentum: <span>${str.mom}</span>`
+    ].map(s=>`<div>${s}</div>`).join('');
+
+    // Arc gauge (circumference for r=45 is ~283)
+    const CIRC=283, comp=scores.composite;
+    const arc=$('arcFill');
+    arc.style.strokeDashoffset=CIRC-(comp/100)*CIRC;
+    arc.style.stroke=comp>=70?'#00e676':comp<=30?'#ff3d57':'#ffb300';
+    $('arcNum').textContent=comp;
+    $('arcNum').style.color=comp>=70?'#00e676':comp<=30?'#ff3d57':'#ffb300';
+
+    // Signal badge
+    const sigCls={'STRONG BUY':'sb-SBUY','BUY':'sb-BUY','STRONG SELL':'sb-SSELL','SELL':'sb-SELL','WAIT':'sb-WAIT','NO TRADE':'sb-NONE'};
+    const badge=$('sigBadge');
+    badge.className='sig-badge '+(sigCls[sig.signal]||'sb-NONE');
+    badge.textContent=sig.signal;
+
+    // Confidence bar
+    const cf=sig.confidence;
+    $('confVal').textContent=cf+'%';
+    const bar=$('cbarFill');
+    bar.style.width=cf+'%';
+    bar.style.background=cf>=70?'var(--grn)':cf>=50?'var(--amb)':'var(--red)';
+    $('layerCount').textContent=sig.confirmed+'/5';
+    $('indConf').textContent=sig.indConf+'/7';
+    const dirEl=$('sigDir');
+    dirEl.textContent=sig.direction.toUpperCase();
+    dirEl.style.color=sig.direction==='bullish'?'var(--grn)':sig.direction==='bearish'?'var(--red)':'var(--tx3)';
+    $('layerList').innerHTML=sig.layers.map(l=>
+      `<div class="lyr ${l.pass?'pass':'fail'}">${l.pass?'✓':'◦'} ${l.name}</div>`
+    ).join('');
+
+    // Trade plan
+    if(plan){
+      const buy=sig.direction==='bullish';
+      $('tpGrid').innerHTML=`
+        <div class="tpc cy"><div class="tpc-lbl">Entry</div><div class="tpc-val">${plan.entry}</div></div>
+        <div class="tpc re"><div class="tpc-lbl">Stop Loss</div><div class="tpc-val">${plan.sl}</div></div>
+        <div class="tpc gr"><div class="tpc-lbl">Take Profit 1</div><div class="tpc-val">${plan.tp1}</div></div>
+        <div class="tpc gr"><div class="tpc-lbl">Take Profit 2</div><div class="tpc-val">${plan.tp2}</div></div>
+        <div class="tpc gr"><div class="tpc-lbl">Take Profit 3</div><div class="tpc-val">${plan.tp3}</div></div>
+        <div class="tpc am"><div class="tpc-lbl">Risk : Reward</div><div class="tpc-val">${plan.rr}</div></div>
+        <div class="tpc"><div class="tpc-lbl">Trade Risk</div><div class="tpc-val">${plan.riskPct}</div></div>
+        <div class="tpc"><div class="tpc-lbl">Duration Est.</div><div class="tpc-val">${plan.duration}</div></div>
+        <div class="tpc"><div class="tpc-lbl">Direction</div>
+          <div class="tpc-val" style="color:${buy?'var(--grn)':'var(--red)'}">${buy?'▲ LONG':'▼ SHORT'}</div></div>`;
+      $('tpPanel').classList.remove('hidden');
+    } else {
+      $('tpPanel').classList.add('hidden');
+    }
+
+    // Score bars
+    $('scoreGrid').innerHTML=[
+      {l:'Trend',     v:scores.trend},
+      {l:'Momentum',  v:scores.momentum},
+      {l:'Volatility',v:scores.volatility},
+      {l:'Pattern',   v:scores.pattern},
+      {l:'Structure', v:scores.structure},
+      {l:'COMPOSITE', v:scores.composite, top:true}
+    ].map(s=>{
+      const c=s.v>=65?'#00e676':s.v<=35?'#ff3d57':'#ffb300';
+      return `<div class="srow"><div class="slbl${s.top?' top':''}">${s.l}</div>
+        <div class="strk"><div class="sfill" style="width:${s.v}%;background:${c}"></div></div>
+        <div class="sval" style="color:${c}">${s.v}</div></div>`;
+    }).join('');
+
+    // Indicator values
+    const e9=lv(ind.ema9),e20=lv(ind.ema20),e50=lv(ind.ema50),e100=lv(ind.ema100),e200=lv(ind.ema200);
+    const rsiV=lv(ind.rsi),mH=lv(ind.macd.hist),mL=lv(ind.macd.line),mSig=lv(ind.macd.signal);
+    const adxV=lv(ind.adx.adx),pdi=lv(ind.adx.pdi),mdi=lv(ind.adx.mdi);
+    const cciV=lv(ind.cci),wRV=lv(ind.wR),rocV=lv(ind.roc),momV=lv(ind.mom);
+    const stK=lv(ind.stoch.k),stD=lv(ind.stoch.d),atrV=lv(ind.atr),mfiV=lv(ind.mfi);
+    const stDir=ind.st.dir[n-1];
+    const bbU=lv(ind.bb.upper),bbL=lv(ind.bb.lower),bbM=lv(ind.bb.mid);
+    const kcU=lv(ind.kelt.upper),kcL=lv(ind.kelt.lower);
+    const tn=lv(ind.ichi.tenkan),kj=lv(ind.ichi.kijun),sA=lv(ind.ichi.senkouA),sB_=lv(ind.ichi.senkouB);
+    const clsF=(v,hi,lo)=>fin(v)?(v>hi?'bull':v<lo?'bear':'neu'):'neu';
+
+    const inds=[
+      {n:'EMA 9',     v:prc(e9),   c:fin(e9)?(price>e9?'bull':'bear'):'neu', s:fin(e9)?(price>e9?'Above':'Below'):'N/A'},
+      {n:'EMA 20',    v:prc(e20),  c:fin(e20)?(price>e20?'bull':'bear'):'neu',s:fin(e20)?(price>e20?'Above':'Below'):'N/A'},
+      {n:'EMA 50',    v:prc(e50),  c:fin(e50)?(price>e50?'bull':'bear'):'neu',s:fin(e50)?(price>e50?'Above':'Below'):'N/A'},
+      {n:'EMA 100',   v:prc(e100), c:fin(e100)?(price>e100?'bull':'bear'):'neu',s:fin(e100)?(price>e100?'Above':'Below'):'N/A'},
+      {n:'EMA 200',   v:prc(e200), c:fin(e200)?(price>e200?'bull':'bear'):'neu',s:fin(e200)?(price>e200?'Above':'Below'):'N/A'},
+      {n:'RSI (14)',  v:f1(rsiV),  c:clsF(rsiV,55,45), s:fin(rsiV)?(rsiV>=70?'Overbought':rsiV<=30?'Oversold':rsiV>55?'Bullish':'Bearish'):'N/A'},
+      {n:'Stoch RSI K',v:f1(stK), c:clsF(stK,60,40),  s:fin(stK)?(stK>=80?'Overbought':stK<=20?'Oversold':stK>55?'Bullish':'Bearish'):'N/A'},
+      {n:'Stoch RSI D',v:f1(stD), c:fin(stK)&&fin(stD)?(stK>stD?'bull':'bear'):'neu',s:fin(stK)&&fin(stD)?(stK>stD?'K above D':'K below D'):'N/A'},
+      {n:'MACD Hist', v:f4(mH),   c:fin(mH)?(mH>0?'bull':'bear'):'neu', s:fin(mH)?(mH>0?'Positive':'Negative'):'N/A'},
+      {n:'MACD Line', v:f4(mL),   c:fin(mL)&&fin(mSig)?(mL>mSig?'bull':'bear'):'neu',s:fin(mL)?(mL>0?'Above zero':'Below zero'):'N/A'},
+      {n:'Momentum',  v:f4(momV), c:fin(momV)?(momV>0?'bull':'bear'):'neu',s:fin(momV)?(momV>0?'Positive':'Negative'):'N/A'},
+      {n:'ATR (14)',  v:fin(atrV)?atrV.toPrecision(4):'--', c:'neu', s:'Volatility'},
+      {n:'BB %B',     v:fin(bbU)&&fin(bbL)&&bbU>bbL?(((price-bbL)/(bbU-bbL))*100).toFixed(1)+'%':'--',
+                      c:fin(bbU)?(price>bbU?'bear':price<bbL?'bull':'neu'):'neu',
+                      s:fin(bbU)?(price>bbU?'Above upper':price<bbL?'Below lower':'Mid-range'):'N/A'},
+      {n:'BB Width',  v:fin(bbU)&&fin(bbM)?((bbU-bbL)/bbM*100).toFixed(2)+'%':'--',c:'neu',s:'Bandwidth'},
+      {n:'Keltner',   v:'--',
+                      c:fin(kcU)?(price>kcU?'bull':price<kcL?'bear':'neu'):'neu',
+                      s:fin(kcU)?(price>kcU?'Above upper':price<kcL?'Below lower':'Inside'):'N/A'},
+      {n:'ADX (14)',  v:f1(adxV), c:fin(adxV)?(adxV>25?'bull':'neu'):'neu',
+                      s:fin(adxV)?(adxV>40?'Strong trend':adxV>25?'Trending':'Ranging'):'N/A'},
+      {n:'+DI / -DI', v:fin(pdi)?f1(pdi)+' / '+f1(mdi):'--',
+                      c:fin(pdi)&&fin(mdi)?(pdi>mdi?'bull':'bear'):'neu',
+                      s:fin(pdi)&&fin(mdi)?(pdi>mdi?'Bullish DI':'Bearish DI'):'N/A'},
+      {n:'CCI (20)',  v:f1(cciV), c:clsF(cciV,100,-100),
+                      s:fin(cciV)?(cciV>100?'Overbought':cciV<-100?'Oversold':cciV>0?'Bullish':'Bearish'):'N/A'},
+      {n:'Williams %R',v:f1(wRV), c:fin(wRV)?(wRV>-20?'bear':wRV<-80?'bull':'neu'):'neu',
+                      s:fin(wRV)?(wRV>-20?'Overbought':wRV<-80?'Oversold':'Neutral'):'N/A'},
+      {n:'ROC (12)',  v:fin(rocV)?rocV.toFixed(2)+'%':'--',
+                      c:fin(rocV)?(rocV>0?'bull':'bear'):'neu',s:fin(rocV)?(rocV>0?'Positive':'Negative'):'N/A'},
+      {n:'SuperTrend',v:stDir===1?'Bullish':stDir===-1?'Bearish':'--',
+                      c:stDir===1?'bull':stDir===-1?'bear':'neu',
+                      s:stDir===1?'Uptrend':stDir===-1?'Downtrend':'Calculating'},
+      {n:'MFI (14)',  v:f1(mfiV), c:clsF(mfiV,70,30),
+                      s:fin(mfiV)?(mfiV>70?'Overbought':mfiV<30?'Oversold':'Neutral'):'N/A'},
+      {n:'OBV',       v:(ind.obv[n-1]>=0?'+':'')+ind.obv[n-1],
+                      c:ind.obv[n-1]>0?'bull':'bear',s:ind.obv[n-1]>0?'Accumulating':'Distributing'},
+      {n:'Ichimoku',
+       v:fin(sA)&&fin(sB_)?(price>Math.max(sA,sB_)?'Above Cloud':price<Math.min(sA,sB_)?'Below Cloud':'In Cloud'):'--',
+       c:fin(sA)&&fin(sB_)?(price>Math.max(sA,sB_)?'bull':price<Math.min(sA,sB_)?'bear':'neu'):'neu',
+       s:fin(tn)&&fin(kj)?(tn>kj?'TK Bullish':'TK Bearish'):'N/A'},
+    ];
+
+    $('indGrid').innerHTML=inds.map(x=>
+      `<div class="icard"><div class="iname">${x.n}</div><div class="ival ${x.c}">${x.v}</div><div class="isig">${x.s}</div></div>`
+    ).join('');
+
+    // Patterns
+    const allPat=[...cpat.map(p=>({...p,conf:p.str})),...chpat];
+    $('patList').innerHTML=allPat.length
+      ? allPat.map(p=>{const b=p.cat?.includes('bull'),be=p.cat?.includes('bear');
+          return `<div class="ptag ${b?'bull':be?'bear':'neu'}">${p.name}<span class="pstr">${p.conf||p.str}%</span></div>`;
+        }).join('')
+      : '<span style="color:var(--tx3);font-family:var(--mono);font-size:.7rem">No significant patterns in current window.</span>';
+
+    // Probabilities
+    const bullP=comp, bearP=100-comp;
+    const neuP=Math.max(0,Math.round(12-Math.abs(50-comp)*.3));
+    const adjB=Math.max(0,bullP-neuP), adjBe=Math.max(0,bearP-neuP);
+    const risk=comp>=70||comp<=30?(Math.abs(comp-50)>35?'LOW':'MEDIUM'):'HIGH';
+    const mktLabel=$('mktSel').options[$('mktSel').selectedIndex].text;
+    const tfLabel= $('tfSel').options[$('tfSel').selectedIndex].text;
+
+    // EMA alignment description
+    const emaAlignCount=[e9,e20,e50,e100,e200].filter(ev=>fin(ev)&&price>ev).length;
+    const validEmas=[e9,e20,e50,e100,e200].filter(fin).length;
+    const emaDesc=validEmas===0?'N/A (insufficient candles for EMAs)':
+      emaAlignCount>=4?'Strongly bullish':emaAlignCount>=3?'Moderately bullish':
+      emaAlignCount>=2?'Mixed':emaAlignCount>=1?'Moderately bearish':'Strongly bearish';
+
+    const exec=sig.signal==='NO TRADE'||sig.signal==='WAIT'
+      ?`Market conditions on ${mktLabel} (${tfLabel}) do not meet the minimum confluence threshold. Composite score: ${comp}/100 · Layers confirmed: ${sig.confirmed}/5 · Indicator alignment: ${sig.indConf}/7. A ${sig.signal} stance is recommended until conditions improve.`
+      :`${mktLabel} on the ${tfLabel} timeframe shows a <strong>${str.trend}</strong> market structure with <strong>${str.mom}</strong> momentum (${str.structure}). A <strong>${sig.signal}</strong> signal generated with <strong>${sig.confidence}% confidence</strong> — ${sig.confirmed}/5 confirmation layers, ${sig.indConf}/7 indicator alignments.`;
+
+    const detail=`RSI(14): ${f1(rsiV)}${fin(rsiV)?' ['+  (rsiV>=70?'overbought':rsiV<=30?'oversold':'neutral')+']':' [N/A]'}. MACD histogram: ${f4(mH)} [${fin(mH)?(mH>0?'positive':'negative'):'N/A'}]. ADX: ${f1(adxV)} [${fin(adxV)?(adxV>25?'trending':'ranging'):'N/A'}]. SuperTrend: ${stDir===1?'bullish':stDir===-1?'bearish':'calculating'}. EMA alignment: ${emaDesc} (${emaAlignCount}/${validEmas} valid EMAs bullish). Structure: ${str.hh} HH · ${str.hl} HL · ${str.lh} LH · ${str.ll} LL. Patterns: ${allPat.length} detected (${cpat.length} candlestick · ${chpat.length} chart).`;
+
+    const srHtml=[
+      sr.majorResistance[1]?`<div>R2: ${prc(sr.majorResistance[1].price)} <small style="color:var(--tx3)">(${sr.majorResistance[1].touches} touches)</small></div>`:'',
+      sr.majorResistance[0]?`<div class="sr-r">R1: ${prc(sr.majorResistance[0].price)} <small>(${sr.majorResistance[0].touches} touches · ${sr.majorResistance[0].breakProb}% break prob)</small></div>`:'',
+      `<div class="sr-p">▶ Price: ${prc(price)}</div>`,
+      sr.majorSupport[0]?`<div class="sr-s">S1: ${prc(sr.majorSupport[0].price)} <small>(${sr.majorSupport[0].touches} touches · ${sr.majorSupport[0].breakProb}% break prob)</small></div>`:'',
+      sr.majorSupport[1]?`<div>S2: ${prc(sr.majorSupport[1].price)} <small style="color:var(--tx3)">(${sr.majorSupport[1].touches} touches)</small></div>`:''
+    ].join('');
+
+    $('rptContent').innerHTML=`
+      <div class="rsec"><div class="rhd">Executive Summary</div><div class="rtxt">${exec}</div></div>
+      <div class="rsec"><div class="rhd">Detailed Technical Analysis</div>
+        <div class="rtxt" style="font-family:var(--mono);font-size:.72rem;line-height:1.75">${detail}</div></div>
+      <div class="rsec"><div class="rhd">Risk Assessment</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span class="rbadge r${risk.toLowerCase()}">${risk} RISK</span>
+          <span style="color:var(--tx2);font-size:.7rem;font-family:var(--mono)">Score: ${comp}/100 · Layers: ${sig.confirmed}/5 · Indicators: ${sig.indConf}/7</span>
+        </div></div>
+      <div class="rsec"><div class="rhd">Probability Assessment</div>
+        <div class="prow">
+          <div class="pi"><div class="pipct" style="color:var(--grn)">${adjB}%</div><div class="pilbl">Bullish</div></div>
+          <div class="pi"><div class="pipct" style="color:var(--tx2)">${neuP}%</div><div class="pilbl">Neutral</div></div>
+          <div class="pi"><div class="pipct" style="color:var(--red)">${adjBe}%</div><div class="pilbl">Bearish</div></div>
+        </div></div>
+      <div class="rsec"><div class="rhd">Key S/R Levels</div>
+        <div class="srtable">${srHtml}</div></div>`;
+
+    ['sigPanel','scorePanel','indPanel','patPanel','rptPanel'].forEach(id=>$(id).classList.remove('hidden'));
+    setTimeout(()=>$('sigPanel').scrollIntoView({behavior:'smooth',block:'start'}),80);
+  },
+
+  setLoad(on, txt='') {
+    const el=$('ldov');
+    if(on){el.classList.remove('hidden');$('ldtxt').textContent=txt;}
+    else el.classList.add('hidden');
+  }
+};
+
+// Boot
+UI.init();
+</script>
+</body>
+</html>

@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TURBO — Deriv Touch/No-Touch Intelligence Terminal</title>
+<meta name="theme-color" content="#0a0b0f">
+<link rel="manifest" href="data:application/manifest+json,{}">
+<style>
+:root{
+  --bg:#0a0b0f; --bg2:#101219; --panel:#14161f; --panel2:#1a1d29;
+  --line:#242836; --line2:#2e3242;
+  --ivory:#f2ede3; --gold:#c9a24b; --gold2:#e8c874;
+  --up:#3ecf8e; --down:#e05a5a; --warn:#e0a83f; --muted:#7d8296;
+  --font: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{background:var(--bg); color:var(--ivory); font-family:var(--font); font-size:13px; line-height:1.4; overflow-x:hidden;}
+::-webkit-scrollbar{width:8px; height:8px;}
+::-webkit-scrollbar-thumb{background:var(--line2); border-radius:4px;}
+a{color:inherit;}
+
+/* Shell */
+.shell{display:grid; grid-template-columns: 240px 1fr 320px; grid-template-rows: 52px 1fr; height:100vh;}
+header.topbar{grid-column:1/4; display:flex; align-items:center; justify-content:space-between; padding:0 16px; background:linear-gradient(180deg,var(--panel2),var(--panel)); border-bottom:1px solid var(--line);}
+.brand{display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:2px; color:var(--gold2);}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--up); box-shadow:0 0 8px var(--up);}
+.brand .dot.off{background:var(--down); box-shadow:0 0 8px var(--down);}
+.topbar-mid{display:flex; gap:18px; font-size:11px; color:var(--muted);}
+.topbar-mid b{color:var(--ivory)}
+.topbar-right{display:flex; gap:10px; align-items:center;}
+.btn{background:var(--panel2); border:1px solid var(--line2); color:var(--ivory); padding:7px 14px; border-radius:6px; font-size:12px; cursor:pointer; transition:.15s;}
+.btn:hover{border-color:var(--gold); color:var(--gold2);}
+.btn.primary{background:linear-gradient(180deg,var(--gold2),var(--gold)); color:#181205; border:none; font-weight:700;}
+.btn.danger{border-color:var(--down); color:var(--down);}
+.btn:disabled{opacity:.4; cursor:not-allowed;}
+input,select{background:var(--bg2); border:1px solid var(--line2); color:var(--ivory); padding:6px 8px; border-radius:5px; font-size:12px; width:100%;}
+label{font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:3px;}
+.field{margin-bottom:10px;}
+
+/* Sidebar */
+aside.left{background:var(--panel); border-right:1px solid var(--line); padding:14px 10px; overflow-y:auto;}
+.nav-group{margin-bottom:16px;}
+.nav-title{font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); padding:4px 8px;}
+.nav-item{display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-radius:6px; cursor:pointer; color:var(--muted); font-size:12.5px;}
+.nav-item:hover{background:var(--panel2); color:var(--ivory);}
+.nav-item.active{background:var(--panel2); color:var(--gold2); border-left:2px solid var(--gold);}
+.pill{font-size:9.5px; background:var(--bg2); padding:1px 6px; border-radius:10px; color:var(--muted);}
+
+/* Main */
+main.center{overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:14px;}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px;}
+.card h3{font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--gold2); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;}
+.chart-wrap{height:340px; position:relative;}
+#chartCanvas, #priceChart{width:100%; height:100%;}
+.grid4{display:grid; grid-template-columns:repeat(4,1fr); gap:10px;}
+.grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:10px;}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.stat{background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:10px;}
+.stat .k{font-size:10px; color:var(--muted); text-transform:uppercase;}
+.stat .v{font-size:18px; font-weight:700; margin-top:2px;}
+.up{color:var(--up)} .down{color:var(--down)} .warn{color:var(--warn)} .gold{color:var(--gold2)}
+
+table{width:100%; border-collapse:collapse; font-size:11.5px;}
+th{text-align:left; color:var(--muted); font-weight:500; padding:6px 8px; border-bottom:1px solid var(--line); text-transform:uppercase; font-size:10px;}
+td{padding:6px 8px; border-bottom:1px solid var(--line);}
+tr:hover td{background:var(--panel2);}
+
+/* Right panel */
+aside.right{background:var(--panel); border-left:1px solid var(--line); padding:14px; overflow-y:auto; display:flex; flex-direction:column; gap:14px;}
+.toggle-row{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+.switch{position:relative; width:38px; height:20px; background:var(--bg2); border:1px solid var(--line2); border-radius:20px; cursor:pointer;}
+.switch.on{background:var(--gold);}
+.switch::after{content:''; position:absolute; top:1px; left:1px; width:16px; height:16px; background:var(--ivory); border-radius:50%; transition:.15s;}
+.switch.on::after{left:19px; background:#181205;}
+.tag{display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:700;}
+.tag.buy{background:rgba(62,207,142,.15); color:var(--up);}
+.tag.sell{background:rgba(224,90,90,.15); color:var(--down);}
+.tag.hold{background:rgba(224,168,63,.15); color:var(--warn);}
+.log-line{font-family:'Consolas',monospace; font-size:10.5px; padding:3px 0; border-bottom:1px dashed var(--line); color:var(--muted);}
+.log-line.err{color:var(--down);}
+.log-line.ok{color:var(--up);}
+.log-line.ai{color:var(--gold2);}
+.log-box{max-height:220px; overflow-y:auto;}
+.barwrap{background:var(--bg2); border-radius:6px; height:8px; overflow:hidden; margin-top:4px;}
+.barfill{height:100%; background:linear-gradient(90deg,var(--gold),var(--gold2));}
+.hidden{display:none !important;}
+.section-tabs{display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;}
+.section-tabs .tb{padding:5px 10px; border-radius:6px; background:var(--panel2); font-size:11px; cursor:pointer; color:var(--muted); border:1px solid var(--line2);}
+.section-tabs .tb.active{color:var(--gold2); border-color:var(--gold);}
+.barrier-visual{position:relative; height:60px; background:var(--bg2); border-radius:8px; margin-top:8px; overflow:hidden;}
+.bv-mid{position:absolute; left:50%; top:0; bottom:0; width:1px; background:var(--muted);}
+.bv-price{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:11px; color:var(--ivory); background:var(--panel); padding:2px 6px; border-radius:4px; border:1px solid var(--line2);}
+.bv-barrier{position:absolute; top:6px; bottom:6px; width:2px; background:var(--gold);}
+.bv-barrier::after{content:attr(data-label); position:absolute; top:-16px; left:50%; transform:translateX(-50%); font-size:9px; color:var(--gold2); white-space:nowrap;}
+.small{font-size:10.5px; color:var(--muted);}
+footer.statusbar{position:fixed; bottom:0; left:0; right:0; background:var(--panel2); border-top:1px solid var(--line); padding:5px 14px; font-size:10.5px; color:var(--muted); display:flex; justify-content:space-between; z-index:50;}
+@media(max-width:1100px){.shell{grid-template-columns:1fr;} aside.left,aside.right{display:none;}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div class="brand"><span class="dot off" id="connDot"></span> TURBO <span style="color:var(--muted); font-weight:400; letter-spacing:0; font-size:10px;">Touch / No-Touch Intelligence</span></div>
+    <div class="topbar-mid">
+      <div>Market: <b id="hdMarket">R_100</b></div>
+      <div>Balance: <b id="hdBalance">—</b></div>
+      <div>Open: <b id="hdOpen">0</b></div>
+      <div>Today PnL: <b id="hdPnl">0.00</b></div>
+      <div>Latency: <b id="hdLatency">—</b></div>
+    </div>
+    <div class="topbar-right">
+      <input id="appIdInput" placeholder="App ID" style="width:80px;">
+      <input id="apiToken" placeholder="Deriv API Token (PAT)" style="width:180px;">
+      <button class="btn primary" id="connectBtn">Connect</button>
+      <button class="btn danger" id="stopBtn">Emergency Stop</button>
+    </div>
+  </header>
+
+  <aside class="left">
+    <div class="nav-group">
+      <div class="nav-title">Engines</div>
+      <div class="nav-item active" data-tab="dashboard">Dashboard <span class="pill">live</span></div>
+      <div class="nav-item" data-tab="barrier">Barrier Engine <span class="pill gold">AI</span></div>
+      <div class="nav-item" data-tab="signals">Trade Signals</div>
+      <div class="nav-item" data-tab="risk">Risk Manager</div>
+      <div class="nav-item" data-tab="martingale">Martingale</div>
+      <div class="nav-item" data-tab="history">Trade History</div>
+      <div class="nav-item" data-tab="logs">System Logs</div>
+      <div class="nav-item" data-tab="settings">Settings</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-title">Market</div>
+      <div class="field"><select id="marketSelect">
+        <option value="R_10">Volatility 10</option>
+        <option value="R_25">Volatility 25</option>
+        <option value="R_50">Volatility 50</option>
+        <option value="R_75">Volatility 75</option>
+        <option value="R_100" selected>Volatility 100</option>
+        <option value="1HZ10V">Volatility 10 (1s)</option>
+        <option value="1HZ25V">Volatility 25 (1s)</option>
+        <option value="1HZ50V">Volatility 50 (1s)</option>
+        <option value="1HZ100V">Volatility 100 (1s)</option>
+        <option value="BOOM500">Boom 500</option>
+        <option value="BOOM1000">Boom 1000</option>
+        <option value="CRASH500">Crash 500</option>
+        <option value="CRASH1000">Crash 1000</option>
+      </select></div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-title">Mode</div>
+      <div class="toggle-row"><span>Auto-Trade</span><div class="switch" id="swAuto"></div></div>
+      <div class="toggle-row"><span>Barrier AI</span><div class="switch on" id="swBarrierAI"></div></div>
+      <div class="toggle-row"><span>Simulation</span><div class="switch on" id="swSim"></div></div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-title">Concurrency</div>
+      <div class="field">
+        <label>Max Open Trades <span id="openTradeCount" class="pill gold">0 / —</span></label>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <button class="btn" id="maxOpenMinus" type="button" style="padding:6px 10px;">−</button>
+          <input type="number" id="maxOpenInput" min="1" max="20" style="text-align:center;">
+          <button class="btn" id="maxOpenPlus" type="button" style="padding:6px 10px;">+</button>
+        </div>
+        <div class="small" style="margin-top:5px;">Hard cap on simultaneous open contracts. Execution Engine rejects new trades once this limit is hit — Risk Manager enforces it, nothing bypasses it.</div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="center" id="mainArea"></main>
+
+  <aside class="right">
+    <div class="card">
+      <h3>Live Signal <span id="sigTag" class="tag hold">ANALYZING</span></h3>
+      <div class="small">Market: <b id="sigMarket">R_100</b> · Type: <b id="sigType">TOUCH</b></div>
+      <div style="margin-top:8px;">Confidence</div>
+      <div class="barwrap"><div class="barfill" id="sigConf" style="width:0%"></div></div>
+      <div class="small" id="sigReason" style="margin-top:8px;">Waiting for tick data…</div>
+    </div>
+    <div class="card">
+      <h3>Barrier AI Snapshot</h3>
+      <div class="small">Recommended barrier for <b id="baiMarket">R_100</b></div>
+      <div class="stat" style="margin-top:8px;">
+        <div class="k">Optimal Barrier Offset</div>
+        <div class="v gold" id="baiOffset">±0.00</div>
+      </div>
+      <div class="small" style="margin-top:8px;" id="baiInfo">Learning engine idle — collecting data.</div>
+    </div>
+    <div class="card">
+      <h3>Recent Logs</h3>
+      <div class="log-box" id="miniLog"></div>
+    </div>
+  </aside>
+</div>
+
+<footer class="statusbar">
+  <div>TURBO v1.0 · Structure / Connection / Statistics / Analytics / Barrier / Risk / Martingale / Execution engines active</div>
+  <div id="ftStatus">Idle — awaiting connection</div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script>
+/* ============================================================
+   TURBO — Deriv Touch / No-Touch Intelligence Terminal
+   Single-file HTML5 PWA. Event-bus driven engine architecture.
+   ============================================================ */
+
+/* ---------- EVENT BUS ---------- */
+const Bus = (() => {
+  const listeners = {};
+  return {
+    on(evt, fn){ (listeners[evt] = listeners[evt] || []).push(fn); },
+    emit(evt, data){ (listeners[evt]||[]).forEach(fn => { try{ fn(data);}catch(e){console.error(e);} }); }
+  };
+})();
+
+/* ---------- STORAGE (DB layer substitute) ---------- */
+const DB = {
+  get(key, def){ try{ const v = localStorage.getItem('turbo_'+key); return v ? JSON.parse(v) : def; }catch(e){ return def; } },
+  set(key, val){ try{ localStorage.setItem('turbo_'+key, JSON.stringify(val)); }catch(e){} },
+  push(key, item, cap=500){ const arr = DB.get(key, []); arr.push(item); if(arr.length>cap) arr.shift(); DB.set(key, arr); return arr; }
+};
+
+/* ---------- LOGGER ---------- */
+function log(msg, type='sys'){
+  const cls = type==='err'?'err':type==='ok'?'ok':type==='ai'?'ai':'';
+  const entry = { t: Date.now(), msg, type };
+  DB.push('logs', entry, 800);
+  const line = document.createElement('div');
+  line.className = 'log-line '+cls;
+  line.textContent = `[${new Date(entry.t).toLocaleTimeString()}] ${msg}`;
+  const mini = document.getElementById('miniLog');
+  mini.prepend(line);
+  while(mini.children.length > 40) mini.removeChild(mini.lastChild);
+  const full = document.getElementById('logFull');
+  if(full){ const l2 = line.cloneNode(true); full.prepend(l2); while(full.children.length>400) full.removeChild(full.lastChild); }
+  document.getElementById('ftStatus').textContent = msg;
+}
+
+/* ================================================================
+   ENGINE 1 — STRUCTURE ENGINE (registers/coordinates all engines)
+   ================================================================ */
+const Structure = {
+  engines: {},
+  registerEngine(name, engine){ this.engines[name] = engine; log(`Structure Engine: registered ${name}`); },
+  restart(name){ if(this.engines[name]?.restart) this.engines[name].restart(); }
+};
+
+/* ================================================================
+   ENGINE 2 — CONNECTION ENGINE
+   ================================================================ */
+const Connection = (() => {
+  const API_BASE = 'https://api.derivws.com';
+  let ws = null, publicWs = null, authorized = false, heartbeatTimer = null, reconnectAttempts = 0, lastPing = 0;
+  let simulated = true, account = null, appId = null, authToken = null;
+
+  function setDot(on){
+    document.getElementById('connDot').classList.toggle('off', !on);
+  }
+
+  function initSim(reason){
+    simulated = true;
+    setDot(true);
+    authorized = true;
+    log('Connection Engine: SIMULATION mode active' + (reason?` (${reason})`:''), 'ai');
+    document.getElementById('hdBalance').textContent = '10,000.00 (sim)';
+    startTickSimulator();
+  }
+
+  async function connect(token, appIdInput){
+    if(document.getElementById('swSim').classList.contains('on') || !token){
+      initSim(!token ? 'no token supplied' : undefined);
+      return;
+    }
+    authToken = token;
+    appId = appIdInput || document.getElementById('appIdInput')?.value?.trim() || '';
+    if(!appId){ log('Connection Engine: App ID required for live REST auth — switching to simulation', 'err'); initSim('missing App ID'); return; }
+    simulated = false;
+
+    try{
+      log('Connection Engine: fetching Options accounts (REST)…');
+      const headers = { 'Authorization': `Bearer ${token}`, 'Deriv-App-ID': appId };
+      const accRes = await fetch(`${API_BASE}/trading/v1/options/accounts`, { headers });
+      if(!accRes.ok){
+        const err = await accRes.json().catch(()=>({}));
+        throw new Error(err.errors?.[0]?.message || `HTTP ${accRes.status}`);
+      }
+      const { data: accounts } = await accRes.json();
+      if(!accounts || !accounts.length) throw new Error('No Options accounts returned for this token');
+      account = accounts.find(a=>a.account_type==='demo' && a.status==='active') || accounts[0];
+      const accBalance = Number(account.balance);
+      log(`Connection Engine: selected account ${account.account_id} (${account.account_type}), balance ${accBalance} ${account.currency}`, 'ok');
+      document.getElementById('hdBalance').textContent = `${accBalance.toFixed(2)} ${account.currency}`;
+
+      log('Connection Engine: requesting OTP WebSocket URL…');
+      const otpRes = await fetch(`${API_BASE}/trading/v1/options/accounts/${account.account_id}/otp`, { method:'POST', headers });
+      if(!otpRes.ok){
+        const err = await otpRes.json().catch(()=>({}));
+        throw new Error(err.errors?.[0]?.message || `HTTP ${otpRes.status}`);
+      }
+      const { data: { url: wsUrl } } = await otpRes.json();
+      openTradingSocket(wsUrl);
+    }catch(e){
+      log('Connection Engine: live auth failed — '+e.message+'. Switching to simulation.', 'err');
+      initSim('auth failure');
+    }
+  }
+
+  function openTradingSocket(wsUrl){
+    try{ ws = new WebSocket(wsUrl); }
+    catch(e){ log('Connection Engine: WebSocket init failed — '+e.message, 'err'); initSim('socket init failure'); return; }
+
+    ws.onopen = () => {
+      authorized = true; setDot(true); reconnectAttempts = 0;
+      log('Connection Engine: OTP-authenticated WebSocket connected', 'ok');
+      ws.send(JSON.stringify({ balance:1, subscribe:1, req_id:1 }));
+      fetchContractsFor(State.market);
+      subscribeTicks(State.market);
+      startHeartbeat();
+      Bus.emit('connection.restored');
+    };
+    ws.onmessage = (m) => { let data; try{ data = JSON.parse(m.data); }catch(e){ return; } handleMessage(data); };
+    ws.onerror = () => { log('Connection Engine: socket error', 'err'); };
+    ws.onclose = () => {
+      setDot(false); authorized = false;
+      log('Connection Engine: trading WebSocket closed', 'err');
+      Bus.emit('connection.lost');
+      reconnectAttempts++;
+      if(reconnectAttempts < 6){
+        log(`Connection Engine: reconnecting — requesting fresh OTP (attempt ${reconnectAttempts})…`);
+        setTimeout(()=>connect(authToken, appId), Math.min(1000*reconnectAttempts, 8000));
+      } else { log('Connection Engine: max reconnect attempts reached — switching to simulation', 'err'); initSim('reconnect exhausted'); }
+    };
+  }
+
+  function handleMessage(data){
+    if(data.req_id && pendingReqs.has(data.req_id)){
+      const { resolve, reject } = pendingReqs.get(data.req_id);
+      pendingReqs.delete(data.req_id);
+      if(data.error) reject(new Error(data.error.message)); else resolve(data);
+      return;
+    }
+    if(data.msg_type === 'balance'){
+      document.getElementById('hdBalance').textContent = `${Number(data.balance.balance).toFixed(2)} ${data.balance.currency}`;
+    }
+    if(data.msg_type === 'tick'){
+      Bus.emit('tick.received', { price: +data.tick.quote, epoch: data.tick.epoch, symbol: data.tick.symbol });
+    }
+    if(data.msg_type === 'buy'){ Bus.emit('trade.executed', data.buy); }
+    if(data.msg_type === 'proposal_open_contract'){ Bus.emit('contract.update', data.proposal_open_contract); }
+    if(data.error){ log('Deriv API error ['+data.error.code+']: '+data.error.message, 'err'); }
+  }
+
+  function subscribeTicks(symbol){
+    if(simulated) return;
+    // Public market-data socket, separate from the OTP trading socket
+    if(publicWs) { try{ publicWs.send(JSON.stringify({forget_all:'ticks'})); }catch(e){} publicWs.close(); }
+    publicWs = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
+    publicWs.onopen = () => publicWs.send(JSON.stringify({ ticks: symbol, subscribe: 1, req_id: 2 }));
+    publicWs.onmessage = (m) => {
+      let data; try{ data = JSON.parse(m.data); }catch(e){ return; }
+      if(data.msg_type==='tick') Bus.emit('tick.received', { price:+data.tick.quote, epoch:data.tick.epoch, symbol:data.tick.symbol });
+    };
+  }
+
+  function startHeartbeat(){
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = setInterval(()=>{
+      lastPing = Date.now();
+      if(ws && ws.readyState===1) ws.send(JSON.stringify({ping:1}));
+    }, 15000);
+  }
+
+  /* --- Tick simulator for restricted / demo environments --- */
+  let simTimer = null, simPrice = 5000 + Math.random()*500;
+  function startTickSimulator(){
+    clearInterval(simTimer);
+    simTimer = setInterval(()=>{
+      const vol = 0.15 + Math.random()*0.35;
+      simPrice += (Math.random()-0.5)*vol;
+      Bus.emit('tick.received', { price: +simPrice.toFixed(3), epoch: Date.now()/1000, symbol: State.market });
+      document.getElementById('hdLatency').textContent = (10+Math.random()*40).toFixed(0)+'ms';
+    }, 900);
+  }
+
+  let reqIdCounter = 100;
+  const pendingReqs = new Map(); // req_id -> {resolve, reject}
+
+  function sendWsRequest(cmd){
+    return new Promise((resolve, reject) => {
+      if(!ws || ws.readyState !== 1){ reject(new Error('Trading socket not open')); return; }
+      const req_id = ++reqIdCounter;
+      pendingReqs.set(req_id, { resolve, reject });
+      ws.send(JSON.stringify({ ...cmd, req_id }));
+      setTimeout(()=>{ if(pendingReqs.has(req_id)){ pendingReqs.delete(req_id); reject(new Error('Request timed out')); } }, 10000);
+    });
+  }
+
+  let pipConfig = DB.get('pipConfig', {}); // market -> {decimals, pipSize, source}
+
+  function getPipConfig(market){
+    return pipConfig[market] || { decimals: 2, pipSize: 0.01, source: 'default' };
+  }
+  function setPipConfig(market, cfg){
+    pipConfig[market] = { ...getPipConfig(market), ...cfg };
+    DB.set('pipConfig', pipConfig);
+    Bus.emit('pipconfig.updated', { market, cfg: pipConfig[market] });
+  }
+
+  async function fetchContractsFor(symbol){
+    try{
+      const res = await sendWsRequest({ contracts_for: symbol });
+      if(res.error) throw new Error(res.error.message);
+      const list = res.contracts_for?.available || [];
+      const touchEntry = list.find(c => /TOUCH/i.test(c.contract_type || '')) || list[0];
+      let decimals = 2;
+      if(touchEntry){
+        if(touchEntry.barrier && typeof touchEntry.barrier === 'string' && touchEntry.barrier.includes('.')){
+          decimals = touchEntry.barrier.split('.')[1].length;
+        } else if(res.contracts_for?.pip){
+          const pipStr = String(res.contracts_for.pip);
+          decimals = pipStr.includes('.') ? pipStr.split('.')[1].length : 0;
+        }
+      }
+      const pipSize = +(Math.pow(10, -decimals)).toFixed(decimals);
+      setPipConfig(symbol, { decimals, pipSize, source: 'contracts_for' });
+      log(`Connection Engine: contracts_for ${symbol} — pip precision ${decimals}dp (${pipSize})`, 'ok');
+    }catch(e){
+      log(`Connection Engine: contracts_for lookup failed for ${symbol} — using default 2dp (${e.message})`, 'err');
+      setPipConfig(symbol, { decimals: 2, pipSize: 0.01, source: 'fallback' });
+    }
+  }
+
+  function formatBarrier(offset, direction, market){
+    const { decimals } = getPipConfig(market || State.market);
+    const val = Math.abs(+offset).toFixed(decimals);
+    return (direction === '-' ? '-' : '+') + val;
+  }
+
+  async function buyContract(payload){
+    if(simulated){
+      log(`Execution (sim): BUY ${payload.contract_type} ${payload.symbol} barrier ${payload.barrier} stake ${payload.amount}`, 'ok');
+      return simulateContractResult(payload);
+    }
+    try{
+      const barrierStr = formatBarrier(payload.barrierOffset, payload.direction, payload.symbol);
+      log(`Execution Engine: requesting proposal — ${payload.contract_type} ${payload.symbol} barrier ${barrierStr}`);
+      const proposalRes = await sendWsRequest({
+        proposal: 1,
+        amount: payload.amount,
+        basis: 'stake',
+        contract_type: payload.contract_type,
+        currency: 'USD',
+        duration: payload.duration,
+        duration_unit: 't',
+        underlying_symbol: payload.symbol,
+        barrier: barrierStr
+      });
+      if(proposalRes.error) throw new Error(proposalRes.error.message);
+      const proposalId = proposalRes.proposal.id;
+      const askPrice = Number(proposalRes.proposal.ask_price);
+      log(`Execution Engine: proposal received (ask ${askPrice}) — buying…`);
+
+      const buyRes = await sendWsRequest({ buy: proposalId, price: askPrice });
+      if(buyRes.error) throw new Error(buyRes.error.message);
+      const contractId = buyRes.buy.contract_id;
+      log(`Execution Engine: contract bought — id ${contractId}, price ${buyRes.buy.buy_price}`, 'ok');
+
+      return await monitorContract(contractId, payload.amount);
+    }catch(e){
+      log('Execution Engine: live buy failed — '+e.message, 'err');
+      return null;
+    }
+  }
+
+  function monitorContract(contractId, stake){
+    return new Promise((resolve) => {
+      const handler = (data) => {
+        if(data.msg_type !== 'proposal_open_contract') return;
+        const c = data.proposal_open_contract;
+        if(c.contract_id !== contractId) return;
+        if(c.is_sold){
+          ws.removeEventListener('message', handler);
+          const payout = Number(c.sell_price || c.payout || 0);
+          resolve({ won: payout > stake, payout, contract_id: contractId });
+        }
+      };
+      ws.addEventListener('message', (m) => { try{ handler(JSON.parse(m.data)); }catch(e){} });
+      ws.send(JSON.stringify({ proposal_open_contract: 1, contract_id: contractId, subscribe: 1, req_id: ++reqIdCounter }));
+    });
+  }
+
+  function simulateContractResult(payload){
+    return new Promise(res=>{
+      setTimeout(()=>{
+        const hit = Math.random() < payload._estProb;
+        const won = (payload.contract_type==='ONETOUCH') ? hit : !hit;
+        res({ won, payout: won ? +(payload.amount*1.85).toFixed(2) : 0, ...payload });
+      }, 1200 + Math.random()*800);
+    });
+  }
+
+  return { connect, buyContract, isAuthorized:()=>authorized, isSimulated:()=>simulated, subscribeTicks, getPipConfig, setPipConfig, fetchContractsFor };
+})();
+Structure.registerEngine('Connection', Connection);
+
+/* ================================================================
+   STATE
+   ================================================================ */
+const State = {
+  market: 'R_100',
+  ticks: [],
+  balance: 10000,
+  openContracts: 0,
+  todayPnl: 0,
+  sessionPnl: 0,
+  autoTrade: false,
+  barrierAI: true,
+};
+
+/* ================================================================
+   ENGINE 3 — STATISTICS ENGINE
+   ================================================================ */
+const Statistics = (() => {
+  let history = [];
+  function onTick(tick){
+    if(tick.symbol && tick.symbol !== State.market) return; // ignore ticks from a non-active market
+    const prev = history.length ? history[history.length-1] : null;
+    const diff = prev ? tick.price - prev.price : 0;
+    const direction = diff>0?1:diff<0?-1:0;
+    const speed = Math.abs(diff);
+    const accel = prev ? speed - Math.abs(prev.diff||0) : 0;
+    const window = history.slice(-20).map(h=>h.price).concat(tick.price);
+    const mean = window.reduce((a,b)=>a+b,0)/window.length;
+    const variance = window.reduce((a,b)=>a+(b-mean)**2,0)/window.length;
+    const volatility = Math.sqrt(variance);
+    const rec = { ...tick, diff, direction, speed, accel, volatility, ma: mean };
+    history.push(rec);
+    if(history.length>500) history.shift();
+    DB.push('ticks', {p:tick.price,t:tick.epoch,m:tick.symbol}, 2000);
+    Bus.emit('statistics.updated', rec);
+    return rec;
+  }
+  function recent(n=100){ return history.slice(-n); }
+  function reset(){ history = []; log('Statistics Engine: history cleared for market switch'); }
+  Bus.on('tick.received', onTick);
+  return { recent, all:()=>history, reset };
+})();
+Structure.registerEngine('Statistics', Statistics);
+
+/* ================================================================
+   ENGINE 5 — BARRIER ENGINE  (manual + AI-adjusted)
+   ================================================================ */
+const Barrier = (() => {
+  // manual config per market
+  let manual = DB.get('barrierManual', {});
+  function getManualCfg(market){
+    return manual[market] || { mode:'auto', offset: 0.3, duration: 8, contractType:'ONETOUCH' };
+  }
+  function setManualCfg(market, cfg){
+    manual[market] = cfg; DB.set('barrierManual', manual);
+  }
+
+  function computeATR(ticks){
+    if(ticks.length<2) return 0.2;
+    let sum=0; for(let i=1;i<ticks.length;i++) sum += Math.abs(ticks[i].price-ticks[i-1].price);
+    return sum/(ticks.length-1);
+  }
+
+  function computeBarrier(market, statsWindow){
+    const cfg = getManualCfg(market);
+    const atr = computeATR(statsWindow);
+    const lastVol = statsWindow.length ? statsWindow[statsWindow.length-1].volatility : atr;
+    const momentum = statsWindow.length>5 ? statsWindow[statsWindow.length-1].price - statsWindow[statsWindow.length-6].price : 0;
+    let offset, contractType, duration, hitProb;
+
+    if(cfg.mode === 'manual'){
+      offset = cfg.offset;
+      contractType = cfg.contractType;
+      duration = cfg.duration;
+    } else {
+      // AI-adjusted baseline before learning kicks in
+      const aiAdj = BarrierAI.getAdjustment(market);
+      offset = ( (atr*1.6 + lastVol*0.8) * aiAdj.offsetMultiplier + aiAdj.offsetBias );
+      const priceRef = statsWindow.length ? statsWindow[statsWindow.length-1].price : 1000;
+      const sensibleCap = Math.max(atr*6, priceRef*0.002); // never exceed ~0.2% of price or 6x ATR, whichever larger but bounded
+      offset = Math.max(0.02, Math.min(offset, sensibleCap));
+      contractType = aiAdj.preferredType || (Math.abs(momentum) > lastVol*1.5 ? 'NOTOUCH' : 'ONETOUCH');
+      duration = aiAdj.preferredDuration || Math.round(6 + lastVol*4);
+    }
+    offset = +offset.toFixed(Connection.getPipConfig(market).decimals); // round to this market's real pip precision
+
+    // hit-probability heuristic (probabilistic estimate, not a prediction)
+    const normDist = offset / (atr*Math.sqrt(duration) + 1e-6);
+    hitProb = Math.max(0.05, Math.min(0.95, 1 - Math.min(normDist/3,1)));
+
+    const dir = momentum >= 0 ? '+' : '-';
+    return {
+      market, offset, direction: dir, contractType, duration,
+      hitProb: +hitProb.toFixed(3), atr: +atr.toFixed(4), volatility: +lastVol.toFixed(4)
+    };
+  }
+
+  return { getManualCfg, setManualCfg, computeBarrier };
+})();
+Structure.registerEngine('Barrier', Barrier);
+
+/* ================================================================
+   BARRIER AI — self-learning module
+   Learns from trade logs / system logs / market analysis data,
+   adjusts optimal barrier offset & contract-type bias per market.
+   ================================================================ */
+const BarrierAI = (() => {
+  // per-market learned model: {offsetMultiplier, offsetBias, preferredType, preferredDuration, samples, winRate}
+  let models = DB.get('barrierAIModels', {});
+
+  function ensure(market){
+    if(!models[market]) models[market] = {
+      offsetMultiplier: 1.0, offsetBias: 0.0,
+      preferredType: null, preferredDuration: null,
+      samples: 0, wins: 0, winRate: 0,
+      touchWins:0, touchTotal:0, notouchWins:0, notouchTotal:0
+    };
+    return models[market];
+  }
+
+  function getAdjustment(market){ return ensure(market); }
+
+  function persist(){ DB.set('barrierAIModels', models); }
+
+  // core learning update, called after every closed trade
+  function learn(trade){
+    const m = ensure(trade.market);
+    m.samples++;
+    if(trade.won) m.wins++;
+    m.winRate = +(m.wins/m.samples).toFixed(3);
+
+    if(trade.contract_type==='ONETOUCH'){ m.touchTotal++; if(trade.won) m.touchWins++; }
+    else { m.notouchTotal++; if(trade.won) m.notouchWins++; }
+
+    // gradient-free adaptive nudging: reward/punish offset multiplier based on outcome
+    const learnRate = 0.04;
+    if(trade.won){
+      // reinforce current offset scale slightly, nudge bias toward what worked
+      m.offsetMultiplier += learnRate * 0.3;
+      m.offsetBias += (trade.barrier - m.offsetBias) * 0.05;
+    } else {
+      // shrink offset multiplier (barrier likely too tight or too loose) — steer toward mean-reversion
+      m.offsetMultiplier -= learnRate * 0.5;
+      m.offsetMultiplier = Math.max(0.4, m.offsetMultiplier);
+    }
+    m.offsetMultiplier = Math.max(0.4, Math.min(3.0, m.offsetMultiplier));
+
+    // determine preferred contract type once enough samples exist
+    const touchWR = m.touchTotal>3 ? m.touchWins/m.touchTotal : null;
+    const notouchWR = m.notouchTotal>3 ? m.notouchWins/m.notouchTotal : null;
+    if(touchWR!==null && notouchWR!==null){
+      m.preferredType = touchWR >= notouchWR ? 'ONETOUCH' : 'NOTOUCH';
+    }
+    if(m.samples % 5 === 0){
+      log(`Barrier AI: model for ${trade.market} updated — samples=${m.samples}, winRate=${(m.winRate*100).toFixed(1)}%, offsetMult=${m.offsetMultiplier.toFixed(2)}`, 'ai');
+    }
+    persist();
+    Bus.emit('barrierai.updated', {market: trade.market, model: m});
+  }
+
+  Bus.on('trade.closed', learn);
+  return { getAdjustment, learn, all:()=>models };
+})();
+Structure.registerEngine('BarrierAI', BarrierAI);
+
+/* ================================================================
+   ENGINE 4 — ANALYTICS ENGINE
+   ================================================================ */
+const Analytics = (() => {
+  function analyze(){
+    const window = Statistics.recent(60);
+    if(window.length < 8) return null;
+    const last = window[window.length-1];
+    const barrier = Barrier.computeBarrier(State.market, window);
+
+    const upTicks = window.filter(t=>t.direction>0).length;
+    const downTicks = window.filter(t=>t.direction<0).length;
+    const trendScore = (upTicks-downTicks)/window.length;
+    const volScore = Math.min(1, last.volatility/2);
+    const confidence = Math.max(0.15, Math.min(0.95, 0.5 + Math.abs(trendScore)*0.3 + (1-volScore)*0.2 + barrier.hitProb*0.2));
+
+    const reasons = [];
+    reasons.push(`ATR ${barrier.atr}, vol ${barrier.volatility}`);
+    reasons.push(`Trend bias ${trendScore>0?'up':trendScore<0?'down':'flat'} (${(trendScore*100).toFixed(0)}%)`);
+    reasons.push(`Barrier AI offset x${BarrierAI.getAdjustment(State.market).offsetMultiplier.toFixed(2)}`);
+
+    const candidate = {
+      market: State.market, contractType: barrier.contractType, barrier: barrier.offset,
+      direction: barrier.direction, duration: barrier.duration, confidence: +confidence.toFixed(3),
+      hitProb: barrier.hitProb, reasons, price: last.price
+    };
+    Bus.emit('analysis.completed', candidate);
+    return candidate;
+  }
+  setInterval(analyze, 2500);
+  return { analyze };
+})();
+Structure.registerEngine('Analytics', Analytics);
+
+/* ================================================================
+   ENGINE 6 — RISK MANAGER (highest priority, nothing bypasses it)
+   ================================================================ */
+const Risk = (() => {
+  let cfg = DB.get('riskCfg', { maxDailyLoss:200, maxDrawdown:400, maxStake:50, maxOpen:3, minConfidence:0.55, cooldownMs:4000, tradesPerBatch:1, maxTakeProfit:0, sessionTakeProfit:0 });
+  let lastTradeTime = 0;
+  let dayLoss = DB.get('dayLoss', 0);
+  let collectiveProfit = DB.get('collectiveProfit', 0); // sums across every auto-trade session, never auto-resets
+  let sessionCount = DB.get('sessionCount', 0);
+  let paused = false;
+  let batchOpen = 0; // trades currently in-flight within the active batch
+
+  function check(candidate, stake){
+    if(paused) return {ok:false, reason:'System paused (emergency stop)'};
+    if(Date.now()-lastTradeTime < cfg.cooldownMs) return {ok:false, reason:'Cooldown active'};
+    if(State.openContracts >= cfg.maxOpen) return {ok:false, reason:'Max open contracts reached'};
+    if(batchOpen >= cfg.tradesPerBatch) return {ok:false, reason:`Batch limit reached (${batchOpen}/${cfg.tradesPerBatch}) — waiting for batch to close`};
+    if(stake > cfg.maxStake) return {ok:false, reason:'Stake exceeds max allowed'};
+    if(dayLoss >= cfg.maxDailyLoss) return {ok:false, reason:'Daily loss limit reached'};
+    if(cfg.maxTakeProfit>0 && collectiveProfit >= cfg.maxTakeProfit) return {ok:false, reason:'Max Take Profit (collective) reached'};
+    if(cfg.sessionTakeProfit>0 && State.sessionPnl >= cfg.sessionTakeProfit) return {ok:false, reason:'Session Take Profit reached — awaiting session reset'};
+    if(candidate.confidence < cfg.minConfidence) return {ok:false, reason:'Confidence below threshold'};
+    return {ok:true};
+  }
+  function batchTradeOpened(){ batchOpen++; log(`Risk Manager: batch trade opened (${batchOpen}/${cfg.tradesPerBatch})`); Bus.emit('batch.updated'); }
+  function batchTradeClosed(){
+    batchOpen = Math.max(0, batchOpen-1);
+    if(batchOpen === 0) log('Risk Manager: batch fully closed — next batch may begin', 'ok');
+    Bus.emit('batch.updated');
+  }
+  function getBatchStatus(){ return { open: batchOpen, size: cfg.tradesPerBatch }; }
+
+  function recordResult(pnl){
+    if(pnl<0) dayLoss += Math.abs(pnl);
+    DB.set('dayLoss', dayLoss);
+    lastTradeTime = Date.now();
+    if(dayLoss >= cfg.maxDailyLoss){ log('Risk Manager: daily loss limit hit — trading paused', 'err'); paused = true; }
+
+    collectiveProfit += pnl;
+    DB.set('collectiveProfit', collectiveProfit);
+    State.sessionPnl += pnl;
+    Bus.emit('takeprofit.updated', { collectiveProfit, sessionPnl: State.sessionPnl });
+
+    if(cfg.maxTakeProfit>0 && collectiveProfit >= cfg.maxTakeProfit){
+      log(`Risk Manager: MAX TAKE PROFIT reached — collective profit ${collectiveProfit.toFixed(2)} ≥ ${cfg.maxTakeProfit}. Trading paused across all sessions.`, 'ok');
+      paused = true;
+      State.autoTrade = false;
+      const sw = document.getElementById('swAuto'); if(sw) sw.classList.remove('on');
+    } else if(cfg.sessionTakeProfit>0 && State.sessionPnl >= cfg.sessionTakeProfit){
+      log(`Risk Manager: SESSION TAKE PROFIT reached — session profit ${State.sessionPnl.toFixed(2)} ≥ ${cfg.sessionTakeProfit}. Resetting session (trade history + PnL stats cleared).`, 'ok');
+      resetSession(true);
+    }
+  }
+
+  function startSession(){
+    State.sessionPnl = 0;
+    sessionCount++;
+    DB.set('sessionCount', sessionCount);
+    log(`Risk Manager: Trade Session #${sessionCount} started`, 'ai');
+    Bus.emit('takeprofit.updated', { collectiveProfit, sessionPnl: State.sessionPnl });
+  }
+  function resetSession(stopAutoTrade){
+    // clears trade history and today's PnL stats for a fresh session, per user spec
+    DB.set('trades', []);
+    State.todayPnl = 0;
+    State.sessionPnl = 0;
+    dayLoss = 0; DB.set('dayLoss', dayLoss);
+    updateHeader();
+    renderHistoryIfActive();
+    if(stopAutoTrade){
+      State.autoTrade = false;
+      const sw = document.getElementById('swAuto'); if(sw) sw.classList.remove('on');
+      log('Risk Manager: Auto-Trade stopped at session boundary — re-enable to start a new session.', 'ok');
+    }
+    Bus.emit('takeprofit.updated', { collectiveProfit, sessionPnl: State.sessionPnl });
+  }
+
+  function emergencyStop(){ paused = true; log('Risk Manager: EMERGENCY STOP triggered', 'err'); }
+  function resume(){ paused = false; log('Risk Manager: resumed', 'ok'); }
+  function setCfg(newCfg){ cfg = {...cfg, ...newCfg}; DB.set('riskCfg', cfg); }
+  function getCfg(){ return cfg; }
+  function getProfitStatus(){ return { collectiveProfit, sessionPnl: State.sessionPnl, sessionCount }; }
+  return { check, recordResult, emergencyStop, resume, setCfg, getCfg, isPaused:()=>paused, batchTradeOpened, batchTradeClosed, getBatchStatus, startSession, resetSession, getProfitStatus };
+})();
+Structure.registerEngine('Risk', Risk);
+
+/* ================================================================
+   ENGINE 7 — MARTINGALE ENGINE
+   ================================================================ */
+const Martingale = (() => {
+  let cfg = DB.get('martCfg', { mode:'disabled', base:1, multiplier:2.1, maxLevel:5 });
+  let level = 0;
+  function nextStake(){
+    if(cfg.mode==='disabled') return cfg.base;
+    return +(cfg.base * Math.pow(cfg.multiplier, level)).toFixed(2);
+  }
+  function onResult(won){
+    if(cfg.mode==='disabled') return;
+    if(won) level = 0;
+    else level = Math.min(level+1, cfg.maxLevel);
+  }
+  function setCfg(n){ cfg={...cfg,...n}; DB.set('martCfg',cfg); level=0; }
+  function getCfg(){ return cfg; }
+  function getLevel(){ return level; }
+  return { nextStake, onResult, setCfg, getCfg, getLevel };
+})();
+Structure.registerEngine('Martingale', Martingale);
+
+/* ================================================================
+   ENGINE 8 — EXECUTION ENGINE
+   ================================================================ */
+const Execution = (() => {
+  async function execute(candidate){
+    const stake = Martingale.nextStake();
+    const riskCheck = Risk.check(candidate, stake);
+    if(!riskCheck.ok){ log(`Execution Engine: trade rejected — ${riskCheck.reason}`, 'err'); Bus.emit('risk.rejected', riskCheck); return; }
+
+    const payload = {
+      symbol: candidate.market, contract_type: candidate.contractType,
+      barrierOffset: candidate.barrier, direction: candidate.direction,
+      barrier: (candidate.direction==='+'?'+':'-')+candidate.barrier.toFixed(Connection.getPipConfig(candidate.market).decimals),
+      duration: candidate.duration, amount: stake, _estProb: candidate.hitProb
+    };
+    State.openContracts++; Risk.batchTradeOpened(); updateHeader();
+    log(`Execution Engine: sending ${candidate.contractType} ${candidate.market} barrier ${payload.barrier} stake $${stake}`, 'ok');
+
+    const result = await Connection.buyContract(payload);
+    if(!result){
+      State.openContracts--; Risk.batchTradeClosed(); updateHeader();
+      return;
+    }
+
+    State.openContracts--; Risk.batchTradeClosed();
+    const pnl = result.won ? (result.payout - stake) : -stake;
+    State.todayPnl += pnl;
+    Risk.recordResult(pnl);
+    Martingale.onResult(result.won);
+    updateHeader();
+
+    const trade = {
+      time: Date.now(), market: candidate.market, contract_type: candidate.contractType,
+      barrier: candidate.barrier, duration: candidate.duration, stake, won: result.won, pnl: +pnl.toFixed(2)
+    };
+    DB.push('trades', trade, 1000);
+    Bus.emit('trade.closed', trade);
+    log(`Execution Engine: contract closed — ${result.won?'WON':'LOST'} (${pnl>=0?'+':''}${pnl.toFixed(2)})`, result.won?'ok':'err');
+    renderHistoryIfActive();
+  }
+  Bus.on('trade.candidate', execute);
+  return { execute };
+})();
+Structure.registerEngine('Execution', Execution);
+
+function updateHeader(){
+  document.getElementById('hdOpen').textContent = State.openContracts;
+  const pnlEl = document.getElementById('hdPnl');
+  pnlEl.textContent = State.todayPnl.toFixed(2);
+  pnlEl.className = State.todayPnl>=0 ? 'up':'down';
+  const countEl = document.getElementById('openTradeCount');
+  if(countEl) countEl.textContent = `${State.openContracts} / ${Risk.getCfg().maxOpen}`;
+}
+
+/* ================================================================
+   ANALYTICS -> SIGNAL PANEL + AUTO TRADE TRIGGER
+   ================================================================ */
+Bus.on('analysis.completed', (c) => {
+  const tag = document.getElementById('sigTag');
+  tag.textContent = c.contractType + (c.direction==='+'?' ↑':' ↓');
+  tag.className = 'tag ' + (c.confidence>0.65?'buy':c.confidence<0.4?'sell':'hold');
+  document.getElementById('sigMarket').textContent = c.market;
+  document.getElementById('sigType').textContent = c.contractType;
+  document.getElementById('sigConf').style.width = (c.confidence*100).toFixed(0)+'%';
+  document.getElementById('sigReason').textContent = c.reasons.join(' · ');
+
+  const model = BarrierAI.getAdjustment(c.market);
+  document.getElementById('baiMarket').textContent = c.market;
+  document.getElementById('baiOffset').textContent = (c.direction)+c.barrier.toFixed(3);
+  document.getElementById('baiInfo').textContent = model.samples>0
+    ? `Learned from ${model.samples} trades · win rate ${(model.winRate*100).toFixed(1)}% · preferred ${model.preferredType||'—'}`
+    : 'Learning engine idle — collecting data.';
+
+  if(State.autoTrade && !Risk.isPaused() && c.confidence >= Risk.getCfg().minConfidence){
+    Bus.emit('trade.candidate', c);
+  }
+  renderDashboardLive(c);
+});
+
+/* ================================================================
+   UI — TAB RENDERING
+   ================================================================ */
+let activeTab = 'dashboard';
+let priceChart = null;
+
+function renderDashboard(){
+  return `
+  <div class="card">
+    <h3>Live Price — <span id="dashMarketLabel">${State.market}</span></h3>
+    <div class="chart-wrap"><canvas id="priceChart"></canvas></div>
+  </div>
+  <div class="grid4">
+    <div class="stat"><div class="k">Last Price</div><div class="v" id="dLast">—</div></div>
+    <div class="stat"><div class="k">Volatility</div><div class="v" id="dVol">—</div></div>
+    <div class="stat"><div class="k">Momentum</div><div class="v" id="dMom">—</div></div>
+    <div class="stat"><div class="k">Confidence</div><div class="v gold" id="dConf">—</div></div>
+  </div>
+  <div class="card">
+    <h3>Barrier Panel (live)</h3>
+    <div class="barrier-visual" id="barrierVisual">
+      <div class="bv-mid"></div>
+      <div class="bv-price" id="bvPrice">—</div>
+    </div>
+  </div>`;
+}
+
+function renderBarrierTab(){
+  const cfg = Barrier.getManualCfg(State.market);
+  const model = BarrierAI.getAdjustment(State.market);
+  const pip = Connection.getPipConfig(State.market);
+  return `
+  <div class="card">
+    <h3>Barrier Engine Setup — ${State.market}</h3>
+    <div class="section-tabs">
+      <div class="tb ${cfg.mode==='auto'?'active':''}" data-bmode="auto">AI-Adjusted</div>
+      <div class="tb ${cfg.mode==='manual'?'active':''}" data-bmode="manual">Manual</div>
+    </div>
+    <div id="barrierManualBlock" class="${cfg.mode==='manual'?'':'hidden'}">
+      <div class="grid3">
+        <div class="field"><label>Barrier Offset</label><input type="number" step="${pip.pipSize}" id="mOffset" value="${cfg.offset}"></div>
+        <div class="field"><label>Duration (ticks)</label><input type="number" id="mDuration" value="${cfg.duration}"></div>
+        <div class="field"><label>Contract Type</label>
+          <select id="mType"><option value="ONETOUCH" ${cfg.contractType==='ONETOUCH'?'selected':''}>Touch</option>
+          <option value="NOTOUCH" ${cfg.contractType==='NOTOUCH'?'selected':''}>No Touch</option></select>
+        </div>
+      </div>
+      <button class="btn primary" id="saveManualBarrier">Save Manual Barrier</button>
+    </div>
+    <div id="barrierAutoBlock" class="${cfg.mode==='auto'?'':'hidden'}">
+      <p class="small">The Barrier AI dynamically computes and enforces the optimal Touch/No-Touch barrier from live ATR, volatility, momentum and its learned per-market model. Manual offset/duration/type above are ignored while AI mode is active — but pip precision below still applies.</p>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Pip &amp; Decimal Precision — ${State.market}</h3>
+    <p class="small">Deriv enforces a fixed decimal precision per market for barrier values (source: <b>${pip.source}</b>). Sending the wrong precision causes an <code>InputValidationFailed</code> rejection. Live connect auto-detects this via <code>contracts_for</code>; override manually below if needed.</p>
+    <div class="grid3" style="margin-top:10px;">
+      <div class="field">
+        <label>Decimal Adjuster (places)</label>
+        <input type="number" id="pipDecimals" min="0" max="6" step="1" value="${pip.decimals}">
+      </div>
+      <div class="field">
+        <label>Pip Size (auto from decimals)</label>
+        <input type="text" id="pipSizeDisplay" value="${pip.pipSize}" readonly>
+      </div>
+      <div class="field">
+        <label>Pip Level Adjuster (nudge offset)</label>
+        <div style="display:flex; gap:6px;">
+          <button class="btn" id="pipDown" type="button">− 1 pip</button>
+          <button class="btn" id="pipUp" type="button">+ 1 pip</button>
+        </div>
+      </div>
+    </div>
+    <button class="btn primary" id="savePipCfg">Save Precision</button>
+    <button class="btn" id="refetchPip" style="margin-left:8px;">Re-fetch from contracts_for</button>
+  </div>
+  <div class="card">
+    <h3>Barrier AI — Learning Model (${State.market})</h3>
+    <div class="grid4">
+      <div class="stat"><div class="k">Samples</div><div class="v" id="baiSamples">${model.samples}</div></div>
+      <div class="stat"><div class="k">Win Rate</div><div class="v gold" id="baiWinRate">${(model.winRate*100).toFixed(1)}%</div></div>
+      <div class="stat"><div class="k">Offset Multiplier</div><div class="v" id="baiMult">${model.offsetMultiplier.toFixed(2)}</div></div>
+      <div class="stat"><div class="k">Preferred Type</div><div class="v" id="baiPref">${model.preferredType||'—'}</div></div>
+    </div>
+    <p class="small" style="margin-top:10px;">The Barrier AI continuously ingests every closed trade, system log and market-analysis snapshot for this market, then nudges the offset multiplier and contract-type preference toward whatever historically produced higher win rate — always bounded and always subordinate to the Risk Manager.</p>
+    <table style="margin-top:10px;">
+      <thead><tr><th>Market</th><th>Samples</th><th>Win Rate</th><th>Offset ×</th><th>Preferred</th></tr></thead>
+      <tbody id="baiModelTable"></tbody>
+    </table>
+  </div>`;
+}
+
+function renderSignalsTab(){
+  return `<div class="card"><h3>Trade Signal Feed</h3><table><thead><tr><th>Time</th><th>Market</th><th>Type</th><th>Barrier</th><th>Duration</th><th>Confidence</th></tr></thead><tbody id="signalTableBody"></tbody></table></div>`;
+}
+let signalLog = [];
+Bus.on('analysis.completed', c=>{
+  signalLog.unshift(c);
+  if(signalLog.length>60) signalLog.pop();
+  if(activeTab==='signals') renderSignalTable();
+});
+function renderSignalTable(){
+  const body = document.getElementById('signalTableBody'); if(!body) return;
+  body.innerHTML = signalLog.slice(0,30).map(c=>`<tr><td>${new Date().toLocaleTimeString()}</td><td>${c.market}</td>
+    <td><span class="tag ${c.confidence>0.65?'buy':c.confidence<0.4?'sell':'hold'}">${c.contractType}</span></td>
+    <td>${c.direction}${c.barrier.toFixed(3)}</td><td>${c.duration}t</td><td>${(c.confidence*100).toFixed(0)}%</td></tr>`).join('');
+}
+
+function renderRiskTab(){
+  const cfg = Risk.getCfg();
+  const batch = Risk.getBatchStatus();
+  const profit = Risk.getProfitStatus();
+  return `<div class="card"><h3>Risk Manager Configuration</h3>
+    <div class="grid3">
+      <div class="field"><label>Max Daily Loss</label><input type="number" id="rMaxDaily" value="${cfg.maxDailyLoss}"></div>
+      <div class="field"><label>Max Drawdown</label><input type="number" id="rMaxDD" value="${cfg.maxDrawdown}"></div>
+      <div class="field"><label>Max Stake</label><input type="number" id="rMaxStake" value="${cfg.maxStake}"></div>
+      <div class="field"><label>Max Open Contracts</label><input type="number" id="rMaxOpen" value="${cfg.maxOpen}"></div>
+      <div class="field"><label>Min Confidence</label><input type="number" step="0.01" id="rMinConf" value="${cfg.minConfidence}"></div>
+      <div class="field"><label>Cooldown (ms)</label><input type="number" id="rCooldown" value="${cfg.cooldownMs}"></div>
+      <div class="field">
+        <label>Trades Per Batch</label>
+        <input type="number" id="rTradesPerBatch" min="1" max="20" value="${cfg.tradesPerBatch}">
+      </div>
+      <div class="field">
+        <label>Max Take Profit (collective)</label>
+        <input type="number" id="rMaxTakeProfit" min="0" step="1" value="${cfg.maxTakeProfit}" placeholder="0 = off">
+      </div>
+      <div class="field">
+        <label>Session Take Profit</label>
+        <input type="number" id="rSessionTakeProfit" min="0" step="1" value="${cfg.sessionTakeProfit}" placeholder="0 = off">
+      </div>
+    </div>
+    <button class="btn primary" id="saveRiskCfg">Save Risk Config</button>
+    <button class="btn" id="resumeRisk" style="margin-left:8px;">Resume Trading</button>
+    <button class="btn" id="manualResetSession" style="margin-left:8px;">Reset Session Now</button>
+    <p class="small" style="margin-top:10px;">Risk Manager has highest priority — no engine, including Barrier AI or Martingale, may bypass it.</p>
+    <p class="small" style="margin-top:6px;"><b>Trades Per Batch</b> caps how many trades fire together before the engine blocks all further trades until every trade in that batch has closed. Current batch: <b id="batchStatusLive">${batch.open} / ${batch.size}</b> in flight.</p>
+    <p class="small" style="margin-top:6px;"><b>Max Take Profit</b> is the collective profit cap across every Trade Session (each Auto-Trade activation = one session) — once reached, trading pauses entirely until manually resumed. <b>Session Take Profit</b> is the target for the current session alone — once reached, Auto-Trade stops and trade history + PnL stats are cleared for a fresh session. Set either to 0 to disable.</p>
+  </div>
+  <div class="card">
+    <h3>Take Profit Status</h3>
+    <div class="grid3">
+      <div class="stat"><div class="k">Collective Profit</div><div class="v ${profit.collectiveProfit>=0?'up':'down'}" id="tpCollective">${profit.collectiveProfit.toFixed(2)}</div></div>
+      <div class="stat"><div class="k">Session Profit</div><div class="v ${profit.sessionPnl>=0?'up':'down'}" id="tpSession">${profit.sessionPnl.toFixed(2)}</div></div>
+      <div class="stat"><div class="k">Session Count</div><div class="v gold" id="tpSessionCount">${profit.sessionCount}</div></div>
+    </div>
+  </div>`;
+}
+
+function renderMartingaleTab(){
+  const cfg = Martingale.getCfg();
+  return `<div class="card"><h3>Martingale Engine</h3>
+    <div class="grid3">
+      <div class="field"><label>Mode</label><select id="mmMode">
+        <option value="disabled" ${cfg.mode==='disabled'?'selected':''}>Disabled</option>
+        <option value="manual" ${cfg.mode==='manual'?'selected':''}>Manual</option>
+        <option value="ai" ${cfg.mode==='ai'?'selected':''}>AI Adaptive</option>
+      </select></div>
+      <div class="field"><label>Base Stake</label><input type="number" id="mmBase" value="${cfg.base}"></div>
+      <div class="field"><label>Multiplier</label><input type="number" step="0.1" id="mmMult" value="${cfg.multiplier}"></div>
+      <div class="field"><label>Max Level</label><input type="number" id="mmMax" value="${cfg.maxLevel}"></div>
+    </div>
+    <button class="btn primary" id="saveMartCfg">Save Martingale Config</button>
+    <p class="small" style="margin-top:10px;">Current level: <b>${Martingale.getLevel()}</b> · Next stake: <b>$${Martingale.nextStake()}</b> · Martingale never bypasses the Risk Manager.</p>
+  </div>`;
+}
+
+function renderHistoryTab(){
+  return `<div class="card"><h3>Trade History</h3><table><thead><tr><th>Time</th><th>Market</th><th>Type</th><th>Barrier</th><th>Stake</th><th>Result</th><th>PnL</th></tr></thead><tbody id="historyBody"></tbody></table></div>`;
+}
+function renderHistoryIfActive(){ if(activeTab==='history') fillHistory(); }
+function fillHistory(){
+  const trades = DB.get('trades', []).slice().reverse();
+  const body = document.getElementById('historyBody'); if(!body) return;
+  body.innerHTML = trades.slice(0,80).map(t=>`<tr><td>${new Date(t.time).toLocaleTimeString()}</td><td>${t.market}</td>
+    <td>${t.contract_type}</td><td>${t.barrier.toFixed(3)}</td><td>$${t.stake}</td>
+    <td class="${t.won?'up':'down'}">${t.won?'WON':'LOST'}</td><td class="${t.pnl>=0?'up':'down'}">${t.pnl>=0?'+':''}${t.pnl.toFixed(2)}</td></tr>`).join('') || '<tr><td colspan="7" class="small">No trades yet.</td></tr>';
+}
+
+function renderLogsTab(){
+  return `<div class="card"><h3>System Logs</h3><div class="log-box" id="logFull" style="max-height:520px;"></div></div>`;
+}
+function fillLogsTab(){
+  const full = document.getElementById('logFull'); if(!full) return;
+  const logs = DB.get('logs', []).slice().reverse();
+  full.innerHTML = logs.slice(0,300).map(e=>`<div class="log-line ${e.type==='err'?'err':e.type==='ok'?'ok':e.type==='ai'?'ai':''}">[${new Date(e.t).toLocaleTimeString()}] ${e.msg}</div>`).join('');
+}
+
+function renderSettingsTab(){
+  return `<div class="card"><h3>Application Settings</h3>
+    <p class="small">TURBO runs entirely client-side as a single-file PWA. All trade logs, tick history and Barrier AI models persist in local storage per browser profile.</p>
+    <button class="btn danger" id="wipeData">Wipe Local Data</button>
+  </div>`;
+}
+
+function renderTab(tab){
+  activeTab = tab;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.tab===tab));
+  const main = document.getElementById('mainArea');
+  if(tab==='dashboard'){ main.innerHTML = renderDashboard(); initChart(); }
+  else if(tab==='barrier'){ main.innerHTML = renderBarrierTab(); wireBarrierTab(); fillBarrierModelTable(); }
+  else if(tab==='signals'){ main.innerHTML = renderSignalsTab(); renderSignalTable(); }
+  else if(tab==='risk'){ main.innerHTML = renderRiskTab(); wireRiskTab(); }
+  else if(tab==='martingale'){ main.innerHTML = renderMartingaleTab(); wireMartTab(); }
+  else if(tab==='history'){ main.innerHTML = renderHistoryTab(); fillHistory(); }
+  else if(tab==='logs'){ main.innerHTML = renderLogsTab(); fillLogsTab(); }
+  else if(tab==='settings'){ main.innerHTML = renderSettingsTab(); wireSettingsTab(); }
+}
+
+function wireBarrierTab(){
+  document.querySelectorAll('[data-bmode]').forEach(el=>{
+    el.onclick = () => {
+      const mode = el.dataset.bmode;
+      const cfg = Barrier.getManualCfg(State.market);
+      cfg.mode = mode; Barrier.setManualCfg(State.market, cfg);
+      log(`Barrier Engine: mode set to ${mode.toUpperCase()} for ${State.market}`);
+      renderTab('barrier');
+    };
+  });
+  const saveBtn = document.getElementById('saveManualBarrier');
+  if(saveBtn) saveBtn.onclick = () => {
+    const cfg = {
+      mode:'manual',
+      offset: parseFloat(document.getElementById('mOffset').value)||0.3,
+      duration: parseInt(document.getElementById('mDuration').value)||8,
+      contractType: document.getElementById('mType').value
+    };
+    Barrier.setManualCfg(State.market, cfg);
+    log(`Barrier Engine: manual barrier saved for ${State.market} — offset ${cfg.offset}, ${cfg.contractType}, ${cfg.duration}t`, 'ok');
+  };
+
+  const savePipBtn = document.getElementById('savePipCfg');
+  if(savePipBtn) savePipBtn.onclick = () => {
+    const decimals = Math.max(0, Math.min(6, parseInt(document.getElementById('pipDecimals').value)||2));
+    const pipSize = +(Math.pow(10, -decimals)).toFixed(decimals);
+    Connection.setPipConfig(State.market, { decimals, pipSize, source:'manual' });
+    log(`Barrier Engine: pip precision manually set to ${decimals}dp for ${State.market}`, 'ok');
+    renderTab('barrier');
+  };
+  const refetchBtn = document.getElementById('refetchPip');
+  if(refetchBtn) refetchBtn.onclick = () => {
+    if(Connection.isSimulated()){ log('Pip Adjuster: contracts_for lookup requires a live connection', 'err'); return; }
+    Connection.fetchContractsFor(State.market).then(()=>renderTab('barrier'));
+  };
+  function nudgePip(dir){
+    const pip = Connection.getPipConfig(State.market);
+    const cfg = Barrier.getManualCfg(State.market);
+    const nudged = +( (cfg.offset||0) + dir*pip.pipSize ).toFixed(pip.decimals);
+    cfg.offset = Math.max(pip.pipSize, nudged);
+    Barrier.setManualCfg(State.market, cfg);
+    log(`Barrier Engine: pip-adjusted offset ${dir>0?'+':'-'}1 pip → ${cfg.offset} for ${State.market}`);
+    renderTab('barrier');
+  }
+  const pipUpBtn = document.getElementById('pipUp'); if(pipUpBtn) pipUpBtn.onclick = () => nudgePip(1);
+  const pipDownBtn = document.getElementById('pipDown'); if(pipDownBtn) pipDownBtn.onclick = () => nudgePip(-1);
+}
+function fillBarrierModelTable(){
+  const body = document.getElementById('baiModelTable'); if(!body) return;
+  const models = BarrierAI.all();
+  const rows = Object.entries(models).map(([mkt,m])=>`<tr><td>${mkt}</td><td>${m.samples}</td><td>${(m.winRate*100).toFixed(1)}%</td><td>${m.offsetMultiplier.toFixed(2)}</td><td>${m.preferredType||'—'}</td></tr>`).join('');
+  body.innerHTML = rows || '<tr><td colspan="5" class="small">No learned models yet.</td></tr>';
+}
+Bus.on('barrierai.updated', ()=>{ if(activeTab==='barrier') fillBarrierModelTable(); });
+Bus.on('pipconfig.updated', ()=>{ if(activeTab==='barrier') renderTab('barrier'); });
+
+function wireRiskTab(){
+  document.getElementById('saveRiskCfg').onclick = () => {
+    Risk.setCfg({
+      maxDailyLoss: parseFloat(document.getElementById('rMaxDaily').value),
+      maxDrawdown: parseFloat(document.getElementById('rMaxDD').value),
+      maxStake: parseFloat(document.getElementById('rMaxStake').value),
+      maxOpen: parseInt(document.getElementById('rMaxOpen').value),
+      minConfidence: parseFloat(document.getElementById('rMinConf').value),
+      cooldownMs: parseInt(document.getElementById('rCooldown').value),
+      tradesPerBatch: Math.max(1, parseInt(document.getElementById('rTradesPerBatch').value)||1),
+      maxTakeProfit: parseFloat(document.getElementById('rMaxTakeProfit').value)||0,
+      sessionTakeProfit: parseFloat(document.getElementById('rSessionTakeProfit').value)||0
+    });
+    log('Risk Manager: configuration saved', 'ok');
+    const sidebarInput = document.getElementById('maxOpenInput');
+    if(sidebarInput) sidebarInput.value = Risk.getCfg().maxOpen;
+    updateHeader();
+  };
+  document.getElementById('resumeRisk').onclick = () => Risk.resume();
+  document.getElementById('manualResetSession').onclick = () => {
+    if(confirm('Reset the current trade session? This clears trade history and PnL stats (collective profit is preserved).')){
+      Risk.resetSession(false);
+      renderTab('risk');
+      log('Risk Manager: session manually reset', 'ok');
+    }
+  };
+}
+function refreshBatchStatus(){
+  const el = document.getElementById('batchStatusLive'); if(!el) return;
+  const batch = Risk.getBatchStatus();
+  el.textContent = `${batch.open} / ${batch.size}`;
+}
+Bus.on('batch.updated', refreshBatchStatus);
+function refreshTakeProfitStatus(){
+  const cEl = document.getElementById('tpCollective');
+  const sEl = document.getElementById('tpSession');
+  const nEl = document.getElementById('tpSessionCount');
+  if(!cEl) return;
+  const p = Risk.getProfitStatus();
+  cEl.textContent = p.collectiveProfit.toFixed(2); cEl.className = 'v ' + (p.collectiveProfit>=0?'up':'down');
+  sEl.textContent = p.sessionPnl.toFixed(2); sEl.className = 'v ' + (p.sessionPnl>=0?'up':'down');
+  nEl.textContent = p.sessionCount;
+}
+Bus.on('takeprofit.updated', refreshTakeProfitStatus);
+function wireMartTab(){
+  document.getElementById('saveMartCfg').onclick = () => {
+    Martingale.setCfg({
+      mode: document.getElementById('mmMode').value,
+      base: parseFloat(document.getElementById('mmBase').value),
+      multiplier: parseFloat(document.getElementById('mmMult').value),
+      maxLevel: parseInt(document.getElementById('mmMax').value)
+    });
+    log('Martingale Engine: configuration saved', 'ok');
+    renderTab('martingale');
+  };
+}
+function wireSettingsTab(){
+  document.getElementById('wipeData').onclick = () => {
+    if(confirm('Wipe all local TURBO data (trades, logs, AI models)?')){
+      Object.keys(localStorage).filter(k=>k.startsWith('turbo_')).forEach(k=>localStorage.removeItem(k));
+      log('Settings: local data wiped', 'err');
+      location.reload();
+    }
+  };
+}
+
+/* ---------- Chart ---------- */
+function initChart(){
+  const ctx = document.getElementById('priceChart'); if(!ctx) return;
+  priceChart = new Chart(ctx, {
+    type:'line',
+    data:{ labels:[], datasets:[{ data:[], borderColor:'#c9a24b', borderWidth:1.5, pointRadius:0, tension:0.25 }] },
+    options:{
+      animation:false, responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{ x:{display:false}, y:{ ticks:{color:'#7d8296', font:{size:9}}, grid:{color:'#1f2230'} } }
+    }
+  });
+}
+function renderDashboardLive(candidate){
+  const dl = document.getElementById('dLast'); if(!dl) return;
+  const window = Statistics.recent(1);
+  if(!window.length) return;
+  const last = window[0];
+  document.getElementById('dLast').textContent = last.price.toFixed(3);
+  document.getElementById('dVol').textContent = last.volatility.toFixed(4);
+  document.getElementById('dMom').textContent = (last.direction>0?'▲':last.direction<0?'▼':'—');
+  document.getElementById('dConf').textContent = (candidate.confidence*100).toFixed(0)+'%';
+  const bv = document.getElementById('bvPrice');
+  if(bv) bv.textContent = last.price.toFixed(3);
+  const wrap = document.getElementById('barrierVisual');
+  if(wrap){
+    let bel = wrap.querySelector('.bv-barrier');
+    if(!bel){ bel = document.createElement('div'); bel.className='bv-barrier'; wrap.appendChild(bel); }
+    const pct = 50 + (candidate.direction==='+'?1:-1) * Math.min(35, candidate.barrier*40);
+    bel.style.left = pct+'%';
+    bel.setAttribute('data-label', (candidate.direction)+candidate.barrier.toFixed(3));
+  }
+}
+Bus.on('statistics.updated', rec=>{
+  if(activeTab!=='dashboard' || !priceChart) return;
+  const ds = priceChart.data;
+  ds.labels.push('');
+  ds.datasets[0].data.push(rec.price);
+  if(ds.labels.length>80){ ds.labels.shift(); ds.datasets[0].data.shift(); }
+  priceChart.update('none');
+});
+
+/* ---------- Nav wiring ---------- */
+document.querySelectorAll('.nav-item').forEach(el=>{
+  el.addEventListener('click', ()=> renderTab(el.dataset.tab));
+});
+
+/* ---------- Top controls ---------- */
+document.getElementById('connectBtn').onclick = () => {
+  const token = document.getElementById('apiToken').value.trim();
+  const appIdVal = document.getElementById('appIdInput').value.trim();
+  log('Structure Engine: startup sequence initiated');
+  Connection.connect(token, appIdVal);
+};
+document.getElementById('stopBtn').onclick = () => { Risk.emergencyStop(); State.autoTrade=false; document.getElementById('swAuto').classList.remove('on'); };
+document.getElementById('marketSelect').onchange = (e) => {
+  State.market = e.target.value;
+  document.getElementById('hdMarket').textContent = State.market;
+  Statistics.reset();
+  Connection.subscribeTicks(State.market);
+  if(Connection.isAuthorized() && !Connection.isSimulated()) Connection.fetchContractsFor(State.market);
+  log(`Structure Engine: market switched to ${State.market}`);
+  if(activeTab==='dashboard') renderTab('dashboard');
+  if(activeTab==='barrier') renderTab('barrier');
+};
+function bindSwitch(id, onChange){
+  const el = document.getElementById(id);
+  el.onclick = () => { el.classList.toggle('on'); onChange(el.classList.contains('on')); };
+}
+bindSwitch('swAuto', on => {
+  State.autoTrade = on;
+  log(`Auto-Trade ${on?'enabled':'disabled'}`, on?'ok':'err');
+  if(on) Risk.startSession();
+});
+bindSwitch('swBarrierAI', on => {
+  State.barrierAI = on;
+  const cfg = Barrier.getManualCfg(State.market);
+  cfg.mode = on ? 'auto' : 'manual';
+  Barrier.setManualCfg(State.market, cfg);
+  log(`Barrier AI ${on?'enabled':'disabled'} for ${State.market}`, 'ai');
+});
+bindSwitch('swSim', on => log(`Simulation mode ${on?'ON':'OFF'} (takes effect on next connect)`));
+
+/* ---------- Max Open Trades control (sidebar) ---------- */
+function setMaxOpen(n){
+  n = Math.max(1, Math.min(20, n|0));
+  Risk.setCfg({ maxOpen: n });
+  document.getElementById('maxOpenInput').value = n;
+  const riskField = document.getElementById('rMaxOpen');
+  if(riskField) riskField.value = n; // keep Risk tab in sync if it's open
+  updateHeader();
+  log(`Risk Manager: max concurrent open trades set to ${n}`, 'ok');
+}
+document.getElementById('maxOpenInput').value = Risk.getCfg().maxOpen;
+document.getElementById('maxOpenInput').addEventListener('change', (e) => setMaxOpen(parseInt(e.target.value)||1));
+document.getElementById('maxOpenMinus').onclick = () => setMaxOpen(Risk.getCfg().maxOpen - 1);
+document.getElementById('maxOpenPlus').onclick = () => setMaxOpen(Risk.getCfg().maxOpen + 1);
+
+/* ---------- Boot ---------- */
+renderTab('dashboard');
+updateHeader();
+log('Structure Engine: all engines registered — ' + Object.keys(Structure.engines).join(', '));
+log('TURBO ready. Connect with a Deriv API token, or stay in simulation mode to explore the terminal.', 'ok');
+setInterval(fillLogsTab, 4000);
+</script>
+</body>
+</html>

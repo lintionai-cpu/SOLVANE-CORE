@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#080b14">
+<title>PULSAR SIX — Deriv Trading Terminal</title>
+<link rel="manifest" href="data:application/manifest+json,{}">
+<style>
+:root{
+  --bg:#080b14; --bg2:#0d1120; --panel:#0f1426; --panel2:#131a30; --border:#1e2740;
+  --cyan:#00e5ff; --cyan-dim:#00b8cc; --magenta:#ff2d95; --gold:#ffd166; --green:#2be88a;
+  --red:#ff4d6d; --text:#e7ecff; --text-dim:#8a93b8; --text-dim2:#5c6488;
+  --radius:14px; --radius-sm:9px;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Inter, sans-serif;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+  margin:0; font-family:var(--font); background:
+    radial-gradient(circle at 15% 0%, #14183a 0%, transparent 45%),
+    radial-gradient(circle at 90% 10%, #1a0f2e 0%, transparent 40%),
+    var(--bg);
+  color:var(--text); min-height:100vh; padding-bottom:76px; overflow-x:hidden;
+}
+::-webkit-scrollbar{width:4px; height:4px;} ::-webkit-scrollbar-thumb{background:var(--border); border-radius:4px;}
+
+/* Header */
+.topbar{position:sticky; top:0; z-index:50; backdrop-filter:blur(14px); background:rgba(8,11,20,.86); border-bottom:1px solid var(--border); padding:12px 14px;}
+.topbar-row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+.brand{display:flex; align-items:center; gap:9px;}
+.brand-mark{width:32px; height:32px; border-radius:9px; background:conic-gradient(from 220deg, var(--cyan), var(--magenta), var(--gold), var(--cyan)); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; color:#080b14; box-shadow:0 0 18px rgba(0,229,255,.35);}
+.brand-text{display:flex; flex-direction:column; line-height:1.05;}
+.brand-text b{font-size:14.5px; letter-spacing:.5px; font-weight:800;}
+.brand-text span{font-size:9.5px; color:var(--text-dim2); letter-spacing:1.5px; text-transform:uppercase;}
+.status-chip{display:flex; align-items:center; gap:6px; font-size:10.5px; padding:5px 9px; border-radius:20px; background:var(--panel2); border:1px solid var(--border); color:var(--text-dim);}
+.dot{width:7px; height:7px; border-radius:50%; background:var(--text-dim2); flex:none;}
+.dot.on{background:var(--green); box-shadow:0 0 8px var(--green);}
+.dot.mid{background:var(--gold); box-shadow:0 0 8px var(--gold);}
+.dot.off{background:var(--red); box-shadow:0 0 8px var(--red);}
+.mode-badge{font-size:9.5px; font-weight:800; letter-spacing:1px; padding:4px 9px; border-radius:20px; text-transform:uppercase;}
+.mode-badge.demo{background:rgba(0,229,255,.12); color:var(--cyan); border:1px solid rgba(0,229,255,.35);}
+.mode-badge.real{background:rgba(255,45,149,.15); color:var(--magenta); border:1px solid rgba(255,45,149,.4);}
+
+/* Layout */
+.wrap{max-width:640px; margin:0 auto; padding:12px;}
+.tabpanel{display:none; animation:fade .18s ease;}
+.tabpanel.active{display:block;}
+@keyframes fade{from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:translateY(0)}}
+
+.card{background:linear-gradient(180deg, var(--panel), var(--panel2)); border:1px solid var(--border); border-radius:var(--radius); padding:14px; margin-bottom:12px; position:relative;}
+.card-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+.card-title{font-size:12px; font-weight:800; letter-spacing:.8px; text-transform:uppercase; color:var(--text-dim);}
+.card-title.accent{color:var(--cyan);}
+
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;}
+
+.stat{background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px;}
+.stat-label{font-size:9.5px; color:var(--text-dim2); text-transform:uppercase; letter-spacing:.6px; margin-bottom:4px;}
+.stat-val{font-size:19px; font-weight:800; font-variant-numeric:tabular-nums;}
+.stat-val.pos{color:var(--green);} .stat-val.neg{color:var(--red);} .stat-val.cyan{color:var(--cyan);}
+.stat-sub{font-size:10px; color:var(--text-dim2); margin-top:2px;}
+
+/* form controls */
+label.field{display:block; margin-bottom:10px;}
+label.field .lab{display:flex; justify-content:space-between; font-size:10.5px; color:var(--text-dim); margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px;}
+label.field .lab b{color:var(--text); font-weight:700; text-transform:none; letter-spacing:0; font-size:11.5px;}
+input[type=text], input[type=number], input[type=password], select, textarea{
+  width:100%; background:var(--bg2); border:1px solid var(--border); color:var(--text); border-radius:var(--radius-sm);
+  padding:11px 12px; font-size:14.5px; font-family:inherit; outline:none; transition:border .15s;
+}
+input:focus, select:focus, textarea:focus{border-color:var(--cyan);}
+select{-webkit-appearance:none; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a93b8'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 14px center;}
+.row{display:flex; gap:8px;}
+.row > *{flex:1;}
+
+button{font-family:inherit; cursor:pointer; border:none;}
+.btn{padding:12px 14px; border-radius:var(--radius-sm); font-weight:700; font-size:13.5px; width:100%; transition:transform .1s, opacity .15s;}
+.btn:active{transform:scale(.97);}
+.btn:disabled{opacity:.4; cursor:not-allowed;}
+.btn-primary{background:linear-gradient(135deg, var(--cyan), var(--cyan-dim)); color:#04121a;}
+.btn-magenta{background:linear-gradient(135deg, var(--magenta), #c81e73); color:#fff;}
+.btn-ghost{background:var(--bg2); color:var(--text); border:1px solid var(--border);}
+.btn-danger{background:linear-gradient(135deg, var(--red), #b6203a); color:#fff;}
+.btn-gold{background:linear-gradient(135deg, var(--gold), #d9a020); color:#1c1400;}
+.btn-sm{padding:8px 10px; font-size:12px; border-radius:8px;}
+.btn-tiny{padding:6px 9px; font-size:11px; border-radius:7px;}
+
+.tag{display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:700; padding:3px 8px; border-radius:20px; text-transform:uppercase; letter-spacing:.4px;}
+.tag.on{background:rgba(43,232,138,.14); color:var(--green); border:1px solid rgba(43,232,138,.35);}
+.tag.off{background:rgba(138,147,184,.12); color:var(--text-dim); border:1px solid var(--border);}
+.tag.warn{background:rgba(255,209,102,.14); color:var(--gold); border:1px solid rgba(255,209,102,.35);}
+.tag.busy{background:rgba(0,229,255,.14); color:var(--cyan); border:1px solid rgba(0,229,255,.35);}
+
+.switch{position:relative; width:42px; height:24px; flex:none;}
+.switch input{opacity:0; width:0; height:0; position:absolute;}
+.switch .slider{position:absolute; inset:0; background:var(--bg2); border:1px solid var(--border); border-radius:20px; transition:.15s; cursor:pointer;}
+.switch .slider:before{content:""; position:absolute; width:16px; height:16px; left:3px; top:3px; background:var(--text-dim); border-radius:50%; transition:.15s;}
+.switch input:checked + .slider{background:rgba(0,229,255,.18); border-color:var(--cyan);}
+.switch input:checked + .slider:before{transform:translateX(18px); background:var(--cyan); box-shadow:0 0 8px var(--cyan);}
+
+.divider{height:1px; background:var(--border); margin:12px 0;}
+.hint{font-size:11px; color:var(--text-dim2); margin-top:6px; line-height:1.4;}
+.subtle{color:var(--text-dim);}
+.mono{font-variant-numeric:tabular-nums; font-family:'SF Mono', 'Roboto Mono', monospace;}
+
+/* Bottom nav */
+.bottomnav{position:fixed; bottom:0; left:0; right:0; z-index:60; background:rgba(8,11,20,.94); backdrop-filter:blur(14px); border-top:1px solid var(--border); display:flex; padding:6px 4px calc(6px + env(safe-area-inset-bottom));}
+.navbtn{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; background:none; color:var(--text-dim2); padding:6px 2px; border-radius:10px;}
+.navbtn.active{color:var(--cyan);}
+.navbtn svg{width:20px; height:20px;}
+.navbtn span{font-size:9px; font-weight:700; letter-spacing:.3px; text-transform:uppercase;}
+
+/* Engine card */
+.engine-card{border-left:3px solid var(--border);}
+.engine-card.armed{border-left-color:var(--green);}
+.engine-card.trading{border-left-color:var(--cyan);}
+.engine-head{display:flex; align-items:center; justify-content:space-between; gap:8px;}
+.engine-name{font-weight:800; font-size:14.5px; display:flex; align-items:center; gap:8px;}
+.engine-dot{width:9px; height:9px; border-radius:50%; background:var(--border); flex:none;}
+.engine-dot.armed{background:var(--green); box-shadow:0 0 8px var(--green);}
+.engine-dot.trading{background:var(--cyan); box-shadow:0 0 8px var(--cyan); animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1} 50%{opacity:.4}}
+.engine-sym{font-size:10.5px; color:var(--text-dim2);}
+.engine-body{display:none; margin-top:12px;}
+.engine-body.open{display:block;}
+.chev{transition:transform .2s; color:var(--text-dim2);}
+.chev.open{transform:rotate(180deg);}
+.engine-stats{display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:10px;}
+.mini-stat{background:var(--bg2); border-radius:8px; padding:7px; text-align:center; border:1px solid var(--border);}
+.mini-stat .v{font-size:13px; font-weight:800;}
+.mini-stat .l{font-size:8px; color:var(--text-dim2); text-transform:uppercase; margin-top:2px;}
+
+/* Modal */
+.modal-bg{position:fixed; inset:0; background:rgba(3,5,12,.75); backdrop-filter:blur(4px); z-index:200; display:none; align-items:flex-end; justify-content:center;}
+.modal-bg.show{display:flex;}
+.modal{background:var(--panel); border:1px solid var(--border); border-radius:18px 18px 0 0; padding:20px; width:100%; max-width:640px; max-height:88vh; overflow-y:auto; animation:slideup .2s ease;}
+@keyframes slideup{from{transform:translateY(30px); opacity:0} to{transform:translateY(0); opacity:1}}
+.modal h3{margin:0 0 6px; font-size:16px;}
+.modal p{color:var(--text-dim); font-size:13px; line-height:1.5;}
+
+/* Journal / logs */
+.log-line{font-size:11px; padding:6px 0; border-bottom:1px solid var(--border); display:flex; gap:8px; font-family:'SF Mono',monospace;}
+.log-line .t{color:var(--text-dim2); flex:none; width:60px;}
+.log-line.err .m{color:var(--red);}
+.log-line.ok .m{color:var(--green);}
+.log-line.warn .m{color:var(--gold);}
+.log-line.info .m{color:var(--text-dim);}
+.log-box{max-height:340px; overflow-y:auto; background:var(--bg2); border-radius:var(--radius-sm); padding:8px 10px; border:1px solid var(--border);}
+
+.trade-row{display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--border); font-size:12.5px;}
+.trade-row:last-child{border-bottom:none;}
+.trade-row .left{display:flex; flex-direction:column; gap:2px;}
+.trade-row .badge{font-size:9px; font-weight:800; padding:2px 6px; border-radius:5px; text-transform:uppercase; width:fit-content;}
+.trade-row .badge.win{background:rgba(43,232,138,.15); color:var(--green);}
+.trade-row .badge.loss{background:rgba(255,77,109,.15); color:var(--red);}
+.trade-row .badge.open{background:rgba(0,229,255,.15); color:var(--cyan);}
+.trade-row .amt{font-weight:800; font-variant-numeric:tabular-nums;}
+
+.section-label{font-size:11px; font-weight:800; letter-spacing:.8px; text-transform:uppercase; color:var(--text-dim2); margin:18px 0 8px;}
+.section-label:first-child{margin-top:0;}
+
+.toast-wrap{position:fixed; top:66px; left:0; right:0; z-index:300; display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:none;}
+.toast{background:var(--panel); border:1px solid var(--border); padding:10px 16px; border-radius:20px; font-size:12.5px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,.4); animation:toastin .2s ease;}
+.toast.ok{border-color:rgba(43,232,138,.4); color:var(--green);}
+.toast.err{border-color:rgba(255,77,109,.4); color:var(--red);}
+.toast.warn{border-color:rgba(255,209,102,.4); color:var(--gold);}
+@keyframes toastin{from{opacity:0; transform:translateY(-8px)} to{opacity:1; transform:translateY(0)}}
+
+.killbar{position:fixed; bottom:76px; left:0; right:0; z-index:55; display:flex; justify-content:center; pointer-events:none;}
+.killbtn{pointer-events:all; background:linear-gradient(135deg, var(--red), #8f1a2e); color:#fff; font-weight:800; font-size:11.5px; letter-spacing:.6px; padding:9px 20px; border-radius:24px; box-shadow:0 6px 18px rgba(255,77,109,.35); display:flex; align-items:center; gap:6px; text-transform:uppercase;}
+
+.empty{text-align:center; padding:24px 10px; color:var(--text-dim2); font-size:12.5px;}
+
+.confirm-input{width:100%; text-align:center; font-weight:800; letter-spacing:2px; text-transform:uppercase;}
+</style>
+</head>
+<body>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<div class="topbar">
+  <div class="topbar-row">
+    <div class="brand">
+      <div class="brand-mark">P6</div>
+      <div class="brand-text"><b>PULSAR SIX</b><span>Synthetic Index Terminal</span></div>
+    </div>
+    <div style="display:flex; align-items:center; gap:6px;">
+      <span class="mode-badge demo" id="modeBadge">DEMO</span>
+      <div class="status-chip"><span class="dot off" id="connDot"></span><span id="connText">offline</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="app"></div>
+
+<div class="killbar" id="killbar" style="display:none;">
+  <button class="killbtn" id="killSwitchBtn">⛔ KILL SWITCH — STOP ALL ENGINES</button>
+</div>
+
+<div class="bottomnav">
+  <button class="navbtn active" data-tab="dash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="12" width="4" height="8"/><rect x="10" y="7" width="4" height="13"/><rect x="17" y="3" width="4" height="17"/></svg><span>Dash</span></button>
+  <button class="navbtn" data-tab="engines"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>Engines</span></button>
+  <button class="navbtn" data-tab="risk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/></svg><span>Risk</span></button>
+  <button class="navbtn" data-tab="journal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h12l4 4v12H4z"/><path d="M14 4v5h5"/></svg><span>Journal</span></button>
+  <button class="navbtn" data-tab="logs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M7 8h10M7 12h10M7 16h6"/></svg><span>Logs</span></button>
+  <button class="navbtn" data-tab="account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Account</span></button>
+</div>
+
+<div class="modal-bg" id="modalBg"><div class="modal" id="modalBody"></div></div>
+
+<script>
+/* =========================================================================
+   PULSAR SIX — Deriv Synthetic Index Trading Terminal
+   Single-file PWA. REST: api.derivws.com/trading/v1/options
+   Auth: PAT or OAuth2 PKCE (auth.deriv.com). Trading WS: OTP-authenticated.
+   Market data WS: public endpoint, no auth.
+   ========================================================================= */
+
+/* ---------------------------- CONFIG ---------------------------- */
+const CFG = {
+  API_BASE: 'https://api.derivws.com',
+  AUTH_BASE: 'https://auth.deriv.com',
+  WS_PUBLIC: 'wss://api.derivws.com/trading/v1/options/ws/public',
+  REDIRECT_URI: window.location.origin + window.location.pathname,
+  PING_MS: 25000,
+  RECONNECT_BASE_MS: 1000,
+  RECONNECT_MAX_MS: 30000,
+  RECONNECT_MAX_ATTEMPTS: 8
+};
+
+let STATE = {
+  appId: localStorage.getItem('p6_app_id') || '',
+  authMethod: localStorage.getItem('p6_auth_method') || 'pat',
+  patToken: '',
+  oauthClientId: localStorage.getItem('p6_oauth_client_id') || '',
+  accessToken: '',
+  accounts: [],
+  activeAccount: null,     // account object
+  accountMode: 'demo',     // demo | real
+  connStatus: 'offline',   // offline | connecting | live
+  armedReal: false,
+  killed: false,
+  currentTab: 'dash',
+  sessionStart: Date.now(),
+};
+
+/* ---------------------------- TOAST / UI HELPERS ---------------------------- */
+function toast(msg, type='info', ms=3200){
+  const wrap = document.getElementById('toastWrap');
+  const el = document.createElement('div');
+  el.className = 'toast ' + (type==='ok'?'ok':type==='err'?'err':type==='warn'?'warn':'');
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .25s'; setTimeout(()=>el.remove(),250); }, ms);
+}
+function openModal(html){
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalBg').classList.add('show');
+}
+function closeModal(){ document.getElementById('modalBg').classList.remove('show'); }
+document.getElementById('modalBg').addEventListener('click', e=>{ if(e.target.id==='modalBg') closeModal(); });
+
+function fmtMoney(n, cur){ cur = cur || (STATE.activeAccount && STATE.activeAccount.currency) || 'USD';
+  n = Number(n)||0; return (n<0?'-':'') + '$' + Math.abs(n).toFixed(2); }
+function fmtPct(n){ n = Number(n)||0; return n.toFixed(1)+'%'; }
+function nowTime(){ const d=new Date(); return d.toTimeString().slice(0,8); }
+function uid(){ return 'x'+Math.random().toString(36).slice(2,10); }
+
+/* ---------------------------- SYSTEM LOG ---------------------------- */
+const SysLog = {
+  entries: [],
+  max: 500,
+  push(level, msg){
+    this.entries.unshift({t: nowTime(), level, msg});
+    if(this.entries.length>this.max) this.entries.pop();
+    if(STATE.currentTab==='logs') renderLogs();
+  },
+  info(m){ this.push('info', m); },
+  ok(m){ this.push('ok', m); },
+  warn(m){ this.push('warn', m); },
+  err(m){ this.push('err', m); },
+  reset(){ this.entries=[]; renderLogs(); toast('System logs cleared','ok'); }
+};
+
+/* ---------------------------- INDEXEDDB TRADE JOURNAL ---------------------------- */
+const DB_NAME='pulsar_six_db', DB_VER=1;
+let dbInst=null;
+function openDB(){
+  return new Promise((resolve,reject)=>{
+    if(dbInst) return resolve(dbInst);
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = e=>{
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains('trades')){
+        const os = db.createObjectStore('trades', {keyPath:'id'});
+        os.createIndex('by_time','time');
+      }
+    };
+    req.onsuccess = e=>{ dbInst=e.target.result; resolve(dbInst); };
+    req.onerror = e=>reject(e);
+  });
+}
+async function journalAdd(trade){
+  try{
+    const db = await openDB();
+    return new Promise((resolve,reject)=>{
+      const tx = db.transaction('trades','readwrite');
+      tx.objectStore('trades').put(trade);
+      tx.oncomplete=()=>resolve(); tx.onerror=e=>reject(e);
+    });
+  }catch(e){ SysLog.err('Journal write failed: '+e.message); }
+}
+async function journalAll(){
+  try{
+    const db = await openDB();
+    return new Promise((resolve,reject)=>{
+      const tx = db.transaction('trades','readonly');
+      const req = tx.objectStore('trades').getAll();
+      req.onsuccess=()=>resolve(req.result.sort((a,b)=>b.time-a.time));
+      req.onerror=e=>reject(e);
+    });
+  }catch(e){ return []; }
+}
+async function journalClear(){
+  try{
+    const db = await openDB();
+    return new Promise((resolve,reject)=>{
+      const tx = db.transaction('trades','readwrite');
+      tx.objectStore('trades').clear();
+      tx.oncomplete=()=>resolve(); tx.onerror=e=>reject(e);
+    });
+  }catch(e){ SysLog.err('Journal clear failed'); }
+}
+function csvExport(rows){
+  if(!rows.length){ toast('No trades to export','warn'); return; }
+  const cols = ['time','engine','symbol','contract_type','barrier','stake','payout','profit','result','contract_id'];
+  const lines = [cols.join(',')];
+  rows.forEach(r=>{
+    lines.push(cols.map(c=>{
+      let v = r[c]; if(c==='time') v = new Date(r.time).toISOString();
+      return JSON.stringify(v==null?'':v);
+    }).join(','));
+  });
+  const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='pulsar-six-trades-'+Date.now()+'.csv';
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  toast('CSV exported','ok');
+}
+
+/* ---------------------------- DASHBOARD / SESSION STATS ---------------------------- */
+const Stats = {
+  totalTrades:0, wins:0, losses:0, openTrades:0,
+  totalProfit:0, totalStake:0, grossWin:0, grossLoss:0,
+  peakEquity:0, troughEquity:0, dailyStartBalance:null,
+  history:[], // running pnl points for chart-ish sparkline
+  record(trade){
+    this.totalTrades++;
+    if(trade.result==='win'){ this.wins++; this.grossWin += trade.profit; }
+    else if(trade.result==='loss'){ this.losses++; this.grossLoss += Math.abs(trade.profit); }
+    this.totalProfit += trade.profit;
+    this.totalStake += trade.stake;
+    this.history.push(this.totalProfit);
+    if(this.history.length>200) this.history.shift();
+    this.peakEquity = Math.max(this.peakEquity, this.totalProfit);
+    this.troughEquity = Math.min(this.troughEquity, this.totalProfit);
+  },
+  winRate(){ const c=this.wins+this.losses; return c? (this.wins/c*100):0; },
+  reset(){
+    this.totalTrades=0; this.wins=0; this.losses=0; this.openTrades=0;
+    this.totalProfit=0; this.totalStake=0; this.grossWin=0; this.grossLoss=0;
+    this.peakEquity=0; this.troughEquity=0; this.history=[];
+    toast('Dashboard stats reset','ok'); renderDash();
+  }
+};
+
+/* ---------------------------- REST API CLIENT ---------------------------- */
+function headers(includeJson){
+  const h = { 'Authorization': 'Bearer ' + (STATE.accessToken||''), 'Deriv-App-ID': STATE.appId||'' };
+  if(includeJson) h['Content-Type']='application/json';
+  return h;
+}
+async function apiCall(method, path, body){
+  const opts = { method, headers: headers(!!body) };
+  if(body) opts.body = JSON.stringify(body);
+  let res, data;
+  try{ res = await fetch(CFG.API_BASE + path, opts); }
+  catch(e){ throw new Error('Network error — check connection'); }
+  try{ data = await res.json(); }catch(e){ data = {}; }
+  if(!res.ok){
+    const code = data.errors?.[0]?.code || 'UnknownError';
+    const msg = data.errors?.[0]?.message || ('HTTP '+res.status);
+    const err = new Error(`[${code}] ${msg}`); err.status=res.status; err.code=code;
+    throw err;
+  }
+  return {status:res.status, data};
+}
+const DerivApi = {
+  getAccounts(){ return apiCall('GET','/trading/v1/options/accounts'); },
+  createAccount(account_type){ return apiCall('POST','/trading/v1/options/accounts', {currency:'USD', group:'row', account_type}); },
+  resetDemoBalance(accountId){ return apiCall('POST', `/trading/v1/options/accounts/${accountId}/reset-demo-balance`); },
+  async getOtpUrl(accountId){
+    const {data} = await apiCall('POST', `/trading/v1/options/accounts/${accountId}/otp`);
+    return data.data.url;
+  }
+};
+
+/* ---------------------------- OAUTH 2.0 PKCE ---------------------------- */
+function genVerifier(){
+  const arr = crypto.getRandomValues(new Uint8Array(64));
+  return Array.from(arr).map(v=>'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'[v%66]).join('');
+}
+async function genChallenge(verifier){
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function genState(){ return Array.from(crypto.getRandomValues(new Uint8Array(16))).reduce((s,b)=>s+b.toString(16).padStart(2,'0'),''); }
+
+async function oauthLogin(){
+  if(!STATE.oauthClientId){ toast('Enter OAuth Client ID first','err'); return; }
+  const verifier = genVerifier(); const challenge = await genChallenge(verifier); const state = genState();
+  sessionStorage.setItem('p6_pkce_verifier', verifier);
+  sessionStorage.setItem('p6_oauth_state', state);
+  const url = new URL(CFG.AUTH_BASE + '/oauth2/auth');
+  url.searchParams.set('response_type','code');
+  url.searchParams.set('client_id', STATE.oauthClientId);
+  url.searchParams.set('redirect_uri', CFG.REDIRECT_URI);
+  url.searchParams.set('scope','trade account_manage');
+  url.searchParams.set('state', state);
+  url.searchParams.set('code_challenge', challenge);
+  url.searchParams.set('code_challenge_method','S256');
+  window.location.href = url.toString();
+}
+async function handleOAuthCallbackIfPresent(){
+  const params = new URLSearchParams(window.location.search);
+  if(!params.get('code')) return;
+  const state = params.get('state'); const saved = sessionStorage.getItem('p6_oauth_state');
+  if(state!==saved){ toast('OAuth state mismatch — possible CSRF, aborting','err'); return; }
+  toast('OAuth code received — paste it below with your verifier via server exchange, or use PAT for this client-only build','warn', 6000);
+  SysLog.warn('OAuth callback detected. Token exchange must occur server-side per security policy; this client cannot safely exchange the code.');
+  history.replaceState({}, '', CFG.REDIRECT_URI);
+}
+
+/* ---------------------------- REQ_ID CORRELATED WS ---------------------------- */
+class DerivSocket{
+  constructor(url, label){
+    this.url=url; this.label=label; this.ws=null; this.reqId=0;
+    this.pending=new Map(); this.subs=new Map(); this.msgHandlers=new Map();
+    this.reconnectAttempts=0; this.pingTimer=null; this.manualClose=false;
+    this.onStatus=null;
+  }
+  connect(){
+    return new Promise((resolve,reject)=>{
+      this.manualClose=false;
+      let ws;
+      try{ ws = new WebSocket(this.url); }catch(e){ reject(e); return; }
+      this.ws = ws;
+      const openGuardTimer = setTimeout(()=>{ if(ws.readyState!==1){ try{ws.close();}catch(_){}} }, 12000);
+      ws.onopen = ()=>{
+        clearTimeout(openGuardTimer);
+        this.reconnectAttempts=0;
+        this._startPing();
+        this._restoreSubs();
+        if(this.onStatus) this.onStatus('open');
+        resolve(this);
+      };
+      ws.onmessage = (ev)=>{
+        let data; try{ data=JSON.parse(ev.data); }catch(e){ return; }
+        this._route(data);
+      };
+      ws.onerror = ()=>{ if(this.onStatus) this.onStatus('error'); };
+      ws.onclose = ()=>{
+        clearTimeout(openGuardTimer);
+        this._stopPing();
+        if(this.onStatus) this.onStatus('closed');
+        if(!this.manualClose) this._scheduleReconnect();
+      };
+    });
+  }
+  _route(data){
+    if(data.req_id && this.pending.has(data.req_id)){
+      const {resolve,reject} = this.pending.get(data.req_id);
+      this.pending.delete(data.req_id);
+      if(data.error) reject(Object.assign(new Error(data.error.message||'API error'), {code:data.error.code})); else resolve(data);
+    }
+    if(data.msg_type && this.msgHandlers.has(data.msg_type)){
+      this.msgHandlers.get(data.msg_type).forEach(fn=>{ try{fn(data);}catch(e){} });
+    }
+    if(data.error && !(data.req_id && !this.pending.has(data.req_id))){
+      // errors on subscriptions still fire handlers above; log too
+    }
+  }
+  on(msgType, fn){
+    if(!this.msgHandlers.has(msgType)) this.msgHandlers.set(msgType, []);
+    this.msgHandlers.get(msgType).push(fn);
+  }
+  send(cmd){
+    return new Promise((resolve,reject)=>{
+      if(!this.ws || this.ws.readyState!==1){ reject(new Error('Socket not open')); return; }
+      this.reqId++;
+      const msg = Object.assign({}, cmd, {req_id:this.reqId});
+      if(cmd.subscribe===1) this.subs.set(this.reqId, cmd);
+      this.pending.set(this.reqId, {resolve,reject});
+      try{ this.ws.send(JSON.stringify(msg)); }catch(e){ this.pending.delete(this.reqId); reject(e); return; }
+      setTimeout(()=>{ if(this.pending.has(this.reqId)){ this.pending.delete(this.reqId); reject(new Error('Request timeout')); } }, 15000);
+    });
+  }
+  async forgetAll(type){
+    const types = type ? [type] : ['ticks','proposal','proposal_open_contract','balance'];
+    for(const t of types){
+      this.subs.forEach((cmd,id)=>{ if(cmd[t]!==undefined) this.subs.delete(id); });
+      try{ await this.send({forget_all:t}); }catch(e){ /* non-fatal — subscription may not exist */ }
+    }
+  }
+  _restoreSubs(){
+    for(const [,cmd] of this.subs){
+      this.reqId++;
+      try{ this.ws.send(JSON.stringify(Object.assign({},cmd,{req_id:this.reqId}))); }catch(e){}
+    }
+  }
+  _startPing(){
+    this._stopPing();
+    this.pingTimer = setInterval(()=>{ if(this.ws && this.ws.readyState===1){ this.send({ping:1}).catch(()=>{}); } }, CFG.PING_MS);
+  }
+  _stopPing(){ if(this.pingTimer) clearInterval(this.pingTimer); this.pingTimer=null; }
+  _scheduleReconnect(){
+    if(this.reconnectAttempts >= CFG.RECONNECT_MAX_ATTEMPTS){ SysLog.err(this.label+': max reconnect attempts reached'); if(this.onStatus) this.onStatus('failed'); return; }
+    const delay = Math.min(CFG.RECONNECT_BASE_MS * Math.pow(2, this.reconnectAttempts), CFG.RECONNECT_MAX_MS);
+    this.reconnectAttempts++;
+    SysLog.warn(`${this.label}: reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+    setTimeout(()=> this.onReconnect ? this.onReconnect() : this.connect().catch(()=>{}), delay);
+  }
+  close(){ this.manualClose=true; this._stopPing(); try{ this.ws && this.ws.close(); }catch(e){} }
+}
+
+/* ---------------------------- MARKET DATA (PUBLIC) ---------------------------- */
+const MarketFeed = {
+  sock:null, ticksBySymbol:new Map(), tickHandlers:new Map(), connecting:null,
+  async ensure(){
+    if(this.sock && this.sock.ws && this.sock.ws.readyState===1) return this.sock;
+    if(this.connecting) return this.connecting;
+    this.sock = new DerivSocket(CFG.WS_PUBLIC, 'MarketWS');
+    this.sock.onStatus = (s)=>{ updateConnBadgeFromMarket(s); };
+    this.sock.on('tick', d=>{
+      const sym = d.tick.symbol;
+      if(!this.ticksBySymbol.has(sym)) this.ticksBySymbol.set(sym, []);
+      const arr = this.ticksBySymbol.get(sym);
+      arr.push(d.tick); if(arr.length>500) arr.shift();
+      (this.tickHandlers.get(sym)||[]).forEach(fn=>{ try{fn(d.tick);}catch(e){} });
+    });
+    this.connecting = this.sock.connect().finally(()=>{ this.connecting=null; });
+    await this.connecting;
+    return this.sock;
+  },
+  async subscribeSymbol(sym, handler){
+    await this.ensure();
+    if(!this.tickHandlers.has(sym)) this.tickHandlers.set(sym, []);
+    this.tickHandlers.get(sym).push(handler);
+    const already = [...this.sock.subs.values()].some(c=>c.ticks===sym);
+    if(!already){
+      try{ await this.sock.send({ticks:sym, subscribe:1}); SysLog.info('Subscribed ticks: '+sym); }
+      catch(e){ SysLog.err('Tick sub failed '+sym+': '+e.message); }
+    }
+  },
+  getLastDigit(sym){
+    const arr = this.ticksBySymbol.get(sym);
+    if(!arr || !arr.length) return null;
+    const q = arr[arr.length-1].quote;
+    const s = String(q).replace('.','');
+    return parseInt(s[s.length-1],10);
+  },
+  getRecentQuotes(sym, n){
+    const arr = this.ticksBySymbol.get(sym) || [];
+    return arr.slice(-n).map(t=>t.quote);
+  }
+};
+function updateConnBadgeFromMarket(s){
+  const dot = document.getElementById('connDot'), txt = document.getElementById('connText');
+  if(s==='open'){ dot.className='dot mid'; txt.textContent='market live'; }
+}
+
+/* ---------------------------- TRADING SESSION (OTP-authenticated WS) ---------------------------- */
+const TradeSession = {
+  sock:null, connected:false, balance:null, currency:'USD',
+  async connect(){
+    if(!STATE.activeAccount){ throw new Error('No active account selected'); }
+    updateConnDot('connecting');
+    let url;
+    try{ url = await DerivApi.getOtpUrl(STATE.activeAccount.account_id); }
+    catch(e){ SysLog.err('OTP request failed: '+e.message); updateConnDot('offline'); throw e; }
+    this.sock = new DerivSocket(url, 'TradeWS');
+    this.sock.onReconnect = async ()=>{
+      try{
+        SysLog.warn('TradeWS reconnecting — requesting fresh OTP');
+        const freshUrl = await DerivApi.getOtpUrl(STATE.activeAccount.account_id);
+        this.sock.url = freshUrl;
+        await this.sock.connect();
+        this._subscribeBalance();
+        SysLog.ok('TradeWS reconnected with fresh OTP');
+      }catch(e){ SysLog.err('Reconnect failed: '+e.message); this.sock._scheduleReconnect(); }
+    };
+    this.sock.onStatus = (s)=>{
+      if(s==='open'){ this.connected=true; updateConnDot('live'); }
+      else if(s==='closed' || s==='failed'){ this.connected=false; updateConnDot('offline'); }
+      else if(s==='error'){ updateConnDot('offline'); }
+    };
+    this.sock.on('balance', d=>{
+      this.balance = Number(d.balance.balance); this.currency = d.balance.currency;
+      renderAccountBadges();
+      if(STATE.currentTab==='dash') renderDash();
+      if(STATE.currentTab==='account') renderAccount();
+    });
+    await this.sock.connect();
+    this._subscribeBalance();
+    SysLog.ok('Trading session connected: '+STATE.activeAccount.account_id);
+    return this.sock;
+  },
+  _subscribeBalance(){ this.sock.send({balance:1, subscribe:1}).catch(e=>SysLog.err('Balance sub failed: '+e.message)); },
+  async teardown(){
+    if(this.sock){ await this.sock.forgetAll(); this.sock.close(); }
+    this.connected=false; updateConnDot('offline');
+  }
+};
+function updateConnDot(state){
+  const dot=document.getElementById('connDot'), txt=document.getElementById('connText');
+  STATE.connStatus = state;
+  if(state==='live'){ dot.className='dot on'; txt.textContent = (STATE.accountMode==='real'?'real · live':'demo · live'); }
+  else if(state==='connecting'){ dot.className='dot mid'; txt.textContent='connecting…'; }
+  else { dot.className='dot off'; txt.textContent='offline'; }
+}
+
+/* ---------------------------- GLOBAL RISK ENGINE ---------------------------- */
+const Risk = {
+  params:{
+    dailyDrawdownCap: 50,     // $ amount
+    maxConsecutiveLosses: 5,  // pause engine after N losses in a row (global count)
+    stakeCeiling: 25,         // $ max stake per single trade
+    maxConcurrentTrades: 3,   // across all engines
+    dailyTakeProfit: 0,       // 0 = disabled
+  },
+  consecutiveLosses:0,
+  pausedUntilReset:false,
+  dailyStartBalance:null,
+  load(){
+    try{ const s = JSON.parse(localStorage.getItem('p6_risk')||'null'); if(s) Object.assign(this.params,s); }catch(e){}
+  },
+  save(){ localStorage.setItem('p6_risk', JSON.stringify(this.params)); },
+  activeTradeCount(){ return Engines.reduce((n,e)=> n + (e.inFlight?1:0), 0); },
+  currentDrawdown(){ return Stats.totalProfit < 0 ? Math.abs(Stats.totalProfit) : 0; },
+  gate(stake){
+    if(STATE.killed) return {ok:false, reason:'Kill switch engaged'};
+    if(this.pausedUntilReset) return {ok:false, reason:'Risk engine paused — consecutive loss limit hit'};
+    if(stake > this.params.stakeCeiling) return {ok:false, reason:`Stake $${stake.toFixed(2)} exceeds ceiling $${this.params.stakeCeiling}`};
+    if(this.activeTradeCount() >= this.params.maxConcurrentTrades) return {ok:false, reason:'Max concurrent trades reached'};
+    if(this.currentDrawdown() >= this.params.dailyDrawdownCap) return {ok:false, reason:'Daily drawdown cap reached'};
+    if(this.params.dailyTakeProfit>0 && Stats.totalProfit >= this.params.dailyTakeProfit) return {ok:false, reason:'Daily take-profit target reached'};
+    return {ok:true};
+  },
+  registerResult(result){
+    if(result==='loss'){
+      this.consecutiveLosses++;
+      if(this.consecutiveLosses >= this.params.maxConsecutiveLosses){
+        this.pausedUntilReset = true;
+        SysLog.err(`Risk engine PAUSED: ${this.consecutiveLosses} consecutive losses (limit ${this.params.maxConsecutiveLosses})`);
+        toast('Risk pause: consecutive loss limit hit','err',5000);
+        Engines.forEach(e=>e.disarm('risk-pause'));
+      }
+    } else if(result==='win'){ this.consecutiveLosses = 0; }
+    if(this.currentDrawdown() >= this.params.dailyDrawdownCap){
+      this.pausedUntilReset = true;
+      SysLog.err('Risk engine PAUSED: daily drawdown cap reached');
+      Engines.forEach(e=>e.disarm('drawdown-cap'));
+    }
+    if(this.params.dailyTakeProfit>0 && Stats.totalProfit >= this.params.dailyTakeProfit){
+      SysLog.ok('Daily take-profit target reached — engines disarmed');
+      Engines.forEach(e=>e.disarm('take-profit'));
+    }
+  },
+  resetPause(){ this.pausedUntilReset=false; this.consecutiveLosses=0; toast('Risk engine resumed','ok'); }
+};
+Risk.load();
+
+/* ---------------------------- BASE ENGINE ---------------------------- */
+class BaseEngine{
+  constructor(cfg){
+    Object.assign(this, {
+      id: cfg.id, name: cfg.name, description: cfg.description,
+      symbol: cfg.symbol, market: cfg.market||'synthetic_index',
+      contractType: cfg.contractType,           // default / primary contract type
+      duration: cfg.duration||1, durationUnit: cfg.durationUnit||'t',
+      baseStake: cfg.baseStake||1, stakeCurrency:'USD',
+      martingale:{ enabled: cfg.martingaleEnabled!==false, mode: cfg.martingaleMode||'multiplier', // multiplier | flat
+        factor: cfg.martingaleFactor||2.0, flatStep: cfg.martingaleFlatStep||1, maxSteps: cfg.martingaleMaxSteps||6 },
+      pnl:{ takeProfit: cfg.takeProfit||0, stopLoss: cfg.stopLoss||0 }, // per-engine, 0=disabled
+      barrier: cfg.barrier!=null? String(cfg.barrier): undefined,
+    });
+    this.currentStake = this.baseStake;
+    this.lossStreak = 0;
+    this.armed = false; this.inFlight = false;
+    this.sessionProfit = 0; this.trades=0; this.wins=0; this.losses=0;
+    this.lastSignal = 'idle';
+    this.contractIdActive = null;
+    this._tickUnsub = null;
+  }
+  paramsSummary(){
+    return `${this.symbol} · stake $${this.baseStake} · x${this.martingale.factor} · TP $${this.pnl.takeProfit||'—'} / SL $${this.pnl.stopLoss||'—'}`;
+  }
+  async arm(){
+    if(!TradeSession.connected){ toast('Connect trading session first','err'); return; }
+    if(STATE.accountMode==='real' && !STATE.armedReal){ toast('Real-money arming requires CONFIRM in Account tab','err'); return; }
+    this.armed = true; this.lastSignal='watching';
+    SysLog.ok(`[${this.name}] armed on ${this.symbol}`);
+    await this.onArm();
+    renderEngines();
+  }
+  disarm(reason){
+    this.armed = false; this.lastSignal='idle';
+    if(this._tickUnsub) { /* handlers persist but engine checks armed flag */ }
+    SysLog.warn(`[${this.name}] disarmed (${reason||'manual'})`);
+    renderEngines();
+  }
+  resetStake(){ this.currentStake = this.baseStake; this.lossStreak = 0; }
+  applyMartingale(result){
+    if(result==='win'){ this.resetStake(); return; }
+    this.lossStreak++;
+    if(!this.martingale.enabled || this.lossStreak > this.martingale.maxSteps){ this.resetStake(); return; }
+    if(this.martingale.mode==='multiplier') this.currentStake = +(this.currentStake * this.martingale.factor).toFixed(2);
+    else this.currentStake = +(this.currentStake + this.martingale.flatStep).toFixed(2);
+  }
+  checkEnginePnlLimits(){
+    if(this.pnl.takeProfit>0 && this.sessionProfit >= this.pnl.takeProfit){ this.disarm('engine take-profit hit'); toast(`${this.name}: TP hit`,'ok'); return true; }
+    if(this.pnl.stopLoss>0 && this.sessionProfit <= -Math.abs(this.pnl.stopLoss)){ this.disarm('engine stop-loss hit'); toast(`${this.name}: SL hit`,'err'); return true; }
+    return false;
+  }
+  async placeTrade(contractType, barrier, stakeOverride){
+    const stake = stakeOverride!=null? stakeOverride : this.currentStake;
+    const gate = Risk.gate(stake);
+    if(!gate.ok){ SysLog.warn(`[${this.name}] blocked by risk gate: ${gate.reason}`); return; }
+    if(this.inFlight) return;
+    this.inFlight = true; renderEngines();
+    try{
+      const req = {
+        proposal:1, amount: Number(stake), basis:'stake',
+        contract_type: contractType, currency: TradeSession.currency||'USD',
+        duration: this.duration, duration_unit: this.durationUnit,
+        underlying_symbol: this.symbol
+      };
+      if(barrier!=null) req.barrier = String(barrier);
+      const propRes = await TradeSession.sock.send(req);
+      const proposal = propRes.proposal;
+      if(!proposal || !proposal.id) throw new Error('No proposal returned');
+      const buyRes = await TradeSession.sock.send({buy: proposal.id, price: Number(proposal.ask_price)});
+      const buy = buyRes.buy;
+      SysLog.ok(`[${this.name}] BUY ${contractType}${barrier!=null?(' barrier '+barrier):''} stake $${stake} → contract ${buy.contract_id}`);
+      this.contractIdActive = buy.contract_id;
+      journalAdd({ id:uid(), time:Date.now(), engine:this.name, symbol:this.symbol, contract_type:contractType,
+        barrier: barrier!=null?String(barrier):'', stake:Number(stake), payout:null, profit:null, result:'open', contract_id:buy.contract_id });
+      renderJournal();
+      this._monitor(buy.contract_id, stake, contractType, barrier);
+    }catch(e){
+      SysLog.err(`[${this.name}] trade failed: ${e.message}`);
+      this.inFlight = false; renderEngines();
+    }
+  }
+  _monitor(contractId, stake, contractType, barrier){
+    const handler = async (data)=>{
+      const c = data.proposal_open_contract;
+      if(!c || c.contract_id !== contractId) return;
+      if(c.is_sold){
+        TradeSession.sock.msgHandlers.set('proposal_open_contract',
+          (TradeSession.sock.msgHandlers.get('proposal_open_contract')||[]).filter(f=>f!==handler));
+        const profit = Number(c.profit);
+        const result = profit>0 ? 'win' : 'loss';
+        this.trades++; if(result==='win') this.wins++; else this.losses++;
+        this.sessionProfit += profit;
+        Stats.record({result, profit, stake});
+        Risk.registerResult(result);
+        journalUpdate(contractId, { profit, result, payout:Number(c.payout||0) });
+        SysLog[result==='win'?'ok':'err'](`[${this.name}] ${result.toUpperCase()} ${profit>=0?'+':''}${profit.toFixed(2)} USD (contract ${contractId})`);
+        this.applyMartingale(result);
+        this.inFlight = false; this.contractIdActive = null;
+        renderEngines(); renderDash(); renderJournal();
+        if(this.checkEnginePnlLimits()) return;
+        if(this.armed && !STATE.killed) setTimeout(()=> this.onTick(null, true), 250);
+      }
+    };
+    TradeSession.sock.on('proposal_open_contract', handler);
+    TradeSession.sock.send({proposal_open_contract:1, contract_id:contractId, subscribe:1}).catch(e=>{
+      SysLog.err('Monitor subscribe failed: '+e.message);
+    });
+  }
+  // overridden by subclasses
+  async onArm(){}
+  async onTick(tick, postTradeRearm){}
+}
+async function journalUpdate(contractId, patch){
+  try{
+    const db = await openDB();
+    const tx = db.transaction('trades','readwrite');
+    const os = tx.objectStore('trades');
+    const getReq = os.getAll();
+    getReq.onsuccess = ()=>{
+      const row = getReq.result.find(r=>r.contract_id===contractId);
+      if(row){ Object.assign(row, patch); os.put(row); }
+    };
+  }catch(e){}
+}
+
+/* =========================================================================
+   ENGINES — ported by intent analysis from uploaded DBot XML strategies.
+   Each engine's logic is validated against original bot intent; barrier
+   values use plain unsigned digit strings per digit-contract requirements.
+   ========================================================================= */
+
+/* 1) OVER 2 SEQUENCE — DIGITOVER barrier 2, R_50, multiplier martingale x2.5
+   Ported from OVER_2_SEQUENCE.xml: fixed Over/2 entries every tick, TP/SL
+   gate on running total_profit, martingale reset to base stake on win. */
+class OverSequenceEngine extends BaseEngine{
+  constructor(){
+    super({ id:'over2seq', name:'Over 2 Sequence', description:'Fixed DIGITOVER barrier 2 on every tick, multiplier martingale recovery.',
+      symbol:'R_50', contractType:'DIGITOVER', barrier:2, duration:1, durationUnit:'t',
+      baseStake:0.55, martingaleMode:'multiplier', martingaleFactor:2.5, martingaleMaxSteps:6,
+      takeProfit:10, stopLoss:100 });
+  }
+  async onArm(){ await this.onTick(); }
+  async onTick(){
+    if(!this.armed || this.inFlight || STATE.killed) return;
+    this.lastSignal = 'entry: Over 2 every tick';
+    renderEngines();
+    await this.placeTrade('DIGITOVER', this.barrier);
+  }
+}
+
+/* 2) OVER 2 / RECOVERY OVER 4 — primary Over 2 on R_100; after a loss,
+   switches the recovery trade to Over 4 (wider barrier, higher payout odds
+   reduced) before reverting to Over 2 once recovered.
+   Ported from OVER_2_RECOVERY_OVER_4.xml intent (over/under digit recovery ladder). */
+class OverRecoveryEngine extends BaseEngine{
+  constructor(){
+    super({ id:'over2rec4', name:'Over 2 Recovery→4', description:'Primary DIGITOVER 2; switches barrier to 4 during loss recovery ladder on R_100.',
+      symbol:'R_100', contractType:'DIGITOVER', barrier:2, duration:1, durationUnit:'t',
+      baseStake:0.5, martingaleMode:'multiplier', martingaleFactor:2.2, martingaleMaxSteps:5,
+      takeProfit:12, stopLoss:80 });
+    this.recoveryBarrier = 4;
+  }
+  async onArm(){ await this.onTick(); }
+  async onTick(){
+    if(!this.armed || this.inFlight || STATE.killed) return;
+    const useRecovery = this.lossStreak > 0;
+    const barrier = useRecovery ? this.recoveryBarrier : this.barrier;
+    this.lastSignal = useRecovery? `recovery ladder: Over ${this.recoveryBarrier}` : 'primary: Over 2';
+    renderEngines();
+    await this.placeTrade('DIGITOVER', barrier);
+  }
+}
+
+/* 3) LINEAR DIVERGENCE PRO — RISE — CALL (Higher) on RDBULL, momentum entry
+   on N consecutive upward ticks. Ported from LINEAR_DIVERGENCE_PRO_RISE.xml. */
+class LinearDivergenceRiseEngine extends BaseEngine{
+  constructor(){
+    super({ id:'lindiv_rise', name:'Linear Divergence — Rise', description:'CALL entries on RDBULL after confirmed short-term upward divergence.',
+      symbol:'RDBULL', contractType:'CALL', duration:5, durationUnit:'t',
+      baseStake:1, martingaleMode:'multiplier', martingaleFactor:2.0, martingaleMaxSteps:5,
+      takeProfit:15, stopLoss:60 });
+    this.confirmTicks = 3;
+  }
+  async onArm(){ await MarketFeed.subscribeSymbol(this.symbol, (tick)=> this.onTick(tick)); }
+  async onTick(){
+    if(!this.armed || this.inFlight || STATE.killed) return;
+    const q = MarketFeed.getRecentQuotes(this.symbol, this.confirmTicks+1);
+    if(q.length < this.confirmTicks+1) { this.lastSignal='collecting ticks…'; renderEngines(); return; }
+    let rising = true;
+    for(let i=1;i<q.length;i++) if(q[i] <= q[i-1]) rising=false;
+    this.lastSignal = rising? 'divergence UP confirmed — CALL' : 'no divergence';
+    renderEngines();
+    if(rising) await this.placeTrade('CALL', null);
+  }
+}
+
+/* 4) LINEAR DIVERGENCE PRO — FALL — PUT (Lower) on RDBULL, mirror of Rise.
+   Ported from LINEAR_DIVERGENCE_PRO_FALL.xml. */
+class LinearDivergenceFallEngine extends BaseEngine{
+  constructor(){
+    super({ id:'lindiv_fall', name:'Linear Divergence — Fall', description:'PUT entries on RDBULL after confirmed short-term downward divergence.',
+      symbol:'RDBULL', contractType:'PUT', duration:5, durationUnit:'t',
+      baseStake:1, martingaleMode:'multiplier', martingaleFactor:2.0, martingaleMaxSteps:5,
+      takeProfit:15, stopLoss:60 });
+    this.confirmTicks = 3;
+  }
+  async onArm(){ await MarketFeed.subscribeSymbol(this.symbol, (tick)=> this.onTick(tick)); }
+  async onTick(){
+    if(!this.armed || this.inFlight || STATE.killed) return;
+    const q = MarketFeed.getRecentQuotes(this.symbol, this.confirmTicks+1);
+    if(q.length < this.confirmTicks+1) { this.lastSignal='collecting ticks…'; renderEngines(); return; }
+    let falling = true;
+    for(let i=1;i<q.length;i++) if(q[i] >= q[i-1]) falling=false;
+    this.lastSignal = falling? 'divergence DOWN confirmed — PUT' : 'no divergence';
+    renderEngines();
+    if(falling) await this.placeTrade('PUT', null);
+  }
+}
+
+/* 5) ODD/EVEN REVERSAL — after 5 consecutive ODD ticks, buy DIGITEVEN
+   (mean-reversion). Recovery is flat D'Alembert (+1 stake) per bot logic
+   ("zigzagmode"), reset to base stake on win. Ported from odd_even.xml on RDBEAR. */
+class OddEvenReversalEngine extends BaseEngine{
+  constructor(){
+    super({ id:'oddeven_rev', name:'Odd/Even Reversal', description:'Mean-reversion DIGITEVEN entry after 5 consecutive odd ticks on RDBEAR. Flat +1 stake recovery.',
+      symbol:'RDBEAR', contractType:'DIGITEVEN', duration:1, durationUnit:'t',
+      baseStake:1, martingaleMode:'flat', martingaleFlatStep:1, martingaleMaxSteps:10,
+      takeProfit:8, stopLoss:40 });
+    this.oddStreak = 0; this.buyMode=false;
+  }
+  async onArm(){ this.oddStreak=0; this.buyMode=false; await MarketFeed.subscribeSymbol(this.symbol, (tick)=> this.onTick(tick)); }
+  async onTick(){
+    if(!this.armed || STATE.killed) return;
+    const d = MarketFeed.getLastDigit(this.symbol);
+    if(d==null) return;
+    if(d % 2 === 1){ this.oddStreak++; } else { this.oddStreak = 0; }
+    if(this.oddStreak >= 5) this.buyMode = true;
+    this.lastSignal = `odd streak ${this.oddStreak}/5` + (this.buyMode? ' — armed to buy EVEN':'');
+    renderEngines();
+    if(this.buyMode && !this.inFlight){
+      this.buyMode=false; this.oddStreak=0;
+      await this.placeTrade('DIGITEVEN', null);
+    }
+  }
+}
+
+/* 6) AZTEC TECHNIC — trend-following CALL/PUT on 1HZ30V. Detects short-term
+   UPTREND/DOWNTREND from recent quote slope and trades with the trend.
+   Ported from ΛZTΞC_TECHNIC_BOT.xml. */
+class AztecTechnicEngine extends BaseEngine{
+  constructor(){
+    super({ id:'aztec_technic', name:'Aztec Technic', description:'Trend-following CALL/PUT on 1HZ30V using short-window slope detection (UPTREND/DOWNTREND).',
+      symbol:'1HZ30V', contractType:'CALL', duration:5, durationUnit:'t',
+      baseStake:1, martingaleMode:'multiplier', martingaleFactor:2.0, martingaleMaxSteps:6,
+      takeProfit:20, stopLoss:70 });
+    this.window = 5;
+  }
+  async onArm(){ await MarketFeed.subscribeSymbol(this.symbol, (tick)=> this.onTick(tick)); }
+  async onTick(){
+    if(!this.armed || this.inFlight || STATE.killed) return;
+    const q = MarketFeed.getRecentQuotes(this.symbol, this.window);
+    if(q.length < this.window){ this.lastSignal='collecting ticks…'; renderEngines(); return; }
+    const slope = q[q.length-1] - q[0];
+    if(Math.abs(slope) < 1e-9){ this.lastSignal='flat — no trend'; renderEngines(); return; }
+    const dir = slope>0 ? 'CALL' : 'PUT';
+    this.lastSignal = (slope>0?'UPTREND':'DOWNTREND') + ` — ${dir}`;
+    renderEngines();
+    await this.placeTrade(dir, null);
+  }
+}
+
+const Engines = [
+  new OverSequenceEngine(), new OverRecoveryEngine(),
+  new LinearDivergenceRiseEngine(), new LinearDivergenceFallEngine(),
+  new OddEvenReversalEngine(), new AztecTechnicEngine()
+];
+
+/* ---------------------------- RENDER: DASHBOARD ---------------------------- */
+function renderDash(){
+  const el = document.getElementById('app');
+  const bal = TradeSession.balance!=null? fmtMoney(TradeSession.balance, TradeSession.currency) : '—';
+  const armedCount = Engines.filter(e=>e.armed).length;
+  const tradingCount = Engines.filter(e=>e.inFlight).length;
+  const pnlClass = Stats.totalProfit>0?'pos':(Stats.totalProfit<0?'neg':'');
+  const spark = sparkline(Stats.history);
+  document.getElementById('dashPanel').innerHTML = `
+    <div class="card">
+      <div class="card-head"><span class="card-title accent">Account Balance</span>
+        <span class="tag ${TradeSession.connected?'on':'off'}">${TradeSession.connected?'connected':'disconnected'}</span></div>
+      <div class="stat-val cyan" style="font-size:30px;">${bal}</div>
+      <div class="stat-sub">${STATE.activeAccount? (STATE.activeAccount.account_id+' · '+STATE.activeAccount.account_type.toUpperCase()) : 'No account selected'}</div>
+    </div>
+
+    <div class="section-label">Session P&amp;L</div>
+    <div class="grid2">
+      <div class="stat"><div class="stat-label">Total P&amp;L</div><div class="stat-val ${pnlClass}">${fmtMoney(Stats.totalProfit)}</div></div>
+      <div class="stat"><div class="stat-label">Win Rate</div><div class="stat-val cyan">${fmtPct(Stats.winRate())}</div></div>
+      <div class="stat"><div class="stat-label">Gross Win</div><div class="stat-val pos">${fmtMoney(Stats.grossWin)}</div></div>
+      <div class="stat"><div class="stat-label">Gross Loss</div><div class="stat-val neg">${fmtMoney(-Stats.grossLoss)}</div></div>
+    </div>
+    <div style="margin-top:10px;">${spark}</div>
+
+    <div class="section-label">Trade Stats</div>
+    <div class="grid3">
+      <div class="stat"><div class="stat-label">Trades</div><div class="stat-val">${Stats.totalTrades}</div></div>
+      <div class="stat"><div class="stat-label">Wins</div><div class="stat-val pos">${Stats.wins}</div></div>
+      <div class="stat"><div class="stat-label">Losses</div><div class="stat-val neg">${Stats.losses}</div></div>
+    </div>
+    <div class="grid3" style="margin-top:8px;">
+      <div class="stat"><div class="stat-label">Open</div><div class="stat-val cyan">${tradingCount}</div></div>
+      <div class="stat"><div class="stat-label">Engines Armed</div><div class="stat-val">${armedCount}/${Engines.length}</div></div>
+      <div class="stat"><div class="stat-label">Total Staked</div><div class="stat-val">${fmtMoney(Stats.totalStake)}</div></div>
+    </div>
+
+    <div class="section-label">Risk Status</div>
+    <div class="card" style="margin-bottom:0;">
+      <div class="row" style="align-items:center;">
+        <span class="tag ${Risk.pausedUntilReset?'warn':'on'}">${Risk.pausedUntilReset?'paused':'active'}</span>
+        <span class="subtle" style="font-size:11.5px;">Consecutive losses: <b class="mono">${Risk.consecutiveLosses}</b>/${Risk.params.maxConsecutiveLosses}</span>
+      </div>
+      <div class="hint">Drawdown ${fmtMoney(Risk.currentDrawdown())} of ${fmtMoney(Risk.params.dailyDrawdownCap)} cap · Max concurrent ${Risk.params.maxConcurrentTrades}</div>
+    </div>
+
+    <div class="section-label">Reset</div>
+    <div class="row">
+      <button class="btn btn-ghost btn-sm" id="resetDashBtn">Reset Dashboard Stats</button>
+      <button class="btn btn-ghost btn-sm" id="resetJournalFromDashBtn">Reset Trade Journal</button>
+    </div>
+  `;
+  document.getElementById('resetDashBtn').onclick = ()=> confirmAction('Reset dashboard stats?', 'This clears session P&L, win/loss counters and sparkline. Trade journal is kept.', ()=> Stats.reset());
+  document.getElementById('resetJournalFromDashBtn').onclick = ()=> confirmAction('Reset trade journal?', 'This permanently deletes all stored trade log entries.', async ()=>{ await journalClear(); renderJournal(); toast('Trade journal cleared','ok'); });
+}
+function sparkline(arr){
+  if(!arr.length) return `<div class="hint">No trade history yet this session.</div>`;
+  const w=300,h=46,pad=4; const min=Math.min(0,...arr), max=Math.max(0,...arr);
+  const range = (max-min)||1;
+  const pts = arr.map((v,i)=>{
+    const x = pad + (i/(Math.max(arr.length-1,1)))*(w-2*pad);
+    const y = h-pad - ((v-min)/range)*(h-2*pad);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const last = arr[arr.length-1];
+  const color = last>=0? '#2be88a':'#ff4d6d';
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%; height:46px;"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2"/></svg>`;
+}
+
+/* ---------------------------- RENDER: ENGINES ---------------------------- */
+let openEngineId = null;
+function renderEngines(){
+  const el = document.getElementById('enginesPanel');
+  if(!el) return;
+  el.innerHTML = `
+    <div class="card">
+      <div class="row">
+        <button class="btn btn-primary btn-sm" id="armAllBtn">Arm All</button>
+        <button class="btn btn-ghost btn-sm" id="disarmAllBtn">Disarm All</button>
+      </div>
+      <div class="hint">Each engine trades independently within global risk limits. Tap an engine to expand its trade, martingale and P&amp;L controls.</div>
+    </div>
+    ${Engines.map(engineCardHtml).join('')}
+  `;
+  document.getElementById('armAllBtn').onclick = ()=> Engines.forEach(e=> e.arm());
+  document.getElementById('disarmAllBtn').onclick = ()=> Engines.forEach(e=> e.disarm('manual - disarm all'));
+  Engines.forEach(e=>{
+    const head = document.getElementById('head_'+e.id);
+    if(head) head.onclick = ()=>{ openEngineId = (openEngineId===e.id? null : e.id); renderEngines(); };
+    const armBtn = document.getElementById('arm_'+e.id);
+    if(armBtn) armBtn.onclick = (ev)=>{ ev.stopPropagation(); e.armed? e.disarm('manual') : e.arm(); };
+    const paramsBtn = document.getElementById('params_'+e.id);
+    if(paramsBtn) paramsBtn.onclick = (ev)=>{ ev.stopPropagation(); openEngineParamsModal(e); };
+  });
+}
+function engineCardHtml(e){
+  const open = openEngineId===e.id;
+  const stateClass = e.inFlight? 'trading' : (e.armed? 'armed' : '');
+  const dotClass = e.inFlight? 'trading' : (e.armed? 'armed' : '');
+  return `
+  <div class="card engine-card ${stateClass}">
+    <div class="engine-head" id="head_${e.id}" style="cursor:pointer;">
+      <div>
+        <div class="engine-name"><span class="engine-dot ${dotClass}"></span>${e.name}</div>
+        <div class="engine-sym">${e.symbol} · ${e.contractType}${e.barrier!=null?(' barrier '+e.barrier):''} · stake $${e.currentStake.toFixed(2)}</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="tag ${e.inFlight?'busy':(e.armed?'on':'off')}">${e.inFlight?'trading':(e.armed?'armed':'off')}</span>
+        <svg class="chev ${open?'open':''}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+    </div>
+    <div class="engine-body ${open?'open':''}">
+      <div class="hint">${e.description}</div>
+      <div class="engine-stats">
+        <div class="mini-stat"><div class="v">${e.trades}</div><div class="l">Trades</div></div>
+        <div class="mini-stat"><div class="v" style="color:var(--green)">${e.wins}</div><div class="l">Wins</div></div>
+        <div class="mini-stat"><div class="v" style="color:var(--red)">${e.losses}</div><div class="l">Losses</div></div>
+        <div class="mini-stat"><div class="v" style="color:${e.sessionProfit>=0?'var(--green)':'var(--red)'}">${fmtMoney(e.sessionProfit)}</div><div class="l">P&amp;L</div></div>
+      </div>
+      <div class="hint" style="margin-top:8px;">Signal: <b style="color:var(--text)">${e.lastSignal}</b></div>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn ${e.armed?'btn-danger':'btn-primary'} btn-sm" id="arm_${e.id}">${e.armed?'Disarm':'Arm Engine'}</button>
+        <button class="btn btn-ghost btn-sm" id="params_${e.id}">Parameters</button>
+      </div>
+    </div>
+  </div>`;
+}
+function openEngineParamsModal(e){
+  openModal(`
+    <h3>${e.name}</h3>
+    <p>${e.description}</p>
+    <div class="section-label">Trade Parameters</div>
+    <label class="field"><div class="lab">Symbol</div><input type="text" id="mp_symbol" value="${e.symbol}"></label>
+    <div class="row">
+      <label class="field"><div class="lab">Base Stake ($)</div><input type="number" step="0.01" min="0.35" id="mp_stake" value="${e.baseStake}"></label>
+      <label class="field"><div class="lab">Duration</div><input type="number" min="1" id="mp_duration" value="${e.duration}"></label>
+    </div>
+    ${e.barrier!=null? `<label class="field"><div class="lab">Barrier (digit)</div><input type="number" min="0" max="9" id="mp_barrier" value="${e.barrier}"></label>`:''}
+
+    <div class="section-label">Smart Martingale</div>
+    <label class="field"><div class="lab"><span>Recovery mode</span></div>
+      <select id="mp_mgmode">
+        <option value="multiplier" ${e.martingale.mode==='multiplier'?'selected':''}>Multiplier (stake × factor)</option>
+        <option value="flat" ${e.martingale.mode==='flat'?'selected':''}>Flat step (stake + amount)</option>
+      </select>
+    </label>
+    <div class="row">
+      <label class="field"><div class="lab">Factor / Step</div><input type="number" step="0.1" id="mp_mgfactor" value="${e.martingale.mode==='multiplier'?e.martingale.factor:e.martingale.flatStep}"></label>
+      <label class="field"><div class="lab">Max Steps</div><input type="number" min="1" id="mp_mgsteps" value="${e.martingale.maxSteps}"></label>
+    </div>
+    <label class="field" style="display:flex; align-items:center; justify-content:space-between;"><div class="lab" style="margin-bottom:0;"><span>Martingale enabled</span></div>
+      <div class="switch"><input type="checkbox" id="mp_mgenabled" ${e.martingale.enabled?'checked':''}><label class="slider" for="mp_mgenabled"></label></div>
+    </label>
+
+    <div class="section-label">Profit &amp; Loss Control (this engine)</div>
+    <div class="row">
+      <label class="field"><div class="lab">Take Profit ($, 0=off)</div><input type="number" step="0.5" id="mp_tp" value="${e.pnl.takeProfit}"></label>
+      <label class="field"><div class="lab">Stop Loss ($, 0=off)</div><input type="number" step="0.5" id="mp_sl" value="${e.pnl.stopLoss}"></label>
+    </div>
+
+    <div class="row" style="margin-top:8px;">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="mp_save">Save Parameters</button>
+    </div>
+  `);
+  document.getElementById('mp_save').onclick = ()=>{
+    e.symbol = document.getElementById('mp_symbol').value.trim() || e.symbol;
+    e.baseStake = Math.max(0.35, Number(document.getElementById('mp_stake').value)||e.baseStake);
+    e.duration = Math.max(1, Number(document.getElementById('mp_duration').value)||e.duration);
+    if(e.barrier!=null){ const b=document.getElementById('mp_barrier'); if(b) e.barrier = String(Math.max(0,Math.min(9,Number(b.value)))); }
+    e.martingale.mode = document.getElementById('mp_mgmode').value;
+    const factorVal = Number(document.getElementById('mp_mgfactor').value)||1;
+    if(e.martingale.mode==='multiplier') e.martingale.factor = factorVal; else e.martingale.flatStep = factorVal;
+    e.martingale.maxSteps = Math.max(1, Number(document.getElementById('mp_mgsteps').value)||6);
+    e.martingale.enabled = document.getElementById('mp_mgenabled').checked;
+    e.pnl.takeProfit = Number(document.getElementById('mp_tp').value)||0;
+    e.pnl.stopLoss = Number(document.getElementById('mp_sl').value)||0;
+    e.resetStake();
+    if(e.armed && MarketFeed.tickHandlers.has(e.symbol)===false) MarketFeed.subscribeSymbol(e.symbol, (t)=>e.onTick(t));
+    SysLog.info(`[${e.name}] parameters updated`);
+    toast('Parameters saved','ok'); closeModal(); renderEngines();
+  };
+}
+
+/* ---------------------------- RENDER: RISK ---------------------------- */
+function renderRisk(){
+  const el = document.getElementById('riskPanel');
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-head"><span class="card-title accent">Global Risk Engine</span><span class="tag ${Risk.pausedUntilReset?'warn':'on'}">${Risk.pausedUntilReset?'paused':'active'}</span></div>
+      <div class="hint">This is the final gate checked before every buy() call across all engines.</div>
+      <div class="divider"></div>
+      <label class="field"><div class="lab"><span>Daily Drawdown Cap</span><b>${fmtMoney(Risk.params.dailyDrawdownCap)}</b></div>
+        <input type="number" step="1" id="rp_dd" value="${Risk.params.dailyDrawdownCap}"></label>
+      <label class="field"><div class="lab"><span>Daily Take-Profit (0=off)</span><b>${Risk.params.dailyTakeProfit? fmtMoney(Risk.params.dailyTakeProfit):'off'}</b></div>
+        <input type="number" step="1" id="rp_tp" value="${Risk.params.dailyTakeProfit}"></label>
+      <label class="field"><div class="lab"><span>Max Consecutive Losses</span><b>${Risk.params.maxConsecutiveLosses}</b></div>
+        <input type="number" step="1" min="1" id="rp_cl" value="${Risk.params.maxConsecutiveLosses}"></label>
+      <label class="field"><div class="lab"><span>Stake Ceiling (per trade)</span><b>${fmtMoney(Risk.params.stakeCeiling)}</b></div>
+        <input type="number" step="1" min="0.35" id="rp_sc" value="${Risk.params.stakeCeiling}"></label>
+      <label class="field"><div class="lab"><span>Max Concurrent Trades</span><b>${Risk.params.maxConcurrentTrades}</b></div>
+        <input type="number" step="1" min="1" id="rp_mc" value="${Risk.params.maxConcurrentTrades}"></label>
+      <button class="btn btn-primary btn-sm" id="rp_save">Save Risk Parameters</button>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Risk State</span></div>
+      <div class="grid2">
+        <div class="stat"><div class="stat-label">Consecutive Losses</div><div class="stat-val ${Risk.consecutiveLosses>0?'neg':''}">${Risk.consecutiveLosses}</div></div>
+        <div class="stat"><div class="stat-label">Current Drawdown</div><div class="stat-val neg">${fmtMoney(Risk.currentDrawdown())}</div></div>
+      </div>
+      ${Risk.pausedUntilReset? `<button class="btn btn-gold btn-sm" id="rp_resume" style="margin-top:10px;">Resume Trading (clear pause)</button>` : ''}
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Kill Switch</span></div>
+      <div class="hint">Immediately disarms every engine, tears down subscriptions (forget_all) and blocks new trades until cleared.</div>
+      <div class="row" style="margin-top:10px;">
+        <button class="btn btn-danger btn-sm" id="rp_kill">${STATE.killed?'Kill Switch Engaged — Tap to Clear':'Engage Kill Switch'}</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('rp_save').onclick = ()=>{
+    Risk.params.dailyDrawdownCap = Number(document.getElementById('rp_dd').value)||Risk.params.dailyDrawdownCap;
+    Risk.params.dailyTakeProfit = Number(document.getElementById('rp_tp').value)||0;
+    Risk.params.maxConsecutiveLosses = Math.max(1, Number(document.getElementById('rp_cl').value)||Risk.params.maxConsecutiveLosses);
+    Risk.params.stakeCeiling = Math.max(0.35, Number(document.getElementById('rp_sc').value)||Risk.params.stakeCeiling);
+    Risk.params.maxConcurrentTrades = Math.max(1, Number(document.getElementById('rp_mc').value)||Risk.params.maxConcurrentTrades);
+    Risk.save(); SysLog.info('Risk parameters updated'); toast('Risk parameters saved','ok'); renderRisk();
+  };
+  const resumeBtn = document.getElementById('rp_resume'); if(resumeBtn) resumeBtn.onclick = ()=>{ Risk.resetPause(); renderRisk(); renderDash(); };
+  document.getElementById('rp_kill').onclick = ()=> STATE.killed? clearKillSwitch() : engageKillSwitch();
+}
+async function engageKillSwitch(){
+  STATE.killed = true;
+  Engines.forEach(e=> e.disarm('KILL SWITCH'));
+  document.getElementById('killbar').style.display='none';
+  try{ if(TradeSession.sock) await TradeSession.sock.forgetAll(); }catch(e){}
+  try{ if(MarketFeed.sock) await MarketFeed.sock.forgetAll('ticks'); }catch(e){}
+  SysLog.err('KILL SWITCH ENGAGED — all engines disarmed, subscriptions torn down');
+  toast('Kill switch engaged','err',4000);
+  renderRisk(); renderEngines();
+}
+function clearKillSwitch(){
+  STATE.killed = false;
+  SysLog.ok('Kill switch cleared — engines may be re-armed');
+  toast('Kill switch cleared','ok');
+  renderRisk(); updateKillbar();
+}
+function updateKillbar(){
+  const anyArmed = Engines.some(e=>e.armed) || STATE.killed;
+  document.getElementById('killbar').style.display = anyArmed? 'flex':'none';
+}
+
+/* ---------------------------- RENDER: JOURNAL ---------------------------- */
+async function renderJournal(){
+  const el = document.getElementById('journalPanel');
+  if(!el) return;
+  const rows = await journalAll();
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-head"><span class="card-title accent">Trade Journal</span><span class="subtle" style="font-size:11px;">${rows.length} records</span></div>
+      <div class="row">
+        <button class="btn btn-ghost btn-sm" id="jExport">Export CSV</button>
+        <button class="btn btn-danger btn-sm" id="jReset">Reset Journal</button>
+      </div>
+    </div>
+    <div class="card">
+      ${rows.length? rows.slice(0,120).map(tradeRowHtml).join('') : `<div class="empty">No trades recorded yet.</div>`}
+    </div>
+  `;
+  document.getElementById('jExport').onclick = ()=> csvExport(rows);
+  document.getElementById('jReset').onclick = ()=> confirmAction('Reset trade journal?', 'Permanently deletes all stored trade records from this device.', async ()=>{ await journalClear(); renderJournal(); toast('Journal reset','ok'); });
+}
+function tradeRowHtml(r){
+  const badge = r.result==='open'?'open':(r.result==='win'?'win':'loss');
+  const time = new Date(r.time).toLocaleTimeString();
+  const profitTxt = r.profit==null? '—' : fmtMoney(r.profit);
+  return `<div class="trade-row">
+    <div class="left">
+      <span>${r.engine} <span class="subtle">· ${r.symbol}</span></span>
+      <span class="badge ${badge}">${r.result}</span>
+      <span class="subtle" style="font-size:10px;">${time} · ${r.contract_type}${r.barrier?(' b'+r.barrier):''} · stake $${Number(r.stake).toFixed(2)}</span>
+    </div>
+    <div class="amt ${r.profit>0?'stat-val pos':(r.profit<0?'stat-val neg':'')}" style="font-size:13px;">${profitTxt}</div>
+  </div>`;
+}
+
+/* ---------------------------- RENDER: LOGS ---------------------------- */
+function renderLogs(){
+  const el = document.getElementById('logsPanel');
+  if(!el) return;
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-head"><span class="card-title accent">System Log Console</span>
+        <button class="btn btn-danger btn-tiny" id="logResetBtn">Clear</button></div>
+      <div class="log-box" id="logBox">
+        ${SysLog.entries.length? SysLog.entries.map(e=>`<div class="log-line ${e.level}"><span class="t">${e.t}</span><span class="m">${escapeHtml(e.msg)}</span></div>`).join('') : `<div class="empty">No log entries yet.</div>`}
+      </div>
+    </div>
+  `;
+  document.getElementById('logResetBtn').onclick = ()=> confirmAction('Clear system logs?', 'This clears the in-app log console (does not affect trade journal).', ()=> SysLog.reset());
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------------------------- RENDER: ACCOUNT / AUTH ---------------------------- */
+function renderAccountBadges(){
+  document.getElementById('modeBadge').className = 'mode-badge ' + (STATE.accountMode==='real'?'real':'demo');
+  document.getElementById('modeBadge').textContent = STATE.accountMode==='real'?'REAL':'DEMO';
+}
+function renderAccount(){
+  const el = document.getElementById('accountPanel');
+  const connected = !!STATE.accessToken;
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-head"><span class="card-title accent">Authentication</span><span class="tag ${connected?'on':'off'}">${connected?'token set':'not set'}</span></div>
+      <div class="row" style="margin-bottom:10px;">
+        <button class="btn btn-sm ${STATE.authMethod==='pat'?'btn-primary':'btn-ghost'}" id="authTabPat">PAT</button>
+        <button class="btn btn-sm ${STATE.authMethod==='oauth'?'btn-primary':'btn-ghost'}" id="authTabOauth">OAuth 2.0 PKCE</button>
+      </div>
+      <label class="field"><div class="lab">Deriv App ID</div><input type="text" id="acc_appid" value="${STATE.appId}" placeholder="e.g. 99999"></label>
+      ${STATE.authMethod==='pat' ? `
+        <label class="field"><div class="lab">Personal Access Token</div><input type="password" id="acc_pat" placeholder="Paste PAT token" value=""></label>
+        <button class="btn btn-primary btn-sm" id="acc_connectPat">Connect with PAT</button>
+      ` : `
+        <label class="field"><div class="lab">OAuth Client ID</div><input type="text" id="acc_oauthid" value="${STATE.oauthClientId}"></label>
+        <div class="hint">Redirect URI (register exactly, HTTPS): <span class="mono">${CFG.REDIRECT_URI}</span></div>
+        <button class="btn btn-primary btn-sm" id="acc_oauthLogin" style="margin-top:8px;">Sign in with Deriv OAuth</button>
+        <div class="hint">Token exchange must occur server-side. After redirect back with a code, exchange it on your backend and paste the resulting access token below.</div>
+        <label class="field" style="margin-top:8px;"><div class="lab">Access Token (from server exchange)</div><input type="password" id="acc_oauthtoken" placeholder="Paste exchanged access_token"></label>
+        <button class="btn btn-primary btn-sm" id="acc_connectOauth">Connect with Access Token</button>
+      `}
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-title">Accounts</span><button class="btn btn-ghost btn-tiny" id="acc_refresh">Refresh</button></div>
+      <div id="acc_list">${STATE.accounts.length? STATE.accounts.map(accountRowHtml).join('') : `<div class="empty">Connect an auth method, then refresh to list accounts.</div>`}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-title">Trading Session</span><span class="tag ${TradeSession.connected?'on':'off'}">${TradeSession.connected?'live':'offline'}</span></div>
+      <div class="grid2">
+        <div class="stat"><div class="stat-label">Account</div><div class="stat-val" style="font-size:14px;">${STATE.activeAccount? STATE.activeAccount.account_id : '—'}</div></div>
+        <div class="stat"><div class="stat-label">Balance</div><div class="stat-val cyan">${TradeSession.balance!=null? fmtMoney(TradeSession.balance, TradeSession.currency):'—'}</div></div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <button class="btn btn-primary btn-sm" id="acc_connectSession">Connect Trading Session</button>
+        <button class="btn btn-ghost btn-sm" id="acc_disconnectSession">Disconnect</button>
+      </div>
+      ${STATE.activeAccount && STATE.activeAccount.account_type==='demo' ? `<button class="btn btn-gold btn-sm" id="acc_resetDemo" style="margin-top:8px;">Reset Demo Balance to $10,000</button>` : ''}
+      ${STATE.activeAccount && STATE.activeAccount.account_type==='real' ? `
+        <div class="divider"></div>
+        <div class="hint" style="color:var(--gold);">Real-money arming requires typed confirmation.</div>
+        <button class="btn ${STATE.armedReal?'btn-danger':'btn-magenta'} btn-sm" id="acc_armReal" style="margin-top:6px;">${STATE.armedReal?'Disarm Real-Money Trading':'Arm Real-Money Trading'}</button>
+      ` : ''}
+    </div>
+  `;
+  document.getElementById('authTabPat').onclick = ()=>{ STATE.authMethod='pat'; localStorage.setItem('p6_auth_method','pat'); renderAccount(); };
+  document.getElementById('authTabOauth').onclick = ()=>{ STATE.authMethod='oauth'; localStorage.setItem('p6_auth_method','oauth'); renderAccount(); };
+  const connectPat = document.getElementById('acc_connectPat');
+  if(connectPat) connectPat.onclick = async ()=>{
+    STATE.appId = document.getElementById('acc_appid').value.trim();
+    const pat = document.getElementById('acc_pat').value.trim();
+    if(!STATE.appId || !pat){ toast('App ID and PAT required','err'); return; }
+    STATE.accessToken = pat; localStorage.setItem('p6_app_id', STATE.appId);
+    SysLog.ok('PAT credentials set'); toast('PAT connected — refreshing accounts','ok');
+    await refreshAccounts();
+  };
+  const oauthLoginBtn = document.getElementById('acc_oauthLogin');
+  if(oauthLoginBtn) oauthLoginBtn.onclick = ()=>{
+    STATE.appId = document.getElementById('acc_appid').value.trim();
+    STATE.oauthClientId = document.getElementById('acc_oauthid').value.trim();
+    localStorage.setItem('p6_app_id', STATE.appId); localStorage.setItem('p6_oauth_client_id', STATE.oauthClientId);
+    oauthLogin();
+  };
+  const connectOauth = document.getElementById('acc_connectOauth');
+  if(connectOauth) connectOauth.onclick = async ()=>{
+    STATE.appId = document.getElementById('acc_appid').value.trim();
+    const tok = document.getElementById('acc_oauthtoken').value.trim();
+    if(!STATE.appId || !tok){ toast('App ID and access token required','err'); return; }
+    STATE.accessToken = tok; localStorage.setItem('p6_app_id', STATE.appId);
+    SysLog.ok('OAuth access token set'); toast('OAuth token connected — refreshing accounts','ok');
+    await refreshAccounts();
+  };
+  document.getElementById('acc_refresh').onclick = refreshAccounts;
+  document.getElementById('acc_connectSession').onclick = async ()=>{
+    if(!STATE.activeAccount){ toast('Select an account first','err'); return; }
+    try{ await TradeSession.connect(); renderAccount(); }catch(e){ toast('Connect failed: '+e.message,'err'); }
+  };
+  document.getElementById('acc_disconnectSession').onclick = async ()=>{ await TradeSession.teardown(); renderAccount(); };
+  const resetDemoBtn = document.getElementById('acc_resetDemo');
+  if(resetDemoBtn) resetDemoBtn.onclick = ()=> confirmAction('Reset demo balance?', 'Resets this demo account balance to $10,000 USD.', async ()=>{
+    try{ await DerivApi.resetDemoBalance(STATE.activeAccount.account_id); toast('Demo balance reset','ok'); SysLog.ok('Demo balance reset to $10,000'); }
+    catch(e){ toast('Reset failed: '+e.message,'err'); }
+  });
+  const armRealBtn = document.getElementById('acc_armReal');
+  if(armRealBtn) armRealBtn.onclick = ()=>{
+    if(STATE.armedReal){ STATE.armedReal=false; SysLog.warn('Real-money arming revoked'); renderAccount(); return; }
+    openTypedConfirmModal();
+  };
+}
+function accountRowHtml(a){
+  const active = STATE.activeAccount && STATE.activeAccount.account_id===a.account_id;
+  return `<div class="trade-row" style="cursor:pointer;" onclick="selectAccount('${a.account_id}')">
+    <div class="left">
+      <span>${a.account_id} ${active?'<span class=\"tag on\" style=\"margin-left:6px;\">active</span>':''}</span>
+      <span class="subtle" style="font-size:10.5px;">${a.account_type.toUpperCase()} · ${a.status}</span>
+    </div>
+    <div class="amt">${fmtMoney(a.balance, a.currency)}</div>
+  </div>`;
+}
+async function refreshAccounts(){
+  if(!STATE.accessToken || !STATE.appId){ toast('Set App ID and token first','err'); return; }
+  try{
+    const {data} = await DerivApi.getAccounts();
+    STATE.accounts = data.data || [];
+    if(!STATE.accounts.length){
+      SysLog.warn('No accounts found — creating demo account');
+      const created = await DerivApi.createAccount('demo');
+      const acc = Array.isArray(created.data.data)? created.data.data[0] : created.data.data;
+      STATE.accounts = [acc];
+    }
+    if(!STATE.activeAccount) STATE.activeAccount = STATE.accounts.find(a=>a.account_type==='demo') || STATE.accounts[0];
+    STATE.accountMode = STATE.activeAccount.account_type;
+    renderAccountBadges();
+    SysLog.ok(`Loaded ${STATE.accounts.length} account(s)`);
+    renderAccount();
+  }catch(e){ SysLog.err('Account fetch failed: '+e.message); toast('Failed: '+e.message,'err'); }
+}
+window.selectAccount = function(accountId){
+  const acc = STATE.accounts.find(a=>a.account_id===accountId);
+  if(!acc) return;
+  STATE.activeAccount = acc; STATE.accountMode = acc.account_type; STATE.armedReal=false;
+  renderAccountBadges();
+  SysLog.info('Active account set to '+accountId);
+  renderAccount();
+};
+function openTypedConfirmModal(){
+  openModal(`
+    <h3 style="color:var(--magenta)">⚠ Arm Real-Money Trading</h3>
+    <p>You are about to enable <b>live trading with real funds</b> on account <b>${STATE.activeAccount.account_id}</b>. All armed engines will place real-money trades once connected. Risk parameters and kill switch remain active safeguards, but losses are real.</p>
+    <p>Type <b>CONFIRM</b> below to proceed.</p>
+    <input type="text" class="confirm-input" id="typedConfirmInput" placeholder="CONFIRM">
+    <div class="row" style="margin-top:14px;">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-magenta" id="typedConfirmBtn">Arm Real Money</button>
+    </div>
+  `);
+  document.getElementById('typedConfirmBtn').onclick = ()=>{
+    const v = document.getElementById('typedConfirmInput').value.trim();
+    if(v!=='CONFIRM'){ toast('Type CONFIRM exactly to proceed','err'); return; }
+    STATE.armedReal = true; SysLog.warn('REAL-MONEY TRADING ARMED by typed confirmation');
+    toast('Real-money trading armed','warn',4000); closeModal(); renderAccount();
+  };
+}
+function confirmAction(title, body, onConfirm){
+  openModal(`
+    <h3>${title}</h3><p>${body}</p>
+    <div class="row" style="margin-top:14px;">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-danger" id="confirmActionBtn">Confirm</button>
+    </div>
+  `);
+  document.getElementById('confirmActionBtn').onclick = ()=>{ closeModal(); onConfirm(); };
+}
+
+/* ---------------------------- TAB NAV / INIT ---------------------------- */
+const TABS = ['dash','engines','risk','journal','logs','account'];
+function buildAppShell(){
+  document.getElementById('app').innerHTML = TABS.map(t=>`<div class="tabpanel" id="${t}Panel-wrap"><div id="${t}Panel"></div></div>`).join('');
+  // simplify ids: use tabpanel classes directly
+  document.getElementById('app').innerHTML = TABS.map(t=>`<div class="tabpanel" id="tab_${t}"><div id="${t}Panel"></div></div>`).join('');
+}
+function showTab(name){
+  STATE.currentTab = name;
+  TABS.forEach(t=> document.getElementById('tab_'+t).classList.toggle('active', t===name));
+  document.querySelectorAll('.navbtn').forEach(b=> b.classList.toggle('active', b.dataset.tab===name));
+  if(name==='dash') renderDash();
+  if(name==='engines') renderEngines();
+  if(name==='risk') renderRisk();
+  if(name==='journal') renderJournal();
+  if(name==='logs') renderLogs();
+  if(name==='account') renderAccount();
+}
+document.querySelectorAll('.navbtn').forEach(b=> b.onclick = ()=> showTab(b.dataset.tab));
+document.getElementById('killSwitchBtn').onclick = ()=> STATE.killed? clearKillSwitch() : engageKillSwitch();
+
+async function init(){
+  buildAppShell();
+  await handleOAuthCallbackIfPresent();
+  showTab('dash');
+  updateConnDot('offline');
+  SysLog.info('PULSAR SIX initialized. Demo mode default. Connect an account to begin.');
+  setInterval(updateKillbar, 1500);
+  // periodic UI refresh for engine "collecting ticks" state, etc.
+  setInterval(()=>{ if(STATE.currentTab==='engines') renderEngines(); }, 4000);
+}
+init();
+</script>
+
+</body>
+</html>

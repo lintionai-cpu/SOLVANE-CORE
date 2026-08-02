@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SmartXtrader — Even/Odd Suite</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap');
+
+  :root{
+    --bg-0:#0a0d12; --bg-1:#0f141b; --bg-2:#141a23; --bg-3:#1a212c;
+    --line:#232b38; --line-soft:#1b222d;
+    --txt-0:#eef2f7; --txt-1:#a7b2c2; --txt-2:#6b7688;
+    --up:#28d4a0; --up-soft:#0f2a24;
+    --down:#ff5c6c; --down-soft:#2a1418;
+    --amber:#f2b84b; --amber-soft:#2a2214;
+    --acc:#5b8cff; --acc-soft:#131c30;
+    --purple:#a586ff;
+    --radius:14px;
+    --mono:'JetBrains Mono', monospace;
+    --sans:'Inter', -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg-0); color:var(--txt-0); font-family:var(--sans); overscroll-behavior-y:contain;}
+  body{padding-bottom:90px;}
+  ::-webkit-scrollbar{width:6px; height:6px;}
+  ::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px;}
+  .mono{font-family:var(--mono);}
+  button{font-family:var(--sans); cursor:pointer;}
+  input, select{font-family:var(--mono);}
+
+  /* ---------- top bar ---------- */
+  .topbar{position:sticky; top:0; z-index:40; background:rgba(10,13,18,.92); backdrop-filter:blur(10px); border-bottom:1px solid var(--line-soft); padding:12px 16px;}
+  .topbar-row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .brand{display:flex; align-items:center; gap:9px;}
+  .brand-mark{width:30px; height:30px; border-radius:8px; background:linear-gradient(135deg,var(--acc),var(--purple)); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; color:#fff; font-family:var(--mono);}
+  .brand-txt{font-weight:800; font-size:15px; letter-spacing:.2px;}
+  .brand-sub{font-size:10px; color:var(--txt-2); font-family:var(--mono); letter-spacing:.5px; text-transform:uppercase;}
+  .status-pill{display:flex; align-items:center; gap:6px; font-size:11px; font-family:var(--mono); padding:6px 10px; border-radius:20px; background:var(--bg-2); border:1px solid var(--line);}
+  .dot{width:7px; height:7px; border-radius:50%; background:var(--txt-2);}
+  .dot.live{background:var(--up); box-shadow:0 0 8px var(--up);}
+  .dot.err{background:var(--down); box-shadow:0 0 8px var(--down);}
+  .dot.wait{background:var(--amber); box-shadow:0 0 8px var(--amber); animation:pulse 1.2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  .acct-strip{display:flex; gap:8px; margin-top:10px; overflow-x:auto; padding-bottom:2px;}
+  .acct-chip{flex:1; min-width:100px; background:var(--bg-2); border:1px solid var(--line); border-radius:10px; padding:8px 10px;}
+  .acct-chip .l{font-size:9px; color:var(--txt-2); text-transform:uppercase; letter-spacing:.6px; margin-bottom:3px;}
+  .acct-chip .v{font-size:14px; font-weight:700; font-family:var(--mono);}
+  .acct-chip .v.up{color:var(--up);} .acct-chip .v.down{color:var(--down);}
+
+  /* ---------- layout ---------- */
+  .wrap{max-width:720px; margin:0 auto; padding:14px;}
+  .card{background:var(--bg-1); border:1px solid var(--line-soft); border-radius:var(--radius); padding:16px; margin-bottom:12px;}
+  .card-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+  .card-title{font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:var(--txt-1); display:flex; align-items:center; gap:7px;}
+  .card-title .ic{width:16px;height:16px;opacity:.85;}
+  .card-sub{font-size:11px; color:var(--txt-2); font-family:var(--mono);}
+
+  .field{margin-bottom:10px;}
+  .field label{display:block; font-size:10.5px; color:var(--txt-2); margin-bottom:5px; text-transform:uppercase; letter-spacing:.5px; font-weight:600;}
+  .field input, .field select{width:100%; background:var(--bg-2); border:1px solid var(--line); color:var(--txt-0); padding:10px 11px; border-radius:9px; font-size:13.5px; outline:none; transition:border-color .15s;}
+  .field input:focus, .field select:focus{border-color:var(--acc);}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
+
+  .btn{border:none; border-radius:10px; padding:12px 16px; font-weight:700; font-size:13.5px; width:100%; display:flex; align-items:center; justify-content:center; gap:8px; transition:filter .15s, transform .1s;}
+  .btn:active{transform:scale(.98);}
+  .btn-primary{background:linear-gradient(135deg,var(--acc),#3f6fe0); color:#fff;}
+  .btn-up{background:linear-gradient(135deg,var(--up),#1fa47c); color:#04140f;}
+  .btn-down{background:linear-gradient(135deg,var(--down),#e0424f); color:#fff;}
+  .btn-ghost{background:var(--bg-2); color:var(--txt-1); border:1px solid var(--line);}
+  .btn-amber{background:linear-gradient(135deg,var(--amber),#d99a26); color:#241900;}
+  .btn:disabled{opacity:.4; filter:grayscale(.4); cursor:not-allowed;}
+  .btn-sm{padding:8px 12px; font-size:12px; width:auto;}
+
+  .toggle-group{display:flex; background:var(--bg-2); border:1px solid var(--line); border-radius:10px; padding:3px; gap:3px;}
+  .toggle-opt{flex:1; text-align:center; padding:8px 6px; border-radius:7px; font-size:12px; font-weight:700; color:var(--txt-2); transition:.15s;}
+  .toggle-opt.active{background:var(--acc); color:#fff;}
+
+  /* engine tabs */
+  .tabs{display:flex; gap:6px; margin-bottom:14px; overflow-x:auto;}
+  .tab{flex-shrink:0; padding:9px 14px; border-radius:10px; background:var(--bg-2); border:1px solid var(--line); font-size:12px; font-weight:700; color:var(--txt-2); white-space:nowrap;}
+  .tab.active{background:var(--acc-soft); border-color:var(--acc); color:var(--acc);}
+
+  .engine-panel{display:none;}
+  .engine-panel.active{display:block;}
+
+  .switch-row{display:flex; align-items:center; justify-content:space-between; padding:10px 0;}
+  .switch-lbl{font-size:12.5px; color:var(--txt-1); font-weight:600;}
+  .switch{position:relative; width:42px; height:24px; background:var(--bg-3); border:1px solid var(--line); border-radius:20px; flex-shrink:0;}
+  .switch.on{background:var(--up-soft); border-color:var(--up);}
+  .switch::after{content:''; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:var(--txt-2); transition:.18s;}
+  .switch.on::after{transform:translateX(18px); background:var(--up);}
+
+  .engine-status{display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:10px; background:var(--bg-2); border:1px solid var(--line); font-size:11.5px; font-family:var(--mono); margin-bottom:12px;}
+
+  .badge{display:inline-block; padding:2px 8px; border-radius:20px; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px;}
+  .badge.on{background:var(--up-soft); color:var(--up);}
+  .badge.off{background:var(--bg-3); color:var(--txt-2);}
+  .badge.rec{background:var(--amber-soft); color:var(--amber);}
+
+  /* dashboard */
+  .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .stat-box{background:var(--bg-2); border:1px solid var(--line); border-radius:11px; padding:12px;}
+  .stat-box .l{font-size:9.5px; color:var(--txt-2); text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px;}
+  .stat-box .v{font-size:19px; font-weight:800; font-family:var(--mono);}
+  .stat-box .v.up{color:var(--up);} .stat-box .v.down{color:var(--down);}
+  canvas#pnlChart{width:100%; height:110px; display:block; margin-top:10px;}
+
+  table.tlog{width:100%; border-collapse:collapse; font-size:11.5px; font-family:var(--mono);}
+  table.tlog th{text-align:left; color:var(--txt-2); font-weight:600; padding:6px 4px; border-bottom:1px solid var(--line); font-size:9.5px; text-transform:uppercase;}
+  table.tlog td{padding:7px 4px; border-bottom:1px solid var(--line-soft);}
+  table.tlog tr:last-child td{border-bottom:none;}
+  .win-txt{color:var(--up); font-weight:700;} .loss-txt{color:var(--down); font-weight:700;}
+  .empty-row{text-align:center; color:var(--txt-2); padding:20px 0; font-size:12px;}
+
+  .log-panel{background:#050708; border:1px solid var(--line-soft); border-radius:11px; padding:10px 12px; height:180px; overflow-y:auto; font-family:var(--mono); font-size:11px; line-height:1.6;}
+  .log-line{white-space:pre-wrap; word-break:break-word; margin-bottom:1px;}
+  .log-line.i{color:var(--txt-1);}
+  .log-line.s{color:var(--up);}
+  .log-line.e{color:var(--down);}
+  .log-line.w{color:var(--amber);}
+  .log-ts{color:var(--txt-2); margin-right:6px;}
+
+  /* bottom nav */
+  .bottomnav{position:fixed; bottom:0; left:0; right:0; z-index:50; background:rgba(10,13,18,.96); backdrop-filter:blur(10px); border-top:1px solid var(--line-soft); display:flex; padding:6px 4px calc(6px + env(safe-area-inset-bottom));}
+  .nav-btn{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:7px 2px; color:var(--txt-2); font-size:9.5px; font-weight:700; border-radius:10px; text-transform:uppercase; letter-spacing:.3px;}
+  .nav-btn.active{color:var(--acc);}
+  .nav-btn svg{width:19px; height:19px;}
+
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .modal-overlay{position:fixed; inset:0; background:rgba(4,6,9,.82); z-index:100; display:none; align-items:flex-end; justify-content:center;}
+  .modal-overlay.show{display:flex;}
+  .modal{background:var(--bg-1); border:1px solid var(--line); border-radius:18px 18px 0 0; padding:22px 18px calc(22px + env(safe-area-inset-bottom)); width:100%; max-width:720px; animation:slideup .2s ease;}
+  @keyframes slideup{from{transform:translateY(30px); opacity:0} to{transform:translateY(0); opacity:1}}
+  .modal h3{margin:0 0 8px; font-size:16px;}
+  .modal p{color:var(--txt-1); font-size:13px; line-height:1.55; margin:0 0 16px;}
+  .modal .row2{margin-top:14px;}
+
+  .hint{font-size:10.5px; color:var(--txt-2); margin-top:4px; line-height:1.4;}
+  .divider{height:1px; background:var(--line-soft); margin:14px 0;}
+  .section-lbl{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--purple); margin:14px 0 8px;}
+  .warn-box{background:var(--down-soft); border:1px solid #4a1e24; color:#ff9aa4; font-size:11.5px; padding:10px 12px; border-radius:9px; margin-bottom:12px; line-height:1.5;}
+  .info-box{background:var(--acc-soft); border:1px solid #22355c; color:#a9c1ff; font-size:11.5px; padding:10px 12px; border-radius:9px; margin-bottom:12px; line-height:1.5;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-row">
+    <div class="brand">
+      <div class="brand-mark">Sx</div>
+      <div>
+        <div class="brand-txt">SmartXtrader</div>
+        <div class="brand-sub">Even / Odd Suite</div>
+      </div>
+    </div>
+    <div class="status-pill"><span class="dot" id="wsDot"></span><span id="wsStatusTxt">Offline</span></div>
+  </div>
+  <div class="acct-strip" id="acctStrip">
+    <div class="acct-chip"><div class="l">Account</div><div class="v mono" id="chipAcct">—</div></div>
+    <div class="acct-chip"><div class="l">Balance</div><div class="v mono" id="chipBal">—</div></div>
+    <div class="acct-chip"><div class="l">Session P/L</div><div class="v mono" id="chipPnl">$0.00</div></div>
+    <div class="acct-chip"><div class="l">Mode</div><div class="v mono" id="chipMode">DEMO</div></div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- ===================== CONNECT VIEW ===================== -->
+  <div class="view active" id="view-connect">
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">🔌 Deriv Connection</div></div>
+      <div class="field">
+        <label>Deriv-App-ID</label>
+        <input id="inAppId" type="text" placeholder="e.g. 99188" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Authorization Token (PAT or OAuth)</label>
+        <input id="inToken" type="password" placeholder="Bearer token" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Account Type</label>
+        <div class="toggle-group" id="acctTypeToggle">
+          <div class="toggle-opt active" data-val="demo">DEMO</div>
+          <div class="toggle-opt" data-val="real">REAL</div>
+        </div>
+        <div class="hint" id="realWarnHint" style="display:none; color:var(--down);">Real-money mode requires an explicit confirmation before any trade is sent.</div>
+      </div>
+      <button class="btn btn-primary" id="btnConnect">Connect to Deriv</button>
+      <div class="hint">Auth flow: GET accounts → POST otp → open authenticated WebSocket immediately (OTP expires fast). Credentials are kept in memory only, never stored.</div>
+    </div>
+
+    <div class="card" id="acctListCard" style="display:none;">
+      <div class="card-head"><div class="card-title">👤 Select Trading Account</div></div>
+      <div id="acctListBody"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">📟 System Log</div></div>
+      <div class="log-panel" id="sysLog"></div>
+    </div>
+  </div>
+
+  <!-- ===================== ENGINES VIEW ===================== -->
+  <div class="view" id="view-engines">
+
+    <div class="tabs" id="engineTabs">
+      <div class="tab active" data-engine="percentile">Percentile</div>
+      <div class="tab" data-engine="pattern">Pattern + Martingale</div>
+      <div class="tab" data-engine="recovery">Differs Recovery</div>
+    </div>
+
+    <!-- ---------- PERCENTILE ENGINE ---------- -->
+    <div class="engine-panel active" id="panel-percentile">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">📊 Even/Odd Percentile Engine</div>
+          <span class="badge off" id="badge-percentile">OFF</span>
+        </div>
+        <div class="engine-status mono" id="status-percentile">Idle — waiting for tick stream.</div>
+
+        <div class="section-lbl">Trade Parameters</div>
+        <div class="row2">
+          <div class="field"><label>Symbol</label>
+            <select id="p_symbol">
+              <option value="1HZ10V">Volatility 10 (1s)</option>
+              <option value="1HZ25V">Volatility 25 (1s)</option>
+              <option value="1HZ50V">Volatility 50 (1s)</option>
+              <option value="1HZ75V">Volatility 75 (1s)</option>
+              <option value="1HZ100V">Volatility 100 (1s)</option>
+              <option value="R_10">Volatility 10</option>
+              <option value="R_25">Volatility 25</option>
+              <option value="R_50">Volatility 50</option>
+              <option value="R_75">Volatility 75</option>
+              <option value="R_100">Volatility 100</option>
+            </select>
+          </div>
+          <div class="field"><label>Duration (ticks)</label><input id="p_duration" type="number" value="1" min="1" max="10"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Ticks to Analyse (N)</label><input id="p_ticks" type="number" value="120" min="20" max="1000"></div>
+          <div class="field"><label>Trigger Threshold (%)</label><input id="p_threshold" type="number" value="55" min="50" max="90" step="0.5"></div>
+        </div>
+
+        <div class="section-lbl">Stake & Martingale Control</div>
+        <div class="row2">
+          <div class="field"><label>Base Stake (USD)</label><input id="p_stake" type="number" value="0.55" min="0.35" step="0.01"></div>
+          <div class="field"><label>Martingale Multiplier</label><input id="p_marti" type="number" value="2" min="1" step="0.1"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Max Martingale Steps</label><input id="p_martiCap" type="number" value="6" min="0" max="20"></div>
+          <div class="field"><label>Reset Stake After</label>
+            <select id="p_resetAfter"><option value="win">Any Win</option><option value="cap">Cap Reached</option></select>
+          </div>
+        </div>
+
+        <div class="section-lbl">Profit / Loss — This Engine</div>
+        <div class="row2">
+          <div class="field"><label>Take Profit (USD)</label><input id="p_tp" type="number" value="5" min="0" step="0.5"></div>
+          <div class="field"><label>Stop Loss (USD)</label><input id="p_sl" type="number" value="50" min="0" step="0.5"></div>
+        </div>
+
+        <div class="switch-row">
+          <span class="switch-lbl">Trade EVEN side</span>
+          <div class="switch on" id="p_sw_even" data-var="tradeEven"></div>
+        </div>
+        <div class="switch-row">
+          <span class="switch-lbl">Trade ODD side</span>
+          <div class="switch on" id="p_sw_odd" data-var="tradeOdd"></div>
+        </div>
+
+        <div class="divider"></div>
+        <button class="btn btn-up" id="btnStart-percentile">▶ Start Percentile Engine</button>
+      </div>
+    </div>
+
+    <!-- ---------- PATTERN ENGINE ---------- -->
+    <div class="engine-panel" id="panel-pattern">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">🔁 Even/Odd Pattern Engine</div>
+          <span class="badge off" id="badge-pattern">OFF</span>
+        </div>
+        <div class="engine-status mono" id="status-pattern">Idle — waiting for tick stream.</div>
+
+        <div class="section-lbl">Trade Parameters</div>
+        <div class="row2">
+          <div class="field"><label>Symbol</label>
+            <select id="pt_symbol">
+              <option value="R_100">Volatility 100</option>
+              <option value="1HZ100V">Volatility 100 (1s)</option>
+              <option value="R_75">Volatility 75</option>
+              <option value="1HZ75V">Volatility 75 (1s)</option>
+              <option value="R_50">Volatility 50</option>
+              <option value="R_25">Volatility 25</option>
+              <option value="R_10">Volatility 10</option>
+            </select>
+          </div>
+          <div class="field"><label>Duration (ticks)</label><input id="pt_duration" type="number" value="1" min="1" max="10"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Streak Length to Act On</label><input id="pt_streak" type="number" value="3" min="2" max="10"></div>
+          <div class="field"><label>Strategy Mode</label>
+            <select id="pt_mode"><option value="follow">Follow Statistic</option><option value="contrarian" selected>Contrarian (fade streak)</option></select>
+          </div>
+        </div>
+
+        <div class="section-lbl">Smart Martingale Control</div>
+        <div class="row3">
+          <div class="field"><label>First Stake (USD)</label><input id="pt_stake" type="number" value="0.5" min="0.35" step="0.01"></div>
+          <div class="field"><label>Martingale Factor</label><input id="pt_martiFactor" type="number" value="2.1" min="1" step="0.1"></div>
+          <div class="field"><label>Martingale Level Cap</label><input id="pt_martiLevel" type="number" value="10" min="0" max="30"></div>
+        </div>
+        <div class="field"><label>Apply Martingale After (N Consecutive Losses)</label><input id="pt_martiAfter" type="number" value="1" min="1" max="10"></div>
+
+        <div class="section-lbl">Profit / Loss — This Engine</div>
+        <div class="row2">
+          <div class="field"><label>Target Profit (USD)</label><input id="pt_tp" type="number" value="10" min="0" step="0.5"></div>
+          <div class="field"><label>Stop Loss (USD)</label><input id="pt_sl" type="number" value="100" min="0" step="0.5"></div>
+        </div>
+
+        <div class="divider"></div>
+        <button class="btn btn-up" id="btnStart-pattern">▶ Start Pattern Engine</button>
+      </div>
+    </div>
+
+    <!-- ---------- RECOVERY ENGINE ---------- -->
+    <div class="engine-panel" id="panel-recovery">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">🩹 Last-Digit Differs Recovery</div>
+          <span class="badge off" id="badge-recovery">OFF</span>
+        </div>
+        <div class="engine-status mono" id="status-recovery">Idle — waiting for tick stream.</div>
+
+        <div class="section-lbl">Trade Parameters</div>
+        <div class="row2">
+          <div class="field"><label>Symbol</label>
+            <select id="r_symbol">
+              <option value="R_100">Volatility 100</option>
+              <option value="1HZ100V">Volatility 100 (1s)</option>
+              <option value="R_75">Volatility 75</option>
+              <option value="R_50">Volatility 50</option>
+              <option value="R_25">Volatility 25</option>
+              <option value="R_10">Volatility 10</option>
+            </select>
+          </div>
+          <div class="field"><label>Duration (ticks)</label><input id="r_duration" type="number" value="1" min="1" max="10"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Same-Digit Trigger (N in a row)</label><input id="r_sameDigits" type="number" value="3" min="2" max="10"></div>
+          <div class="field"><label>Even/Odd-in-a-Row Trigger</label><input id="r_evenOddRow" type="number" value="6" min="2" max="10"></div>
+        </div>
+        <div class="hint">Normal mode: trades DIFFERS against the repeating digit once it repeats N times. On a loss, the engine switches to Recovery Mode and trades EVEN or ODD once the tick stream shows an unbroken run of all-odd or all-even digits.</div>
+
+        <div class="section-lbl">Smart Martingale / Recovery Control</div>
+        <div class="row2">
+          <div class="field"><label>Base Stake (USD)</label><input id="r_stake" type="number" value="2" min="0.35" step="0.01"></div>
+          <div class="field"><label>Recovery Multiplier</label><input id="r_marti" type="number" value="2.3" min="1" step="0.1"></div>
+        </div>
+        <div class="field"><label>Max Recovery Steps</label><input id="r_martiCap" type="number" value="8" min="0" max="20"></div>
+
+        <div class="section-lbl">Profit / Loss — This Engine</div>
+        <div class="row2">
+          <div class="field"><label>Take Profit (USD)</label><input id="r_tp" type="number" value="10" min="0" step="0.5"></div>
+          <div class="field"><label>Stop Loss (USD)</label><input id="r_sl" type="number" value="100" min="0" step="0.5"></div>
+        </div>
+
+        <div class="engine-status mono" id="recoveryModeStatus">Recovery Mode: <b style="color:var(--txt-1)">OFF</b></div>
+
+        <div class="divider"></div>
+        <button class="btn btn-up" id="btnStart-recovery">▶ Start Recovery Engine</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">⛔ Global Risk Control</div></div>
+      <div class="hint" style="margin-bottom:10px;">Applies across all engines. Only one trade is ever open at a time (mutex-enforced), regardless of how many engines are armed.</div>
+      <div class="row2">
+        <div class="field"><label>Global Take Profit (USD)</label><input id="g_tp" type="number" value="20" min="0" step="0.5"></div>
+        <div class="field"><label>Global Stop Loss (USD)</label><input id="g_sl" type="number" value="150" min="0" step="0.5"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Max Trades / Session</label><input id="g_maxTrades" type="number" value="200" min="1"></div>
+        <div class="field"><label>Max Consecutive Losses</label><input id="g_maxConsecLoss" type="number" value="12" min="1"></div>
+      </div>
+      <button class="btn btn-down" id="btnStopAll">⏹ Stop All Engines</button>
+    </div>
+  </div>
+
+  <!-- ===================== DASHBOARD VIEW ===================== -->
+  <div class="view" id="view-dash">
+    <div class="card">
+      <div class="card-head"><div class="card-title">💰 P/L Stats</div><span class="card-sub" id="dashClock">—</span></div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="l">Session P/L</div><div class="v" id="s_pnl">$0.00</div></div>
+        <div class="stat-box"><div class="l">Total Staked</div><div class="v" id="s_staked">$0.00</div></div>
+        <div class="stat-box"><div class="l">Total Payout</div><div class="v" id="s_payout">$0.00</div></div>
+        <div class="stat-box"><div class="l">ROI</div><div class="v" id="s_roi">0.0%</div></div>
+      </div>
+      <canvas id="pnlChart"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">👤 Account Stats</div></div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="l">Balance</div><div class="v" id="s_bal">—</div></div>
+        <div class="stat-box"><div class="l">Currency</div><div class="v" id="s_cur">—</div></div>
+        <div class="stat-box"><div class="l">Login ID</div><div class="v" id="s_loginid" style="font-size:13px;">—</div></div>
+        <div class="stat-box"><div class="l">Account Type</div><div class="v" id="s_accttype">—</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">📈 Trade Stats</div></div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="l">Total Trades</div><div class="v" id="s_total">0</div></div>
+        <div class="stat-box"><div class="l">Win Rate</div><div class="v" id="s_winrate">0.0%</div></div>
+        <div class="stat-box"><div class="l">Wins</div><div class="v up" id="s_wins">0</div></div>
+        <div class="stat-box"><div class="l">Losses</div><div class="v down" id="s_losses">0</div></div>
+        <div class="stat-box"><div class="l">Current Streak</div><div class="v" id="s_streak">—</div></div>
+        <div class="stat-box"><div class="l">Active Martingale Level</div><div class="v" id="s_martilevel">0</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">🧾 Trade Log</div>
+        <button class="btn btn-ghost btn-sm" id="btnResetLogs">Reset Logs & Stats</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="tlog">
+          <thead><tr><th>Time</th><th>Engine</th><th>Type</th><th>Stake</th><th>Result</th><th>P/L</th></tr></thead>
+          <tbody id="tradeLogBody"><tr><td colspan="6" class="empty-row">No trades yet</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">📟 System Log</div></div>
+      <div class="log-panel" id="sysLog2"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="bottomnav">
+  <div class="nav-btn active" data-view="connect">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a5 5 0 015 5v3a5 5 0 01-10 0V7a5 5 0 015-5z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v3"/></svg>
+    Connect
+  </div>
+  <div class="nav-btn" data-view="engines">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    Engines
+  </div>
+  <div class="nav-btn" data-view="dash">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-4"/></svg>
+    Dashboard
+  </div>
+</div>
+
+<!-- REAL ACCOUNT CONFIRMATION MODAL -->
+<div class="modal-overlay" id="realModal">
+  <div class="modal">
+    <h3>⚠️ Confirm Real-Money Trading</h3>
+    <p>You are about to arm an engine on a <b>REAL</b> account. Trades placed from this point will use real funds. Review your stake, martingale cap, and stop-loss settings before continuing.</p>
+    <div class="warn-box">This action cannot be undone once a contract is bought. Make sure risk parameters are correct.</div>
+    <div class="row2">
+      <button class="btn btn-ghost" id="realCancel">Cancel</button>
+      <button class="btn btn-down" id="realConfirm">Confirm & Arm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ============================================================
+   GLOBAL STATE
+   ============================================================ */
+const S = {
+  appId:'', token:'', accountType:'demo',
+  accounts:[], selectedAccount:null,
+  ws:null, wsUrl:'', reqId:0, pending:new Map(), subs:new Map(),
+  connected:false,
+  balance:null, currency:'USD',
+  sessionPnl:0, sessionStaked:0, sessionPayout:0,
+  totalTrades:0, wins:0, losses:0, consecLosses:0, consecWins:0,
+  tradeInProgress:false,
+  tradeLog:[],
+  digitBuffers:{},   // symbol -> array of last digits
+  tickSubs:{},       // symbol -> req_id subscribed
+  pnlHistory:[0],
+  pendingRealArm:null,
+};
+
+const $ = id => document.getElementById(id);
+function nowTs(){ return new Date().toLocaleTimeString([], {hour12:false}); }
+
+/* ============================================================
+   SYSTEM LOG (mirrors to both log panels)
+   ============================================================ */
+function log(msg, level){
+  level = level || 'i';
+  const line = document.createElement('div');
+  line.className = 'log-line ' + level;
+  line.innerHTML = '<span class="log-ts">' + nowTs() + '</span>' + escapeHtml(msg);
+  ['sysLog','sysLog2'].forEach(id=>{
+    const panel = $(id);
+    if(!panel) return;
+    const clone = line.cloneNode(true);
+    panel.appendChild(clone);
+    panel.scrollTop = panel.scrollHeight;
+    while(panel.children.length > 300) panel.removeChild(panel.firstChild);
+  });
+}
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=String(s); return d.innerHTML; }
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+document.querySelectorAll('.nav-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    btn.classList.add('active');
+    $('view-' + btn.dataset.view).classList.add('active');
+  });
+});
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.engine-panel').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    $('panel-' + tab.dataset.engine).classList.add('active');
+  });
+});
+$('acctTypeToggle').querySelectorAll('.toggle-opt').forEach(opt=>{
+  opt.addEventListener('click', ()=>{
+    $('acctTypeToggle').querySelectorAll('.toggle-opt').forEach(o=>o.classList.remove('active'));
+    opt.classList.add('active');
+    S.accountType = opt.dataset.val;
+    $('realWarnHint').style.display = (S.accountType === 'real') ? 'block' : 'none';
+  });
+});
+document.querySelectorAll('.switch').forEach(sw=>{
+  sw.addEventListener('click', ()=> sw.classList.toggle('on'));
+});
+
+/* ============================================================
+   REST — AUTH FLOW
+   ============================================================ */
+const API_BASE = 'https://api.derivws.com';
+
+async function restCall(method, path, body){
+  const headers = { 'Authorization': 'Bearer ' + S.token, 'Deriv-App-ID': S.appId };
+  const opts = { method, headers };
+  if(body){ headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+  const res = await fetch(API_BASE + path, opts);
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok){
+    const code = data.errors?.[0]?.code || 'UnknownError';
+    const message = data.errors?.[0]?.message || ('HTTP ' + res.status);
+    throw new Error('[' + code + '] ' + message);
+  }
+  return { status:res.status, data };
+}
+
+$('btnConnect').addEventListener('click', async ()=>{
+  S.appId = $('inAppId').value.trim();
+  S.token = $('inToken').value.trim();
+  if(!S.appId || !S.token){ log('App ID and Token are both required.', 'e'); return; }
+
+  setWsStatus('wait', 'Fetching accounts…');
+  $('btnConnect').disabled = true;
+  try{
+    log('GET /trading/v1/options/accounts');
+    const { data } = await restCall('GET', '/trading/v1/options/accounts');
+    const accounts = Array.isArray(data.data) ? data.data : [data.data];
+    S.accounts = accounts.filter(a => a && a.account_type === S.accountType && a.status === 'active');
+    if(!S.accounts.length){
+      log('No active ' + S.accountType + ' accounts found on this token.', 'e');
+      setWsStatus('err', 'No account found');
+      $('btnConnect').disabled = false;
+      return;
+    }
+    renderAccountList();
+    setWsStatus('wait', 'Select an account');
+  }catch(err){
+    log('Account fetch failed: ' + err.message, 'e');
+    setWsStatus('err', 'Auth failed');
+  }
+  $('btnConnect').disabled = false;
+});
+
+function renderAccountList(){
+  $('acctListCard').style.display = 'block';
+  const body = $('acctListBody');
+  body.innerHTML = '';
+  S.accounts.forEach(acc=>{
+    const row = document.createElement('div');
+    row.className = 'field';
+    row.style.cssText = 'display:flex; align-items:center; justify-content:space-between; background:var(--bg-2); border:1px solid var(--line); border-radius:9px; padding:12px; cursor:pointer;';
+    row.innerHTML = '<div><div class="mono" style="font-weight:700; font-size:13px;">' + acc.account_id + '</div>'
+      + '<div class="hint">' + acc.account_type.toUpperCase() + ' · ' + acc.currency + '</div></div>'
+      + '<div class="mono" style="font-weight:800; font-size:15px;">' + Number(acc.balance).toFixed(2) + '</div>';
+    row.addEventListener('click', ()=> selectAccount(acc));
+    body.appendChild(row);
+  });
+}
+
+async function selectAccount(acc){
+  S.selectedAccount = acc;
+  log('Selected account ' + acc.account_id + ' — requesting OTP…');
+  setWsStatus('wait', 'Requesting OTP…');
+  try{
+    const { data } = await restCall('POST', '/trading/v1/options/accounts/' + acc.account_id + '/otp');
+    S.wsUrl = data.data.url;
+    log('OTP received. Connecting WebSocket immediately (OTP is short-lived)…');
+    connectWebSocket();
+  }catch(err){
+    log('OTP request failed: ' + err.message, 'e');
+    setWsStatus('err', 'OTP failed');
+  }
+}
+
+function setWsStatus(state, text){
+  const dot = $('wsDot');
+  dot.className = 'dot ' + (state === 'live' ? 'live' : state === 'err' ? 'err' : state === 'wait' ? 'wait' : '');
+  $('wsStatusTxt').textContent = text;
+}
+
+/* ============================================================
+   WEBSOCKET CORE
+   ============================================================ */
+function connectWebSocket(){
+  if(S.ws){ try{ S.ws.close(); }catch(e){} }
+  const ws = new WebSocket(S.wsUrl);
+  S.ws = ws;
+
+  ws.onopen = ()=>{
+    S.connected = true;
+    setWsStatus('live', 'Connected');
+    log('WebSocket connected: ' + S.selectedAccount.account_id, 's');
+    $('chipAcct').textContent = S.selectedAccount.account_id;
+    $('chipMode').textContent = S.accountType.toUpperCase();
+    send({ balance:1, subscribe:1 });
+    send({ portfolio:1 });
+  };
+
+  ws.onmessage = (event)=>{
+    let data;
+    try{ data = JSON.parse(event.data); }catch(e){ return; }
+    routeMessage(data);
+  };
+
+  ws.onerror = ()=>{
+    log('WebSocket transport error.', 'e');
+    setWsStatus('err', 'Error');
+  };
+
+  ws.onclose = ()=>{
+    S.connected = false;
+    setWsStatus('err', 'Disconnected');
+    log('WebSocket closed. Re-requesting a fresh OTP and reconnecting in 3s…', 'w');
+    setTimeout(async ()=>{
+      if(!S.selectedAccount) return;
+      try{
+        const { data } = await restCall('POST', '/trading/v1/options/accounts/' + S.selectedAccount.account_id + '/otp');
+        S.wsUrl = data.data.url;
+        connectWebSocket();
+      }catch(err){
+        log('Reconnect OTP failed: ' + err.message, 'e');
+      }
+    }, 3000);
+  };
+}
+
+function nextReqId(){ return ++S.reqId; }
+
+function send(cmd){
+  return new Promise((resolve, reject)=>{
+    if(!S.ws || S.ws.readyState !== 1){ reject(new Error('WebSocket not open')); return; }
+    const id = nextReqId();
+    const msg = Object.assign({}, cmd, { req_id:id });
+    if(cmd.subscribe){ S.subs.set(id, cmd); }
+    S.pending.set(id, { resolve, reject });
+    S.ws.send(JSON.stringify(msg));
+  });
+}
+
+function routeMessage(data){
+  if(data.req_id && S.pending.has(data.req_id)){
+    const { resolve, reject } = S.pending.get(data.req_id);
+    S.pending.delete(data.req_id);
+    if(data.error){ reject(Object.assign(new Error(data.error.message), {code:data.error.code})); }
+    else resolve(data);
+  }
+
+  if(data.error && !data.req_id){
+    log('API error [' + data.error.code + ']: ' + data.error.message, 'e');
+  }
+
+  switch(data.msg_type){
+    case 'balance': onBalance(data.balance); break;
+    case 'tick': onTick(data.tick); break;
+    case 'proposal_open_contract': onContractUpdate(data.proposal_open_contract); break;
+    default: break;
+  }
+}
+
+function onBalance(b){
+  if(!b) return;
+  S.balance = b.balance; S.currency = b.currency;
+  $('chipBal').textContent = Number(b.balance).toFixed(2) + ' ' + b.currency;
+  $('s_bal').textContent = Number(b.balance).toFixed(2);
+  $('s_cur').textContent = b.currency;
+  $('s_loginid').textContent = b.loginid || S.selectedAccount?.account_id || '—';
+  $('s_accttype').textContent = S.accountType.toUpperCase();
+}
+
+/* ============================================================
+   TICK STREAM + DIGIT BUFFERS
+   ============================================================ */
+async function ensureTickSub(symbol){
+  if(S.tickSubs[symbol]) return;
+  try{
+    await send({ ticks:symbol, subscribe:1 });
+    S.tickSubs[symbol] = true;
+    S.digitBuffers[symbol] = S.digitBuffers[symbol] || [];
+    log('Subscribed to tick stream: ' + symbol, 's');
+  }catch(err){
+    log('Tick subscribe failed for ' + symbol + ': ' + err.message, 'e');
+  }
+}
+
+function onTick(tick){
+  if(!tick) return;
+  const symbol = tick.symbol;
+  const quoteStr = String(tick.quote);
+  const lastChar = quoteStr.replace('.', '').slice(-1);
+  const digit = parseInt(lastChar, 10);
+  if(isNaN(digit)) return;
+
+  const buf = S.digitBuffers[symbol] = S.digitBuffers[symbol] || [];
+  buf.push(digit);
+  if(buf.length > 1000) buf.shift();
+
+  // Feed every armed engine watching this symbol
+  ENGINES.forEach(engine=>{
+    if(engine.armed && engine.symbol === symbol) engine.onDigit(digit, buf);
+  });
+}
+
+/* ============================================================
+   TRADING CORE — proposal -> buy -> monitor (mutex-enforced)
+   ============================================================ */
+async function executeTrade(engine, contractType, prediction, stake, duration){
+  if(S.tradeInProgress){ return; } // one-trade-at-a-time mutex
+  if(engine.cooldownUntil && Date.now() < engine.cooldownUntil){ return; } // error cooldown
+  if(!checkGlobalRisk()) { stopAllEngines('Global risk limit reached.'); return; }
+  if(!checkEngineRisk(engine)) { engine.stop('Engine risk limit reached.'); return; }
+
+  S.tradeInProgress = true;
+  engine.locked = true;
+  updateEngineStatus(engine);
+
+  const proposalReq = {
+    proposal:1, amount:Number(stake.toFixed(2)), basis:'stake',
+    contract_type:contractType, currency:S.currency || 'USD',
+    duration:duration, duration_unit:'t', underlying_symbol:engine.symbol
+  };
+  if(prediction !== undefined && prediction !== null){
+    proposalReq.barrier = Number(prediction).toFixed(2);
+  }
+
+  try{
+    log(engine.name + ': requesting proposal — ' + contractType + ' stake=' + stake.toFixed(2), 'i');
+    const proposalRes = await send(proposalReq);
+    const proposal = proposalRes.proposal;
+    if(!proposal || !proposal.id) throw new Error('No proposal id returned');
+
+    const buyRes = await send({ buy:proposal.id, price:proposal.ask_price });
+    const buy = buyRes.buy;
+    log(engine.name + ': bought contract ' + buy.contract_id + ' @ ' + Number(buy.buy_price).toFixed(2), 's');
+
+    await send({ proposal_open_contract:1, contract_id:buy.contract_id, subscribe:1 });
+    S.openContracts = S.openContracts || {};
+    S.openContracts[buy.contract_id] = { engine, stake, contractType, buyPrice:buy.buy_price };
+
+  }catch(err){
+    log(engine.name + ': trade failed — ' + err.message, 'e');
+    S.tradeInProgress = false;
+    engine.locked = false;
+    engine.cooldownUntil = Date.now() + 5000;
+    engine.onTradeError && engine.onTradeError();
+    updateEngineStatus(engine);
+  }
+}
+
+function onContractUpdate(c){
+  if(!c) return;
+  const rec = S.openContracts && S.openContracts[c.contract_id];
+  if(!rec) return;
+  if(!c.is_sold) return; // still open, wait for settlement
+
+  const profit = Number(c.profit);
+  const won = profit > 0;
+  finalizeTrade(rec.engine, rec.contractType, rec.stake, profit, won);
+  send({ forget: c.id }).catch(()=>{});
+  delete S.openContracts[c.contract_id];
+  S.tradeInProgress = false;
+  rec.engine.locked = false;
+  updateEngineStatus(rec.engine);
+}
+
+function finalizeTrade(engine, contractType, stake, profit, won){
+  S.totalTrades++;
+  S.sessionStaked += stake;
+  S.sessionPayout += stake + profit;
+  S.sessionPnl += profit;
+  if(won){ S.wins++; S.consecWins++; S.consecLosses=0; } else { S.losses++; S.consecLosses++; S.consecWins=0; }
+  S.pnlHistory.push(S.sessionPnl);
+  if(S.pnlHistory.length > 200) S.pnlHistory.shift();
+
+  const row = {
+    time: nowTs(), engine: engine.label, type: contractType,
+    stake: stake.toFixed(2), result: won ? 'WIN' : 'LOSS', pnl: profit.toFixed(2)
+  };
+  S.tradeLog.unshift(row);
+  if(S.tradeLog.length > 500) S.tradeLog.pop();
+
+  log(engine.name + ': ' + (won ? 'WON' : 'LOST') + ' ' + profit.toFixed(2) + ' USD', won ? 's':'e');
+
+  engine.onSettled(won, profit);
+  renderDashboard();
+  renderTradeLog();
+  checkGlobalRisk(true);
+  checkEngineRisk(engine, true);
+}
+
+function checkGlobalRisk(announceOnly){
+  const tp = Number($('g_tp').value), sl = Number($('g_sl').value);
+  const maxTrades = Number($('g_maxTrades').value), maxConsec = Number($('g_maxConsecLoss').value);
+  let ok = true;
+  if(tp > 0 && S.sessionPnl >= tp){ if(!announceOnly) return false; log('Global Take Profit hit ($' + S.sessionPnl.toFixed(2) + '). Stopping all engines.', 'w'); stopAllEngines('Global TP hit'); ok=false; }
+  if(sl > 0 && S.sessionPnl <= -sl){ if(!announceOnly) return false; log('Global Stop Loss hit ($' + S.sessionPnl.toFixed(2) + '). Stopping all engines.', 'e'); stopAllEngines('Global SL hit'); ok=false; }
+  if(maxTrades > 0 && S.totalTrades >= maxTrades){ if(!announceOnly) return false; log('Max trades/session reached. Stopping all engines.', 'w'); stopAllEngines('Max trades reached'); ok=false; }
+  if(maxConsec > 0 && S.consecLosses >= maxConsec){ if(!announceOnly) return false; log('Max consecutive losses reached. Stopping all engines.', 'e'); stopAllEngines('Max consecutive losses'); ok=false; }
+  return ok;
+}
+function checkEngineRisk(engine, announceOnly){
+  const tp = Number($(engine.prefix + '_tp').value), sl = Number($(engine.prefix + '_sl').value);
+  let ok = true;
+  if(tp > 0 && engine.pnl >= tp){ if(!announceOnly) return false; engine.stop('Engine Take Profit hit ($' + engine.pnl.toFixed(2) + ')'); ok=false; }
+  if(sl > 0 && engine.pnl <= -sl){ if(!announceOnly) return false; engine.stop('Engine Stop Loss hit ($' + engine.pnl.toFixed(2) + ')'); ok=false; }
+  return ok;
+}
+
+function stopAllEngines(reason){
+  ENGINES.forEach(e=> e.stop(reason));
+}
+
+/* ============================================================
+   ENGINE DEFINITIONS
+   ============================================================ */
+class BaseEngine{
+  constructor(key, name, label, prefix){
+    this.key=key; this.name=name; this.label=label; this.prefix=prefix;
+    this.armed=false; this.locked=false;
+    this.stake=0; this.baseStake=0; this.martiLevel=0;
+    this.pnl=0; this.consecLosses=0;
+  }
+  readConfig(){}
+  start(){
+    this.readConfig();
+    this.baseStake = this.stake;
+    this.pnl = 0; this.martiLevel = 0; this.consecLosses = 0;
+    this.armed = true;
+    ensureTickSub(this.symbol);
+    $('badge-' + this.key).textContent = 'ON'; $('badge-' + this.key).className = 'badge on';
+    log(this.name + ' armed on ' + this.symbol + '.', 's');
+    updateEngineStatus(this);
+    const btn = $('btnStart-' + this.key);
+    btn.textContent = '⏹ Stop ' + this.label + ' Engine';
+    btn.classList.remove('btn-up'); btn.classList.add('btn-down');
+  }
+  stop(reason){
+    if(!this.armed) return;
+    this.armed = false;
+    $('badge-' + this.key).textContent = 'OFF'; $('badge-' + this.key).className = 'badge off';
+    log(this.name + ' stopped. ' + (reason||''), 'w');
+    updateEngineStatus(this, reason);
+    const btn = $('btnStart-' + this.key);
+    btn.textContent = '▶ Start ' + this.label + ' Engine';
+    btn.classList.remove('btn-down'); btn.classList.add('btn-up');
+  }
+  onDigit(){}
+  onSettled(won, profit){
+    this.pnl += profit;
+    if(won){ this.consecLosses = 0; this.onWin(); } else { this.consecLosses++; this.onLoss(); }
+  }
+  onWin(){ this.stake = this.baseStake; this.martiLevel = 0; }
+  onLoss(){}
+  onTradeError(){}
+}
+
+/* ---- Engine 1: Percentile ---- */
+class PercentileEngine extends BaseEngine{
+  readConfig(){
+    this.symbol = $('p_symbol').value;
+    this.duration = Number($('p_duration').value);
+    this.n = Number($('p_ticks').value);
+    this.threshold = Number($('p_threshold').value);
+    this.stake = Number($('p_stake').value);
+    this.martiFactor = Number($('p_marti').value);
+    this.martiCap = Number($('p_martiCap').value);
+    this.tradeEven = $('p_sw_even').classList.contains('on');
+    this.tradeOdd = $('p_sw_odd').classList.contains('on');
+  }
+  onDigit(digit, buf){
+    if(this.locked || S.tradeInProgress) return;
+    if(buf.length < this.n) { updateEngineStatus(this); return; }
+    const window = buf.slice(-this.n);
+    const evenCount = window.filter(d=> d % 2 === 0).length;
+    const evenPct = (evenCount / window.length) * 100;
+    const oddPct = 100 - evenPct;
+    $('status-percentile').textContent = 'EVEN ' + evenPct.toFixed(1) + '% · ODD ' + oddPct.toFixed(1) + '% (n=' + window.length + ') · stake ' + this.stake.toFixed(2);
+    if(evenPct >= this.threshold && this.tradeEven){
+      executeTrade(this, 'DIGITEVEN', null, this.stake, this.duration);
+    }else if(oddPct >= this.threshold && this.tradeOdd){
+      executeTrade(this, 'DIGITODD', null, this.stake, this.duration);
+    }
+  }
+  onLoss(){
+    if(this.martiLevel < this.martiCap){
+      this.stake = this.stake * this.martiFactor;
+      this.martiLevel++;
+    } else {
+      this.stake = this.baseStake; this.martiLevel = 0;
+      log(this.name + ': martingale cap reached — resetting to base stake.', 'w');
+    }
+  }
+}
+
+/* ---- Engine 2: Pattern + Martingale ---- */
+class PatternEngine extends BaseEngine{
+  readConfig(){
+    this.symbol = $('pt_symbol').value;
+    this.duration = Number($('pt_duration').value);
+    this.streakLen = Number($('pt_streak').value);
+    this.mode = $('pt_mode').value;
+    this.stake = Number($('pt_stake').value);
+    this.martiFactor = Number($('pt_martiFactor').value);
+    this.martiCap = Number($('pt_martiLevel').value);
+    this.martiAfter = Number($('pt_martiAfter').value);
+  }
+  onDigit(digit, buf){
+    if(this.locked || S.tradeInProgress) return;
+    if(buf.length < this.streakLen){ updateEngineStatus(this); return; }
+    const tail = buf.slice(-this.streakLen);
+    const parity = d => d % 2 === 0 ? 'E' : 'O';
+    const first = parity(tail[0]);
+    const streakIntact = tail.every(d => parity(d) === first);
+    $('status-pattern').textContent = 'Last ' + this.streakLen + ': ' + tail.map(parity).join('') + ' · streak=' + (streakIntact ? first : 'mixed') + ' · stake ' + this.stake.toFixed(2) + ' · level ' + this.martiLevel;
+    if(!streakIntact) return;
+
+    let contractType;
+    if(this.mode === 'follow'){
+      contractType = first === 'E' ? 'DIGITEVEN' : 'DIGITODD';
+    } else {
+      contractType = first === 'E' ? 'DIGITODD' : 'DIGITEVEN'; // contrarian: fade the streak
+    }
+    executeTrade(this, contractType, null, this.stake, this.duration);
+  }
+  onLoss(){
+    if(this.consecLosses >= this.martiAfter){
+      if(this.martiLevel < this.martiCap){
+        this.stake = this.stake * this.martiFactor;
+        this.martiLevel++;
+      } else {
+        this.stake = this.baseStake; this.martiLevel = 0;
+        log(this.name + ': martingale level cap reached — resetting to first stake.', 'w');
+      }
+    }
+  }
+}
+
+/* ---- Engine 3: Last Digit Differs Recovery ---- */
+class RecoveryEngine extends BaseEngine{
+  readConfig(){
+    this.symbol = $('r_symbol').value;
+    this.duration = Number($('r_duration').value);
+    this.sameDigits = Number($('r_sameDigits').value);
+    this.evenOddRow = Number($('r_evenOddRow').value);
+    this.stake = Number($('r_stake').value);
+    this.martiFactor = Number($('r_marti').value);
+    this.martiCap = Number($('r_martiCap').value);
+    this.recoveryMode = false;
+  }
+  onDigit(digit, buf){
+    if(this.locked || S.tradeInProgress) return;
+    $('recoveryModeStatus').innerHTML = 'Recovery Mode: <b style="color:' + (this.recoveryMode ? 'var(--amber)' : 'var(--txt-1)') + '">' + (this.recoveryMode ? 'ON' : 'OFF') + '</b>';
+
+    if(!this.recoveryMode){
+      if(buf.length < this.sameDigits) return;
+      const tail = buf.slice(-this.sameDigits);
+      const allSame = tail.every(d => d === tail[0]);
+      $('status-recovery').textContent = 'Normal mode · last ' + this.sameDigits + ': ' + tail.join('') + (allSame ? ' → DIFFERS trigger' : '') + ' · stake ' + this.stake.toFixed(2);
+      if(allSame){
+        executeTrade(this, 'DIGITDIFF', tail[0], this.stake, this.duration);
+      }
+    } else {
+      if(buf.length < this.evenOddRow) return;
+      const tail = buf.slice(-this.evenOddRow);
+      const parity = d => d % 2 === 0 ? 'E' : 'O';
+      const allEven = tail.every(d => d % 2 === 0);
+      const allOdd = tail.every(d => d % 2 !== 0);
+      $('status-recovery').textContent = 'RECOVERY mode · last ' + this.evenOddRow + ': ' + tail.map(parity).join('') + ' · stake ' + this.stake.toFixed(2);
+      if(allOdd){
+        executeTrade(this, 'DIGITEVEN', null, this.stake, this.duration);
+      } else if(allEven){
+        executeTrade(this, 'DIGITODD', null, this.stake, this.duration);
+      }
+    }
+  }
+  onWin(){
+    this.recoveryMode = false;
+    this.stake = this.baseStake;
+    this.martiLevel = 0;
+  }
+  onLoss(){
+    this.recoveryMode = true;
+    if(this.martiLevel < this.martiCap){
+      this.stake = this.stake * this.martiFactor;
+      this.martiLevel++;
+    } else {
+      this.stake = this.baseStake; this.martiLevel = 0; this.recoveryMode = false;
+      log(this.name + ': recovery step cap reached — resetting to base stake, exiting recovery mode.', 'w');
+    }
+  }
+}
+
+const ENGINES = [
+  new PercentileEngine('percentile','Percentile Engine','Percentile','p'),
+  new PatternEngine('pattern','Pattern Engine','Pattern','pt'),
+  new RecoveryEngine('recovery','Recovery Engine','Recovery','r'),
+];
+
+function updateEngineStatus(engine, extra){
+  if(extra){ $('status-' + engine.key).textContent = extra; }
+}
+
+/* ============================================================
+   ENGINE START/STOP WIRING (with real-account confirmation gate)
+   ============================================================ */
+ENGINES.forEach(engine=>{
+  $('btnStart-' + engine.key).addEventListener('click', ()=>{
+    if(!S.connected){ log('Connect to Deriv before arming an engine.', 'e'); return; }
+    if(engine.armed){ engine.stop('Manually stopped.'); return; }
+    if(S.accountType === 'real'){
+      S.pendingRealArm = engine;
+      $('realModal').classList.add('show');
+    } else {
+      engine.start();
+    }
+  });
+});
+$('realCancel').addEventListener('click', ()=>{ $('realModal').classList.remove('show'); S.pendingRealArm=null; });
+$('realConfirm').addEventListener('click', ()=>{
+  $('realModal').classList.remove('show');
+  if(S.pendingRealArm){ S.pendingRealArm.start(); S.pendingRealArm=null; }
+});
+$('btnStopAll').addEventListener('click', ()=> stopAllEngines('Manual stop-all.'));
+
+/* ============================================================
+   DASHBOARD RENDERING
+   ============================================================ */
+function renderDashboard(){
+  $('chipPnl').textContent = (S.sessionPnl>=0?'+':'') + '$' + S.sessionPnl.toFixed(2);
+  $('chipPnl').className = 'v mono ' + (S.sessionPnl>=0?'up':'down');
+  $('s_pnl').textContent = (S.sessionPnl>=0?'+':'') + '$' + S.sessionPnl.toFixed(2);
+  $('s_pnl').className = 'v ' + (S.sessionPnl>=0?'up':'down');
+  $('s_staked').textContent = '$' + S.sessionStaked.toFixed(2);
+  $('s_payout').textContent = '$' + S.sessionPayout.toFixed(2);
+  const roi = S.sessionStaked > 0 ? (S.sessionPnl / S.sessionStaked * 100) : 0;
+  $('s_roi').textContent = roi.toFixed(1) + '%';
+  $('s_total').textContent = S.totalTrades;
+  const wr = S.totalTrades > 0 ? (S.wins / S.totalTrades * 100) : 0;
+  $('s_winrate').textContent = wr.toFixed(1) + '%';
+  $('s_wins').textContent = S.wins;
+  $('s_losses').textContent = S.losses;
+  $('s_streak').textContent = S.consecWins > 0 ? (S.consecWins + 'W streak') : (S.consecLosses > 0 ? (S.consecLosses + 'L streak') : '—');
+  const maxLevel = Math.max(0, ...ENGINES.map(e=>e.martiLevel||0));
+  $('s_martilevel').textContent = maxLevel;
+  $('dashClock').textContent = nowTs();
+  drawChart();
+}
+
+function renderTradeLog(){
+  const body = $('tradeLogBody');
+  if(!S.tradeLog.length){ body.innerHTML = '<tr><td colspan="6" class="empty-row">No trades yet</td></tr>'; return; }
+  body.innerHTML = S.tradeLog.slice(0,60).map(r=>
+    '<tr><td>'+r.time+'</td><td>'+r.engine+'</td><td>'+r.type+'</td><td>'+r.stake+'</td>'
+    + '<td class="'+(r.result==='WIN'?'win-txt':'loss-txt')+'">'+r.result+'</td>'
+    + '<td class="'+(Number(r.pnl)>=0?'win-txt':'loss-txt')+'">'+(Number(r.pnl)>=0?'+':'')+r.pnl+'</td></tr>'
+  ).join('');
+}
+
+function drawChart(){
+  const canvas = $('pnlChart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth || 300, h = 110;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0,0,w,h);
+
+  const data = S.pnlHistory;
+  const min = Math.min(0, ...data), max = Math.max(0, ...data);
+  const range = (max - min) || 1;
+  const zeroY = h - ((0 - min) / range) * h;
+
+  ctx.strokeStyle = '#232b38'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, zeroY); ctx.lineTo(w, zeroY); ctx.stroke();
+
+  ctx.beginPath();
+  data.forEach((v,i)=>{
+    const x = (i/(Math.max(data.length-1,1))) * w;
+    const y = h - ((v - min)/range) * h;
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  const last = data[data.length-1];
+  ctx.strokeStyle = last >= 0 ? '#28d4a0' : '#ff5c6c';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+/* ============================================================
+   RESET FUNCTION
+   ============================================================ */
+$('btnResetLogs').addEventListener('click', ()=>{
+  S.sessionPnl=0; S.sessionStaked=0; S.sessionPayout=0;
+  S.totalTrades=0; S.wins=0; S.losses=0; S.consecLosses=0; S.consecWins=0;
+  S.tradeLog = []; S.pnlHistory=[0];
+  ENGINES.forEach(e=>{ e.pnl=0; e.stake=e.baseStake||e.stake; e.martiLevel=0; e.consecLosses=0; });
+  renderDashboard(); renderTradeLog();
+  log('Trade logs and dashboard stats reset. Live engines remain armed.', 'w');
+});
+
+/* ============================================================
+   TICKER LOOP for clock + periodic redraw
+   ============================================================ */
+setInterval(()=>{ if($('view-dash').classList.contains('active')) renderDashboard(); }, 1000);
+
+log('SmartXtrader Even/Odd Suite ready. Enter credentials to connect.', 'i');
+})();
+</script>
+</body>
+</html>
