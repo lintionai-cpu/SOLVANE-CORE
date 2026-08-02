@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>PARITIX — Even/Odd Intelligence Terminal</title>
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiUEFSSVRJWCIsInNob3J0X25hbWUiOiJQQVJJVElYIiwic3RhcnRfdXJsIjoiLiIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiMwYjBmMTQiLCJ0aGVtZV9jb2xvciI6IiMwYjBmMTQiLCJpY29ucyI6W119">
+<style>
+:root{
+  --bg:#0b0f14; --surface:#121822; --surface2:#0e1420; --border:#1f2a3a;
+  --text:#e8edf4; --sub:#8fa1b8; --muted:#5a6b80;
+  --even:#22d3c8; --even-dim:#0f3a38; --odd:#f2a93c; --odd-dim:#3a2a0f;
+  --buy:#2ecf8a; --sell:#ef4d6b; --warn:#f2a93c; --danger:#ef4d6b;
+  --accent:#7c5cff; --accent2:#22d3c8;
+  --radius:14px; --font:'SF Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --fontui:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--fontui);
+  -webkit-font-smoothing:antialiased;overscroll-behavior:none;}
+body{padding-bottom:70px;}
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+.topbar{position:sticky;top:0;z-index:50;background:linear-gradient(180deg,#0d1219,#0b0f14 90%);
+  border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-mark{width:34px;height:34px;border-radius:10px;background:conic-gradient(from 220deg,var(--even),var(--accent),var(--odd),var(--even));
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#0b0f14;}
+.brand-text{display:flex;flex-direction:column;line-height:1.1;}
+.brand-text b{font-size:15px;letter-spacing:0.5px;}
+.brand-text span{font-size:10px;color:var(--sub);letter-spacing:1px;}
+.status-pill{display:flex;align-items:center;gap:6px;font-size:11px;padding:6px 10px;border-radius:20px;
+  background:var(--surface);border:1px solid var(--border);color:var(--sub);}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted);}
+.dot.live{background:var(--buy);box-shadow:0 0 6px var(--buy);}
+.dot.err{background:var(--danger);box-shadow:0 0 6px var(--danger);}
+
+.mode-banner{padding:6px 16px;font-size:11px;text-align:center;font-weight:600;letter-spacing:0.5px;}
+.mode-banner.demo{background:var(--even-dim);color:var(--even);}
+.mode-banner.real{background:var(--odd-dim);color:var(--odd);}
+
+.wrap{max-width:720px;margin:0 auto;padding:12px 14px 24px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px;}
+.card h3{margin:0 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--sub);display:flex;align-items:center;justify-content:space-between;}
+.card.risk{border-color:#3a2233;background:linear-gradient(180deg,#161019,var(--surface));}
+
+.row{display:flex;gap:8px;flex-wrap:wrap;}
+.col{flex:1;min-width:0;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+
+label{font-size:11px;color:var(--sub);display:block;margin-bottom:4px;}
+input,select{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);
+  padding:9px 10px;border-radius:9px;font-size:13px;font-family:var(--fontui);}
+input:focus,select:focus{outline:none;border-color:var(--accent);}
+.field{margin-bottom:10px;}
+
+button{cursor:pointer;border:none;font-family:var(--fontui);font-weight:600;}
+.btn{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;width:100%;}
+.btn:active{transform:scale(0.98);}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.btn.buy{background:var(--even);border-color:var(--even);color:#04201d;}
+.btn.sell{background:var(--odd);border-color:var(--odd);color:#241503;}
+.btn.danger{background:var(--danger);border-color:var(--danger);color:#fff;}
+.btn.ghost{background:transparent;}
+.btn.small{padding:7px 10px;font-size:11px;width:auto;}
+.btn:disabled{opacity:0.4;cursor:not-allowed;}
+
+.tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px;}
+.tab{flex:0 0 auto;padding:8px 13px;font-size:12px;border-radius:20px;background:var(--surface);
+  border:1px solid var(--border);color:var(--sub);white-space:nowrap;}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.view{display:none;}
+.view.active{display:block;}
+
+.authtabs{display:flex;background:var(--surface2);border-radius:10px;padding:3px;margin-bottom:12px;}
+.authtab{flex:1;text-align:center;padding:8px;font-size:12px;border-radius:8px;color:var(--sub);}
+.authtab.active{background:var(--accent);color:#fff;}
+.authpane{display:none;}
+.authpane.active{display:block;}
+.hint{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;}
+.code{font-family:var(--font);font-size:10.5px;background:var(--surface2);padding:8px;border-radius:8px;
+  word-break:break-all;color:var(--accent2);border:1px solid var(--border);}
+
+.acct-list{display:flex;flex-direction:column;gap:8px;}
+.acct{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;
+  background:var(--surface2);border:1px solid var(--border);font-size:13px;}
+.acct.selected{border-color:var(--accent);background:#181231;}
+.acct .aid{font-weight:700;}
+.acct .abal{color:var(--sub);font-size:12px;}
+.badge{font-size:9px;padding:2px 7px;border-radius:20px;font-weight:700;letter-spacing:0.5px;}
+.badge.demo{background:var(--even-dim);color:var(--even);}
+.badge.real{background:var(--odd-dim);color:var(--odd);}
+
+.symbolbar{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px;}
+.symchip{flex:0 0 auto;padding:7px 12px;border-radius:20px;font-size:11.5px;background:var(--surface2);
+  border:1px solid var(--border);color:var(--sub);}
+.symchip.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+.digitgrid{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;margin:10px 0;}
+.digitcell{text-align:center;padding:8px 0;border-radius:8px;background:var(--surface2);border:1px solid var(--border);}
+.digitcell .d{font-size:15px;font-weight:800;font-family:var(--font);}
+.digitcell .p{font-size:9.5px;color:var(--sub);margin-top:2px;}
+.digitcell.even{border-color:var(--even);}
+.digitcell.odd{border-color:var(--odd);}
+
+.livequote{display:flex;align-items:baseline;gap:10px;margin-bottom:6px;}
+.livequote .q{font-size:28px;font-weight:800;font-family:var(--font);}
+.livequote .lastdigit{font-size:22px;font-weight:900;padding:2px 12px;border-radius:10px;font-family:var(--font);}
+.livequote .lastdigit.even{background:var(--even-dim);color:var(--even);}
+.livequote .lastdigit.odd{background:var(--odd-dim);color:var(--odd);}
+
+.streaktrack{display:flex;gap:3px;flex-wrap:wrap;margin:8px 0;}
+.streakchip{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;font-family:var(--font);}
+.streakchip.even{background:var(--even-dim);color:var(--even);}
+.streakchip.odd{background:var(--odd-dim);color:var(--odd);}
+
+.enginelist{display:flex;flex-direction:column;gap:7px;}
+.engine{display:flex;justify-content:space-between;align-items:center;padding:9px 11px;border-radius:10px;
+  background:var(--surface2);border:1px solid var(--border);font-size:12px;}
+.engine .name{color:var(--text);font-weight:600;}
+.engine .sig{font-weight:800;font-size:11px;padding:2px 8px;border-radius:6px;}
+.engine .sig.EVEN{background:var(--even-dim);color:var(--even);}
+.engine .sig.ODD{background:var(--odd-dim);color:var(--odd);}
+.engine .sig.NEUTRAL{background:#1c2430;color:var(--muted);}
+.engine .conf{color:var(--sub);font-family:var(--font);font-size:11px;}
+
+.confmeter{height:10px;border-radius:6px;background:var(--surface2);overflow:hidden;margin:8px 0;position:relative;}
+.confmeter .fill{height:100%;border-radius:6px;transition:width .3s;}
+.confmeter .fill.EVEN{background:linear-gradient(90deg,var(--even-dim),var(--even));}
+.confmeter .fill.ODD{background:linear-gradient(90deg,var(--odd-dim),var(--odd));}
+.bigverdict{text-align:center;padding:14px 0 6px;}
+.bigverdict .call{font-size:26px;font-weight:900;letter-spacing:1px;}
+.bigverdict .call.EVEN{color:var(--even);}
+.bigverdict .call.ODD{color:var(--odd);}
+.bigverdict .call.NONE{color:var(--muted);}
+.bigverdict .sub{font-size:11.5px;color:var(--sub);margin-top:4px;}
+
+.stat{text-align:center;padding:10px 4px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);}
+.stat .v{font-size:16px;font-weight:800;font-family:var(--font);}
+.stat .l{font-size:9.5px;color:var(--muted);text-transform:uppercase;margin-top:2px;letter-spacing:0.5px;}
+.stat .v.pos{color:var(--buy);} .stat .v.neg{color:var(--danger);}
+
+.switch{position:relative;width:42px;height:24px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);flex:0 0 auto;}
+.switch.on{background:var(--accent);border-color:var(--accent);}
+.switch .knob{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s;}
+.switch.on .knob{left:20px;}
+.rowline{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12.5px;}
+.rowline:last-child{border-bottom:none;}
+
+.logbox{background:#05070a;border-radius:10px;border:1px solid var(--border);padding:8px;height:180px;overflow-y:auto;
+  font-family:var(--font);font-size:10.5px;line-height:1.6;}
+.logline{white-space:pre-wrap;word-break:break-all;}
+.logline.err{color:var(--danger);} .logline.warn{color:var(--warn);} .logline.ok{color:var(--buy);} .logline.info{color:var(--sub);}
+
+.journal{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;}
+.jrow{display:flex;justify-content:space-between;padding:8px 10px;border-radius:9px;background:var(--surface2);border:1px solid var(--border);font-size:11.5px;}
+.jrow .win{color:var(--buy);} .jrow .loss{color:var(--danger);}
+
+.navbar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);
+  display:flex;z-index:60;padding-bottom:env(safe-area-inset-bottom);}
+.navitem{flex:1;text-align:center;padding:9px 0 7px;font-size:9.5px;color:var(--muted);}
+.navitem .ic{font-size:17px;display:block;margin-bottom:2px;}
+.navitem.active{color:var(--accent2);}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(4,6,10,0.85);display:none;align-items:flex-end;z-index:200;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--odd);border-radius:18px 18px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom));width:100%;max-width:720px;margin:0 auto;}
+.modal h4{margin:0 0 10px;color:var(--odd);font-size:15px;}
+.modal p{font-size:12.5px;color:var(--sub);line-height:1.6;}
+
+.killbar{position:fixed;bottom:70px;left:0;right:0;z-index:55;padding:0 14px;max-width:720px;margin:0 auto;
+  display:flex;justify-content:center;pointer-events:none;}
+.killbtn{pointer-events:auto;background:var(--danger);color:#fff;border-radius:24px;padding:11px 22px;font-size:12.5px;
+  box-shadow:0 4px 18px rgba(239,77,107,0.4);display:flex;align-items:center;gap:8px;}
+
+.smallnote{font-size:10.5px;color:var(--muted);margin-top:6px;}
+a.link{color:var(--accent2);}
+.toggle-inline{display:flex;align-items:center;gap:8px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark">P</div>
+    <div class="brand-text"><b>PARITIX</b><span>EVEN / ODD INTELLIGENCE TERMINAL</span></div>
+  </div>
+  <div class="status-pill" id="connPill"><span class="dot" id="connDot"></span><span id="connLabel">Offline</span></div>
+</div>
+<div class="mode-banner demo" id="modeBanner">DEMO MODE — no real funds at risk</div>
+
+<div class="wrap">
+
+  <div class="tabs">
+    <div class="tab active" data-view="auth">Auth</div>
+    <div class="tab" data-view="dashboard">Dashboard</div>
+    <div class="tab" data-view="engines">Engines</div>
+    <div class="tab" data-view="risk">Risk</div>
+    <div class="tab" data-view="journal">Journal</div>
+    <div class="tab" data-view="log">Log</div>
+  </div>
+
+  <!-- ================= AUTH VIEW ================= -->
+  <div class="view active" id="view-auth">
+    <div class="card">
+      <h3>Connection Setup</h3>
+      <div class="field">
+        <label>Deriv App ID</label>
+        <input id="appIdInput" placeholder="Your registered App ID">
+      </div>
+      <div class="authtabs">
+        <div class="authtab active" data-auth="pat">Personal Access Token</div>
+        <div class="authtab" data-auth="oauth">OAuth 2.0 PKCE</div>
+      </div>
+      <div class="authpane active" id="pane-pat">
+        <div class="field">
+          <label>PAT Token</label>
+          <input id="patInput" type="password" placeholder="Paste your PAT token">
+        </div>
+        <button class="btn primary" id="btnPatConnect">Connect with PAT</button>
+        <div class="hint">Generate at developers.deriv.com → API tokens, scopes: <b>trade</b> + <b>account_manage</b>.</div>
+      </div>
+      <div class="authpane" id="pane-oauth">
+        <button class="btn" id="btnOauthStart">Generate Login URL (PKCE)</button>
+        <div id="oauthUrlBox" style="display:none;margin-top:10px;">
+          <label>Step 1 — Open this URL, log in, then complete the token exchange server-side</label>
+          <div class="code" id="oauthUrlText"></div>
+          <div class="field" style="margin-top:10px;">
+            <label>Step 2 — Paste the resulting access_token here</label>
+            <input id="oauthTokenInput" type="password" placeholder="access_token from your server-side exchange">
+          </div>
+          <button class="btn primary" id="btnOauthConnect">Connect with OAuth Token</button>
+        </div>
+        <div class="hint">PKCE code_verifier/state are generated client-side and stored in sessionStorage. Token exchange must happen server-side — never expose your client secret in the browser.</div>
+      </div>
+    </div>
+
+    <div class="card" id="acctCard" style="display:none;">
+      <h3>Options Accounts <button class="btn small ghost" id="btnRefreshAccounts">Refresh</button></h3>
+      <div class="acct-list" id="acctList"></div>
+      <div class="row" style="margin-top:10px;">
+        <button class="btn small" id="btnCreateDemo">+ Create Demo</button>
+        <button class="btn small" id="btnResetDemo">Reset Demo Balance</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= DASHBOARD VIEW ================= -->
+  <div class="view" id="view-dashboard">
+    <div class="symbolbar" id="symbolBar"></div>
+
+    <div class="card">
+      <h3>Live Quote <span id="feedState" style="text-transform:none;font-weight:400;">•</span></h3>
+      <div class="livequote">
+        <span class="q" id="quotePrice">—</span>
+        <span class="lastdigit" id="lastDigitBadge">—</span>
+      </div>
+      <div class="smallnote" id="quoteMeta">Waiting for ticks…</div>
+      <div class="digitgrid" id="digitGrid"></div>
+      <label style="margin-top:6px;">Recent parity sequence</label>
+      <div class="streaktrack" id="streakTrack"></div>
+    </div>
+
+    <div class="card">
+      <h3>Fusion Verdict</h3>
+      <div class="bigverdict">
+        <div class="call NONE" id="verdictCall">NO TRADE</div>
+        <div class="sub" id="verdictSub">Awaiting sufficient tick history…</div>
+      </div>
+      <div class="confmeter"><div class="fill EVEN" id="confFill" style="width:0%;"></div></div>
+      <div class="grid3">
+        <div class="stat"><div class="v" id="confVal">0%</div><div class="l">Confidence</div></div>
+        <div class="stat"><div class="v" id="coverageVal">0%</div><div class="l">Coverage</div></div>
+        <div class="stat"><div class="v" id="conflictVal">0%</div><div class="l">Conflict</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Trade Execution Parameters</h3>
+      <div class="grid2">
+        <div class="field">
+          <label>Duration Unit</label>
+          <select id="durationUnitInput">
+            <option value="t">Ticks</option>
+            <option value="s">Seconds</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Basis</label>
+          <select id="basisInput">
+            <option value="stake">Stake</option>
+            <option value="payout">Payout</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Auto-Trade Contract Mode (enforced — restricts which side the auto-engine may buy)</label>
+        <select id="contractModeInput">
+          <option value="auto">Auto — follow fusion verdict</option>
+          <option value="force_even">Force EVEN only</option>
+          <option value="force_odd">Force ODD only</option>
+        </select>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Max Trades / Session (0 = unlimited)</label><input id="maxTradesSessionInput" type="number" value="0" min="0"></div>
+        <div class="field"><label>Min Seconds Between Trades</label><input id="tradeCooldownInput" type="number" value="0" min="0"></div>
+      </div>
+      <div class="rowline">
+        <span>Take-Profit auto-close (per open contract)</span>
+        <div class="switch" id="tpSwitch"><div class="knob"></div></div>
+      </div>
+      <div class="field" id="tpValueField" style="display:none;"><label>Take-Profit (USD unrealized profit)</label><input id="tpValueInput" type="number" value="5" min="0" step="0.1"></div>
+      <div class="rowline">
+        <span>Stop-Loss auto-close (per open contract)</span>
+        <div class="switch" id="slSwitch"><div class="knob"></div></div>
+      </div>
+      <div class="field" id="slValueField" style="display:none;"><label>Stop-Loss (USD unrealized loss)</label><input id="slValueInput" type="number" value="5" min="0" step="0.1"></div>
+      <div class="smallnote">These parameters are enforced by the execution pipeline on every proposal/buy call and by the contract monitor for early-sell TP/SL — not cosmetic settings.</div>
+    </div>
+
+    <div class="card">
+      <h3>Manual / Auto Trade</h3>
+      <div class="grid2">
+        <div class="field"><label>Stake (USD)</label><input id="stakeInput" type="number" value="1" min="0.35" step="0.01"></div>
+        <div class="field"><label>Duration</label><input id="durationInput" type="number" value="5" min="1" max="10"></div>
+      </div>
+      <div class="row">
+        <button class="btn buy" id="btnBuyEven">Buy EVEN</button>
+        <button class="btn sell" id="btnBuyOdd">Buy ODD</button>
+      </div>
+      <div class="rowline" style="margin-top:10px;">
+        <span>Auto-Trade Engine (armed on confidence + fusion agreement)</span>
+        <div class="switch" id="autoSwitch"><div class="knob"></div></div>
+      </div>
+      <div class="rowline">
+        <span>Real-Money Arm</span>
+        <div class="switch" id="realArmSwitch"><div class="knob"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Session Stats</h3>
+      <div class="grid3">
+        <div class="stat"><div class="v" id="statBalance">—</div><div class="l">Balance</div></div>
+        <div class="stat"><div class="v" id="statPnl">$0.00</div><div class="l">Session P&amp;L</div></div>
+        <div class="stat"><div class="v" id="statWinRate">0%</div><div class="l">Win Rate</div></div>
+      </div>
+      <div class="grid3" style="margin-top:8px;">
+        <div class="stat"><div class="v" id="statTrades">0</div><div class="l">Trades</div></div>
+        <div class="stat"><div class="v" id="statStreak">0</div><div class="l">Loss Streak</div></div>
+        <div class="stat"><div class="v" id="statMartLevel">0</div><div class="l">Martingale Lvl</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= ENGINES VIEW ================= -->
+  <div class="view" id="view-engines">
+    <div class="card">
+      <h3>Engine Selection &amp; Weight Control <button class="btn small ghost" id="btnEngineAllOn">All On</button></h3>
+      <div class="smallnote" style="margin-bottom:8px;">Toggle OFF removes an engine from the fusion vote entirely — it is excluded from coverage, confidence, and conflict calculations, not just hidden from view. This is enforced at the fusion layer, not cosmetic.</div>
+      <div id="engineControlList"></div>
+    </div>
+    <div class="card">
+      <h3>Live Engine Output</h3>
+      <div class="enginelist" id="engineList"></div>
+      <div class="smallnote">Each engine is a pure function evaluated independently on shared tick history — no engine reads another's output. Fusion applies weighted confluence with a coverage penalty and conflict detection, using only the engines enabled above.</div>
+    </div>
+    <div class="card">
+      <h3>Market State Classifier</h3>
+      <div class="rowline"><span>Current state</span><b id="marketStateVal">—</b></div>
+      <div class="rowline"><span>Volatility (σ of last 50 digits)</span><span id="volVal">—</span></div>
+      <div class="rowline"><span>Tick speed (ms avg)</span><span id="speedVal">—</span></div>
+      <div class="smallnote">Even/Odd signals are suppressed automatically outside "Calm" and mild "Aggressive" regimes — see Strategy 4 (Market State Engine).</div>
+    </div>
+  </div>
+
+  <!-- ================= RISK VIEW ================= -->
+  <div class="view" id="view-risk">
+    <div class="card risk">
+      <h3>Risk Rails (final gate before every buy())</h3>
+      <div class="field"><label>Daily Drawdown Cap (USD)</label><input id="ddCapInput" type="number" value="20"></div>
+      <div class="field"><label>Max Consecutive Losses (pause)</label><input id="lossPauseInput" type="number" value="4"></div>
+      <div class="field"><label>Stake Ceiling (USD)</label><input id="stakeCeilInput" type="number" value="10"></div>
+      <div class="field"><label>Max Concurrent Trades</label><input id="maxConcurrentInput" type="number" value="1"></div>
+      <div class="field"><label>Min Confidence to Trade (Strategy 1 gate)</label><input id="minConfInput" type="number" value="80"></div>
+    </div>
+    <div class="card">
+      <h3>Adaptive Martingale (confidence-scaled)</h3>
+      <div class="rowline"><span>Enable martingale</span><div class="switch on" id="martSwitch"><div class="knob"></div></div></div>
+      <div class="field"><label>Max Levels (hard stop)</label><input id="martMaxLevelsInput" type="number" value="5" min="1" max="7"></div>
+      <div class="smallnote">Multiplier scales inversely with fusion confidence — 95%→×1.25, 90%→×1.45, 85%→×1.70, 80%→×2.00 — capped at max levels, then forced stop (per Even/Odd Strategy doc).</div>
+    </div>
+    <div class="card">
+      <h3>Kill Switch</h3>
+      <p class="hint">Immediately halts auto-trading, forgets all subscriptions, and disarms real-money mode.</p>
+      <button class="btn danger" id="btnKillFull">ENGAGE KILL SWITCH</button>
+    </div>
+    <div class="card">
+      <h3>Reset</h3>
+      <div class="row">
+        <button class="btn small ghost" id="btnResetStats">Reset Stats</button>
+        <button class="btn small ghost" id="btnResetJournal">Clear Journal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= JOURNAL VIEW ================= -->
+  <div class="view" id="view-journal">
+    <div class="card">
+      <h3>Trade Journal <button class="btn small ghost" id="btnExportCsv">Export CSV</button></h3>
+      <div class="journal" id="journalList"><div class="smallnote">No trades yet.</div></div>
+    </div>
+  </div>
+
+  <!-- ================= LOG VIEW ================= -->
+  <div class="view" id="view-log">
+    <div class="card">
+      <h3>System Log <button class="btn small ghost" id="btnClearLog">Clear</button></h3>
+      <div class="logbox" id="logBox"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="killbar"><button class="killbtn" id="btnKillFloating">⛔ KILL SWITCH</button></div>
+
+<div class="navbar">
+  <div class="navitem active" data-view="auth"><span class="ic">🔐</span>Auth</div>
+  <div class="navitem" data-view="dashboard"><span class="ic">📊</span>Trade</div>
+  <div class="navitem" data-view="engines"><span class="ic">🧠</span>Engines</div>
+  <div class="navitem" data-view="risk"><span class="ic">🛡️</span>Risk</div>
+  <div class="navitem" data-view="journal"><span class="ic">📒</span>Journal</div>
+</div>
+
+<div class="modal-overlay" id="realConfirmModal">
+  <div class="modal">
+    <h4>⚠️ Arm Real-Money Trading</h4>
+    <p>You are about to enable trading with a <b>real</b> Deriv account. PARITIX will place actual contracts using real funds subject to the risk rails you've configured. This action is irreversible for any trade already executed.</p>
+    <p>Type <b>CONFIRM</b> below to proceed.</p>
+    <input id="confirmTypeInput" placeholder="Type CONFIRM" style="margin:10px 0;">
+    <div class="row">
+      <button class="btn ghost" id="btnCancelConfirm">Cancel</button>
+      <button class="btn danger" id="btnAcceptConfirm">Arm Real Trading</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+// ============================================================
+// CONFIG
+// ============================================================
+const API_BASE = 'https://api.derivws.com';
+const OAUTH_AUTH_URL = 'https://auth.deriv.com/oauth2/auth';
+const SYMBOLS = [
+  {code:'1HZ10V', label:'Volatility 10 (1s)'},
+  {code:'1HZ25V', label:'Volatility 25 (1s)'},
+  {code:'1HZ50V', label:'Volatility 50 (1s)'},
+  {code:'1HZ75V', label:'Volatility 75 (1s)'},
+  {code:'1HZ100V', label:'Volatility 100 (1s)'},
+  {code:'R_10', label:'Volatility 10'},
+  {code:'R_25', label:'Volatility 25'},
+  {code:'R_50', label:'Volatility 50'},
+  {code:'R_75', label:'Volatility 75'},
+  {code:'R_100', label:'Volatility 100'}
+];
+// Authoritative engine registry — id must match each engine function's engineId.
+// This is the single source of truth for which engines exist, their default
+// weight, default enabled state, and display name/strategy reference.
+const ENGINE_META = [
+  { id:'frequency',   name:'Probability Score (Strategy 1)',        defaultWeight:20, defaultEnabled:true, reliability:90 },
+  { id:'streak',      name:'Streak Reversal (Strategy 2)',          defaultWeight:20, defaultEnabled:true, reliability:88 },
+  { id:'pattern',     name:'Hidden Pattern Recognition (Strategy 3)', defaultWeight:25, defaultEnabled:true, reliability:91 },
+  { id:'marketstate', name:'Market State Classifier (Strategy 4)',  defaultWeight:15, defaultEnabled:true, reliability:85 },
+  { id:'bayesian',    name:'Hybrid Bayesian Confirm (Strategy 5)',  defaultWeight:20, defaultEnabled:true, reliability:93 }
+];
+const MART_TABLE = [ // [minConfidencePct, multiplier]
+  [95, 1.25], [90, 1.45], [85, 1.70], [80, 2.00]
+];
+
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  appId: '', token: '', authMethod: null,
+  accounts: [], selectedAccount: null,
+  ws: null, wsUrl: null, wsConnected: false, reqIdCounter: 0,
+  wsReconnectAttempts: 0, wsIsReal: false,
+  pendingRequests: new Map(), subscriptions: new Map(),
+  activeSymbol: '1HZ10V',
+  ticksBySymbol: {}, // symbol -> {digits:[], quotes:[], epochs:[], lastQuote}
+  digitFreq: {}, // symbol -> [count x10]
+  engineResults: [],
+  // engineConfig is the ENFORCED selection/weight control — engines with enabled:false
+  // are excluded entirely from runAllEngines(), not just hidden in the UI.
+  engineConfig: ENGINE_META.reduce((acc, e) => {
+    acc[e.id] = { enabled: e.defaultEnabled, weight: e.defaultWeight };
+    return acc;
+  }, {}),
+  // tradeParams is the ENFORCED trade-execution control — read by executeTrade()
+  // and the contract monitor on every single trade, not applied cosmetically.
+  tradeParams: {
+    durationUnit: 't', basis: 'stake', contractMode: 'auto',
+    maxTradesSession: 0, cooldownSeconds: 0, lastTradeAt: 0,
+    tpEnabled: false, tpValue: 5, slEnabled: false, slValue: 5
+  },
+  fusion: {confidence:0, coverage:0, conflictRatio:0, dominant:'NONE'},
+  autoTradeArmed: false,
+  realArmed: false,
+  killEngaged: false,
+  inFlight: false,
+  martLevel: 0,
+  session: { pnl:0, trades:0, wins:0, losses:0, lossStreak:0, startBalance:null },
+  balance: null,
+  currency: 'USD',
+  openContracts: new Map()
+};
+
+// ============================================================
+// UTIL / LOG
+// ============================================================
+function log(msg, level){
+  level = level || 'info';
+  const box = document.getElementById('logBox');
+  const line = document.createElement('div');
+  line.className = 'logline ' + level;
+  const ts = new Date().toLocaleTimeString();
+  line.textContent = '[' + ts + '] ' + msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+  while(box.childElementCount > 300) box.removeChild(box.firstChild);
+}
+function nextId(){ state.reqIdCounter += 1; return state.reqIdCounter; }
+function fmtMoney(n){ return (n<0?'-$':'$') + Math.abs(Number(n)||0).toFixed(2); }
+function isEven(d){ return d % 2 === 0; }
+
+// ============================================================
+// INDEXEDDB TRADE JOURNAL
+// ============================================================
+let dbInstance = null;
+function openDb(){
+  return new Promise((resolve, reject) => {
+    if (dbInstance) return resolve(dbInstance);
+    const req = indexedDB.open('paritix_journal', 1);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('trades')) {
+        db.createObjectStore('trades', {keyPath:'id', autoIncrement:true});
+      }
+    };
+    req.onsuccess = (e) => { dbInstance = e.target.result; resolve(dbInstance); };
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+async function journalAdd(entry){
+  try {
+    const db = await openDb();
+    const tx = db.transaction('trades','readwrite');
+    tx.objectStore('trades').add(entry);
+    return new Promise((res)=>{ tx.oncomplete = ()=>res(); tx.onerror = ()=>res(); });
+  } catch(e){ log('Journal write failed: '+e.message, 'err'); }
+}
+async function journalAll(){
+  try {
+    const db = await openDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction('trades','readonly');
+      const req = tx.objectStore('trades').getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+  } catch(e){ return []; }
+}
+async function journalClear(){
+  try {
+    const db = await openDb();
+    const tx = db.transaction('trades','readwrite');
+    tx.objectStore('trades').clear();
+    return new Promise((res)=>{ tx.oncomplete = ()=>res(); });
+  } catch(e){}
+}
+async function renderJournal(){
+  const list = document.getElementById('journalList');
+  const rows = await journalAll();
+  if (!rows.length) { list.innerHTML = '<div class="smallnote">No trades yet.</div>'; return; }
+  list.innerHTML = '';
+  rows.slice().reverse().forEach(r => {
+    const div = document.createElement('div');
+    div.className = 'jrow';
+    const pnlClass = r.pnl >= 0 ? 'win' : 'loss';
+    div.innerHTML = '<span>'+r.symbol+' · '+r.contractType+' · stake '+fmtMoney(r.stake)+'</span>'+
+      '<span class="'+pnlClass+'">'+fmtMoney(r.pnl)+'</span>';
+    list.appendChild(div);
+  });
+}
+document.getElementById('btnExportCsv').onclick = async () => {
+  const rows = await journalAll();
+  if (!rows.length) { log('No journal entries to export', 'warn'); return; }
+  const header = Object.keys(rows[0]).join(',');
+  const body = rows.map(r => Object.values(r).map(v => JSON.stringify(v ?? '')).join(',')).join('\n');
+  const blob = new Blob([header+'\n'+body], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'paritix_journal.csv'; a.click();
+  URL.revokeObjectURL(url);
+};
+document.getElementById('btnResetJournal').onclick = async () => {
+  await journalClear(); await renderJournal(); log('Journal cleared', 'warn');
+};
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function showView(name){
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view===name));
+  document.querySelectorAll('.navitem').forEach(t => t.classList.toggle('active', t.dataset.view===name));
+  if (name === 'journal') renderJournal();
+}
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => showView(t.dataset.view));
+document.querySelectorAll('.navitem').forEach(t => t.onclick = () => showView(t.dataset.view));
+
+document.querySelectorAll('.authtab').forEach(t => t.onclick = () => {
+  document.querySelectorAll('.authtab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.authpane').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  document.getElementById('pane-'+t.dataset.auth).classList.add('active');
+});
+
+// ============================================================
+// REST HELPERS
+// ============================================================
+function restHeaders(withJson){
+  const h = { 'Authorization': 'Bearer ' + state.token, 'Deriv-App-ID': state.appId };
+  if (withJson) h['Content-Type'] = 'application/json';
+  return h;
+}
+async function restCall(method, path, body){
+  const opts = { method, headers: restHeaders(!!body) };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(API_BASE + path, opts);
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) {
+    const err = (data.errors && data.errors[0]) || {};
+    throw new Error('['+res.status+'] '+(err.code||'Error')+': '+(err.message||'Request failed'));
+  }
+  return { status: res.status, data };
+}
+async function fetchAccounts(){
+  const { data } = await restCall('GET', '/trading/v1/options/accounts');
+  state.accounts = data.data || [];
+  renderAccounts();
+}
+async function createAccount(accountType){
+  const { data } = await restCall('POST', '/trading/v1/options/accounts', {
+    currency:'USD', group:'row', account_type: accountType
+  });
+  const account = Array.isArray(data.data) ? data.data[0] : data.data;
+  log('Account ready: '+account.account_id+' ('+account.account_type+')', 'ok');
+  await fetchAccounts();
+}
+async function resetDemoBalance(accountId){
+  const { data } = await restCall('POST', '/trading/v1/options/accounts/'+accountId+'/reset-demo-balance');
+  log('Demo balance reset to '+Number(data.data.balance)+' '+data.data.currency, 'ok');
+  await fetchAccounts();
+}
+async function getOtpUrl(accountId){
+  const { data } = await restCall('POST', '/trading/v1/options/accounts/'+accountId+'/otp');
+  return data.data.url;
+}
+
+function renderAccounts(){
+  const list = document.getElementById('acctList');
+  list.innerHTML = '';
+  state.accounts.forEach(acc => {
+    const div = document.createElement('div');
+    div.className = 'acct' + (state.selectedAccount && state.selectedAccount.account_id===acc.account_id ? ' selected':'');
+    div.innerHTML = '<div><div class="aid">'+acc.account_id+' <span class="badge '+acc.account_type+'">'+acc.account_type.toUpperCase()+'</span></div>'+
+      '<div class="abal">'+Number(acc.balance).toFixed(2)+' '+acc.currency+'</div></div>'+
+      '<button class="btn small">Select</button>';
+    div.querySelector('button').onclick = () => selectAccount(acc);
+    list.appendChild(div);
+  });
+}
+
+async function selectAccount(acc){
+  state.selectedAccount = acc;
+  state.currency = acc.currency;
+  state.balance = Number(acc.balance);
+  state.session.startBalance = state.balance;
+  renderAccounts();
+  updateModeBanner();
+  document.getElementById('statBalance').textContent = state.balance.toFixed(2)+' '+state.currency;
+  log('Selected account '+acc.account_id+' ('+acc.account_type+')', 'ok');
+  try {
+    const url = await getOtpUrl(acc.account_id);
+    connectTradingWs(url, acc.account_type === 'real');
+  } catch(e){
+    log('OTP/connect failed: '+e.message, 'err');
+  }
+}
+function updateModeBanner(){
+  const banner = document.getElementById('modeBanner');
+  const isReal = state.selectedAccount && state.selectedAccount.account_type === 'real';
+  banner.className = 'mode-banner ' + (isReal ? 'real':'demo');
+  banner.textContent = isReal ? 'REAL MONEY MODE — trades use actual funds' : 'DEMO MODE — no real funds at risk';
+}
+
+document.getElementById('btnRefreshAccounts').onclick = () => fetchAccounts().catch(e=>log(e.message,'err'));
+document.getElementById('btnCreateDemo').onclick = () => createAccount('demo').catch(e=>log(e.message,'err'));
+document.getElementById('btnResetDemo').onclick = () => {
+  if (!state.selectedAccount || state.selectedAccount.account_type !== 'demo') { log('Select a demo account first', 'warn'); return; }
+  resetDemoBalance(state.selectedAccount.account_id).catch(e=>log(e.message,'err'));
+};
+
+// ============================================================
+// PAT AUTH
+// ============================================================
+document.getElementById('btnPatConnect').onclick = async () => {
+  state.appId = document.getElementById('appIdInput').value.trim();
+  state.token = document.getElementById('patInput').value.trim();
+  if (!state.appId || !state.token) { log('App ID and PAT token required', 'warn'); return; }
+  state.authMethod = 'pat';
+  try {
+    await fetchAccounts();
+    document.getElementById('acctCard').style.display = 'block';
+    log('Authenticated via PAT', 'ok');
+  } catch(e){ log('Auth failed: '+e.message, 'err'); }
+};
+
+// ============================================================
+// OAUTH 2.0 PKCE
+// ============================================================
+function generateCodeVerifier(){
+  const arr = crypto.getRandomValues(new Uint8Array(64));
+  return Array.from(arr).map(v => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'[v % 66]).join('');
+}
+async function generateCodeChallenge(verifier){
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function generateState(){
+  return Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+document.getElementById('btnOauthStart').onclick = async () => {
+  state.appId = document.getElementById('appIdInput').value.trim();
+  if (!state.appId) { log('App ID required first', 'warn'); return; }
+  const verifier = generateCodeVerifier();
+  const challenge = await generateCodeChallenge(verifier);
+  const oauthState = generateState();
+  sessionStorage.setItem('paritix_pkce_verifier', verifier);
+  sessionStorage.setItem('paritix_oauth_state', oauthState);
+  const url = new URL(OAUTH_AUTH_URL);
+  url.searchParams.set('response_type','code');
+  url.searchParams.set('client_id', state.appId);
+  url.searchParams.set('redirect_uri', window.location.origin + window.location.pathname);
+  url.searchParams.set('scope','trade account_manage');
+  url.searchParams.set('state', oauthState);
+  url.searchParams.set('code_challenge', challenge);
+  url.searchParams.set('code_challenge_method','S256');
+  document.getElementById('oauthUrlText').textContent = url.toString();
+  document.getElementById('oauthUrlBox').style.display = 'block';
+  log('PKCE parameters generated. Complete server-side token exchange, then paste access_token.', 'info');
+};
+document.getElementById('btnOauthConnect').onclick = async () => {
+  state.token = document.getElementById('oauthTokenInput').value.trim();
+  if (!state.token) { log('Paste an access token first', 'warn'); return; }
+  state.authMethod = 'oauth';
+  try {
+    await fetchAccounts();
+    document.getElementById('acctCard').style.display = 'block';
+    log('Authenticated via OAuth', 'ok');
+  } catch(e){ log('Auth failed: '+e.message, 'err'); }
+};
+
+// ============================================================
+// TRADING WEBSOCKET (authed via OTP)
+// ============================================================
+function connectTradingWs(url, isReal){
+  if (state.ws) { try{ state.ws.close(); }catch(e){} }
+  state.wsUrl = url; state.wsIsReal = isReal;
+  const ws = new WebSocket(url);
+  state.ws = ws;
+  ws.onopen = () => {
+    state.wsConnected = true; state.wsReconnectAttempts = 0;
+    setConnPill(true);
+    log('Trading WebSocket connected ('+(isReal?'REAL':'DEMO')+')', 'ok');
+    sendWs({ balance:1, subscribe:1 });
+    startHeartbeat();
+  };
+  ws.onmessage = (evt) => handleTradingMessage(JSON.parse(evt.data));
+  ws.onerror = (e) => { log('Trading WS error', 'err'); };
+  ws.onclose = () => {
+    state.wsConnected = false; setConnPill(false);
+    stopHeartbeat();
+    log('Trading WebSocket closed — reconnecting with fresh OTP', 'warn');
+    scheduleReconnect();
+  };
+}
+function scheduleReconnect(){
+  if (state.killEngaged || !state.selectedAccount) return;
+  state.wsReconnectAttempts += 1;
+  const delay = Math.min(1000 * Math.pow(2, state.wsReconnectAttempts), 30000);
+  setTimeout(async () => {
+    try {
+      const url = await getOtpUrl(state.selectedAccount.account_id);
+      connectTradingWs(url, state.wsIsReal);
+    } catch(e){ log('Reconnect OTP fetch failed: '+e.message, 'err'); scheduleReconnect(); }
+  }, delay);
+}
+let tradingHeartbeat = null;
+function startHeartbeat(){
+  stopHeartbeat();
+  tradingHeartbeat = setInterval(() => { if (state.wsConnected) sendWs({ping:1}); }, 25000);
+}
+function stopHeartbeat(){ if (tradingHeartbeat) clearInterval(tradingHeartbeat); tradingHeartbeat = null; }
+
+function sendWs(cmd){
+  return new Promise((resolve, reject) => {
+    if (!state.ws || state.ws.readyState !== WebSocket.OPEN) { reject(new Error('WS not open')); return; }
+    const id = nextId();
+    const msg = Object.assign({}, cmd, { req_id: id });
+    if (cmd.subscribe) {
+      state.subscriptions.set(id, cmd);
+      state.ws.send(JSON.stringify(msg));
+      resolve(id);
+    } else {
+      state.pendingRequests.set(id, { resolve, reject });
+      state.ws.send(JSON.stringify(msg));
+    }
+  });
+}
+function handleTradingMessage(data){
+  if (data.req_id && state.pendingRequests.has(data.req_id)) {
+    const { resolve, reject } = state.pendingRequests.get(data.req_id);
+    state.pendingRequests.delete(data.req_id);
+    if (data.error) reject(new Error(data.error.code+': '+data.error.message)); else resolve(data);
+  }
+  if (data.error) { log('API error ['+data.error.code+']: '+data.error.message, 'err'); return; }
+  switch(data.msg_type){
+    case 'balance': onBalanceUpdate(data.balance); break;
+    case 'proposal': onProposal(data.proposal); break;
+    case 'buy': onBuy(data.buy); break;
+    case 'proposal_open_contract': onContractUpdate(data.proposal_open_contract); break;
+  }
+}
+function onBalanceUpdate(bal){
+  state.balance = Number(bal.balance);
+  document.getElementById('statBalance').textContent = state.balance.toFixed(2)+' '+bal.currency;
+  if (state.session.startBalance === null) state.session.startBalance = state.balance;
+}
+
+// ============================================================
+// PUBLIC MARKET DATA WEBSOCKET (no auth) — ensureTickFeed pattern
+// ============================================================
+let marketWs = null;
+let marketWsConnecting = false;
+const marketReqId = { n: 100000 };
+function nextMarketId(){ marketReqId.n += 1; return marketReqId.n; }
+
+function ensurePublicWs(){
+  if (marketWs && (marketWs.readyState === WebSocket.OPEN || marketWs.readyState === WebSocket.CONNECTING)) return;
+  if (marketWsConnecting) return;
+  marketWsConnecting = true;
+  const ws = new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');
+  marketWs = ws;
+  ws.onopen = () => {
+    marketWsConnecting = false;
+    log('Public market data WS connected', 'ok');
+    Object.keys(state.ticksBySymbol).forEach(sym => ensureTickFeed(sym));
+    ensureTickFeed(state.activeSymbol);
+    startMarketHeartbeat();
+  };
+  ws.onmessage = (evt) => handleMarketMessage(JSON.parse(evt.data));
+  ws.onerror = () => { marketWsConnecting = false; };
+  ws.onclose = () => {
+    marketWsConnecting = false; stopMarketHeartbeat();
+    log('Public market WS closed — reconnecting', 'warn');
+    setTimeout(ensurePublicWs, 3000);
+  };
+}
+let marketHeartbeat = null;
+function startMarketHeartbeat(){
+  stopMarketHeartbeat();
+  marketHeartbeat = setInterval(() => {
+    if (marketWs && marketWs.readyState === WebSocket.OPEN) marketWs.send(JSON.stringify({ping:1, req_id:nextMarketId()}));
+  }, 25000);
+}
+function stopMarketHeartbeat(){ if (marketHeartbeat) clearInterval(marketHeartbeat); marketHeartbeat = null; }
+
+const tickSubscribedSymbols = new Set();
+function ensureTickFeed(symbol){
+  if (!state.ticksBySymbol[symbol]) {
+    state.ticksBySymbol[symbol] = { digits:[], quotes:[], epochs:[], lastQuote:null, lastTickTime:null, tickGaps:[] };
+    state.digitFreq[symbol] = new Array(10).fill(0);
+  }
+  if (!marketWs || marketWs.readyState !== WebSocket.OPEN) { ensurePublicWs(); return; }
+  if (tickSubscribedSymbols.has(symbol)) return;
+  tickSubscribedSymbols.add(symbol);
+  marketWs.send(JSON.stringify({ ticks_history: symbol, count:100, end:'latest', style:'ticks', req_id: nextMarketId() }));
+  marketWs.send(JSON.stringify({ ticks: symbol, subscribe:1, req_id: nextMarketId() }));
+}
+function handleMarketMessage(data){
+  if (data.error) { log('Market API error: '+data.error.message, 'err'); return; }
+  if (data.msg_type === 'history') {
+    // history responses don't echo symbol directly; correlate via echo_req if present
+    const sym = (data.echo_req && data.echo_req.ticks_history) || state.activeSymbol;
+    ingestHistory(sym, data.history);
+  } else if (data.msg_type === 'tick') {
+    ingestTick(data.tick.symbol, data.tick);
+  }
+}
+function ingestHistory(symbol, history){
+  if (!history || !history.prices) return;
+  const bucket = state.ticksBySymbol[symbol];
+  if (!bucket) return;
+  history.prices.forEach((p, i) => {
+    const digit = lastDigitOf(p);
+    bucket.quotes.push(Number(p));
+    bucket.digits.push(digit);
+    bucket.epochs.push(history.times ? history.times[i] : null);
+    state.digitFreq[symbol][digit] += 1;
+  });
+  trimBuckets(symbol);
+  if (symbol === state.activeSymbol) { renderDashboard(); runEnginesAndRender(); }
+}
+function ingestTick(symbol, tick){
+  const bucket = state.ticksBySymbol[symbol];
+  if (!bucket) return;
+  const now = Date.now();
+  if (bucket.lastTickTime) bucket.tickGaps.push(now - bucket.lastTickTime);
+  if (bucket.tickGaps.length > 50) bucket.tickGaps.shift();
+  bucket.lastTickTime = now;
+  const digit = lastDigitOf(tick.quote);
+  bucket.quotes.push(Number(tick.quote));
+  bucket.digits.push(digit);
+  bucket.epochs.push(tick.epoch);
+  bucket.lastQuote = Number(tick.quote);
+  state.digitFreq[symbol][digit] += 1;
+  trimBuckets(symbol);
+  if (symbol === state.activeSymbol) { renderDashboard(); runEnginesAndRender(); maybeAutoTrade(); }
+}
+function trimBuckets(symbol){
+  const bucket = state.ticksBySymbol[symbol];
+  const MAX = 500;
+  while (bucket.digits.length > MAX) {
+    const removed = bucket.digits.shift();
+    bucket.quotes.shift(); bucket.epochs.shift();
+    state.digitFreq[symbol][removed] -= 1;
+  }
+}
+function lastDigitOf(priceStr){
+  const s = String(priceStr);
+  const clean = s.replace('.', '');
+  return Number(clean[clean.length - 1]);
+}
+
+// ============================================================
+// SYMBOL BAR
+// ============================================================
+function renderSymbolBar(){
+  const bar = document.getElementById('symbolBar');
+  bar.innerHTML = '';
+  SYMBOLS.forEach(s => {
+    const chip = document.createElement('div');
+    chip.className = 'symchip' + (s.code === state.activeSymbol ? ' active':'');
+    chip.textContent = s.label;
+    chip.onclick = () => {
+      state.activeSymbol = s.code;
+      renderSymbolBar();
+      ensureTickFeed(s.code);
+      renderDashboard(); runEnginesAndRender();
+    };
+    bar.appendChild(chip);
+  });
+}
+
+// ============================================================
+// ANALYSIS ENGINES (pure functions — Even/Odd Strategy doc)
+// ============================================================
+
+// Strategy 1: Multi-Layer Probability Score Engine
+function engineFrequencyScore(bucket){
+  const digits = bucket.digits;
+  if (digits.length < 30) return { engineId:'frequency', signal:'NEUTRAL', confidence:0, fired:false, rationale:'Insufficient ticks' };
+  const window = digits.slice(-100);
+  const evens = window.filter(isEven).length;
+  const odds = window.length - evens;
+  const evenRatio = evens / window.length;
+  const oddRatio = odds / window.length;
+  // deviation from 50/50 expected
+  const dev = Math.abs(evenRatio - 0.5);
+  const dominant = evenRatio > oddRatio ? 'ODD' : 'EVEN'; // bet on reversion toward under-represented side
+  const confidence = Math.min(1, dev * 3.2); // scale deviation into 0-1 confidence
+  return { engineId:'frequency', signal: dev < 0.02 ? 'NEUTRAL' : dominant, confidence, fired:true,
+    rationale:'Even '+(evenRatio*100).toFixed(1)+'% / Odd '+(oddRatio*100).toFixed(1)+'% of last 100' };
+}
+
+// Strategy 2: Adaptive Streak Reversal Engine
+function engineStreakReversal(bucket){
+  const digits = bucket.digits;
+  if (digits.length < 20) return { engineId:'streak', signal:'NEUTRAL', confidence:0, fired:false, rationale:'Insufficient ticks' };
+  // compute current streak of same parity
+  let streak = 1;
+  const lastParity = isEven(digits[digits.length-1]);
+  for (let i = digits.length-2; i >= 0 && isEven(digits[i]) === lastParity; i--) streak++;
+  // compute historical average streak length
+  let streaks = []; let run = 1;
+  for (let i = 1; i < digits.length; i++) {
+    if (isEven(digits[i]) === isEven(digits[i-1])) run++; else { streaks.push(run); run = 1; }
+  }
+  streaks.push(run);
+  const avgStreak = streaks.reduce((a,b)=>a+b,0) / (streaks.length || 1);
+  if (streak <= avgStreak) return { engineId:'streak', signal:'NEUTRAL', confidence:0.1, fired:true, rationale:'Streak '+streak+' within avg '+avgStreak.toFixed(1) };
+  const excess = streak - avgStreak;
+  const confidence = Math.min(1, excess / (avgStreak || 1));
+  const reversalSignal = lastParity ? 'ODD' : 'EVEN'; // bet against the extended streak
+  return { engineId:'streak', signal: confidence > 0.25 ? reversalSignal : 'NEUTRAL', confidence, fired:true,
+    rationale:'Streak='+streak+' vs avg='+avgStreak.toFixed(1) };
+}
+
+// Strategy 3: Hidden Pattern Recognition Engine
+function engineHiddenPattern(bucket){
+  const digits = bucket.digits;
+  if (digits.length < 60) return { engineId:'pattern', signal:'NEUTRAL', confidence:0, fired:false, rationale:'Insufficient ticks' };
+  const bin = digits.map(d => isEven(d) ? 1 : 0);
+  const patLen = 5;
+  const patternMap = new Map(); // pattern string -> {even:0,odd:0}
+  for (let i = 0; i <= bin.length - patLen - 1; i++) {
+    const key = bin.slice(i, i+patLen).join('');
+    const nextIsEven = bin[i+patLen] === 1;
+    if (!patternMap.has(key)) patternMap.set(key, {even:0, odd:0});
+    const rec = patternMap.get(key);
+    if (nextIsEven) rec.even++; else rec.odd++;
+  }
+  const currentKey = bin.slice(-patLen).join('');
+  const rec = patternMap.get(currentKey);
+  if (!rec || (rec.even + rec.odd) < 5) return { engineId:'pattern', signal:'NEUTRAL', confidence:0, fired:true, rationale:'No reliable historical match for current sequence' };
+  const total = rec.even + rec.odd;
+  const evenProb = rec.even / total;
+  const dominant = evenProb >= 0.5 ? 'EVEN' : 'ODD';
+  const confidence = Math.abs(evenProb - 0.5) * 2;
+  return { engineId:'pattern', signal: confidence > 0.15 ? dominant : 'NEUTRAL', confidence, fired:true,
+    rationale:'Pattern '+currentKey+' → '+(dominant)+' '+(Math.max(evenProb,1-evenProb)*100).toFixed(0)+'% ('+total+' samples)' };
+}
+
+// Strategy 4: Market State Classifier
+function classifyMarketState(bucket){
+  const digits = bucket.digits.slice(-50);
+  if (digits.length < 20) return { state:'UNKNOWN', vol:0, speed:0 };
+  const mean = digits.reduce((a,b)=>a+b,0)/digits.length;
+  const variance = digits.reduce((s,d)=>s + Math.pow(d-mean,2), 0) / digits.length;
+  const stdev = Math.sqrt(variance);
+  const gaps = bucket.tickGaps.slice(-50);
+  const avgGap = gaps.length ? gaps.reduce((a,b)=>a+b,0)/gaps.length : 1000;
+  let marketState;
+  if (stdev < 2.6 && avgGap > 400) marketState = 'CALM';
+  else if (stdev >= 2.6 && stdev < 3.3) marketState = 'AGGRESSIVE';
+  else marketState = 'CHAOTIC';
+  return { state: marketState, vol: stdev, speed: avgGap };
+}
+function engineMarketState(bucket){
+  const cls = classifyMarketState(bucket);
+  if (cls.state === 'UNKNOWN') return { engineId:'marketstate', signal:'NEUTRAL', confidence:0, fired:false, rationale:'Insufficient ticks' };
+  if (cls.state === 'CHAOTIC') return { engineId:'marketstate', signal:'NEUTRAL', confidence:0, fired:true, rationale:'Chaotic regime — suppressing signal' };
+  const confidence = cls.state === 'CALM' ? 0.55 : 0.3;
+  return { engineId:'marketstate', signal:'NEUTRAL', confidence, fired:true, rationale:'Regime: '+cls.state+' (σ='+cls.vol.toFixed(2)+')', regime: cls };
+}
+
+// Strategy 5: Hybrid / Bayesian Fusion helper engine (confirmation layer)
+function engineBayesianConfirm(bucket, priorResults){
+  const fired = priorResults.filter(r => r.fired && r.signal !== 'NEUTRAL');
+  if (!fired.length) return { engineId:'bayesian', signal:'NEUTRAL', confidence:0, fired:false, rationale:'No directional priors' };
+  const evenVotes = fired.filter(r=>r.signal==='EVEN').reduce((s,r)=>s+r.confidence,0);
+  const oddVotes = fired.filter(r=>r.signal==='ODD').reduce((s,r)=>s+r.confidence,0);
+  const total = evenVotes + oddVotes;
+  if (total === 0) return { engineId:'bayesian', signal:'NEUTRAL', confidence:0, fired:false, rationale:'No votes' };
+  const dominant = evenVotes >= oddVotes ? 'EVEN' : 'ODD';
+  const confidence = Math.max(evenVotes, oddVotes) / total;
+  return { engineId:'bayesian', signal:dominant, confidence, fired:true, rationale:'Bayesian confirmation of prior engines' };
+}
+
+function runAllEngines(symbol){
+  const bucket = state.ticksBySymbol[symbol];
+  if (!bucket) return [];
+  const cfg = state.engineConfig;
+  // ENFORCED: an engine disabled in engineConfig is never invoked and never
+  // enters the results array — it cannot influence coverage, confidence, or
+  // conflict, unlike a cosmetic filter applied after the fact.
+  const freq = cfg.frequency.enabled ? engineFrequencyScore(bucket) : null;
+  const streak = cfg.streak.enabled ? engineStreakReversal(bucket) : null;
+  const pattern = cfg.pattern.enabled ? engineHiddenPattern(bucket) : null;
+  const marketstate = cfg.marketstate.enabled ? engineMarketState(bucket) : null;
+  const priorsForBayes = [freq, streak, pattern].filter(Boolean);
+  const bayesian = cfg.bayesian.enabled ? engineBayesianConfirm(bucket, priorsForBayes) : null;
+  return [freq, streak, pattern, marketstate, bayesian].filter(Boolean);
+}
+
+// ============================================================
+// FUSION LAYER — weighted confluence + coverage penalty + conflict ratio
+// ============================================================
+function computeWeightedConfidence(results){
+  const fired = results.filter(r => r.fired);
+  if (!fired.length) return { confidence:0, coverage:0 };
+  const weightOf = (id) => (state.engineConfig[id] && state.engineConfig[id].weight) || 10;
+  const totalWeight = fired.reduce((s,r)=> s + weightOf(r.engineId), 0);
+  const weightedSum = fired.reduce((s,r)=> s + r.confidence * weightOf(r.engineId), 0);
+  const rawConfidence = totalWeight > 0 ? weightedSum / totalWeight : 0;
+  // Coverage is measured against the ENABLED engine set (results.length already
+  // excludes disabled engines), so turning engines off doesn't artificially
+  // depress coverage — it redefines what "full coverage" means.
+  const coverage = results.length ? fired.length / results.length : 0;
+  return { confidence: rawConfidence, coverage };
+}
+function applyCoveragePenalty(rawConfidence, coverage, minCoverage){
+  minCoverage = minCoverage || 0.3;
+  if (coverage < minCoverage) return 0;
+  return rawConfidence * Math.sqrt(coverage);
+}
+function detectConflict(results){
+  const fired = results.filter(r => r.fired && r.signal !== 'NEUTRAL');
+  const evens = fired.filter(r=>r.signal==='EVEN').length;
+  const odds = fired.filter(r=>r.signal==='ODD').length;
+  if (evens === 0 && odds === 0) return { conflictRatio:0, dominant:'NONE' };
+  const total = evens + odds;
+  const dominant = evens >= odds ? 'EVEN' : 'ODD';
+  const conflictRatio = Math.min(evens,odds) / total;
+  return { conflictRatio, dominant, evens, odds };
+}
+function runEnginesAndRender(){
+  const results = runAllEngines(state.activeSymbol);
+  state.engineResults = results;
+  const { confidence, coverage } = computeWeightedConfidence(results);
+  const conflict = detectConflict(results);
+  const penalized = applyCoveragePenalty(confidence, coverage);
+  state.fusion = { confidence: penalized, coverage, conflictRatio: conflict.conflictRatio, dominant: conflict.dominant };
+  renderEngines(); renderFusion(); renderMarketStateCard();
+}
+
+// ============================================================
+// RISK ENGINE / GATING
+// ============================================================
+function getRiskConfig(){
+  return {
+    ddCap: Number(document.getElementById('ddCapInput').value) || 20,
+    lossPause: Number(document.getElementById('lossPauseInput').value) || 4,
+    stakeCeil: Number(document.getElementById('stakeCeilInput').value) || 10,
+    maxConcurrent: Number(document.getElementById('maxConcurrentInput').value) || 1,
+    minConf: Number(document.getElementById('minConfInput').value) || 80
+  };
+}
+function riskGateOk(stake){
+  const cfg = getRiskConfig();
+  const tp = state.tradeParams;
+  if (state.killEngaged) return { ok:false, reason:'Kill switch engaged' };
+  if (state.inFlight) return { ok:false, reason:'Trade already in flight' };
+  if (state.openContracts.size >= cfg.maxConcurrent) return { ok:false, reason:'Max concurrent trades reached' };
+  if (state.session.lossStreak >= cfg.lossPause) return { ok:false, reason:'Consecutive loss pause triggered' };
+  if (state.session.pnl <= -cfg.ddCap) return { ok:false, reason:'Daily drawdown cap hit' };
+  if (stake > cfg.stakeCeil) return { ok:false, reason:'Stake exceeds ceiling' };
+  if (state.wsIsReal && !state.realArmed) return { ok:false, reason:'Real account not armed' };
+  if (tp.maxTradesSession > 0 && state.session.trades >= tp.maxTradesSession) return { ok:false, reason:'Max trades/session reached ('+tp.maxTradesSession+')' };
+  if (tp.cooldownSeconds > 0 && (Date.now() - tp.lastTradeAt) < tp.cooldownSeconds*1000) return { ok:false, reason:'Trade cooldown active' };
+  return { ok:true };
+}
+
+// ============================================================
+// ADAPTIVE MARTINGALE
+// ============================================================
+function martingaleMultiplier(confidencePct){
+  for (const [minConf, mult] of MART_TABLE) {
+    if (confidencePct >= minConf) return mult;
+  }
+  return 2.0;
+}
+function nextStake(baseStake, confidencePct){
+  const martOn = document.getElementById('martSwitch').classList.contains('on');
+  if (!martOn || state.martLevel === 0) return baseStake;
+  const maxLevels = Number(document.getElementById('martMaxLevelsInput').value) || 5;
+  if (state.martLevel > maxLevels) return null; // hard stop
+  const mult = martingaleMultiplier(confidencePct);
+  return Number((baseStake * Math.pow(mult, state.martLevel)).toFixed(2));
+}
+
+// ============================================================
+// TRADE EXECUTION PIPELINE (proposal → buy → monitor)
+// ============================================================
+async function executeTrade(contractType, stakeOverride){
+  const tp = state.tradeParams;
+  const baseStake = Number(document.getElementById('stakeInput').value) || 1;
+  const duration = Number(document.getElementById('durationInput').value) || 5;
+  const confidencePct = state.fusion.confidence * 100;
+  const stake = stakeOverride != null ? stakeOverride : (nextStake(baseStake, confidencePct) ?? baseStake);
+  if (stake === null) { log('Martingale max level reached — forced stop', 'warn'); armAutoTrade(false); return; }
+
+  const gate = riskGateOk(stake);
+  if (!gate.ok) { log('Trade blocked by risk engine: '+gate.reason, 'warn'); return; }
+  if (!state.wsConnected) { log('Trading WS not connected', 'err'); return; }
+
+  state.inFlight = true;
+  try {
+    // ENFORCED trade-execution parameters: duration unit and basis come from
+    // the Trade Execution Parameters control, not hardcoded per-call values.
+    const proposalResp = await sendWsOneShot({
+      proposal: 1, amount: stake, basis: tp.basis, contract_type: contractType,
+      currency: state.currency || 'USD', duration, duration_unit: tp.durationUnit,
+      underlying_symbol: state.activeSymbol
+    });
+    const proposal = proposalResp.proposal;
+    log('Proposal received: ask_price='+Number(proposal.ask_price).toFixed(2)+' ('+duration+tp.durationUnit+', basis='+tp.basis+')', 'info');
+    const buyResp = await sendWsOneShot({ buy: proposal.id, price: stake });
+    tp.lastTradeAt = Date.now();
+    onTradeBought(buyResp.buy, contractType, stake, confidencePct);
+  } catch(e){
+    log('Trade execution failed: '+e.message, 'err');
+    state.inFlight = false;
+  }
+}
+function sendWsOneShot(cmd){
+  return new Promise((resolve, reject) => {
+    if (!state.ws || state.ws.readyState !== WebSocket.OPEN) { reject(new Error('WS not open')); return; }
+    const id = nextId();
+    state.pendingRequests.set(id, { resolve, reject });
+    state.ws.send(JSON.stringify(Object.assign({}, cmd, { req_id:id })));
+  });
+}
+function onTradeBought(buy, contractType, stake, confidencePct){
+  log('Contract bought: id='+buy.contract_id+' price='+Number(buy.buy_price).toFixed(2), 'ok');
+  state.openContracts.set(buy.contract_id, { contractType, stake, confidencePct, buyPrice:Number(buy.buy_price) });
+  sendWs({ proposal_open_contract:1, contract_id: buy.contract_id, subscribe:1 });
+}
+function onProposal(){ /* handled via one-shot promise in executeTrade */ }
+function onBuy(){ /* handled via one-shot promise */ }
+const sellRequested = new Set();
+function onContractUpdate(contract){
+  if (!contract.is_sold) {
+    // ENFORCED take-profit / stop-loss: evaluated on every live update of an
+    // open contract, not just at natural expiry.
+    const tp = state.tradeParams;
+    const profit = Number(contract.profit);
+    if (!sellRequested.has(contract.contract_id)) {
+      if (tp.tpEnabled && profit >= tp.tpValue) {
+        sellRequested.add(contract.contract_id);
+        log('Take-profit hit ('+fmtMoney(profit)+' ≥ '+fmtMoney(tp.tpValue)+') — selling contract '+contract.contract_id, 'ok');
+        sendWs({ sell: contract.contract_id, price: 0 }).catch(e=>log('Sell failed: '+e.message,'err'));
+      } else if (tp.slEnabled && profit <= -tp.slValue) {
+        sellRequested.add(contract.contract_id);
+        log('Stop-loss hit ('+fmtMoney(profit)+' ≤ -'+fmtMoney(tp.slValue)+') — selling contract '+contract.contract_id, 'warn');
+        sendWs({ sell: contract.contract_id, price: 0 }).catch(e=>log('Sell failed: '+e.message,'err'));
+      }
+    }
+    return;
+  }
+  sellRequested.delete(contract.contract_id);
+  const meta = state.openContracts.get(contract.contract_id) || {};
+  const pnl = Number(contract.profit);
+  state.openContracts.delete(contract.contract_id);
+  state.inFlight = false;
+  state.session.pnl += pnl;
+  state.session.trades += 1;
+  if (pnl >= 0) { state.session.wins += 1; state.session.lossStreak = 0; state.martLevel = 0; }
+  else { state.session.losses += 1; state.session.lossStreak += 1; state.martLevel += 1; }
+  journalAdd({
+    ts: Date.now(), symbol: state.activeSymbol,
+    contractType: meta.contractType || contract.contract_type,
+    stake: meta.stake || Number(contract.buy_price),
+    confidencePct: meta.confidencePct || 0,
+    pnl, sellPrice: Number(contract.sell_price)
+  });
+  log('Contract closed: P&L '+fmtMoney(pnl), pnl>=0?'ok':'err');
+  renderStats();
+  if (document.getElementById('view-journal').classList.contains('active')) renderJournal();
+}
+
+// ============================================================
+// AUTO-TRADE ORCHESTRATION
+// ============================================================
+function maybeAutoTrade(){
+  if (!state.autoTradeArmed) return;
+  const cfg = getRiskConfig();
+  const tp = state.tradeParams;
+  const confidencePct = state.fusion.confidence * 100;
+  if (state.fusion.dominant === 'NONE') return;
+  if (confidencePct < cfg.minConf) return;
+  if (state.fusion.conflictRatio > 0.35) return;
+  // ENFORCED contract mode: "force_even"/"force_odd" restrict auto-trade to
+  // only fire when the fusion verdict actually agrees with the forced side —
+  // it never overrides the analysis, only gates which side is allowed through.
+  if (tp.contractMode === 'force_even' && state.fusion.dominant !== 'EVEN') return;
+  if (tp.contractMode === 'force_odd' && state.fusion.dominant !== 'ODD') return;
+  const gate = riskGateOk(Number(document.getElementById('stakeInput').value) || 1);
+  if (!gate.ok) return;
+  const contractType = state.fusion.dominant === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD';
+  executeTrade(contractType);
+}
+function armAutoTrade(on){
+  state.autoTradeArmed = on;
+  document.getElementById('autoSwitch').classList.toggle('on', on);
+  log('Auto-trade engine '+(on?'ARMED':'DISARMED'), on?'ok':'warn');
+}
+document.getElementById('autoSwitch').onclick = () => armAutoTrade(!state.autoTradeArmed);
+
+document.getElementById('btnBuyEven').onclick = () => executeTrade('DIGITEVEN');
+document.getElementById('btnBuyOdd').onclick = () => executeTrade('DIGITODD');
+
+// ============================================================
+// TRADE EXECUTION PARAMETERS — binds UI controls to state.tradeParams
+// ============================================================
+document.getElementById('durationUnitInput').onchange = (e) => {
+  state.tradeParams.durationUnit = e.target.value;
+  log('Duration unit set to '+(e.target.value==='t'?'ticks':'seconds'), 'info');
+};
+document.getElementById('basisInput').onchange = (e) => {
+  state.tradeParams.basis = e.target.value;
+  log('Trade basis set to '+e.target.value, 'info');
+};
+document.getElementById('contractModeInput').onchange = (e) => {
+  state.tradeParams.contractMode = e.target.value;
+  log('Auto-trade contract mode set to '+e.target.value, 'warn');
+};
+document.getElementById('maxTradesSessionInput').onchange = (e) => {
+  state.tradeParams.maxTradesSession = Math.max(0, Number(e.target.value) || 0);
+};
+document.getElementById('tradeCooldownInput').onchange = (e) => {
+  state.tradeParams.cooldownSeconds = Math.max(0, Number(e.target.value) || 0);
+};
+document.getElementById('tpSwitch').onclick = function(){
+  state.tradeParams.tpEnabled = !state.tradeParams.tpEnabled;
+  this.classList.toggle('on', state.tradeParams.tpEnabled);
+  document.getElementById('tpValueField').style.display = state.tradeParams.tpEnabled ? 'block' : 'none';
+  log('Take-profit auto-close '+(state.tradeParams.tpEnabled?'enabled':'disabled'), 'info');
+};
+document.getElementById('tpValueInput').onchange = (e) => {
+  state.tradeParams.tpValue = Math.max(0, Number(e.target.value) || 0);
+};
+document.getElementById('slSwitch').onclick = function(){
+  state.tradeParams.slEnabled = !state.tradeParams.slEnabled;
+  this.classList.toggle('on', state.tradeParams.slEnabled);
+  document.getElementById('slValueField').style.display = state.tradeParams.slEnabled ? 'block' : 'none';
+  log('Stop-loss auto-close '+(state.tradeParams.slEnabled?'enabled':'disabled'), 'info');
+};
+document.getElementById('slValueInput').onchange = (e) => {
+  state.tradeParams.slValue = Math.max(0, Number(e.target.value) || 0);
+};
+
+// ============================================================
+// REAL-MONEY ARM / CONFIRM MODAL
+// ============================================================
+document.getElementById('realArmSwitch').onclick = () => {
+  if (state.realArmed) { setRealArmed(false); return; }
+  document.getElementById('realConfirmModal').classList.add('show');
+};
+document.getElementById('btnCancelConfirm').onclick = () => {
+  document.getElementById('realConfirmModal').classList.remove('show');
+  document.getElementById('confirmTypeInput').value = '';
+};
+document.getElementById('btnAcceptConfirm').onclick = () => {
+  if (document.getElementById('confirmTypeInput').value.trim() === 'CONFIRM') {
+    setRealArmed(true);
+    document.getElementById('realConfirmModal').classList.remove('show');
+    document.getElementById('confirmTypeInput').value = '';
+  } else {
+    log('Type CONFIRM exactly to arm real-money trading', 'warn');
+  }
+};
+function setRealArmed(on){
+  state.realArmed = on;
+  document.getElementById('realArmSwitch').classList.toggle('on', on);
+  log('Real-money trading '+(on?'ARMED — live funds at risk':'DISARMED'), on?'warn':'info');
+}
+
+// ============================================================
+// KILL SWITCH
+// ============================================================
+function engageKillSwitch(){
+  state.killEngaged = true;
+  armAutoTrade(false);
+  setRealArmed(false);
+  try { sendWs({ forget_all:'ticks' }); sendWs({ forget_all:'proposal' }); sendWs({ forget_all:'proposal_open_contract' }); } catch(e){}
+  log('KILL SWITCH ENGAGED — all subscriptions torn down, auto-trade and real-arm disabled', 'err');
+  setTimeout(() => { state.killEngaged = false; }, 2000); // allow re-arming after teardown settles
+}
+document.getElementById('btnKillFull').onclick = engageKillSwitch;
+document.getElementById('btnKillFloating').onclick = engageKillSwitch;
+
+document.getElementById('martSwitch').onclick = function(){ this.classList.toggle('on'); };
+
+// ============================================================
+// RENDER: CONNECTION PILL
+// ============================================================
+function setConnPill(live){
+  const dot = document.getElementById('connDot');
+  const label = document.getElementById('connLabel');
+  dot.className = 'dot' + (live ? ' live' : '');
+  label.textContent = live ? 'Live' : 'Offline';
+}
+
+// ============================================================
+// RENDER: DASHBOARD
+// ============================================================
+function renderDashboard(){
+  const bucket = state.ticksBySymbol[state.activeSymbol];
+  if (!bucket || !bucket.digits.length) return;
+  const lastDigit = bucket.digits[bucket.digits.length-1];
+  const lastQuote = bucket.lastQuote != null ? bucket.lastQuote : bucket.quotes[bucket.quotes.length-1];
+  document.getElementById('quotePrice').textContent = lastQuote != null ? Number(lastQuote).toFixed(4) : '—';
+  const badge = document.getElementById('lastDigitBadge');
+  badge.textContent = lastDigit;
+  badge.className = 'lastdigit ' + (isEven(lastDigit) ? 'even':'odd');
+  document.getElementById('quoteMeta').textContent = bucket.digits.length + ' ticks buffered · symbol ' + state.activeSymbol;
+  document.getElementById('feedState').textContent = marketWs && marketWs.readyState===WebSocket.OPEN ? '● live' : '○ connecting';
+
+  // digit grid
+  const grid = document.getElementById('digitGrid');
+  grid.innerHTML = '';
+  const freq = state.digitFreq[state.activeSymbol] || new Array(10).fill(0);
+  const total = freq.reduce((a,b)=>a+b,0) || 1;
+  for (let d=0; d<10; d++){
+    const cell = document.createElement('div');
+    cell.className = 'digitcell ' + (isEven(d)?'even':'odd');
+    const pct = ((freq[d]/total)*100).toFixed(1);
+    cell.innerHTML = '<div class="d">'+d+'</div><div class="p">'+pct+'%</div>';
+    grid.appendChild(cell);
+  }
+
+  // streak track (last 24)
+  const track = document.getElementById('streakTrack');
+  track.innerHTML = '';
+  bucket.digits.slice(-24).forEach(d => {
+    const chip = document.createElement('div');
+    chip.className = 'streakchip ' + (isEven(d)?'even':'odd');
+    chip.textContent = isEven(d) ? 'E' : 'O';
+    track.appendChild(chip);
+  });
+}
+
+// ============================================================
+// RENDER: ENGINES
+// ============================================================
+const ENGINE_NAME_BY_ID = ENGINE_META.reduce((a,e)=>{ a[e.id]=e.name; return a; }, {});
+
+function renderEngines(){
+  const list = document.getElementById('engineList');
+  list.innerHTML = '';
+  if (!state.engineResults.length) {
+    list.innerHTML = '<div class="smallnote">No engines enabled, or insufficient tick history.</div>';
+  }
+  state.engineResults.forEach(r => {
+    const div = document.createElement('div');
+    div.className = 'engine';
+    div.innerHTML = '<span class="name">'+(ENGINE_NAME_BY_ID[r.engineId]||r.engineId)+'</span>'+
+      '<span class="sig '+r.signal+'">'+r.signal+'</span>'+
+      '<span class="conf">'+(r.confidence*100).toFixed(0)+'%</span>';
+    div.title = r.rationale;
+    list.appendChild(div);
+  });
+  renderEngineControls();
+}
+
+// The enforced selection/weight panel — this is the actual control surface;
+// toggles and weight edits here write directly into state.engineConfig, which
+// runAllEngines()/computeWeightedConfidence() read on every tick.
+function renderEngineControls(){
+  const box = document.getElementById('engineControlList');
+  box.innerHTML = '';
+  ENGINE_META.forEach(meta => {
+    const cfg = state.engineConfig[meta.id];
+    const row = document.createElement('div');
+    row.className = 'engine';
+    row.style.flexWrap = 'wrap';
+    row.innerHTML =
+      '<span class="name" style="flex:1 1 55%;">'+meta.name+'</span>'+
+      '<div class="switch'+(cfg.enabled?' on':'')+'" data-engine-toggle="'+meta.id+'" style="margin-right:8px;"><div class="knob"></div></div>'+
+      '<input type="number" min="0" max="100" step="1" value="'+cfg.weight+'" data-engine-weight="'+meta.id+'" style="width:64px;flex:0 0 64px;padding:6px 8px;font-size:12px;">';
+    box.appendChild(row);
+  });
+  box.querySelectorAll('[data-engine-toggle]').forEach(el => {
+    el.onclick = () => {
+      const id = el.getAttribute('data-engine-toggle');
+      state.engineConfig[id].enabled = !state.engineConfig[id].enabled;
+      el.classList.toggle('on', state.engineConfig[id].enabled);
+      log('Engine "'+ENGINE_NAME_BY_ID[id]+'" '+(state.engineConfig[id].enabled?'ENABLED':'DISABLED')+' — fusion recomputed', 'warn');
+      runEnginesAndRender();
+    };
+  });
+  box.querySelectorAll('[data-engine-weight]').forEach(el => {
+    el.onchange = () => {
+      const id = el.getAttribute('data-engine-weight');
+      const v = Math.max(0, Math.min(100, Number(el.value) || 0));
+      state.engineConfig[id].weight = v;
+      el.value = v;
+      log('Engine "'+ENGINE_NAME_BY_ID[id]+'" weight set to '+v, 'info');
+      runEnginesAndRender();
+    };
+  });
+}
+document.getElementById('btnEngineAllOn').onclick = () => {
+  ENGINE_META.forEach(m => state.engineConfig[m.id].enabled = true);
+  renderEngineControls();
+  log('All engines re-enabled', 'ok');
+  runEnginesAndRender();
+};
+function renderMarketStateCard(){
+  const bucket = state.ticksBySymbol[state.activeSymbol];
+  if (!bucket) return;
+  const cls = classifyMarketState(bucket);
+  document.getElementById('marketStateVal').textContent = cls.state;
+  document.getElementById('volVal').textContent = cls.vol ? cls.vol.toFixed(2) : '—';
+  document.getElementById('speedVal').textContent = cls.speed ? Math.round(cls.speed)+'ms' : '—';
+}
+
+// ============================================================
+// RENDER: FUSION VERDICT
+// ============================================================
+function renderFusion(){
+  const f = state.fusion;
+  const call = document.getElementById('verdictCall');
+  const sub = document.getElementById('verdictSub');
+  const confPct = Math.round(f.confidence*100);
+  const cfg = getRiskConfig();
+  let dominant = f.dominant === 'NONE' ? 'NONE' : f.dominant;
+  const showTrade = dominant !== 'NONE' && confPct >= cfg.minConf && f.conflictRatio <= 0.35;
+  call.textContent = showTrade ? dominant : 'NO TRADE';
+  call.className = 'call ' + (showTrade ? dominant : 'NONE');
+  if (f.coverage < 0.3) sub.textContent = 'Insufficient engine coverage — too few engines reporting.';
+  else if (f.conflictRatio > 0.35) sub.textContent = 'Engines disagree significantly (conflict '+Math.round(f.conflictRatio*100)+'%).';
+  else if (showTrade) sub.textContent = 'High confluence — confidence '+confPct+'% ≥ threshold '+cfg.minConf+'%.';
+  else sub.textContent = 'Below confidence threshold ('+confPct+'% < '+cfg.minConf+'%) — selectivity over frequency.';
+  document.getElementById('confFill').className = 'fill ' + (dominant==='ODD' ? 'ODD':'EVEN');
+  document.getElementById('confFill').style.width = confPct + '%';
+  document.getElementById('confVal').textContent = confPct + '%';
+  document.getElementById('coverageVal').textContent = Math.round(f.coverage*100) + '%';
+  document.getElementById('conflictVal').textContent = Math.round(f.conflictRatio*100) + '%';
+}
+
+// ============================================================
+// RENDER: STATS
+// ============================================================
+function renderStats(){
+  const s = state.session;
+  const pnlEl = document.getElementById('statPnl');
+  pnlEl.textContent = fmtMoney(s.pnl);
+  pnlEl.className = 'v ' + (s.pnl >= 0 ? 'pos':'neg');
+  document.getElementById('statWinRate').textContent = s.trades ? Math.round((s.wins/s.trades)*100)+'%' : '0%';
+  document.getElementById('statTrades').textContent = s.trades;
+  document.getElementById('statStreak').textContent = s.lossStreak;
+  document.getElementById('statMartLevel').textContent = state.martLevel;
+}
+document.getElementById('btnResetStats').onclick = () => {
+  state.session = { pnl:0, trades:0, wins:0, losses:0, lossStreak:0, startBalance: state.balance };
+  state.martLevel = 0;
+  renderStats();
+  log('Session stats reset', 'warn');
+};
+
+// ============================================================
+// LOG CONTROLS
+// ============================================================
+document.getElementById('btnClearLog').onclick = () => { document.getElementById('logBox').innerHTML = ''; };
+
+// ============================================================
+// PERIODIC RENDER LOOP (covers cases with no fresh ticks)
+// ============================================================
+setInterval(() => { renderStats(); }, 2000);
+
+// ============================================================
+// BOOTSTRAP
+// ============================================================
+renderSymbolBar();
+renderStats();
+renderEngineControls();
+log('PARITIX terminal initialized — demo mode, awaiting authentication', 'info');
+ensurePublicWs();
+ensureTickFeed(state.activeSymbol);
+
+})();
+</script>
+</body>
+</html>

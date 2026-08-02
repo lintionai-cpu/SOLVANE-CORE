@@ -205,6 +205,15 @@ input,select{font-family:var(--mono);}
   </div>
 
   <div class="card">
+    <div class="card-h"><h2>Take-Profit Cycle Stats</h2><span class="tag" id="cycleAutoTag">AUTO-CYCLE ON</span></div>
+    <div class="grid3">
+      <div class="tile"><div class="l">Cycles Completed</div><div class="v num" id="stCycles">0</div></div>
+      <div class="tile"><div class="l">Cumulative P/L</div><div class="v num" id="stCumPl">0.00</div></div>
+      <div class="tile"><div class="l">Current Cycle Target</div><div class="v num" id="stCycleTarget">0.00</div></div>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-h"><h2>Trade Stats</h2></div>
     <div class="grid2">
       <div class="tile"><div class="l">Avg Stake</div><div class="v num" id="stAvgStake">0.00</div></div>
@@ -303,7 +312,13 @@ input,select{font-family:var(--mono);}
       <div class="sw on" id="swSl"><i></i></div>
     </div>
     <div class="field"><label>Session Stop-Loss ($)</label><input type="number" id="pSl" value="15" min="0" step="0.5"></div>
-    <div class="hint">When either threshold is hit the engine auto-disarms and stops opening new trades. Open contracts are always allowed to settle.</div>
+    <div class="divider"></div>
+    <div class="switch-row">
+      <span class="lbl">Auto-Cycle: reset &amp; restart on Take-Profit</span>
+      <div class="sw on" id="swAutoCycleTp"><i></i></div>
+    </div>
+    <div class="hint">When the session Take-Profit is hit, the engine logs the cycle result, resets trade log / stats / martingale / engine buffers, then automatically re-arms to pursue the next Take-Profit target. Stop-Loss and other risk limits always stop the engine permanently — they never auto-restart. Disabled automatically on REAL accounts, which always require manual re-confirmation to re-arm.</div>
+    <div class="field" style="margin-top:8px;"><label>Delay Before Restart (sec)</label><input type="number" id="pCycleDelay" value="5" min="3" step="1"></div>
   </div>
 </div>
 
@@ -388,6 +403,7 @@ input,select{font-family:var(--mono);}
       <button class="btn btn-ghost btn-full" data-reset="stats">Reset Dashboard / PnL / Trade Stats</button>
       <button class="btn btn-ghost btn-full" data-reset="martingale">Reset Martingale State</button>
       <button class="btn btn-ghost btn-full" data-reset="engine">Reset Engine Buffers</button>
+      <button class="btn btn-ghost btn-full" data-reset="cycle">Reset Take-Profit Cycle Stats</button>
       <button class="btn btn-ghost btn-full" data-reset="syslog">Reset System Logs</button>
       <button class="btn btn-ghost btn-full" data-reset="session">Reset Session Clock</button>
       <button class="btn btn-danger btn-full" data-reset="all">Reset Everything</button>
@@ -507,6 +523,7 @@ const State = {
     trades:0, wins:0, losses:0, netPl:0, maxWin:0, maxLoss:0, consecLoss:0, stakeSum:0
   },
   martingale:{ step:0, currentStake:0 },
+  cycle:{ count:0, cumulativePl:0 },   // Take-Profit auto-cycle tracking
   tradeLog:[],                 // {time, symbol, side, stake, pl, status}
   openContract:null,
   reconnectAttempts:0,
@@ -852,6 +869,8 @@ const Trader = (() => {
       tp: Number(document.getElementById('pTp').value) || 0,
       slOn: document.getElementById('swSl').classList.contains('on'),
       sl: Number(document.getElementById('pSl').value) || 0,
+      autoCycleTp: document.getElementById('swAutoCycleTp').classList.contains('on'),
+      cycleDelay: Math.max(3, Number(document.getElementById('pCycleDelay').value) || 5),
       mgOn: document.getElementById('swMartingale').classList.contains('on'),
       mgMultiplier: Number(document.getElementById('pMgMultiplier').value) || 2,
       mgMaxSteps: Number(document.getElementById('pMgMaxSteps').value) || 5,
@@ -895,10 +914,13 @@ const Trader = (() => {
     UI.setLiveStatus(dldasOut, gate);
     if (!p.autoTrade) return;
     if (!gate.ok) {
+      if (gate.reason === 'Session take-profit reached'){
+        if (State.armed) UI.handleTakeProfitHit();
+        return;
+      }
       if (gate.reason !== 'Cooldown active' && gate.reason !== 'Trade mutex locked') {
-        // stop-conditions -> disarm automatically
-        if (['Session take-profit reached','Session stop-loss reached','Max trades/session reached','Max consecutive losses reached'].includes(gate.reason)){
-          if (State.armed){ Logger.warn('Auto-disarm: ' + gate.reason); UI.disarmEngine(); }
+        if (['Session stop-loss reached','Max trades/session reached','Max consecutive losses reached'].includes(gate.reason)){
+          if (State.armed){ Logger.warn('Auto-disarm (hard stop): ' + gate.reason); UI.disarmEngine(); }
         }
       }
       return;
@@ -1031,7 +1053,10 @@ const UI = (() => {
   function bindSwitches(){
     document.querySelectorAll('.sw').forEach(sw => {
       if (sw.style.pointerEvents === 'none') return;
-      sw.addEventListener('click', () => sw.classList.toggle('on'));
+      sw.addEventListener('click', () => {
+        sw.classList.toggle('on');
+        if (sw.id === 'swAutoCycleTp' || sw.id === 'swTp') renderCycleStats();
+      });
     });
   }
 
@@ -1051,6 +1076,16 @@ const UI = (() => {
     document.getElementById('acctLabel').textContent = `${State.account.account_id||''} · ${(State.account.account_type||'').toUpperCase()}`;
   }
 
+  function renderCycleStats(){
+    document.getElementById('stCycles').textContent = State.cycle.count;
+    const cum = State.cycle.cumulativePl;
+    const cumEl = document.getElementById('stCumPl');
+    cumEl.textContent = (cum>=0?'+':'') + fmt(cum);
+    cumEl.className = 'v num ' + (cum>0?'up':cum<0?'down':'neu');
+    document.getElementById('stCycleTarget').textContent = fmt(Trader.params().tp);
+    document.getElementById('cycleAutoTag').textContent = Trader.params().autoCycleTp ? 'AUTO-CYCLE ON' : 'AUTO-CYCLE OFF';
+  }
+
   function renderDashboard(){
     const s = State.stats;
     document.getElementById('stNetPl').textContent = (s.netPl>=0?'+':'') + fmt(s.netPl);
@@ -1065,6 +1100,7 @@ const UI = (() => {
     document.getElementById('stMaxLoss').textContent = fmt(s.maxLoss);
     document.getElementById('stMgStep').textContent = State.martingale.step;
     refreshMutexBadge();
+    renderCycleStats();
   }
 
   function renderTradeLog(){
@@ -1120,6 +1156,51 @@ const UI = (() => {
       <span class="num" style="color:var(--txt-2); margin-left:8px;">${out.confidence}% confidence</span></div>
       <div class="num" style="font-size:10px; color:${gate.ok?'var(--rise)':'var(--amber)'};">${gate.ok?'READY':gate.reason}</div>
     </div>`;
+  }
+
+  let cycleInFlight = false;
+  let TickFeed = null;
+  let lastTickAt = 0;
+  function handleTakeProfitHit(){
+    if (cycleInFlight) return; // guard against re-entry from rapid successive ticks
+    cycleInFlight = true;
+
+    const p = Trader.params();
+    const achieved = State.stats.netPl;
+    State.cycle.count++;
+    State.cycle.cumulativePl += achieved;
+    Logger.sys(`🎯 TAKE-PROFIT ACHIEVED: +${fmt(achieved)} — cycle #${State.cycle.count} complete. Cumulative P/L: ${(State.cycle.cumulativePl>=0?'+':'')+fmt(State.cycle.cumulativePl)}`);
+    disarmEngine();
+    renderCycleStats();
+
+    if (!p.autoCycleTp){
+      Logger.info('Auto-Cycle is OFF — engine remains disarmed. Arm manually to start a new cycle.');
+      cycleInFlight = false;
+      return;
+    }
+    if (State.account?.account_type === 'real'){
+      Logger.warn('Auto-Cycle is disabled for REAL accounts as a safety measure — arm manually to re-confirm and continue.');
+      cycleInFlight = false;
+      return;
+    }
+
+    Logger.info(`Auto-Cycle ON — resetting trade log, stats, martingale and engine buffers. Restarting in ${p.cycleDelay}s to pursue the next Take-Profit target of ${fmt(p.tp)}…`);
+    setTimeout(() => {
+      doReset('tradelog');
+      doReset('stats');
+      doReset('martingale');
+      doReset('engine');
+      // Defensive safety net: guarantee the mutex/cooldown can never be left stuck across a cycle boundary.
+      State.mutexLocked = false;
+      State.cooldownUntil = 0;
+      State.openContract = null;
+      refreshMutexBadge();
+      // Session clock, account balance, cycle history and system log are intentionally preserved across cycles.
+      doArm();
+      if (TickFeed) TickFeed.resubscribe();
+      Logger.ok(`Cycle #${State.cycle.count+1} started — engine re-armed and pursuing next Take-Profit target.`);
+      cycleInFlight = false;
+    }, p.cycleDelay*1000);
   }
 
   function armEngine(){
@@ -1212,6 +1293,7 @@ const UI = (() => {
         document.getElementById('connDot').classList.remove('err');
         document.getElementById('connDot').classList.add('live');
         document.getElementById('connLabel').textContent = 'Connected';
+        await resubscribeAfterReconnect();
       });
       Bus.on('ws:close', () => {
         document.getElementById('connDot').classList.remove('live');
@@ -1227,6 +1309,7 @@ const UI = (() => {
 
       startTickLoop();
       startSessionClock();
+      startWatchdog();
 
     } catch(e){
       Logger.error('Connect failed: ' + e.message);
@@ -1260,10 +1343,11 @@ const UI = (() => {
     // Registered exactly once — closes over `subscribed`, so switching symbols never stacks handlers.
     Sock.on('tick', data => {
       if (!data.tick || data.tick.symbol !== subscribed) return;
+      lastTickAt = Date.now();
       const out = DLDAS.pushTick(data.tick.quote, data.tick.epoch);
       if (out) Trader.evaluateAndMaybeTrade(out);
     });
-    function subscribe(){
+    function subscribe(force){
       const symbol = document.getElementById('pSymbol').value;
       if (!symbol){
         Logger.warn('No symbol selected yet — waiting for active_symbols to populate before subscribing to ticks.');
@@ -1273,16 +1357,50 @@ const UI = (() => {
         Logger.error(`Symbol "${symbol}" is not in the validated active_symbols list — refusing to subscribe.`);
         return;
       }
-      if (subscribed === symbol) return;
+      if (subscribed === symbol && !force) return;
       const previous = subscribed;
       subscribed = symbol;
-      DLDAS.reset();
-      if (previous) Sock.send({ forget_all: 'ticks' }).catch(() => {});
+      if (!force) DLDAS.reset();
+      if (previous && previous !== symbol) Sock.send({ forget_all: 'ticks' }).catch(() => {});
       Sock.send({ ticks: symbol }, { subscribe:true }).catch(e => Logger.error('Tick subscribe failed: ' + e.message));
-      Logger.info('Subscribed to tick stream: ' + symbol);
+      lastTickAt = Date.now();
+      Logger.info((force ? 'Re-subscribed' : 'Subscribed') + ' to tick stream: ' + symbol);
     }
-    subscribe();
-    document.getElementById('pSymbol').addEventListener('change', subscribe);
+    subscribe(false);
+    document.getElementById('pSymbol').addEventListener('change', () => subscribe(false));
+    TickFeed = { resubscribe: () => subscribe(true) };
+  }
+
+  async function resubscribeAfterReconnect(){
+    try {
+      Logger.warn('Reconnected — restoring active_symbols, balance, tick' + (State.openContract ? ' and open-contract' : '') + ' subscriptions.');
+      await Sock.send({ active_symbols: 'brief' });
+      await Sock.send({ balance: 1 }, { subscribe:true });
+      if (TickFeed) TickFeed.resubscribe();
+      if (State.openContract){
+        await Sock.send({ proposal_open_contract: 1, contract_id: State.openContract.contractId }, { subscribe:true });
+        Logger.warn(`Resubscribed to in-flight open contract #${State.openContract.contractId} after reconnect.`);
+      }
+      Logger.ok('All subscriptions restored after reconnect.');
+    } catch(e){
+      Logger.error('Resubscribe after reconnect failed: ' + e.message);
+    }
+  }
+
+  function startWatchdog(){
+    setInterval(() => {
+      if (!State.connected) return;
+      if (State.armed && lastTickAt && (Date.now() - lastTickAt > 20000)){
+        Logger.warn('Watchdog: no ticks received for 20s+ while armed — forcing tick resubscribe.');
+        if (TickFeed) TickFeed.resubscribe();
+        lastTickAt = Date.now(); // throttle repeat warnings until a real tick arrives
+      }
+      if (State.openContract && (Date.now() - State.openContract.time > 90000)){
+        Logger.warn(`Watchdog: open contract #${State.openContract.contractId} has not settled in 90s — forcing contract resubscribe.`);
+        Sock.send({ proposal_open_contract: 1, contract_id: State.openContract.contractId }, { subscribe:true }).catch(() => {});
+        State.openContract.time = Date.now(); // throttle repeat warnings
+      }
+    }, 15000);
   }
 
   function startSessionClock(){
@@ -1302,9 +1420,10 @@ const UI = (() => {
     stats:{ title:'Reset Dashboard / PnL / Trade Stats', body:'This zeroes out net P/L, win rate, trade counts and stake stats.' },
     martingale:{ title:'Reset Martingale State', body:'This resets the current martingale step back to zero.' },
     engine:{ title:'Reset Engine Buffers', body:'This clears the DLDAS tick buffer and forces a fresh warm-up.' },
+    cycle:{ title:'Reset Take-Profit Cycle Stats', body:'This zeroes the completed-cycle count and cumulative cross-cycle P/L. Does not affect the current session stats.' },
     syslog:{ title:'Reset System Logs', body:'This clears the on-screen system log panel.' },
     session:{ title:'Reset Session Clock', body:'This restarts the session timer from 00:00:00.' },
-    all:{ title:'Reset Everything', body:'This clears trade log, stats, martingale, engine buffers, system logs, and the session clock.' }
+    all:{ title:'Reset Everything', body:'This clears trade log, stats, martingale, engine buffers, cycle stats, system logs, and the session clock.' }
   };
   let pendingReset = null;
 
@@ -1329,11 +1448,12 @@ const UI = (() => {
       case 'stats': State.stats = { trades:0, wins:0, losses:0, netPl:0, maxWin:0, maxLoss:0, consecLoss:0, stakeSum:0 }; renderDashboard(); Logger.sys('Dashboard stats reset.'); break;
       case 'martingale': State.martingale = { step:0, currentStake:0 }; renderDashboard(); Logger.sys('Martingale state reset.'); break;
       case 'engine': DLDAS.reset(); Logger.sys('Engine buffers reset.'); break;
+      case 'cycle': State.cycle = { count:0, cumulativePl:0 }; renderCycleStats(); Logger.sys('Take-Profit cycle stats reset.'); break;
       case 'syslog': Logger.clear(); Logger.sys('System log reset.'); break;
       case 'session': State.sessionStart = Date.now(); Logger.sys('Session clock reset.'); break;
       case 'all':
         State.tradeLog = []; State.stats = { trades:0, wins:0, losses:0, netPl:0, maxWin:0, maxLoss:0, consecLoss:0, stakeSum:0 };
-        State.martingale = { step:0, currentStake:0 }; DLDAS.reset(); Logger.clear();
+        State.martingale = { step:0, currentStake:0 }; State.cycle = { count:0, cumulativePl:0 }; DLDAS.reset(); Logger.clear();
         State.sessionStart = Date.now();
         renderTradeLog(); renderDashboard();
         Logger.sys('Full terminal reset performed.');
@@ -1352,7 +1472,7 @@ const UI = (() => {
     Logger.sys('SmartXtrader DLDAS Rise/Fall Terminal initialized. Awaiting connection.');
   }
 
-  return { init, renderDashboard, renderTradeLog, renderEngine, setLiveStatus, refreshMutexBadge, armEngine, disarmEngine };
+  return { init, renderDashboard, renderTradeLog, renderEngine, setLiveStatus, refreshMutexBadge, armEngine, disarmEngine, handleTakeProfitHit };
 })();
 
 document.addEventListener('DOMContentLoaded', UI.init);

@@ -349,10 +349,13 @@ small.hint{color:var(--dim2);font-size:10.5px;line-height:1.5;display:block;marg
     <div class="toggle" style="margin-top:12px;"><span>Enable Trade Run Take Profit</span><div class="sw" id="swRunTP"><i></i></div></div>
     <label class="field">Trade Run Take Profit (USD)</label>
     <input type="number" id="riskRunTP" value="10" min="0.5" step="0.5">
-    <small class="hint">A "run" is the current martingale progression (from base stake to reset). Once that run's cumulative P&amp;L reaches this target, the Reset Engine locks in the gain and resets the run to base stake — win streak profit is protected before a loss can give it back.</small>
-    <div class="grid2" style="margin-top:12px;">
+    <label class="field">Cooldown After Run TP (ticks)</label>
+    <input type="number" id="riskRunCooldown" value="10" min="0" max="200">
+    <small class="hint" style="margin-top:0;">A "run" is the current martingale progression. Once its cumulative P&amp;L reaches this target, the Reset Engine locks in the gain, resets the run to base stake, and holds entries for the cooldown window above.</small>
+    <div class="grid3" style="margin-top:12px;">
       <div class="stat"><div class="v" id="tpSessionNow">0.00</div><div class="l">Session P&L / Target</div></div>
       <div class="stat"><div class="v" id="tpRunNow">0.00</div><div class="l">Run P&L / Target</div></div>
+      <div class="stat"><div class="v" id="runCooldownNow">—</div><div class="l">Cooldown Left</div></div>
     </div>
   </div>
   <div class="card">
@@ -519,9 +522,10 @@ const S = {
   durationTicks:1,
   stake:1,
   risk:{dailyCap:20,consecLoss:4,stakeCeiling:20,maxConcurrent:1,volPause:true,
-        sessionTPEnabled:false, sessionTP:50, runTPEnabled:false, runTP:10},
-  session:{trades:0,wins:0,losses:0,pnl:0,peak:0,drawdown:0,consecLoss:0,dailyLossAccum:0,runPnl:0,sessionTPHit:false},
+        sessionTPEnabled:false, sessionTP:50, runTPEnabled:false, runTP:10, runCooldownTicks:10},
+  session:{trades:0,wins:0,losses:0,pnl:0,peak:0,drawdown:0,consecLoss:0,dailyLossAccum:0,runPnl:0,sessionTPHit:false,runCooldownRemaining:0},
   openContracts:new Map(), // contract_id -> {call, stake, confidence, req_id}
+  tradeInFlight:false, // guards the proposal->buy round-trip against duplicate concurrent entries
   journal:[],
   engineWeights:{bias:0.35, streak:0.20, transition:0.25, entropy:0.20},
   calibration:{confSum:0,confCount:0,wins:0,total:0},
@@ -623,6 +627,7 @@ function handlePublicMessage(data){
     if(bucket.buffer.length>3000) bucket.buffer.shift();
     if(sym === S.symbol){
       pushTickUI(d, d%2===0);
+      if(S.session.runCooldownRemaining > 0){ S.session.runCooldownRemaining--; renderSessionStats(); }
       recomputeAnalytics();
       maybeAutoTrade();
     }
@@ -763,6 +768,8 @@ function percentileRank(arr, val){
 // ---------- Trade Decision + Execution ----------
 function maybeAutoTrade(){
   if(!S.auto || S.killed) return;
+  if(S.tradeInFlight) return; // proposal->buy round-trip already in progress — don't double-fire on the next tick
+  if(S.session.runCooldownRemaining > 0) return; // cooling down after a run take-profit lock-in
   if(!S.analytics || S.analytics.noTrade) return;
   if(S.analytics.confidence < S.minConfidence) return;
   if(S.openContracts.size >= S.risk.maxConcurrent) return;
@@ -772,8 +779,10 @@ function maybeAutoTrade(){
 
 function riskGatePass(){
   if(S.killed) { log('Kill switch engaged — trade suppressed.','w'); return false; }
+  if(S.tradeInFlight){ log('Trade already in flight — waiting for proposal/buy to resolve.','w'); return false; }
   if(!S.tradeWs || S.tradeWsState!=='open'){ log('Not connected to trading WS.','w'); return false; }
   if(S.risk.sessionTPEnabled && S.session.pnl >= S.risk.sessionTP){ log('Session take-profit reached — trading halted.','w'); return false; }
+  if(S.session.runCooldownRemaining > 0){ log(`Run take-profit cooldown active — ${S.session.runCooldownRemaining} ticks remaining.`,'w'); return false; }
   if(S.session.dailyLossAccum >= S.risk.dailyCap){ log('Daily drawdown cap reached — trading paused.','w'); return false; }
   if(S.session.consecLoss >= S.risk.consecLoss){ log('Consecutive loss limit reached — trading paused.','w'); return false; }
   const stake = currentStake();
@@ -783,13 +792,15 @@ function riskGatePass(){
 }
 
 function currentStake(){
-  if(!S.martingaleOn) return S.stake;
+  if(!S.martingaleOn) return round2(S.stake);
   const s = S.stake * Math.pow(S.martFactor, S.martLevel);
-  return Math.min(s, S.risk.stakeCeiling);
+  return round2(Math.min(s, S.risk.stakeCeiling));
 }
+function round2(x){ return Math.round((x + Number.EPSILON) * 100) / 100; }
 
 function executeTrade(call, confidence, isAuto){
   if(!riskGatePass()) return;
+  S.tradeInFlight = true;
   const stake = currentStake();
   const contractType = call==='EVEN' ? 'DIGITEVEN' : 'DIGITODD';
   const reqId = nextReqId();
@@ -801,13 +812,30 @@ function executeTrade(call, confidence, isAuto){
   S.pending.set(reqId, {type:'proposal', call, stake, confidence});
   sendTrade(req);
   log(`Proposal requested: ${contractType} stake=${stake} conf=${confidence.toFixed(1)}%`);
+  setTimeout(()=>{
+    if(S.tradeInFlight && S.pending.has(reqId)){
+      S.pending.delete(reqId);
+      S.tradeInFlight = false;
+      log('Proposal timed out with no response — clearing in-flight lock.','w');
+    }
+  }, 15000);
 }
 
 function onProposalResponse(data){
   const meta = S.pending.get(data.req_id);
   if(!meta) return;
   S.pending.delete(data.req_id);
-  if(data.error){ log(`Proposal error: ${data.error.message}`,'e'); return; }
+  if(data.error){
+    log(`Proposal error: ${data.error.message}`,'e');
+    S.tradeInFlight = false;
+    // A stuck/invalid stake (e.g. from a runaway martingale level) would otherwise retry the same
+    // broken value forever — reset progression to base so the next attempt uses a clean stake.
+    if(S.martingaleOn && S.martLevel > 0){
+      log('Resetting martingale progression to base stake after proposal rejection.','w');
+      S.martLevel = 0;
+    }
+    return;
+  }
   const proposalId = data.proposal.id;
   const askPrice = num(data.proposal.ask_price);
   const buyReqId = nextReqId();
@@ -819,6 +847,7 @@ function onBuyResponse(data){
   const meta = S.pending.get(data.req_id);
   if(!meta) return;
   S.pending.delete(data.req_id);
+  S.tradeInFlight = false; // round-trip resolved (success case) — concurrency now governed by openContracts vs maxConcurrent
   if(data.error){ log(`Buy error: ${data.error.message}`,'e'); return; }
   const contractId = data.buy.contract_id;
   const buyPrice = num(data.buy.buy_price);
@@ -865,6 +894,10 @@ function recordTradeResult(rec, profit, win){
     log(`Trade run take-profit reached (+${fmt2(S.session.runPnl)}) — locking in gain, resetting run to base stake.`);
     S.martLevel = 0;
     S.session.runPnl = 0;
+    if(S.risk.runCooldownTicks > 0){
+      S.session.runCooldownRemaining = S.risk.runCooldownTicks;
+      log(`Run cooldown armed — suppressing entries for ${S.risk.runCooldownTicks} ticks.`);
+    }
   }
   // A loss-driven martingale reset (win, or confidence-scaled reset) also closes out the run ledger naturally;
   // runPnl otherwise keeps accumulating until an explicit run take-profit hit or manual stats reset.
@@ -1056,20 +1089,28 @@ async function startOauth(){
 
 // ---------- IndexedDB Journal ----------
 let idb;
+let idbUnavailable = false; // once a failure is confirmed, stop retrying/logging every trade — journal stays in-memory only
 function openIDB(){
   return new Promise((resolve,reject)=>{
-    const req = indexedDB.open('aeon_journal_db',1);
+    if(idbUnavailable){ reject(new Error('IndexedDB unavailable this session')); return; }
+    let req;
+    try{ req = indexedDB.open('aeon_journal_db',1); }
+    catch(e){ reject(e); return; }
     req.onupgradeneeded = ()=>{ req.result.createObjectStore('trades',{autoIncrement:true}); };
     req.onsuccess = ()=>{ idb = req.result; resolve(idb); };
     req.onerror = ()=> reject(req.error);
   });
 }
 async function saveJournalToIDB(entry){
+  if(idbUnavailable) return; // journal already confirmed in-memory-only; entry is already in S.journal
   try{
     if(!idb) await openIDB();
     const tx = idb.transaction('trades','readwrite');
     tx.objectStore('trades').add(entry);
-  }catch(e){ log('Journal persist failed: '+e.message,'e'); }
+  }catch(e){
+    idbUnavailable = true;
+    log('Journal persistence unavailable in this environment (private/sandboxed browsing) — continuing with in-memory journal only for this session.','e');
+  }
 }
 async function loadJournalFromIDB(){
   try{
@@ -1198,6 +1239,7 @@ function renderSessionStats(){
   document.getElementById('riskConsecNow').textContent = S.session.consecLoss;
   document.getElementById('tpSessionNow').textContent = `${fmt2(S.session.pnl)} / ${S.risk.sessionTPEnabled? fmt2(S.risk.sessionTP) : '—'}`;
   document.getElementById('tpRunNow').textContent = `${fmt2(S.session.runPnl)} / ${S.risk.runTPEnabled? fmt2(S.risk.runTP) : '—'}`;
+  document.getElementById('runCooldownNow').textContent = S.session.runCooldownRemaining > 0 ? `${S.session.runCooldownRemaining} ticks` : '—';
 }
 function renderJournal(){
   const body = document.getElementById('journalBody'); body.innerHTML='';
@@ -1317,6 +1359,7 @@ document.getElementById('swSessionTP').onclick = function(){ this.classList.togg
 document.getElementById('riskSessionTP').onchange = e=>{ S.risk.sessionTP = parseFloat(e.target.value)||50; renderSessionStats(); };
 document.getElementById('swRunTP').onclick = function(){ this.classList.toggle('on'); S.risk.runTPEnabled = this.classList.contains('on'); renderSessionStats(); log('Trade run take-profit '+(S.risk.runTPEnabled?'enabled':'disabled')+'.'); };
 document.getElementById('riskRunTP').onchange = e=>{ S.risk.runTP = parseFloat(e.target.value)||10; renderSessionStats(); };
+document.getElementById('riskRunCooldown').onchange = e=>{ S.risk.runCooldownTicks = Math.max(0, parseInt(e.target.value,10)||0); };
 document.getElementById('swVolPause').onclick = function(){ this.classList.toggle('on'); S.risk.volPause = this.classList.contains('on'); };
 
 // ---------- Wiring: Manual trades ----------
@@ -1342,7 +1385,7 @@ document.getElementById('btnResetJournal').onclick = async ()=>{
   S.journal = []; await clearJournalIDB(); renderJournal(); log('Journal cleared.');
 };
 document.getElementById('btnResetStats').onclick = ()=>{
-  S.session = {trades:0,wins:0,losses:0,pnl:0,peak:0,drawdown:0,consecLoss:0,dailyLossAccum:0,runPnl:0,sessionTPHit:false};
+  S.session = {trades:0,wins:0,losses:0,pnl:0,peak:0,drawdown:0,consecLoss:0,dailyLossAccum:0,runPnl:0,sessionTPHit:false,runCooldownRemaining:0};
   S.calibration = {confSum:0,confCount:0,wins:0,total:0};
   S.martLevel = 0;
   renderAll(); log('Session stats reset.');

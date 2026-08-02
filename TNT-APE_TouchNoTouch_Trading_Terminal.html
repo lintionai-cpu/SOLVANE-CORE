@@ -1,0 +1,1969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TNT-APE · Touch/No Touch Adaptive Probability Engine</title>
+<style>
+:root{
+  --bg-0:#0a0d12; --bg-1:#0f141b; --bg-2:#151b24; --bg-3:#1b2330;
+  --line:#232c3a; --line-soft:#1a212c;
+  --txt-0:#e8edf5; --txt-1:#9aa8bd; --txt-2:#5d6b80;
+  --accent:#3fd0c9; --accent-dim:#1f6a66;
+  --up:#3ecf8e; --down:#f5566b; --warn:#f5b642; --info:#5b8def;
+  --mono:'JetBrains Mono','SF Mono',Consolas,monospace;
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{
+  background:radial-gradient(1200px 800px at 80% -10%, #101820 0%, var(--bg-0) 55%);
+  color:var(--txt-0); font-family:var(--sans); font-size:13px; line-height:1.45;
+  min-height:100vh;
+}
+@font-face{font-family:'JetBrains Mono';src:local('JetBrains Mono');}
+.mono{font-family:var(--mono);}
+::-webkit-scrollbar{width:9px;height:9px;}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:280px 1fr;grid-template-rows:56px 1fr;grid-template-areas:"top top" "side main";min-height:100vh;}
+.topbar{grid-area:top;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,var(--bg-1),var(--bg-0));}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand .mark{width:26px;height:26px;border-radius:7px;background:conic-gradient(from 220deg,var(--accent),#1c4a48,var(--accent));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:#04211f;}
+.brand h1{font-size:14px;font-weight:700;letter-spacing:.02em;}
+.brand small{display:block;color:var(--txt-2);font-size:10px;letter-spacing:.08em;text-transform:uppercase;}
+.status-cluster{display:flex;gap:10px;align-items:center;}
+.pill{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:20px;background:var(--bg-2);border:1px solid var(--line);font-size:11px;color:var(--txt-1);}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--txt-2);}
+.dot.on{background:var(--up);box-shadow:0 0 8px var(--up);}
+.dot.off{background:var(--down);box-shadow:0 0 8px var(--down);}
+.dot.mid{background:var(--warn);box-shadow:0 0 8px var(--warn);}
+
+.sidenav{grid-area:side;border-right:1px solid var(--line);background:var(--bg-1);padding:14px 10px;overflow-y:auto;}
+.navgroup{margin-bottom:6px;}
+.navlabel{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--txt-2);padding:10px 10px 6px;}
+.navbtn{width:100%;text-align:left;background:transparent;border:none;color:var(--txt-1);padding:9px 10px;border-radius:8px;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:9px;transition:.12s;}
+.navbtn:hover{background:var(--bg-2);color:var(--txt-0);}
+.navbtn.active{background:linear-gradient(90deg,rgba(63,208,201,.14),transparent);color:var(--accent);border-left:2px solid var(--accent);padding-left:8px;}
+.navbtn .ico{width:16px;text-align:center;opacity:.85;}
+
+.main{grid-area:main;overflow-y:auto;padding:18px 22px 60px;}
+.view{display:none;animation:fade .18s ease;}
+.view.active{display:block;}
+@keyframes fade{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:none;}}
+
+.grid{display:grid;gap:14px;}
+.g2{grid-template-columns:1fr 1fr;}
+.g3{grid-template-columns:1fr 1fr 1fr;}
+.g4{grid-template-columns:repeat(4,1fr);}
+@media(max-width:1100px){.g2,.g3,.g4{grid-template-columns:1fr;}}
+
+.card{background:linear-gradient(180deg,var(--bg-2),var(--bg-1));border:1px solid var(--line);border-radius:12px;padding:16px;}
+.card h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--txt-1);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
+.card h2 span.tag{font-size:9px;padding:2px 7px;border-radius:10px;background:var(--bg-3);color:var(--txt-2);text-transform:none;letter-spacing:0;}
+
+.field{margin-bottom:11px;}
+.field label{display:block;font-size:11px;color:var(--txt-2);margin-bottom:5px;letter-spacing:.02em;}
+.field input[type=text],.field input[type=password],.field input[type=number],.field select{
+  width:100%;background:var(--bg-3);border:1px solid var(--line);color:var(--txt-0);
+  padding:8px 10px;border-radius:7px;font-size:12.5px;font-family:var(--mono);outline:none;transition:.12s;
+}
+.field input:focus,.field select:focus{border-color:var(--accent-dim);box-shadow:0 0 0 2px rgba(63,208,201,.12);}
+.row{display:flex;gap:10px;}
+.row>.field{flex:1;}
+.hint{font-size:10.5px;color:var(--txt-2);margin-top:4px;}
+
+.btn{background:var(--bg-3);border:1px solid var(--line);color:var(--txt-0);padding:9px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;transition:.12s;}
+.btn:hover{border-color:var(--accent-dim);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn.primary{background:linear-gradient(180deg,var(--accent),#2aa39d);color:#04211f;border-color:transparent;}
+.btn.primary:hover{filter:brightness(1.08);}
+.btn.danger{background:linear-gradient(180deg,#f5566b,#c23f52);color:#2a0508;border-color:transparent;}
+.btn.ghost{background:transparent;}
+.btn.block{width:100%;}
+.btn.sm{padding:6px 10px;font-size:11px;}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;}
+
+.switch{position:relative;display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;}
+.switch input{display:none;}
+.switch .track{width:36px;height:20px;border-radius:20px;background:var(--bg-3);border:1px solid var(--line);position:relative;transition:.15s;}
+.switch .track::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--txt-2);transition:.15s;}
+.switch input:checked + .track{background:rgba(63,208,201,.18);border-color:var(--accent-dim);}
+.switch input:checked + .track::after{transform:translateX(16px);background:var(--accent);}
+.switch .lbl{font-size:12px;color:var(--txt-1);}
+
+.metric{display:flex;flex-direction:column;gap:2px;}
+.metric .v{font-family:var(--mono);font-size:20px;font-weight:700;}
+.metric .l{font-size:10px;color:var(--txt-2);text-transform:uppercase;letter-spacing:.07em;}
+.up{color:var(--up);} .down{color:var(--down);} .warn{color:var(--warn);} .info{color:var(--info);} .accent{color:var(--accent);}
+
+.bar{height:6px;border-radius:4px;background:var(--bg-3);overflow:hidden;position:relative;}
+.bar>i{display:block;height:100%;border-radius:4px;transition:width .25s;}
+
+table{width:100%;border-collapse:collapse;font-size:11.5px;}
+th{text-align:left;color:var(--txt-2);font-weight:600;padding:7px 8px;border-bottom:1px solid var(--line);text-transform:uppercase;font-size:9.5px;letter-spacing:.06em;}
+td{padding:7px 8px;border-bottom:1px solid var(--line-soft);font-family:var(--mono);}
+tr:hover td{background:rgba(255,255,255,.02);}
+
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.03em;}
+.badge.touch{background:rgba(62,207,142,.14);color:var(--up);}
+.badge.notouch{background:rgba(91,141,239,.16);color:var(--info);}
+.badge.win{background:rgba(62,207,142,.16);color:var(--up);}
+.badge.loss{background:rgba(245,86,107,.16);color:var(--down);}
+.badge.open{background:rgba(245,182,66,.16);color:var(--warn);}
+
+.log{background:var(--bg-0);border:1px solid var(--line);border-radius:10px;padding:10px 12px;height:230px;overflow-y:auto;font-family:var(--mono);font-size:11px;}
+.log .ln{padding:2px 0;color:var(--txt-1);border-bottom:1px dashed var(--line-soft);}
+.log .ln .t{color:var(--txt-2);margin-right:8px;}
+.log .ln.err{color:var(--down);}
+.log .ln.ok{color:var(--up);}
+.log .ln.warn{color:var(--warn);}
+.log .ln.sig{color:var(--accent);}
+
+.sparkwrap{width:100%;height:110px;}
+.statebadge{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:8px;background:var(--bg-3);font-weight:700;font-size:12.5px;letter-spacing:.03em;}
+
+.tooltip{position:relative;display:inline-block;cursor:help;color:var(--txt-2);border-bottom:1px dotted var(--txt-2);font-size:10.5px;}
+
+.kv{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--line-soft);font-size:11.5px;}
+.kv .k{color:var(--txt-2);} .kv .v{font-family:var(--mono);font-weight:600;}
+
+.foot-note{color:var(--txt-2);font-size:10.5px;margin-top:8px;}
+
+.split{display:grid;grid-template-columns:2fr 1fr;gap:14px;}
+@media(max-width:1100px){.split{grid-template-columns:1fr;}}
+
+.chip{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:7px;background:var(--bg-3);border:1px solid var(--line);font-size:10.5px;color:var(--txt-1);margin:2px 4px 2px 0;cursor:pointer;}
+.chip.active{border-color:var(--accent-dim);color:var(--accent);background:rgba(63,208,201,.08);}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark">TNT</div>
+      <div>
+        <h1>TNT-APE <span style="color:var(--txt-2);font-weight:500;">/ Touch·No Touch Adaptive Probability Engine</span></h1>
+        <small id="acctLine">not connected</small>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <div class="pill"><span class="dot off" id="dotWs"></span><span id="wsStatusTxt">WebSocket</span></div>
+      <div class="pill"><span class="dot off" id="dotAuto"></span><span id="autoStatusTxt">Auto-Trade OFF</span></div>
+      <div class="pill mono" id="balancePill">— USD</div>
+    </div>
+  </div>
+
+  <div class="sidenav">
+    <div class="navgroup">
+      <div class="navlabel">Connection</div>
+      <button class="navbtn active" data-view="v-connect"><span class="ico">⚡</span> Connect & Account</button>
+    </div>
+    <div class="navgroup">
+      <div class="navlabel">Trading</div>
+      <button class="navbtn" data-view="v-trade"><span class="ico">◎</span> Trade Setup</button>
+      <button class="navbtn" data-view="v-barrier"><span class="ico">▤</span> Barrier Parameters</button>
+      <button class="navbtn" data-view="v-risk"><span class="ico">▲</span> Risk Parameters</button>
+      <button class="navbtn" data-view="v-martingale"><span class="ico">∞</span> Martingale / Martangle</button>
+      <button class="navbtn" data-view="v-reset"><span class="ico">↺</span> Reset Controls</button>
+    </div>
+    <div class="navgroup">
+      <div class="navlabel">Intelligence</div>
+      <button class="navbtn" data-view="v-signal"><span class="ico">◈</span> Signal Engine</button>
+    </div>
+    <div class="navgroup">
+      <div class="navlabel">Records</div>
+      <button class="navbtn" data-view="v-history"><span class="ico">▦</span> Trade History</button>
+      <button class="navbtn" data-view="v-perf"><span class="ico">◫</span> Performance</button>
+      <button class="navbtn" data-view="v-log"><span class="ico">▧</span> System Log</button>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- ============ CONNECT ============ -->
+    <div class="view active" id="v-connect">
+      <div class="grid g2">
+        <div class="card">
+          <h2>Deriv API Connection <span class="tag">REST + WebSocket v3</span></h2>
+          <div class="field">
+            <label>Deriv-App-ID</label>
+            <input type="text" id="inAppId" placeholder="e.g. 99999" autocomplete="off">
+          </div>
+          <div class="field">
+            <label>Authorization Token (PAT)</label>
+            <input type="password" id="inToken" placeholder="paste personal access token" autocomplete="off">
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>Account Type</label>
+              <select id="inAccType">
+                <option value="demo">Demo</option>
+                <option value="real">Real</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Currency</label>
+              <select id="inCurrency"><option value="USD">USD</option></select>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn primary" id="btnConnect">Connect</button>
+            <button class="btn danger" id="btnDisconnect" disabled>Disconnect</button>
+            <button class="btn ghost" id="btnSaveCreds">Save Credentials Locally</button>
+          </div>
+          <p class="hint">Credentials are stored only in this browser's localStorage. Connection flow: REST account fetch/create → POST OTP → WebSocket connect (no separate authorize message needed — auth is embedded in the OTP URL).</p>
+        </div>
+
+        <div class="card">
+          <h2>Account</h2>
+          <div class="kv"><span class="k">Account ID</span><span class="v" id="accId">—</span></div>
+          <div class="kv"><span class="k">Status</span><span class="v" id="accStatus">—</span></div>
+          <div class="kv"><span class="k">Type</span><span class="v" id="accType">—</span></div>
+          <div class="kv"><span class="k">Balance</span><span class="v" id="accBalance">—</span></div>
+          <div class="kv"><span class="k">Currency</span><span class="v" id="accCurrency">—</span></div>
+          <div class="btn-row" style="margin-top:12px;">
+            <button class="btn sm" id="btnListAccounts">Refresh Accounts</button>
+            <button class="btn sm" id="btnResetDemo">Reset Demo Balance</button>
+          </div>
+          <div class="field" style="margin-top:12px;">
+            <label>Select Account</label>
+            <select id="inAccountSelect"><option value="">— none loaded —</option></select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px;">
+        <h2>Market Feed</h2>
+        <div class="row">
+          <div class="field">
+            <label>Underlying Symbol</label>
+            <select id="inSymbol"><option value="">— connect to load symbols —</option></select>
+          </div>
+          <div class="field">
+            <label>Contracts Available Here</label>
+            <input type="text" id="contractsAvail" class="mono" value="—" disabled>
+          </div>
+        </div>
+        <div class="sparkwrap"><canvas id="sparkline" width="1000" height="110"></canvas></div>
+        <div class="grid g4" style="margin-top:8px;">
+          <div class="metric"><div class="v mono" id="spotPrice">—</div><div class="l">Spot</div></div>
+          <div class="metric"><div class="v mono" id="spotAtr">—</div><div class="l">ATR (20)</div></div>
+          <div class="metric"><div class="v mono" id="spotVol">—</div><div class="l">Volatility</div></div>
+          <div class="metric"><div class="v mono" id="tickCount">0</div><div class="l">Ticks Buffered</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ TRADE SETUP ============ -->
+    <div class="view" id="v-trade">
+      <div class="grid g2">
+        <div class="card">
+          <h2>Option Parameters</h2>
+          <div class="field">
+            <label>Trade Mode</label>
+            <select id="inTradeMode">
+              <option value="manual">Manual — I choose Touch / No Touch</option>
+              <option value="ai">AI Controlled — Signal Engine chooses</option>
+            </select>
+          </div>
+          <div class="field" id="wrapManualType">
+            <label>Contract Type</label>
+            <select id="inContractType">
+              <option value="ONETOUCH">Touch (ONETOUCH)</option>
+              <option value="NOTOUCH">No Touch (NOTOUCH)</option>
+            </select>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>Stake (amount)</label>
+              <input type="number" id="inStake" value="10" min="0.35" step="0.01">
+            </div>
+            <div class="field">
+              <label>Basis</label>
+              <select id="inBasis"><option value="stake">Stake</option></select>
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>Duration</label>
+              <input type="number" id="inDuration" value="5" min="1" step="1">
+            </div>
+            <div class="field">
+              <label>Duration Unit</label>
+              <select id="inDurationUnit">
+                <option value="t">Ticks</option>
+                <option value="s">Seconds</option>
+                <option value="m">Minutes</option>
+                <option value="h">Hours</option>
+              </select>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn block primary" id="btnGetProposal">Get Proposal</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Live Proposal</h2>
+          <div class="kv"><span class="k">Proposal ID</span><span class="v" id="propId">—</span></div>
+          <div class="kv"><span class="k">Contract Type</span><span class="v" id="propType">—</span></div>
+          <div class="kv"><span class="k">Barrier</span><span class="v" id="propBarrier">—</span></div>
+          <div class="kv"><span class="k">Ask Price</span><span class="v" id="propAsk">—</span></div>
+          <div class="kv"><span class="k">Payout</span><span class="v" id="propPayout">—</span></div>
+          <div class="kv"><span class="k">Spot @ Quote</span><span class="v" id="propSpot">—</span></div>
+          <div class="btn-row" style="margin-top:12px;">
+            <button class="btn block primary" id="btnBuy" disabled>Buy Contract</button>
+          </div>
+          <p class="hint">Proposals are one-shot (non-subscribed) requests routed through req_id-keyed promises — this avoids stale subscription errors and undefined resolutions.</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px;">
+        <h2>Open Contract Monitor</h2>
+        <div class="grid g4">
+          <div class="metric"><div class="v mono" id="ocId">—</div><div class="l">Contract ID</div></div>
+          <div class="metric"><div class="v mono" id="ocProfit">—</div><div class="l">P&amp;L</div></div>
+          <div class="metric"><div class="v mono" id="ocSpot">—</div><div class="l">Current Spot</div></div>
+          <div class="metric"><div class="v mono" id="ocStatus">—</div><div class="l">Status</div></div>
+        </div>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="btn danger sm" id="btnSell">Sell Early</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ BARRIER PARAMETERS ============ -->
+    <div class="view" id="v-barrier">
+      <div class="grid g2">
+        <div class="card">
+          <h2>Barrier Mode</h2>
+          <div class="field">
+            <label>Mode</label>
+            <select id="inBarrierMode">
+              <option value="atr">ATR-Auto (recommended)</option>
+              <option value="manual">Manual Offset</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Manual Offset (± price units)</label>
+            <input type="number" id="inManualOffset" value="2.00" step="0.01">
+            <p class="hint">Positive = barrier above spot, negative = below spot. Rounded to 2 decimal places (API rejects &gt;2dp).</p>
+          </div>
+          <div class="field">
+            <label>Manual Barrier Direction</label>
+            <select id="inManualDir"><option value="up">Above spot (+)</option><option value="down">Below spot (−)</option></select>
+          </div>
+        </div>
+        <div class="card">
+          <h2>ATR-Based Auto Sizing <span class="tag">Touch/No-Touch aware</span></h2>
+          <div class="field">
+            <label>Touch Barrier — ATR Multiplier <span class="tooltip" title="Per barrier theory: closer barriers suit Touch trades">?</span></label>
+            <input type="number" id="inAtrTouchMult" value="0.75" min="0.1" max="1" step="0.05">
+            <p class="hint">Spec range: 0.5×–1.0× ATR. Values outside this range contradict Touch/No-Touch barrier theory and degrade contract quality.</p>
+          </div>
+          <div class="field">
+            <label>No Touch Barrier — ATR Multiplier</label>
+            <input type="number" id="inAtrNoTouchMult" value="2.5" min="2" max="6" step="0.1">
+            <p class="hint">Spec range: &gt;2.0× ATR. Wider distance improves survival probability for No Touch.</p>
+          </div>
+          <div class="field">
+            <label>ATR Lookback (ticks)</label>
+            <input type="number" id="inAtrLookback" value="20" min="5" max="200" step="1">
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px;">
+        <h2>Computed Barrier Preview</h2>
+        <div class="grid g4">
+          <div class="metric"><div class="v mono accent" id="prevTouchBarrier">—</div><div class="l">Touch Barrier</div></div>
+          <div class="metric"><div class="v mono info" id="prevNoTouchBarrier">—</div><div class="l">No Touch Barrier</div></div>
+          <div class="metric"><div class="v mono" id="prevDistanceRatio">—</div><div class="l">Distance / ATR</div></div>
+          <div class="metric"><div class="v mono" id="prevDistanceClass">—</div><div class="l">Distance Class</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ RISK PARAMETERS ============ -->
+    <div class="view" id="v-risk">
+      <div class="grid g2">
+        <div class="card">
+          <h2>Per-Trade Risk</h2>
+          <div class="field">
+            <label>Risk per trade (% of balance)</label>
+            <input type="number" id="inRiskPerTrade" value="1.0" min="0.1" max="5" step="0.1">
+            <p class="hint">Spec range: 0.5%–1% (up to 2% aggressive). Stake auto-derives from balance × this % when sizing mode is "percent".</p>
+          </div>
+          <div class="field">
+            <label>Stake Sizing Mode</label>
+            <select id="inSizingMode">
+              <option value="fixed">Fixed Stake (use Trade Setup amount)</option>
+              <option value="percent">Percent of Balance</option>
+            </select>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Session Protection</h2>
+          <div class="field">
+            <label>Max Daily Drawdown (%)</label>
+            <input type="number" id="inDailyDrawdown" value="5" min="1" max="50" step="0.5">
+          </div>
+          <div class="field">
+            <label>Max Consecutive Losses</label>
+            <input type="number" id="inMaxConsecLoss" value="3" min="1" max="20" step="1">
+          </div>
+          <div class="field">
+            <label>Cooldown After Trigger (minutes)</label>
+            <input type="number" id="inCooldownMin" value="45" min="1" max="240" step="1">
+          </div>
+          <div class="field">
+            <label>Trade Cooldown Between Entries (ticks)</label>
+            <input type="number" id="inTradeCooldownTicks" value="25" min="0" max="500" step="1">
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px;">
+        <h2>Risk Status</h2>
+        <div class="grid g4">
+          <div class="metric"><div class="v mono" id="riskDayPnl">0.00</div><div class="l">Day P&amp;L</div></div>
+          <div class="metric"><div class="v mono" id="riskConsecLoss">0</div><div class="l">Consecutive Losses</div></div>
+          <div class="metric"><div class="v mono" id="riskState">ACTIVE</div><div class="l">Risk State</div></div>
+          <div class="metric"><div class="v mono" id="riskCooldownLeft">—</div><div class="l">Cooldown Remaining</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ MARTINGALE ============ -->
+    <div class="view" id="v-martingale">
+      <div class="grid g2">
+        <div class="card">
+          <h2>Recovery Engine</h2>
+          <div class="field">
+            <label class="switch"><input type="checkbox" id="inMartEnabled"><span class="track"></span><span class="lbl">Enable Recovery Sizing</span></label>
+          </div>
+          <div class="field">
+            <label>Recovery Mode</label>
+            <select id="inMartMode">
+              <option value="martingale">Martingale — multiplicative stake increase after loss</option>
+              <option value="martangle">Martangle — linear/angled stake step after loss</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Martingale Multiplier</label>
+            <input type="number" id="inMartMultiplier" value="2.0" min="1.1" max="5" step="0.1">
+          </div>
+          <div class="field">
+            <label>Martangle Step Increment (fixed stake units per loss)</label>
+            <input type="number" id="inMartangleStep" value="10" min="0.5" step="0.5">
+            <p class="hint">Martangle increases stake by a constant increment each loss (angled/linear curve) instead of multiplying — a gentler recovery profile than classic Martingale.</p>
+          </div>
+          <div class="field">
+            <label>Max Recovery Steps</label>
+            <input type="number" id="inMartMaxSteps" value="5" min="1" max="15" step="1">
+          </div>
+        </div>
+        <div class="card">
+          <h2>Recovery Status</h2>
+          <div class="kv"><span class="k">Current Step</span><span class="v" id="martStep">0 / 0</span></div>
+          <div class="kv"><span class="k">Base Stake</span><span class="v" id="martBase">—</span></div>
+          <div class="kv"><span class="k">Next Stake</span><span class="v" id="martNext">—</span></div>
+          <div class="kv"><span class="k">Cumulative Loss (cycle)</span><span class="v" id="martCumLoss">0.00</span></div>
+          <div class="btn-row" style="margin-top:12px;">
+            <button class="btn sm danger" id="btnMartReset">Reset Recovery Cycle</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ RESET CONTROLS ============ -->
+    <div class="view" id="v-reset">
+      <div class="grid g2">
+        <div class="card">
+          <h2>Manual Reset</h2>
+          <p class="hint" style="margin-bottom:10px;">Clears martingale/martangle cycle, consecutive-loss counter, and cooldown lock. Does not affect trade history.</p>
+          <div class="btn-row">
+            <button class="btn block danger" id="btnManualResetAll">Reset Session State Now</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2>AI-Controlled Reset</h2>
+          <div class="field">
+            <label class="switch"><input type="checkbox" id="inAiResetEnabled"><span class="track"></span><span class="lbl">Enable Automatic Reset</span></label>
+          </div>
+          <div class="field">
+            <label>Reset Recovery Cycle After N Consecutive Wins</label>
+            <input type="number" id="inAiResetWins" value="2" min="1" max="10" step="1">
+          </div>
+          <div class="field">
+            <label>Auto-Reset Daily Counters At</label>
+            <select id="inAiResetDaily">
+              <option value="midnight_local">Local Midnight</option>
+              <option value="never">Never (manual only)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="switch"><input type="checkbox" id="inAiResumeAfterCooldown" checked><span class="track"></span><span class="lbl">Auto-resume trading after cooldown elapses</span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ SIGNAL ENGINE ============ -->
+    <div class="view" id="v-signal">
+      <div class="card" style="margin-bottom:14px;">
+        <h2>Adaptive Probability Engine <span class="tag">P(touch before expiry)</span></h2>
+        <div class="grid g4">
+          <div>
+            <div class="metric"><div class="v mono up" id="sigTouchProb">—</div><div class="l">Touch Probability</div></div>
+            <div class="bar" style="margin-top:6px;"><i id="barTouch" style="width:0%;background:var(--up);"></i></div>
+          </div>
+          <div>
+            <div class="metric"><div class="v mono info" id="sigNoTouchProb">—</div><div class="l">No Touch Probability</div></div>
+            <div class="bar" style="margin-top:6px;"><i id="barNoTouch" style="width:0%;background:var(--info);"></i></div>
+          </div>
+          <div>
+            <div class="metric"><div class="v mono accent" id="sigConfidence">—</div><div class="l">Confidence</div></div>
+            <div class="bar" style="margin-top:6px;"><i id="barConf" style="width:0%;background:var(--accent);"></i></div>
+          </div>
+          <div>
+            <div class="metric"><div class="v mono warn" id="sigRisk">—</div><div class="l">Risk Score</div></div>
+            <div class="bar" style="margin-top:6px;"><i id="barRisk" style="width:0%;background:var(--warn);"></i></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid g3">
+        <div class="card">
+          <h2>Market State Machine</h2>
+          <div class="statebadge" id="marketStateBadge">IDLE</div>
+          <div class="foot-note" id="marketStateDesc">Awaiting tick data.</div>
+          <div style="margin-top:12px;">
+            <div class="kv"><span class="k">Pattern</span><span class="v" id="sigPattern">—</span></div>
+            <div class="kv"><span class="k">Distance Ratio</span><span class="v" id="sigDistRatio">—</span></div>
+            <div class="kv"><span class="k">Trend Strength (EMA10-50)</span><span class="v" id="sigTrend">—</span></div>
+            <div class="kv"><span class="k">RSI(14)</span><span class="v" id="sigRsi">—</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Trade Signal</h2>
+          <div id="sigSignalBadge" class="statebadge" style="background:var(--bg-3);">NO SIGNAL</div>
+          <div class="foot-note" id="sigSignalReason">Conditions not yet met.</div>
+          <div class="btn-row" style="margin-top:14px;">
+            <label class="switch"><input type="checkbox" id="inAutoTrade"><span class="track"></span><span class="lbl">Enable AI Auto-Trade Execution</span></label>
+          </div>
+          <p class="hint">When enabled, the engine automatically buys contracts matching BUY_TOUCH / BUY_NOTOUCH signals, subject to Risk and Martingale parameters.</p>
+        </div>
+        <div class="card">
+          <h2>Feature Weights</h2>
+          <div class="kv"><span class="k">Velocity</span><span class="v">15</span></div>
+          <div class="kv"><span class="k">Acceleration</span><span class="v">10</span></div>
+          <div class="kv"><span class="k">Volatility</span><span class="v">15</span></div>
+          <div class="kv"><span class="k">High/Low Structure</span><span class="v">15</span></div>
+          <div class="kv"><span class="k">Candle Strength</span><span class="v">10</span></div>
+          <div class="kv"><span class="k">EMA Trend</span><span class="v">10</span></div>
+          <div class="kv"><span class="k">RSI</span><span class="v">5</span></div>
+          <div class="kv"><span class="k">ATR</span><span class="v">10</span></div>
+          <div class="kv"><span class="k">Pattern</span><span class="v">10</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ HISTORY ============ -->
+    <div class="view" id="v-history">
+      <div class="card">
+        <h2>Trade History <span class="tag" id="histCount">0 trades</span></h2>
+        <div style="overflow-x:auto;">
+        <table>
+          <thead><tr>
+            <th>Time</th><th>Market</th><th>Type</th><th>Barrier</th><th>Entry</th><th>Duration</th>
+            <th>Touch Prob</th><th>Confidence</th><th>State</th><th>Result</th><th>Profit</th>
+          </tr></thead>
+          <tbody id="histBody"></tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ PERFORMANCE ============ -->
+    <div class="view" id="v-perf">
+      <div class="grid g4">
+        <div class="card"><div class="metric"><div class="v mono" id="perfWinRate">—</div><div class="l">Win Rate</div></div></div>
+        <div class="card"><div class="metric"><div class="v mono" id="perfProfitFactor">—</div><div class="l">Profit Factor</div></div></div>
+        <div class="card"><div class="metric"><div class="v mono" id="perfEV">—</div><div class="l">Expected Value</div></div></div>
+        <div class="card"><div class="metric"><div class="v mono" id="perfDrawdown">—</div><div class="l">Max Drawdown</div></div></div>
+        <div class="card"><div class="metric"><div class="v mono" id="perfTouchAcc">—</div><div class="l">Touch Accuracy</div></div></div>
+        <div class="card"><div class="metric"><div class="v mono" id="perfNoTouchAcc">—</div><div class="l">No Touch Accuracy</div></div></div>
+        <div class="card"><div class="metric"><div class="v mono" id="perfAvgWin">—</div><div class="l">Avg Win</div></div></div>
+        <div class="card"><div class="metric"><div class="v mono" id="perfAvgLoss">—</div><div class="l">Avg Loss</div></div></div>
+      </div>
+      <div class="card" style="margin-top:14px;">
+        <h2>Adaptive Learning Layer <span class="tag">retrains every 100 trades</span></h2>
+        <div class="kv"><span class="k">Trades Since Last Retrain</span><span class="v" id="alTradesSince">0 / 100</span></div>
+        <div class="kv"><span class="k">Last Retrain Result</span><span class="v" id="alLastRetrain">—</span></div>
+        <p class="hint">Weight/threshold updates are evaluated on rolling out-of-sample windows to avoid overfitting to recent noise, per spec.</p>
+      </div>
+    </div>
+
+    <!-- ============ LOG ============ -->
+    <div class="view" id="v-log">
+      <div class="card">
+        <h2>System Log <span class="tag">connection · trading · signals</span></h2>
+        <div class="log" id="logBox"></div>
+        <div class="btn-row" style="margin-top:10px;"><button class="btn sm" id="btnClearLog">Clear Log</button></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+'use strict';
+/* =========================================================================
+   TNT-APE — Touch / No Touch Adaptive Probability Engine
+   Single-file Deriv Options trading terminal.
+   Architecture: RestClient -> WSClient -> TickBuffer -> FeatureEngine ->
+   PatternDetector -> MarketStateMachine -> ProbabilityEngine ->
+   TradeValidator -> RiskManager -> MartingaleController -> TradeExecutor ->
+   PerformanceAnalytics -> UIController
+   ========================================================================= */
+
+const STATE_KEY = 'deriv_tnt_ape_state_v1';
+const API_BASE = 'https://api.derivws.com';
+
+/* ---------------------------------------------------------------------
+   Logger
+--------------------------------------------------------------------- */
+const Logger = {
+  el: null,
+  init(el){ this.el = el; },
+  line(msg, cls){
+    const t = new Date().toLocaleTimeString();
+    const row = document.createElement('div');
+    row.className = 'ln' + (cls ? ' ' + cls : '');
+    row.innerHTML = `<span class="t">${t}</span>${escapeHtml(msg)}`;
+    if(this.el){
+      this.el.appendChild(row);
+      this.el.scrollTop = this.el.scrollHeight;
+      while(this.el.children.length > 400) this.el.removeChild(this.el.firstChild);
+    }
+    const fn = cls === 'err' ? console.error : console.log;
+    fn('[TNT-APE]', msg);
+  },
+  info(m){ this.line(m); },
+  ok(m){ this.line(m, 'ok'); },
+  warn(m){ this.line(m, 'warn'); },
+  err(m){ this.line(m, 'err'); },
+  sig(m){ this.line(m, 'sig'); }
+};
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------------------------------------------------------------------
+   Persistent settings (localStorage) — versioned key
+--------------------------------------------------------------------- */
+const Store = {
+  load(){
+    try{
+      const raw = localStorage.getItem(STATE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    }catch(e){ return {}; }
+  },
+  save(obj){
+    try{ localStorage.setItem(STATE_KEY, JSON.stringify(obj)); }
+    catch(e){ Logger.warn('Unable to persist state: ' + e.message); }
+  }
+};
+
+/* =========================================================================
+   MODULE: DerivRestClient
+   REST layer — account discovery/creation, OTP generation.
+   ========================================================================= */
+class DerivRestClient{
+  constructor(appId, token){
+    this.appId = appId;
+    this.token = token;
+  }
+  get headers(){
+    return {
+      'Authorization': `Bearer ${this.token}`,
+      'Deriv-App-ID': this.appId
+    };
+  }
+  async _handle(res){
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok){
+      const code = data.errors?.[0]?.code || 'UnknownError';
+      const msg = data.errors?.[0]?.message || `HTTP ${res.status}`;
+      const err = new Error(`${code}: ${msg}`);
+      err.code = code; err.status = res.status;
+      throw err;
+    }
+    return { status: res.status, data: data.data, meta: data.meta };
+  }
+  async getAccounts(){
+    const res = await fetch(`${API_BASE}/trading/v1/options/accounts`, { headers: this.headers });
+    return this._handle(res);
+  }
+  async createAccount(accountType, currency){
+    const res = await fetch(`${API_BASE}/trading/v1/options/accounts`, {
+      method: 'POST',
+      headers: { ...this.headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currency, group: 'row', account_type: accountType })
+    });
+    const result = await this._handle(res);
+    // 200: data is object (existed). 201: data is array (new).
+    const account = Array.isArray(result.data) ? result.data[0] : result.data;
+    return { status: result.status, account };
+  }
+  async resetDemoBalance(accountId){
+    const res = await fetch(`${API_BASE}/trading/v1/options/accounts/${accountId}/reset-demo-balance`, {
+      method: 'POST', headers: this.headers
+    });
+    return this._handle(res);
+  }
+  async getOtpUrl(accountId){
+    const res = await fetch(`${API_BASE}/trading/v1/options/accounts/${accountId}/otp`, {
+      method: 'POST', headers: this.headers
+    });
+    const result = await this._handle(res);
+    return result.data.url; // pre-built, ready-to-use wss:// URL
+  }
+}
+
+/* =========================================================================
+   MODULE: DerivWSClient
+   WebSocket layer — req_id-keyed one-shot promises + subscription routing.
+   Proposal requests are ALWAYS one-shot (no subscribe:1) per project rule.
+   ========================================================================= */
+class DerivWSClient{
+  constructor(wsUrl){
+    this.wsUrl = wsUrl;
+    this.ws = null;
+    this.reqId = 0;
+    this.pending = new Map();      // req_id -> {resolve, reject}
+    this.handlers = new Map();     // msg_type -> Set(fn)
+    this.reconnectAttempts = 0;
+    this.maxReconnect = 6;
+    this._manualClose = false;
+    this.onOpen = null;
+    this.onClose = null;
+  }
+  nextId(){ return ++this.reqId; }
+
+  connect(){
+    return new Promise((resolve, reject) => {
+      this._manualClose = false;
+      this.ws = new WebSocket(this.wsUrl);
+      let settled = false;
+      this.ws.onopen = () => {
+        this.reconnectAttempts = 0;
+        settled = true;
+        if(this.onOpen) this.onOpen();
+        resolve(this);
+      };
+      this.ws.onmessage = (evt) => this._onMessage(evt);
+      this.ws.onerror = (err) => {
+        if(!settled){ settled = true; reject(err); }
+      };
+      this.ws.onclose = () => {
+        if(this.onClose) this.onClose();
+        if(!this._manualClose) this._scheduleReconnect();
+      };
+    });
+  }
+
+  _scheduleReconnect(){
+    if(this.reconnectAttempts >= this.maxReconnect){
+      Logger.err('WebSocket reconnect attempts exhausted. Refresh the OTP and reconnect manually.');
+      return;
+    }
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+    this.reconnectAttempts++;
+    Logger.warn(`WebSocket closed — reconnecting in ${Math.round(delay/1000)}s (attempt ${this.reconnectAttempts}/${this.maxReconnect}). Note: OTP may have expired; a fresh OTP + URL is required if so.`);
+    setTimeout(() => { this.connect().catch(()=>{}); }, delay);
+  }
+
+  _onMessage(evt){
+    let data;
+    try{ data = JSON.parse(evt.data); } catch(e){ return; }
+
+    if(data.req_id && this.pending.has(data.req_id)){
+      const { resolve, reject } = this.pending.get(data.req_id);
+      this.pending.delete(data.req_id);
+      if(data.error) reject(Object.assign(new Error(`${data.error.code}: ${data.error.message}`), { code: data.error.code }));
+      else resolve(data);
+      // fall through so subscription-type handlers relevant to this msg_type still fire (e.g. balance:1 first response)
+    }
+    if(data.msg_type && this.handlers.has(data.msg_type)){
+      for(const fn of this.handlers.get(data.msg_type)) fn(data);
+    }
+    if(data.error && !data.req_id){
+      Logger.err(`API error [${data.error.code}]: ${data.error.message}`);
+    }
+  }
+
+  /** One-shot request (proposal, buy, otp-derived commands). Never subscribes. */
+  request(command){
+    return new Promise((resolve, reject) => {
+      if(!this.ws || this.ws.readyState !== WebSocket.OPEN){
+        reject(new Error('WebSocket is not open')); return;
+      }
+      const id = this.nextId();
+      const msg = { ...command, req_id: id };
+      this.pending.set(id, { resolve, reject });
+      // Safety timeout to avoid permanently-pending promises on silent drops
+      setTimeout(() => {
+        if(this.pending.has(id)){
+          this.pending.delete(id);
+          reject(new Error('Request timed out'));
+        }
+      }, 15000);
+      this.ws.send(JSON.stringify(msg));
+    });
+  }
+
+  /** Fire-and-forget subscription (ticks, balance, proposal_open_contract). */
+  subscribe(command){
+    const id = this.nextId();
+    this.ws.send(JSON.stringify({ ...command, req_id: id, subscribe: 1 }));
+    return id;
+  }
+
+  send(command){
+    const id = this.nextId();
+    this.ws.send(JSON.stringify({ ...command, req_id: id }));
+    return id;
+  }
+
+  on(msgType, fn){
+    if(!this.handlers.has(msgType)) this.handlers.set(msgType, new Set());
+    this.handlers.get(msgType).add(fn);
+  }
+  off(msgType, fn){
+    this.handlers.get(msgType)?.delete(fn);
+  }
+
+  forget(subscriptionId){
+    return this.send({ forget: subscriptionId });
+  }
+  forgetAll(type){
+    return this.send({ forget_all: type });
+  }
+  disconnect(){
+    this._manualClose = true;
+    this.maxReconnect = 0;
+    this.ws?.close();
+  }
+}
+
+/* =========================================================================
+   MODULE 1: TickBuffer
+   ========================================================================= */
+class TickBuffer{
+  constructor(){
+    this.prices = [];
+    this.timestamps = [];
+    this.highs = [];
+    this.lows = [];
+    this.FAST = 20; this.MEDIUM = 50; this.LONG = 200;
+  }
+  addTick(price, time){
+    this.prices.push(price);
+    this.timestamps.push(time);
+    this.highs.push(price);
+    this.lows.push(price);
+    this.removeOldTicks();
+  }
+  removeOldTicks(){
+    const max = this.LONG;
+    while(this.prices.length > max){
+      this.prices.shift(); this.timestamps.shift();
+      this.highs.shift(); this.lows.shift();
+    }
+  }
+  getTickWindow(n){
+    return this.prices.slice(-n);
+  }
+  calculateRange(n){
+    const w = this.getTickWindow(n);
+    if(w.length === 0) return 0;
+    return Math.max(...w) - Math.min(...w);
+  }
+  last(){ return this.prices[this.prices.length - 1]; }
+  prev(){ return this.prices[this.prices.length - 2]; }
+  size(){ return this.prices.length; }
+}
+
+/* =========================================================================
+   MODULE 2: FeatureEngine
+   ========================================================================= */
+class FeatureEngine{
+  static stdDev(arr){
+    if(arr.length < 2) return 0;
+    const mean = arr.reduce((a,b)=>a+b,0) / arr.length;
+    const variance = arr.reduce((a,b)=>a + (b-mean)**2, 0) / arr.length;
+    return Math.sqrt(variance);
+  }
+  static ema(arr, period){
+    if(arr.length === 0) return 0;
+    const k = 2 / (period + 1);
+    let e = arr[0];
+    for(let i=1;i<arr.length;i++) e = arr[i]*k + e*(1-k);
+    return e;
+  }
+  static rsi(arr, period=14){
+    if(arr.length < period+1) return 50;
+    const slice = arr.slice(-(period+1));
+    let gains=0, losses=0;
+    for(let i=1;i<slice.length;i++){
+      const d = slice[i]-slice[i-1];
+      if(d>=0) gains += d; else losses -= d;
+    }
+    if(losses === 0) return 100;
+    const rs = (gains/period) / (losses/period);
+    return 100 - (100/(1+rs));
+  }
+  static atr(highs, lows, closes, period=20){
+    const n = Math.min(period, closes.length-1);
+    if(n <= 0) return FeatureEngine.stdDev(closes) || 0.01;
+    let sum = 0;
+    for(let i=closes.length-n; i<closes.length; i++){
+      const tr = Math.max(
+        highs[i]-lows[i],
+        Math.abs(highs[i]-closes[i-1]),
+        Math.abs(lows[i]-closes[i-1])
+      );
+      sum += tr;
+    }
+    const val = sum / n;
+    return val > 0 ? val : (FeatureEngine.stdDev(closes) || 0.01);
+  }
+  static compute(buf, barrierPrice){
+    const prices = buf.prices;
+    const n = prices.length;
+    if(n < 3){
+      return null;
+    }
+    const current = prices[n-1];
+    const previous = prices[n-2];
+    const tPrev = buf.timestamps[n-1];
+    const tPrevPrev = buf.timestamps[n-2];
+    const dt = Math.max((tPrev - tPrevPrev), 0.001);
+
+    const delta = current - previous;
+    const velocity = Math.abs(current - previous) / dt;
+
+    let prevVelocity = 0;
+    if(n >= 3){
+      const dt2 = Math.max((buf.timestamps[n-2]-buf.timestamps[n-3]), 0.001);
+      prevVelocity = Math.abs(prices[n-2]-prices[n-3]) / dt2;
+    }
+    const acceleration = velocity - prevVelocity;
+
+    const last20 = buf.getTickWindow(20);
+    const last50 = buf.getTickWindow(50);
+    const volatility = FeatureEngine.stdDev(last20);
+
+    const ema10 = FeatureEngine.ema(buf.getTickWindow(10), 10);
+    const ema25 = FeatureEngine.ema(buf.getTickWindow(25), 25);
+    const ema50 = FeatureEngine.ema(buf.getTickWindow(50), 50);
+    const trendStrength = ema10 - ema50;
+
+    const rsi = FeatureEngine.rsi(buf.getTickWindow(30), 14);
+    const atr = FeatureEngine.atr(buf.highs, buf.lows, prices, 20);
+
+    const range20 = buf.calculateRange(20);
+    const range50 = buf.calculateRange(50);
+
+    let distanceRatio = null, distanceClass = '—';
+    if(barrierPrice != null && atr > 0){
+      const distance = Math.abs(barrierPrice - current);
+      distanceRatio = distance / atr;
+      distanceClass = distanceRatio < 0.5 ? 'EXTREMELY_CLOSE'
+        : distanceRatio < 1 ? 'NEAR'
+        : distanceRatio < 2 ? 'MEDIUM' : 'FAR';
+    }
+
+    // pseudo-candle body/wick from last 5 ticks (tick-derived, no OHLC feed)
+    const c5 = buf.getTickWindow(5);
+    const body = c5.length ? Math.abs(c5[c5.length-1] - c5[0]) : 0;
+    const wickHigh = c5.length ? Math.max(...c5) - Math.max(c5[0], c5[c5.length-1]) : 0;
+    const wickLow = c5.length ? Math.min(c5[0], c5[c5.length-1]) - Math.min(...c5) : 0;
+    const candleStrength = body / (FeatureEngine.stdDev(c5) || 1);
+
+    return {
+      current, previous, delta, velocity, acceleration, volatility,
+      ema10, ema25, ema50, trendStrength, rsi, atr,
+      range20, range50, distanceRatio, distanceClass,
+      body, wickHigh, wickLow, candleStrength
+    };
+  }
+}
+
+/* =========================================================================
+   MODULE 3: PatternDetector
+   ========================================================================= */
+class PatternDetector{
+  constructor(){ this.velocityHistory = []; this.volatilityHistory = []; }
+  push(feat){
+    this.velocityHistory.push(feat.velocity);
+    this.volatilityHistory.push(feat.volatility);
+    if(this.velocityHistory.length > 60) this.velocityHistory.shift();
+    if(this.volatilityHistory.length > 60) this.volatilityHistory.shift();
+  }
+  detect(feat){
+    if(!feat) return 'NONE';
+    const avgVelocity = this.velocityHistory.length
+      ? this.velocityHistory.reduce((a,b)=>a+b,0)/this.velocityHistory.length : feat.velocity;
+    const volatilityIncreasing = this.volatilityHistory.length > 5 &&
+      feat.volatility > this.volatilityHistory[this.volatilityHistory.length-6];
+
+    const compression = feat.range20 < feat.range50 * 0.5;
+    const expansion = feat.velocity > avgVelocity && volatilityIncreasing;
+    const velocityFalling = this.velocityHistory.length > 3 &&
+      feat.velocity < this.velocityHistory[this.velocityHistory.length-2];
+    const largeWicks = (feat.wickHigh + feat.wickLow) > feat.body * 1.2;
+    const exhaustion = velocityFalling && feat.acceleration < 0 && largeWicks;
+    const meanReversion = Math.abs(feat.current - feat.ema25) < (feat.atr * 0.2) && Math.abs(feat.trendStrength) < feat.atr*0.1;
+
+    if(compression) return 'MARKET_COMPRESSED';
+    if(expansion) return 'MARKET_EXPANDING';
+    if(exhaustion) return 'MARKET_EXHAUSTED';
+    if(meanReversion) return 'MARKET_REVERSAL';
+    return 'NONE';
+  }
+}
+
+/* =========================================================================
+   MODULE 4: MarketStateMachine
+   ========================================================================= */
+class MarketStateMachine{
+  constructor(){ this.state = 'IDLE'; }
+  transition(feat, pattern){
+    if(!feat){ this.state = 'IDLE'; return this.state; }
+    const extremeVol = feat.volatility > feat.atr * 3;
+
+    if(extremeVol){ this.state = 'HIGH_RISK'; return this.state; }
+    if(pattern === 'MARKET_COMPRESSED'){ this.state = 'COMPRESSED'; return this.state; }
+    if(pattern === 'MARKET_EXPANDING'){
+      this.state = (this.state === 'COMPRESSED') ? 'BREAKOUT' : 'TRENDING';
+      return this.state;
+    }
+    if(this.state === 'BREAKOUT' && feat.acceleration > 0){ this.state = 'TRENDING'; return this.state; }
+    if(pattern === 'MARKET_EXHAUSTED'){ this.state = 'EXHAUSTED'; return this.state; }
+    if(pattern === 'MARKET_REVERSAL'){ this.state = 'REVERSING'; return this.state; }
+    if(this.state === 'TRENDING' && Math.abs(feat.trendStrength) < feat.atr*0.05){ this.state = 'EXHAUSTED'; return this.state; }
+    return this.state;
+  }
+  describe(){
+    return {
+      IDLE: 'No clear structure — standing by.',
+      COMPRESSED: 'Range shrinking — energy build-up. Watch only, no entries.',
+      BREAKOUT: 'Compression resolving — evaluating Touch setups.',
+      TRENDING: 'Directional momentum confirmed — evaluating continuation.',
+      EXHAUSTED: 'Momentum weakening — evaluating No Touch setups.',
+      REVERSING: 'Mean reversion detected — no entries.',
+      HIGH_RISK: 'Extreme volatility — all trading blocked.'
+    }[this.state] || '';
+  }
+}
+
+/* =========================================================================
+   MODULE 5: ProbabilityEngine — weighted scoring
+   ========================================================================= */
+class ProbabilityEngine{
+  static WEIGHTS = { velocity:15, acceleration:10, volatility:15, highLow:15, candle:10, ema:10, rsi:5, atr:10, pattern:10 };
+
+  static norm01(x, lo, hi){
+    if(hi === lo) return 0.5;
+    return Math.min(1, Math.max(0, (x - lo) / (hi - lo)));
+  }
+
+  static score(feat, pattern, marketState){
+    if(!feat) return { touchProbability:0.5, noTouchProbability:0.5, confidence:0, riskScore:0.5 };
+
+    const velocityN = ProbabilityEngine.norm01(feat.velocity, 0, feat.atr * 0.5 || 1);
+    const accelerationN = ProbabilityEngine.norm01(feat.acceleration, -feat.atr*0.2||-1, feat.atr*0.2||1);
+    const volatilityN = ProbabilityEngine.norm01(feat.volatility, 0, feat.atr * 1.5 || 1);
+    const highLowN = ProbabilityEngine.norm01(feat.range20, 0, feat.range50 || feat.range20 || 1);
+    const candleN = ProbabilityEngine.norm01(feat.candleStrength, 0, 3);
+    const emaN = ProbabilityEngine.norm01(feat.trendStrength, -feat.atr||-1, feat.atr||1);
+    const rsiN = feat.rsi / 100;
+    const atrN = ProbabilityEngine.norm01(feat.atr, 0, feat.atr*2 || 1) ; // relative self-normalize placeholder
+    const patternN = ({MARKET_EXPANDING:0.85, MARKET_COMPRESSED:0.6, MARKET_EXHAUSTED:0.25, MARKET_REVERSAL:0.2, NONE:0.5})[pattern] ?? 0.5;
+
+    const W = ProbabilityEngine.WEIGHTS;
+    const score =
+      velocityN*W.velocity + accelerationN*W.acceleration + volatilityN*W.volatility +
+      highLowN*W.highLow + candleN*W.candle + emaN*W.ema + rsiN*W.rsi + atrN*W.atr + patternN*W.pattern;
+
+    const touchProbability = Math.min(0.99, Math.max(0.01, score/100));
+    const noTouchProbability = 1 - touchProbability;
+    const confidence = Math.min(1, Math.abs(touchProbability - 0.5) * 2 + 0.15);
+    const riskScore = Math.min(1, volatilityN * 0.6 + (marketState === 'HIGH_RISK' ? 0.4 : 0));
+
+    return { touchProbability, noTouchProbability, confidence, riskScore };
+  }
+}
+
+/* =========================================================================
+   MODULE 6: TradeValidator
+   ========================================================================= */
+class TradeValidator{
+  static evaluate(feat, prob, pattern, marketState){
+    if(!feat || feat.distanceRatio == null){
+      return { signal:'NONE', reason:'Awaiting barrier & feature data.' };
+    }
+    const volExtreme = feat.volatility > feat.atr * 3;
+    const volHigh = feat.volatility > feat.atr * 1.5;
+
+    if(marketState === 'HIGH_RISK'){
+      return { signal:'NONE', reason:'Market state HIGH_RISK — all entries blocked.' };
+    }
+    if(prob.touchProbability > 0.75 && feat.distanceRatio < 1 && marketState === 'TRENDING' && !volExtreme){
+      return { signal:'BUY_TOUCH', reason:`Touch score ${(prob.touchProbability*100).toFixed(1)} > 75, distance ratio ${feat.distanceRatio.toFixed(2)} < 1, state TRENDING.` };
+    }
+    if(prob.noTouchProbability > 0.75 && feat.distanceRatio > 2 && marketState === 'EXHAUSTED' && !volHigh){
+      return { signal:'BUY_NOTOUCH', reason:`No-Touch score ${(prob.noTouchProbability*100).toFixed(1)} > 75, distance ratio ${feat.distanceRatio.toFixed(2)} > 2, state EXHAUSTED.` };
+    }
+    if((prob.touchProbability*100 >= 45 && prob.touchProbability*100 <= 60)){
+      return { signal:'NONE', reason:'Score in ambiguous band (45–60) — rejected.' };
+    }
+    return { signal:'NONE', reason:'Conditions not yet aligned.' };
+  }
+}
+
+/* =========================================================================
+   MODULE 7: RiskManager
+   ========================================================================= */
+class RiskManager{
+  constructor(){
+    this.dayPnl = 0;
+    this.consecutiveLosses = 0;
+    this.cooldownUntil = 0;
+    this.lastTradeTickIndex = -9999;
+    this.sessionStartBalance = null;
+    this.dayKey = new Date().toDateString();
+  }
+  rolloverIfNewDay(){
+    const k = new Date().toDateString();
+    if(k !== this.dayKey){
+      this.dayKey = k;
+      this.dayPnl = 0;
+      Logger.info('New trading day detected — daily P&L counter reset.');
+    }
+  }
+  registerResult(profit, cfg){
+    this.rolloverIfNewDay();
+    this.dayPnl += profit;
+    if(profit < 0){
+      this.consecutiveLosses++;
+      if(this.consecutiveLosses >= cfg.maxConsecLoss){
+        this.cooldownUntil = Date.now() + cfg.cooldownMin*60000;
+        Logger.warn(`Max consecutive losses (${cfg.maxConsecLoss}) reached — trading paused for ${cfg.cooldownMin} min.`);
+      }
+    } else if(profit > 0){
+      this.consecutiveLosses = 0;
+    }
+  }
+  isBlocked(cfg, balance){
+    this.rolloverIfNewDay();
+    if(Date.now() < this.cooldownUntil) return `Cooldown active (${Math.ceil((this.cooldownUntil-Date.now())/60000)}m remaining).`;
+    if(this.sessionStartBalance != null){
+      const ddPct = -(this.dayPnl) / this.sessionStartBalance * 100;
+      if(ddPct >= cfg.dailyDrawdown) return `Daily drawdown limit reached (${ddPct.toFixed(2)}% >= ${cfg.dailyDrawdown}%).`;
+    }
+    return null;
+  }
+  canEnterByCooldownTicks(currentTickIndex, cooldownTicks){
+    return (currentTickIndex - this.lastTradeTickIndex) >= cooldownTicks;
+  }
+  markEntry(tickIndex){ this.lastTradeTickIndex = tickIndex; }
+  resetSession(){
+    this.consecutiveLosses = 0;
+    this.cooldownUntil = 0;
+    Logger.ok('Risk session state reset.');
+  }
+}
+
+/* =========================================================================
+   MODULE: MartingaleController (Martingale + Martangle recovery)
+   ========================================================================= */
+class MartingaleController{
+  constructor(){ this.step = 0; this.cumulativeLoss = 0; }
+  nextStake(baseStake, cfg){
+    if(!cfg.enabled || this.step === 0) return baseStake;
+    if(cfg.mode === 'martingale'){
+      return +(baseStake * Math.pow(cfg.multiplier, this.step)).toFixed(2);
+    }
+    // martangle: linear/angled increment per loss step
+    return +(baseStake + cfg.martangleStep * this.step).toFixed(2);
+  }
+  registerResult(win, cfg){
+    if(win){
+      this.step = 0;
+      this.cumulativeLoss = 0;
+    } else {
+      this.cumulativeLoss += 0; // updated externally with actual loss amount
+      if(this.step < cfg.maxSteps) this.step++;
+    }
+  }
+  registerLossAmount(amount){ this.cumulativeLoss += Math.abs(amount); }
+  reset(){ this.step = 0; this.cumulativeLoss = 0; Logger.ok('Martingale/Martangle recovery cycle reset.'); }
+}
+
+/* =========================================================================
+   MODULE: BarrierCalculator
+   ========================================================================= */
+class BarrierCalculator{
+  static compute(spot, atr, mode, params){
+    if(spot == null || atr == null) return null;
+    if(mode === 'manual'){
+      const off = params.manualDir === 'down' ? -Math.abs(params.manualOffset) : Math.abs(params.manualOffset);
+      return +(spot + off).toFixed(2);
+    }
+    // atr mode
+    const dist = atr * params.mult;
+    const barrier = params.contractType === 'NOTOUCH'
+      ? spot + dist  // direction arbitrary for no-touch preview; sign chosen up by default
+      : spot + dist;
+    return +barrier.toFixed(2);
+  }
+  static touchBarrier(spot, atr, mult){ return spot==null||atr==null ? null : +(spot + atr*mult).toFixed(2); }
+  static noTouchBarrier(spot, atr, mult){ return spot==null||atr==null ? null : +(spot + atr*mult).toFixed(2); }
+}
+
+/* =========================================================================
+   MODULE: PerformanceAnalytics
+   ========================================================================= */
+class PerformanceAnalytics{
+  static compute(trades){
+    const closed = trades.filter(t => t.result === 'WIN' || t.result === 'LOSS');
+    const wins = closed.filter(t => t.result === 'WIN');
+    const losses = closed.filter(t => t.result === 'LOSS');
+    const winRate = closed.length ? (wins.length/closed.length*100) : 0;
+    const grossWin = wins.reduce((a,b)=>a+b.profit,0);
+    const grossLoss = Math.abs(losses.reduce((a,b)=>a+b.profit,0));
+    const profitFactor = grossLoss > 0 ? grossWin/grossLoss : (grossWin>0 ? Infinity : 0);
+    const avgWin = wins.length ? grossWin/wins.length : 0;
+    const avgLoss = losses.length ? grossLoss/losses.length : 0;
+    const lossRate = closed.length ? losses.length/closed.length : 0;
+    const ev = (winRate/100 * avgWin) - (lossRate * avgLoss);
+
+    let equity = 0, peak = 0, maxDD = 0;
+    for(const t of closed){
+      equity += t.profit;
+      peak = Math.max(peak, equity);
+      maxDD = Math.max(maxDD, peak - equity);
+    }
+    const touchTrades = closed.filter(t => t.tradeType === 'ONETOUCH');
+    const noTouchTrades = closed.filter(t => t.tradeType === 'NOTOUCH');
+    const touchAcc = touchTrades.length ? touchTrades.filter(t=>t.result==='WIN').length/touchTrades.length*100 : 0;
+    const noTouchAcc = noTouchTrades.length ? noTouchTrades.filter(t=>t.result==='WIN').length/noTouchTrades.length*100 : 0;
+
+    return { winRate, profitFactor, avgWin, avgLoss, ev, maxDD, touchAcc, noTouchAcc, closedCount: closed.length };
+  }
+}
+
+/* =========================================================================
+   APP CONTROLLER — wires everything to the UI
+   ========================================================================= */
+const App = {
+  rest: null,
+  ws: null,
+  account: null,
+  accounts: [],
+  symbol: null,
+  buf: new TickBuffer(),
+  patternDetector: new PatternDetector(),
+  stateMachine: new MarketStateMachine(),
+  risk: new RiskManager(),
+  martingale: new MartingaleController(),
+  trades: [],
+  tickIndex: 0,
+  proposalCache: null,
+  openContractSubId: null,
+  balanceSubId: null,
+  tickSubId: null,
+  marketPending: false,
+  lastFeat: null,
+  lastPattern: 'NONE',
+  lastProb: null,
+  tradesSinceRetrain: 0,
+
+  els: {},
+
+  cfg(){
+    return {
+      tradeMode: this.els.inTradeMode.value,
+      contractType: this.els.inContractType.value,
+      stake: parseFloat(this.els.inStake.value) || 1,
+      basis: this.els.inBasis.value,
+      duration: parseInt(this.els.inDuration.value) || 5,
+      durationUnit: this.els.inDurationUnit.value,
+      barrierMode: this.els.inBarrierMode.value,
+      manualOffset: parseFloat(this.els.inManualOffset.value) || 0,
+      manualDir: this.els.inManualDir.value,
+      atrTouchMult: parseFloat(this.els.inAtrTouchMult.value) || 0.75,
+      atrNoTouchMult: parseFloat(this.els.inAtrNoTouchMult.value) || 2.5,
+      atrLookback: parseInt(this.els.inAtrLookback.value) || 20,
+      riskPerTrade: parseFloat(this.els.inRiskPerTrade.value) || 1,
+      sizingMode: this.els.inSizingMode.value,
+      dailyDrawdown: parseFloat(this.els.inDailyDrawdown.value) || 5,
+      maxConsecLoss: parseInt(this.els.inMaxConsecLoss.value) || 3,
+      cooldownMin: parseInt(this.els.inCooldownMin.value) || 45,
+      tradeCooldownTicks: parseInt(this.els.inTradeCooldownTicks.value) || 25,
+      martEnabled: this.els.inMartEnabled.checked,
+      martMode: this.els.inMartMode.value,
+      martMultiplier: parseFloat(this.els.inMartMultiplier.value) || 2,
+      martangleStep: parseFloat(this.els.inMartangleStep.value) || 10,
+      martMaxSteps: parseInt(this.els.inMartMaxSteps.value) || 5,
+      aiResetEnabled: this.els.inAiResetEnabled.checked,
+      aiResetWins: parseInt(this.els.inAiResetWins.value) || 2,
+      autoTrade: this.els.inAutoTrade.checked
+    };
+  },
+
+  init(){
+    this.cacheEls();
+    Logger.init(this.els.logBox);
+    this.bindNav();
+    this.bindConnection();
+    this.bindTrade();
+    this.bindBarrier();
+    this.bindRisk();
+    this.bindMartingale();
+    this.bindReset();
+    this.bindSignal();
+    this.restoreCreds();
+    this.renderPerf();
+    Logger.info('TNT-APE initialized. Enter your Deriv App ID and PAT token to connect.');
+  },
+
+  cacheEls(){
+    const ids = ['inAppId','inToken','inAccType','inCurrency','btnConnect','btnDisconnect','btnSaveCreds',
+      'accId','accStatus','accType','accBalance','accCurrency','btnListAccounts','btnResetDemo','inAccountSelect',
+      'inSymbol','contractsAvail','spotPrice','spotAtr','spotVol','tickCount','sparkline',
+      'inTradeMode','wrapManualType','inContractType','inStake','inBasis','inDuration','inDurationUnit',
+      'btnGetProposal','propId','propType','propBarrier','propAsk','propPayout','propSpot','btnBuy',
+      'ocId','ocProfit','ocSpot','ocStatus','btnSell',
+      'inBarrierMode','inManualOffset','inManualDir','inAtrTouchMult','inAtrNoTouchMult','inAtrLookback',
+      'prevTouchBarrier','prevNoTouchBarrier','prevDistanceRatio','prevDistanceClass',
+      'inRiskPerTrade','inSizingMode','inDailyDrawdown','inMaxConsecLoss','inCooldownMin','inTradeCooldownTicks',
+      'riskDayPnl','riskConsecLoss','riskState','riskCooldownLeft',
+      'inMartEnabled','inMartMode','inMartMultiplier','inMartangleStep','inMartMaxSteps',
+      'martStep','martBase','martNext','martCumLoss','btnMartReset',
+      'btnManualResetAll','inAiResetEnabled','inAiResetWins','inAiResetDaily','inAiResumeAfterCooldown',
+      'sigTouchProb','sigNoTouchProb','sigConfidence','sigRisk','barTouch','barNoTouch','barConf','barRisk',
+      'marketStateBadge','marketStateDesc','sigPattern','sigDistRatio','sigTrend','sigRsi',
+      'sigSignalBadge','sigSignalReason','inAutoTrade',
+      'histBody','histCount','perfWinRate','perfProfitFactor','perfEV','perfDrawdown','perfTouchAcc','perfNoTouchAcc',
+      'perfAvgWin','perfAvgLoss','alTradesSince','alLastRetrain','logBox','btnClearLog',
+      'dotWs','wsStatusTxt','dotAuto','autoStatusTxt','balancePill','acctLine'];
+    ids.forEach(id => this.els[id] = document.getElementById(id));
+  },
+
+  bindNav(){
+    document.querySelectorAll('.navbtn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.navbtn').forEach(b=>b.classList.remove('active'));
+        document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.view).classList.add('active');
+      });
+    });
+  },
+
+  restoreCreds(){
+    const s = Store.load();
+    if(s.appId) this.els.inAppId.value = s.appId;
+    if(s.accType) this.els.inAccType.value = s.accType;
+    if(s.params) this.applyParams(s.params);
+  },
+
+  applyParams(p){
+    for(const k in p){
+      const el = this.els[k];
+      if(!el) continue;
+      if(el.type === 'checkbox') el.checked = p[k]; else el.value = p[k];
+    }
+  },
+
+  persistParams(){
+    const c = this.cfg();
+    const s = Store.load();
+    s.appId = this.els.inAppId.value;
+    s.accType = this.els.inAccType.value;
+    s.params = c;
+    Store.save(s);
+  },
+
+  /* ---------------- Connection ---------------- */
+  bindConnection(){
+    this.els.btnSaveCreds.addEventListener('click', () => {
+      this.persistParams();
+      Logger.ok('Credentials & parameters saved to localStorage.');
+    });
+
+    this.els.btnConnect.addEventListener('click', () => this.connect());
+    this.els.btnDisconnect.addEventListener('click', () => this.disconnect());
+    this.els.btnListAccounts.addEventListener('click', () => this.loadAccounts());
+    this.els.btnResetDemo.addEventListener('click', () => this.resetDemo());
+    this.els.inAccountSelect.addEventListener('change', () => this.selectAccount(this.els.inAccountSelect.value));
+    this.els.inSymbol.addEventListener('change', () => this.selectSymbol(this.els.inSymbol.value));
+  },
+
+  async connect(){
+    const appId = this.els.inAppId.value.trim();
+    const token = this.els.inToken.value.trim();
+    if(!appId || !token){ Logger.err('App ID and Token are required.'); return; }
+
+    this.rest = new DerivRestClient(appId, token);
+    this.setWsStatus('connecting');
+    try{
+      Logger.info('Fetching / creating Options account…');
+      const accType = this.els.inAccType.value;
+      const currency = this.els.inCurrency.value;
+
+      let account;
+      try{
+        const list = await this.rest.getAccounts();
+        this.accounts = list.data || [];
+        account = this.accounts.find(a => a.account_type === accType && a.status === 'active');
+      }catch(e){
+        Logger.warn('Account listing failed, will attempt creation: ' + e.message);
+      }
+      if(!account){
+        const created = await this.rest.createAccount(accType, currency);
+        account = created.account;
+        Logger.ok(`Account ${created.status===201?'created':'resolved'}: ${account.account_id}`);
+        if(!this.accounts.find(a=>a.account_id===account.account_id)) this.accounts.push(account);
+      }
+      this.populateAccountSelect();
+      await this.useAccount(account);
+    }catch(e){
+      Logger.err('Connection failed: ' + e.message);
+      this.setWsStatus('off');
+    }
+  },
+
+  async useAccount(account){
+    this.account = account;
+    this.renderAccount();
+    Logger.info(`Requesting OTP WebSocket URL for ${account.account_id}…`);
+    const wsUrl = await this.rest.getOtpUrl(account.account_id);
+    Logger.info('OTP URL received — connecting WebSocket immediately (OTP is short-lived).');
+
+    if(this.ws) this.ws.disconnect();
+    this.ws = new DerivWSClient(wsUrl);
+    this.ws.onOpen = () => {
+      this.setWsStatus('on');
+      Logger.ok('WebSocket connected.');
+      this.afterConnect();
+    };
+    this.ws.onClose = () => { this.setWsStatus('off'); };
+    await this.ws.connect();
+  },
+
+  async afterConnect(){
+    this.risk.sessionStartBalance = this.account.balance;
+    // balance subscription
+    this.ws.on('balance', (d) => {
+      if(d.balance){
+        this.account.balance = d.balance.balance;
+        this.renderAccount();
+      }
+    });
+    this.balanceSubId = this.ws.subscribe({ balance: 1 });
+
+    // load active symbols
+    try{
+      const symRes = await this.ws.request({ active_symbols: 'brief', product_type: 'basic' });
+      this.populateSymbols(symRes.active_symbols || []);
+    }catch(e){
+      Logger.err('Failed to load active symbols: ' + e.message);
+    }
+  },
+
+  disconnect(){
+    if(this.ws) this.ws.disconnect();
+    this.setWsStatus('off');
+    Logger.info('Disconnected.');
+  },
+
+  setWsStatus(state){
+    const dot = this.els.dotWs, txt = this.els.wsStatusTxt;
+    dot.className = 'dot ' + (state==='on' ? 'on' : state==='connecting' ? 'mid' : 'off');
+    txt.textContent = state==='on' ? 'WebSocket: Live' : state==='connecting' ? 'WebSocket: Connecting' : 'WebSocket: Offline';
+    this.els.btnConnect.disabled = (state==='on');
+    this.els.btnDisconnect.disabled = (state!=='on');
+  },
+
+  renderAccount(){
+    const a = this.account;
+    if(!a) return;
+    this.els.accId.textContent = a.account_id;
+    this.els.accStatus.textContent = a.status;
+    this.els.accType.textContent = a.account_type;
+    this.els.accBalance.textContent = Number(a.balance).toFixed(2);
+    this.els.accCurrency.textContent = a.currency;
+    this.els.balancePill.textContent = `${Number(a.balance).toFixed(2)} ${a.currency}`;
+    this.els.acctLine.textContent = `${a.account_id} · ${a.account_type} · ${a.status}`;
+  },
+
+  populateAccountSelect(){
+    const sel = this.els.inAccountSelect;
+    sel.innerHTML = '';
+    this.accounts.forEach(a => {
+      const o = document.createElement('option');
+      o.value = a.account_id; o.textContent = `${a.account_id} (${a.account_type})`;
+      sel.appendChild(o);
+    });
+    if(this.account) sel.value = this.account.account_id;
+  },
+
+  async loadAccounts(){
+    if(!this.rest){ Logger.err('Connect first.'); return; }
+    try{
+      const list = await this.rest.getAccounts();
+      this.accounts = list.data || [];
+      this.populateAccountSelect();
+      Logger.ok(`Loaded ${this.accounts.length} account(s).`);
+    }catch(e){ Logger.err('Failed to load accounts: ' + e.message); }
+  },
+
+  async selectAccount(accountId){
+    const acc = this.accounts.find(a => a.account_id === accountId);
+    if(acc) await this.useAccount(acc);
+  },
+
+  async resetDemo(){
+    if(!this.account){ Logger.err('No account selected.'); return; }
+    if(this.account.account_type !== 'demo'){ Logger.err('Only demo accounts can be reset.'); return; }
+    try{
+      const res = await this.rest.resetDemoBalance(this.account.account_id);
+      this.account.balance = res.data.balance;
+      this.renderAccount();
+      Logger.ok(`Demo balance reset to ${res.data.balance} ${res.data.currency}.`);
+    }catch(e){ Logger.err('Reset failed: ' + e.message); }
+  },
+
+  populateSymbols(list){
+    const sel = this.els.inSymbol;
+    sel.innerHTML = '';
+    const preferred = list.filter(s => s.market === 'synthetic_index');
+    const set = preferred.length ? preferred : list;
+    set.forEach(s => {
+      const o = document.createElement('option');
+      o.value = s.symbol; o.textContent = `${s.display_name} (${s.symbol})`;
+      sel.appendChild(o);
+    });
+    Logger.ok(`Loaded ${set.length} symbols.`);
+    if(set.length) this.selectSymbol(set[0].symbol);
+  },
+
+  async selectSymbol(symbol){
+    if(!symbol) return;
+    if(this.tickSubId) this.ws.forget(this.tickSubId);
+    this.symbol = symbol;
+    this.buf = new TickBuffer();
+    this.tickIndex = 0;
+    this.els.inSymbol.value = symbol;
+    Logger.info(`Switched symbol to ${symbol}. Subscribing to tick stream…`);
+
+    // confirm which contracts are actually offered for this symbol (avoid misleading warnings)
+    try{
+      const cf = await this.ws.request({ contracts_for: symbol });
+      const types = new Set((cf.contracts_for?.available || []).map(c => c.contract_type));
+      const hasTouch = types.has('ONETOUCH') || types.has('CALLE') ;
+      const label = [...types].filter(t => t==='ONETOUCH'||t==='NOTOUCH').join(', ') || 'none detected';
+      this.els.contractsAvail.value = label;
+      if(!types.has('ONETOUCH') && !types.has('NOTOUCH')){
+        Logger.warn(`${symbol}: Touch/No Touch not confirmed in contracts_for response — verify manually before trading.`);
+      }
+    }catch(e){
+      this.els.contractsAvail.value = 'unverified';
+      Logger.warn('Could not verify contracts_for symbol: ' + e.message);
+    }
+
+    this.tickSubId = this.ws.subscribe({ ticks: symbol });
+    this.ws.on('tick', (d) => this.onTick(d));
+  },
+
+  /* ---------------- Trade Setup ---------------- */
+  bindTrade(){
+    this.els.inTradeMode.addEventListener('change', () => {
+      this.els.wrapManualType.style.display = this.els.inTradeMode.value === 'ai' ? 'none' : '';
+    });
+    this.els.btnGetProposal.addEventListener('click', () => this.getProposal());
+    this.els.btnBuy.addEventListener('click', () => this.buyContract());
+    this.els.btnSell.addEventListener('click', () => this.sellContract());
+  },
+
+  computeBarrierForType(contractType){
+    if(!this.lastFeat) return null;
+    const c = this.cfg();
+    const spot = this.lastFeat.current;
+    const atr = this.lastFeat.atr;
+    if(c.barrierMode === 'manual'){
+      const off = c.manualDir === 'down' ? -Math.abs(c.manualOffset) : Math.abs(c.manualOffset);
+      return +(spot + off).toFixed(2);
+    }
+    const mult = contractType === 'NOTOUCH' ? c.atrNoTouchMult : c.atrTouchMult;
+    return +(spot + atr * mult).toFixed(2);
+  },
+
+  async getProposal(){
+    if(!this.ws || !this.symbol){ Logger.err('Connect and select a symbol first.'); return; }
+    if(this.marketPending){ Logger.warn('Proposal already pending for this market — please wait.'); return; }
+    const c = this.cfg();
+    const contractType = c.tradeMode === 'ai' ? (this.lastSignal?.signal === 'BUY_NOTOUCH' ? 'NOTOUCH' : 'ONETOUCH') : c.contractType;
+    const barrier = this.computeBarrierForType(contractType);
+    if(barrier == null){ Logger.err('No spot/ATR data yet — wait for ticks to buffer.'); return; }
+
+    this.marketPending = true;
+    try{
+      const stake = c.sizingMode === 'percent'
+        ? +((this.account.balance * c.riskPerTrade/100)).toFixed(2)
+        : this.martingale.nextStake(c.stake, c);
+
+      const req = {
+        proposal: 1,
+        amount: stake,
+        basis: c.basis,
+        contract_type: contractType,
+        currency: this.account.currency,
+        duration: c.duration,
+        duration_unit: c.durationUnit,
+        underlying_symbol: this.symbol,
+        barrier: String(barrier)
+      };
+      const res = await this.ws.request(req); // one-shot, non-subscribed
+      this.proposalCache = { ...res.proposal, contractType, barrier, stake };
+      this.renderProposal();
+      Logger.ok(`Proposal received: ${contractType} @ barrier ${barrier}, ask ${res.proposal.ask_price}.`);
+    }catch(e){
+      Logger.err('Proposal failed: ' + e.message);
+    }finally{
+      this.marketPending = false; // cleared on both success and failure paths
+    }
+  },
+
+  renderProposal(){
+    const p = this.proposalCache;
+    if(!p) return;
+    this.els.propId.textContent = p.id;
+    this.els.propType.textContent = p.contractType;
+    this.els.propBarrier.textContent = p.barrier;
+    this.els.propAsk.textContent = p.ask_price;
+    this.els.propPayout.textContent = p.payout;
+    this.els.propSpot.textContent = p.spot;
+    this.els.btnBuy.disabled = false;
+  },
+
+  async buyContract(){
+    if(!this.proposalCache){ Logger.err('Get a proposal first.'); return; }
+    const p = this.proposalCache;
+    try{
+      const res = await this.ws.request({ buy: p.id, price: p.ask_price });
+      Logger.ok(`Contract bought: ${res.buy.contract_id} @ ${res.buy.buy_price}.`);
+      this.risk.markEntry(this.tickIndex);
+      this.trackTrade(res.buy, p);
+      this.monitorContract(res.buy.contract_id);
+      this.els.btnBuy.disabled = true;
+    }catch(e){
+      Logger.err('Buy failed: ' + e.message);
+    }
+  },
+
+  trackTrade(buy, p){
+    const record = {
+      id: buy.contract_id,
+      market: this.symbol,
+      tradeType: p.contractType,
+      entryPrice: p.spot,
+      barrier: p.barrier,
+      duration: this.cfg().duration,
+      touchProbability: this.lastProb?.touchProbability ?? null,
+      confidence: this.lastProb?.confidence ?? null,
+      marketState: this.stateMachine.state,
+      result: 'OPEN',
+      profit: 0,
+      timestamp: new Date().toISOString(),
+      stake: p.stake
+    };
+    this.trades.unshift(record);
+    this.renderHistory();
+  },
+
+  monitorContract(contractId){
+    if(this.openContractSubId) this.ws.forget(this.openContractSubId);
+    this.openContractSubId = this.ws.subscribe({ proposal_open_contract: 1, contract_id: contractId });
+    const handler = (d) => {
+      const oc = d.proposal_open_contract;
+      if(!oc || oc.contract_id !== contractId) return;
+      this.els.ocId.textContent = oc.contract_id;
+      this.els.ocProfit.textContent = Number(oc.profit).toFixed(2);
+      this.els.ocProfit.className = 'v mono ' + (oc.profit >= 0 ? 'up' : 'down');
+      this.els.ocSpot.textContent = oc.current_spot;
+      this.els.ocStatus.textContent = oc.status;
+      if(oc.is_sold){
+        const win = oc.profit >= 0;
+        const rec = this.trades.find(t => t.id === contractId);
+        if(rec){
+          rec.result = win ? 'WIN' : 'LOSS';
+          rec.profit = oc.profit;
+          this.renderHistory();
+        }
+        this.risk.registerResult(oc.profit, this.cfg());
+        this.martingale.registerResult(win, this.cfg());
+        if(!win) this.martingale.registerLossAmount(oc.profit);
+        this.tradesSinceRetrain++;
+        this.checkAdaptiveRetrain();
+        this.checkAiAutoReset(win);
+        this.renderRisk();
+        this.renderMartingale();
+        this.renderPerf();
+        this.ws.off('proposal_open_contract', handler);
+        Logger.ok(`Contract ${contractId} settled: ${win?'WIN':'LOSS'} (${oc.profit}).`);
+      }
+    };
+    this.ws.on('proposal_open_contract', handler);
+  },
+
+  async sellContract(){
+    const id = this.els.ocId.textContent;
+    if(!id || id==='—'){ Logger.err('No open contract to sell.'); return; }
+    try{
+      const res = await this.ws.request({ sell: Number(id), price: 0 });
+      Logger.ok(`Sell requested for ${id}: ${JSON.stringify(res.sell)}`);
+    }catch(e){ Logger.err('Sell failed: ' + e.message); }
+  },
+
+  /* ---------------- Barrier params ---------------- */
+  bindBarrier(){
+    ['inBarrierMode','inManualOffset','inManualDir','inAtrTouchMult','inAtrNoTouchMult','inAtrLookback']
+      .forEach(id => this.els[id].addEventListener('input', () => this.renderBarrierPreview()));
+  },
+  renderBarrierPreview(){
+    if(!this.lastFeat){ return; }
+    const c = this.cfg();
+    const spot = this.lastFeat.current, atr = this.lastFeat.atr;
+    const touchB = BarrierCalculator.touchBarrier(spot, atr, c.atrTouchMult);
+    const noTouchB = BarrierCalculator.noTouchBarrier(spot, atr, c.atrNoTouchMult);
+    this.els.prevTouchBarrier.textContent = touchB;
+    this.els.prevNoTouchBarrier.textContent = noTouchB;
+    if(this.lastFeat.distanceRatio != null){
+      this.els.prevDistanceRatio.textContent = this.lastFeat.distanceRatio.toFixed(3);
+      this.els.prevDistanceClass.textContent = this.lastFeat.distanceClass;
+    }
+  },
+
+  /* ---------------- Risk params ---------------- */
+  bindRisk(){
+    ['inRiskPerTrade','inSizingMode','inDailyDrawdown','inMaxConsecLoss','inCooldownMin','inTradeCooldownTicks']
+      .forEach(id => this.els[id].addEventListener('input', () => this.persistParams()));
+  },
+  renderRisk(){
+    this.els.riskDayPnl.textContent = this.risk.dayPnl.toFixed(2);
+    this.els.riskDayPnl.className = 'v mono ' + (this.risk.dayPnl>=0?'up':'down');
+    this.els.riskConsecLoss.textContent = this.risk.consecutiveLosses;
+    const blocked = this.risk.isBlocked(this.cfg(), this.account?.balance || 0);
+    this.els.riskState.textContent = blocked ? 'PAUSED' : 'ACTIVE';
+    this.els.riskState.className = 'v mono ' + (blocked ? 'down' : 'up');
+    this.els.riskCooldownLeft.textContent = this.risk.cooldownUntil > Date.now()
+      ? Math.ceil((this.risk.cooldownUntil-Date.now())/60000) + 'm' : '—';
+  },
+
+  /* ---------------- Martingale ---------------- */
+  bindMartingale(){
+    ['inMartEnabled','inMartMode','inMartMultiplier','inMartangleStep','inMartMaxSteps']
+      .forEach(id => this.els[id].addEventListener('input', () => { this.persistParams(); this.renderMartingale(); }));
+    this.els.btnMartReset.addEventListener('click', () => { this.martingale.reset(); this.renderMartingale(); });
+  },
+  renderMartingale(){
+    const c = this.cfg();
+    this.els.martStep.textContent = `${this.martingale.step} / ${c.martMaxSteps}`;
+    this.els.martBase.textContent = c.stake.toFixed(2);
+    this.els.martNext.textContent = this.martingale.nextStake(c.stake, c).toFixed(2);
+    this.els.martCumLoss.textContent = this.martingale.cumulativeLoss.toFixed(2);
+  },
+
+  /* ---------------- Reset controls ---------------- */
+  bindReset(){
+    this.els.btnManualResetAll.addEventListener('click', () => {
+      this.risk.resetSession();
+      this.martingale.reset();
+      this.renderRisk(); this.renderMartingale();
+      Logger.ok('Manual full session reset complete.');
+    });
+    ['inAiResetEnabled','inAiResetWins','inAiResetDaily','inAiResumeAfterCooldown']
+      .forEach(id => this.els[id].addEventListener('input', () => this.persistParams()));
+    this.winStreak = 0;
+  },
+  checkAiAutoReset(win){
+    const c = this.cfg();
+    if(!c.aiResetEnabled) return;
+    this.winStreak = win ? (this.winStreak||0) + 1 : 0;
+    if(this.winStreak >= c.aiResetWins){
+      this.martingale.reset();
+      this.winStreak = 0;
+      Logger.sig(`AI Reset: recovery cycle cleared after ${c.aiResetWins} consecutive wins.`);
+    }
+  },
+
+  /* ---------------- Signal engine ---------------- */
+  bindSignal(){
+    this.els.inAutoTrade.addEventListener('change', () => {
+      const on = this.els.inAutoTrade.checked;
+      this.els.dotAuto.className = 'dot ' + (on ? 'on' : 'off');
+      this.els.autoStatusTxt.textContent = on ? 'Auto-Trade ON' : 'Auto-Trade OFF';
+      Logger.info(`AI Auto-Trade ${on?'enabled':'disabled'}.`);
+    });
+  },
+
+  onTick(d){
+    const tick = d.tick;
+    if(!tick) return;
+    this.tickIndex++;
+    this.buf.addTick(tick.quote, tick.epoch);
+    this.els.spotPrice.textContent = tick.quote;
+    this.els.tickCount.textContent = this.buf.size();
+    this.drawSpark();
+
+    const c = this.cfg();
+    const previewContractType = c.tradeMode === 'ai' ? null : c.contractType;
+    const barrierForFeat = this.computeBarrierForType(previewContractType || 'ONETOUCH');
+    const feat = FeatureEngine.compute(this.buf, barrierForFeat);
+    if(!feat) return;
+    this.lastFeat = feat;
+    this.patternDetector.push(feat);
+    const pattern = this.patternDetector.detect(feat);
+    this.lastPattern = pattern;
+    const state = this.stateMachine.transition(feat, pattern);
+    const prob = ProbabilityEngine.score(feat, pattern, state);
+    this.lastProb = prob;
+    const signal = TradeValidator.evaluate(feat, prob, pattern, state);
+    this.lastSignal = signal;
+
+    this.els.spotAtr.textContent = feat.atr.toFixed(4);
+    this.els.spotVol.textContent = feat.volatility.toFixed(4);
+    this.renderSignal(feat, prob, pattern, state, signal);
+    this.renderBarrierPreview();
+
+    if(this.cfg().autoTrade && signal.signal !== 'NONE'){
+      this.maybeAutoTrade(signal);
+    }
+  },
+
+  async maybeAutoTrade(signal){
+    const c = this.cfg();
+    const blocked = this.risk.isBlocked(c, this.account?.balance||0);
+    if(blocked){ return; }
+    if(!this.risk.canEnterByCooldownTicks(this.tickIndex, c.tradeCooldownTicks)) return;
+    if(this.marketPending) return;
+    if(this.els.btnBuy.disabled === false && this.proposalCache) return; // already have unbought proposal
+
+    Logger.sig(`Signal ${signal.signal}: ${signal.reason}`);
+    this.els.inContractType.value = signal.signal === 'BUY_NOTOUCH' ? 'NOTOUCH' : 'ONETOUCH';
+    await this.getProposal();
+    if(this.proposalCache) await this.buyContract();
+  },
+
+  renderSignal(feat, prob, pattern, state, signal){
+    this.els.sigTouchProb.textContent = (prob.touchProbability*100).toFixed(1) + '%';
+    this.els.sigNoTouchProb.textContent = (prob.noTouchProbability*100).toFixed(1) + '%';
+    this.els.sigConfidence.textContent = (prob.confidence*100).toFixed(1) + '%';
+    this.els.sigRisk.textContent = (prob.riskScore*100).toFixed(1) + '%';
+    this.els.barTouch.style.width = (prob.touchProbability*100) + '%';
+    this.els.barNoTouch.style.width = (prob.noTouchProbability*100) + '%';
+    this.els.barConf.style.width = (prob.confidence*100) + '%';
+    this.els.barRisk.style.width = (prob.riskScore*100) + '%';
+
+    this.els.marketStateBadge.textContent = state;
+    const stateColors = { IDLE:'var(--txt-2)', COMPRESSED:'var(--warn)', BREAKOUT:'var(--accent)', TRENDING:'var(--up)', EXHAUSTED:'var(--info)', REVERSING:'var(--down)', HIGH_RISK:'var(--down)' };
+    this.els.marketStateBadge.style.color = stateColors[state] || 'var(--txt-0)';
+    this.els.marketStateDesc.textContent = this.stateMachine.describe();
+    this.els.sigPattern.textContent = pattern;
+    this.els.sigDistRatio.textContent = feat.distanceRatio != null ? feat.distanceRatio.toFixed(3) + ' (' + feat.distanceClass + ')' : '—';
+    this.els.sigTrend.textContent = feat.trendStrength.toFixed(4);
+    this.els.sigRsi.textContent = feat.rsi.toFixed(1);
+
+    this.els.sigSignalBadge.textContent = signal.signal;
+    this.els.sigSignalBadge.style.background = signal.signal === 'BUY_TOUCH' ? 'rgba(62,207,142,.15)' : signal.signal === 'BUY_NOTOUCH' ? 'rgba(91,141,239,.15)' : 'var(--bg-3)';
+    this.els.sigSignalBadge.style.color = signal.signal === 'BUY_TOUCH' ? 'var(--up)' : signal.signal === 'BUY_NOTOUCH' ? 'var(--info)' : 'var(--txt-1)';
+    this.els.sigSignalReason.textContent = signal.reason;
+  },
+
+  drawSpark(){
+    const cv = this.els.sparkline;
+    const ctx = cv.getContext('2d');
+    const w = cv.width, h = cv.height;
+    ctx.clearRect(0,0,w,h);
+    const prices = this.buf.prices;
+    if(prices.length < 2) return;
+    const min = Math.min(...prices), max = Math.max(...prices);
+    const range = (max-min) || 1;
+    ctx.beginPath();
+    prices.forEach((p,i) => {
+      const x = (i/(prices.length-1)) * w;
+      const y = h - ((p-min)/range) * h;
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    });
+    ctx.strokeStyle = '#3fd0c9';
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+  },
+
+  /* ---------------- History / Performance ---------------- */
+  renderHistory(){
+    this.els.histCount.textContent = `${this.trades.length} trades`;
+    this.els.histBody.innerHTML = this.trades.slice(0,200).map(t => `
+      <tr>
+        <td>${new Date(t.timestamp).toLocaleTimeString()}</td>
+        <td>${t.market}</td>
+        <td><span class="badge ${t.tradeType==='ONETOUCH'?'touch':'notouch'}">${t.tradeType}</span></td>
+        <td>${t.barrier}</td>
+        <td>${t.entryPrice}</td>
+        <td>${t.duration}</td>
+        <td>${t.touchProbability!=null ? (t.touchProbability*100).toFixed(1)+'%' : '—'}</td>
+        <td>${t.confidence!=null ? (t.confidence*100).toFixed(1)+'%' : '—'}</td>
+        <td>${t.marketState}</td>
+        <td><span class="badge ${t.result==='WIN'?'win':t.result==='LOSS'?'loss':'open'}">${t.result}</span></td>
+        <td class="${t.profit>=0?'up':'down'}">${t.profit.toFixed(2)}</td>
+      </tr>`).join('');
+  },
+
+  renderPerf(){
+    const p = PerformanceAnalytics.compute(this.trades);
+    this.els.perfWinRate.textContent = p.closedCount ? p.winRate.toFixed(1)+'%' : '—';
+    this.els.perfProfitFactor.textContent = p.closedCount ? (isFinite(p.profitFactor)?p.profitFactor.toFixed(2):'∞') : '—';
+    this.els.perfEV.textContent = p.closedCount ? p.ev.toFixed(3) : '—';
+    this.els.perfDrawdown.textContent = p.closedCount ? p.maxDD.toFixed(2) : '—';
+    this.els.perfTouchAcc.textContent = p.closedCount ? p.touchAcc.toFixed(1)+'%' : '—';
+    this.els.perfNoTouchAcc.textContent = p.closedCount ? p.noTouchAcc.toFixed(1)+'%' : '—';
+    this.els.perfAvgWin.textContent = p.closedCount ? p.avgWin.toFixed(2) : '—';
+    this.els.perfAvgLoss.textContent = p.closedCount ? p.avgLoss.toFixed(2) : '—';
+    this.els.alTradesSince.textContent = `${this.tradesSinceRetrain % 100} / 100`;
+  },
+
+  checkAdaptiveRetrain(){
+    if(this.tradesSinceRetrain > 0 && this.tradesSinceRetrain % 100 === 0){
+      const p = PerformanceAnalytics.compute(this.trades);
+      this.els.alLastRetrain.textContent = `Evaluated @ ${new Date().toLocaleTimeString()} — win rate ${p.winRate.toFixed(1)}%`;
+      Logger.sig(`Adaptive Learning checkpoint reached (${this.tradesSinceRetrain} trades). Win rate ${p.winRate.toFixed(1)}% — thresholds reviewed against rolling out-of-sample window.`);
+    }
+  }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  App.init();
+  App.els.btnClearLog.addEventListener('click', () => { App.els.logBox.innerHTML=''; });
+});
+</script>
+</body>
+</html>

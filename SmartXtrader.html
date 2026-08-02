@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartXtrader | Deriv Options Terminal</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ─── TOKENS ─── */
+:root {
+  --bg:       #060A13;
+  --panel:    #0C1121;
+  --panel2:   #101828;
+  --border:   #192035;
+  --border2:  #233058;
+  --blue:     #3B82F6;
+  --blue-d:   rgba(59,130,246,.13);
+  --blue-b:   #60A5FA;
+  --text:     #DDE6F4;
+  --text2:    #7A90B8;
+  --text3:    #3E4E6E;
+  --win:      #10B981;
+  --win-d:    rgba(16,185,129,.13);
+  --loss:     #F43F5E;
+  --loss-d:   rgba(244,63,94,.13);
+  --even:     #3B82F6;
+  --even-d:   rgba(59,130,246,.22);
+  --odd:      #F59E0B;
+  --odd-d:    rgba(245,158,11,.22);
+  --warn:     #F59E0B;
+  --mono:     'JetBrains Mono', 'Fira Code', monospace;
+  --sans:     'Inter', system-ui, sans-serif;
+  --r:        6px;
+}
+
+/* ─── RESET ─── */
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:13px;scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ─── HEADER ─── */
+#hdr {
+  display:flex;align-items:center;gap:14px;padding:0 18px;height:46px;
+  background:var(--panel);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:200;
+}
+.brand{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--blue);letter-spacing:.06em;flex-shrink:0}
+.brand em{color:var(--text2);font-style:normal;font-weight:400}
+.hsep{width:1px;height:18px;background:var(--border2);flex-shrink:0}
+.hstat{display:flex;flex-direction:column;gap:1px;flex-shrink:0}
+.hstat small{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em}
+.hval{font-family:var(--mono);font-size:12px;font-weight:600}
+.hval.g{color:var(--win)}
+.hval.r{color:var(--loss)}
+.hval.b{color:var(--blue-b)}
+#hsp{flex:1}
+#cdot{width:8px;height:8px;border-radius:50%;background:var(--text3);flex-shrink:0}
+#cdot.on{background:var(--win);box-shadow:0 0 7px var(--win)}
+#cdot.ing{background:var(--warn);animation:blink 1s infinite}
+#cdot.err{background:var(--loss)}
+#clbl{font-size:12px;color:var(--text2)}
+@keyframes blink{50%{opacity:.3}}
+#btn-disc{
+  padding:3px 11px;font-size:11px;border:1px solid var(--border2);background:none;
+  color:var(--text2);border-radius:var(--r);cursor:pointer;display:none;
+}
+#btn-disc:hover{border-color:var(--loss);color:var(--loss)}
+
+/* ─── MAIN ─── */
+#main{padding:14px 16px;max-width:1440px;margin:0 auto}
+
+/* ─── AUTH PANEL ─── */
+#auth{
+  background:var(--panel);border:1px solid var(--border2);border-radius:var(--r);
+  padding:18px 20px;margin-bottom:13px;
+}
+#auth h2{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:12px}
+.auth-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.af{display:flex;flex-direction:column;gap:4px;flex:1;min-width:160px}
+.af label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em}
+.af input{
+  background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);
+  padding:7px 11px;color:var(--text);font-family:var(--mono);font-size:12px;
+  outline:none;width:100%;
+}
+.af input:focus{border-color:var(--blue)}
+#btn-conn{
+  padding:8px 22px;background:var(--blue);color:#fff;border:none;border-radius:var(--r);
+  cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap;flex-shrink:0;
+}
+#btn-conn:hover{background:#2563EB}
+#btn-conn:disabled{background:var(--text3);cursor:not-allowed}
+#auth-err{color:var(--loss);font-size:11px;margin-top:7px;display:none}
+
+/* ─── DIGIT TAPE ─── */
+#tape{
+  background:var(--panel);border:1px solid var(--border);border-radius:var(--r);
+  padding:12px 15px;margin-bottom:13px;
+}
+.tape-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+.tape-lbl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:4px}
+#tp-price{font-family:var(--mono);font-size:24px;font-weight:700;letter-spacing:.03em;line-height:1}
+#tp-body{color:var(--text)}
+#tp-last{font-size:28px;transition:color .12s}
+#tp-last.even-c{color:var(--even)}
+#tp-last.odd-c{color:var(--odd)}
+.tape-meta{display:flex;gap:16px;font-family:var(--mono);font-size:11px;align-items:center}
+.tm-item{display:flex;gap:4px;align-items:center}
+.tm-item .lbl{color:var(--text3)}
+#tm-even{color:var(--even);font-weight:600}
+#tm-odd{color:var(--odd);font-weight:600}
+#tm-tick{color:var(--text2)}
+
+#digit-tiles{
+  display:flex;gap:3px;overflow:hidden;height:32px;align-items:center;margin-bottom:8px;
+}
+.dtile{
+  display:flex;align-items:center;justify-content:center;
+  min-width:20px;height:28px;border-radius:4px;font-family:var(--mono);
+  font-size:12px;font-weight:700;flex-shrink:0;transition:transform .1s;
+}
+.dtile.e{background:var(--even-d);color:var(--even);border:1px solid rgba(59,130,246,.28)}
+.dtile.o{background:var(--odd-d);color:var(--odd);border:1px solid rgba(245,158,11,.28)}
+.dtile.latest{transform:scale(1.18);box-shadow:0 0 7px currentColor}
+#ratio-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+#ratio-e{height:100%;background:var(--even);transition:width .35s}
+
+/* ─── STRATEGY GRID ─── */
+#strat-row{display:grid;grid-template-columns:1fr 1fr 1fr 210px;gap:12px;margin-bottom:13px}
+
+/* ─── STRATEGY CARD ─── */
+.sc{
+  background:var(--panel);border:1px solid var(--border);border-radius:var(--r);
+  transition:border-color .2s;
+}
+.sc.running{border-color:var(--blue)}
+.sc.running .sc-head{background:var(--blue-d)}
+.sc.tp{border-color:var(--win)}
+.sc.sl{border-color:var(--loss)}
+.sc-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:9px 13px;border-bottom:1px solid var(--border);
+}
+.sc-name{font-size:12px;font-weight:600}
+.sc-sub{font-size:9px;color:var(--text2);margin-top:2px}
+.sc-badge{
+  font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:10px;
+  border:1px solid var(--border2);color:var(--text3);white-space:nowrap;
+}
+.sc-badge.run{border-color:var(--blue);color:var(--blue)}
+.sc-badge.pend{border-color:var(--warn);color:var(--warn)}
+.sc-badge.tp{border-color:var(--win);color:var(--win)}
+.sc-badge.sl{border-color:var(--loss);color:var(--loss)}
+.sc-body{padding:11px 12px}
+
+.pg{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:9px}
+.pi{display:flex;flex-direction:column;gap:3px}
+.pi label{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em}
+.pi input,.pi select{
+  background:var(--bg);border:1px solid var(--border);border-radius:4px;
+  padding:5px 8px;color:var(--text);font-family:var(--mono);font-size:11px;
+  outline:none;width:100%;
+}
+.pi input:focus,.pi select:focus{border-color:var(--blue)}
+.pi input:disabled,.pi select:disabled{opacity:.38;cursor:not-allowed}
+
+.sc-stats{
+  display:grid;grid-template-columns:1fr 1fr 1fr 1fr;
+  gap:0;background:var(--bg);border-radius:4px;margin-bottom:9px;overflow:hidden;
+}
+.ss{padding:6px 7px;border-right:1px solid var(--border)}
+.ss:last-child{border-right:none}
+.ss small{font-size:8px;color:var(--text3);text-transform:uppercase;display:block;margin-bottom:2px}
+.ss .sv{font-family:var(--mono);font-size:11px;font-weight:600}
+.sv.g{color:var(--win)}.sv.r{color:var(--loss)}.sv.b{color:var(--blue-b)}
+
+.prog-wrap{height:2px;background:var(--border);border-radius:1px;overflow:hidden;margin-bottom:9px}
+.prog-fill{height:100%;background:var(--blue);transition:width .3s}
+
+.btn-s{
+  width:100%;padding:7px;border:1px solid var(--blue);background:var(--blue-d);
+  color:var(--blue);font-weight:600;font-size:12px;border-radius:var(--r);
+  cursor:pointer;letter-spacing:.04em;transition:all .15s;
+}
+.btn-s:hover{background:var(--blue);color:#fff}
+.btn-s.stop{border-color:var(--loss);background:var(--loss-d);color:var(--loss)}
+.btn-s.stop:hover{background:var(--loss);color:#fff}
+.btn-s:disabled{opacity:.35;cursor:not-allowed;border-color:var(--text3);color:var(--text3);background:none}
+
+/* ─── SESSION PANEL ─── */
+#sess-panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--r)}
+.ph{display:flex;align-items:center;gap:8px;padding:9px 13px;border-bottom:1px solid var(--border)}
+.ph h3{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text2);font-weight:600}
+.pill{font-family:var(--mono);font-size:10px;padding:1px 7px;border-radius:10px;background:var(--border);color:var(--text2)}
+.pill.live{background:var(--win-d);color:var(--win)}
+.pb{padding:12px}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px}
+.si{background:var(--bg);border-radius:4px;padding:8px 10px}
+.si small{font-size:9px;color:var(--text3);text-transform:uppercase;display:block;margin-bottom:3px}
+.si .sv{font-family:var(--mono);font-size:14px;font-weight:700}
+#sess-pnl-box{background:var(--bg);border-radius:4px;padding:10px}
+#sess-pnl-box small{font-size:9px;color:var(--text3);text-transform:uppercase;display:block;margin-bottom:3px}
+#sess-pnl{font-family:var(--mono);font-size:20px;font-weight:700}
+.sv.g{color:var(--win)}.sv.r{color:var(--loss)}.sv.n{color:var(--text)}
+
+/* ─── ACTIVE TRADE ─── */
+#at-panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);margin-bottom:13px}
+#at-empty{color:var(--text3);font-size:12px;padding:14px;text-align:center}
+#at-content{display:none;padding:12px}
+.at-row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.at-badge{
+  font-family:var(--mono);font-size:11px;font-weight:700;padding:5px 11px;
+  border-radius:4px;flex-shrink:0;
+}
+.at-badge.e{background:var(--even-d);color:var(--even);border:1px solid rgba(59,130,246,.4)}
+.at-badge.o{background:var(--odd-d);color:var(--odd);border:1px solid rgba(245,158,11,.4)}
+.atf{display:flex;flex-direction:column;gap:2px}
+.atf small{font-size:9px;color:var(--text3);text-transform:uppercase}
+.atf .v{font-family:var(--mono);font-size:12px;font-weight:600}
+#at-pnl{font-family:var(--mono);font-size:20px;font-weight:700;margin-left:auto}
+#at-pnl.pos{color:var(--win)}
+#at-pnl.neg{color:var(--loss)}
+
+/* ─── BOTTOM ─── */
+#bot{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+.bpanel{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.scroll-a{overflow-y:auto;max-height:220px}
+
+/* ─── HISTORY TABLE ─── */
+#htbl{width:100%;border-collapse:collapse}
+#htbl th{
+  font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);
+  padding:6px 10px;text-align:left;border-bottom:1px solid var(--border);
+  background:var(--panel2);position:sticky;top:0;
+}
+#htbl td{
+  padding:6px 10px;border-bottom:1px solid var(--border);
+  font-family:var(--mono);font-size:11px;
+}
+#htbl tr:last-child td{border-bottom:none}
+#htbl tr.wrow{background:rgba(16,185,129,.03)}
+#htbl tr.lrow{background:rgba(244,63,94,.03)}
+.rpill{
+  display:inline-flex;align-items:center;padding:2px 8px;border-radius:10px;
+  font-size:10px;font-weight:700;
+}
+.rpill.w{background:var(--win-d);color:var(--win)}
+.rpill.l{background:var(--loss-d);color:var(--loss)}
+.tpill{font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700}
+.tpill.e{background:var(--even-d);color:var(--even)}
+.tpill.o{background:var(--odd-d);color:var(--odd)}
+
+/* ─── LOG ─── */
+#log-w{height:220px;overflow-y:auto;padding:9px;display:flex;flex-direction:column;gap:3px}
+.le{display:flex;gap:8px;font-size:11px;line-height:1.45}
+.le-t{font-family:var(--mono);color:var(--text3);flex-shrink:0;font-size:10px;padding-top:1px}
+.le-m{color:var(--text2)}
+.le-m.s{color:var(--win)}
+.le-m.e{color:var(--loss)}
+.le-m.w{color:var(--warn)}
+.le-m.t{color:var(--blue-b)}
+
+/* ─── UTIL ─── */
+.hidden{display:none!important}
+.mono{font-family:var(--mono)}
+
+/* ─── RESET BAL BTN ─── */
+#btn-rst{
+  padding:3px 11px;font-size:11px;border:1px solid var(--border2);background:none;
+  color:var(--text2);border-radius:var(--r);cursor:pointer;display:none;
+}
+#btn-rst:hover{border-color:var(--warn);color:var(--warn)}
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<header id="hdr">
+  <div class="brand">SmartX<em>trader</em></div>
+  <div class="hsep"></div>
+  <div class="hstat">
+    <small>Account</small>
+    <div class="hval b" id="h-acct">—</div>
+  </div>
+  <div class="hsep"></div>
+  <div class="hstat">
+    <small>Balance</small>
+    <div class="hval g" id="h-bal">—</div>
+  </div>
+  <div class="hsep"></div>
+  <div class="hstat">
+    <small>Type</small>
+    <div class="hval" id="h-type">—</div>
+  </div>
+  <div id="hsp"></div>
+  <button id="btn-rst" title="Reset demo balance to $10,000">↺ Reset Balance</button>
+  <div style="display:flex;align-items:center;gap:7px">
+    <div id="cdot"></div>
+    <span id="clbl" style="font-size:12px;color:var(--text2)">Disconnected</span>
+  </div>
+  <button id="btn-disc">✕ Disconnect</button>
+</header>
+
+<!-- ═══ MAIN ═══ -->
+<div id="main">
+
+  <!-- AUTH -->
+  <div id="auth">
+    <h2>Connect to Deriv Options Account — PAT Authentication</h2>
+    <div class="auth-row">
+      <div class="af" style="max-width:180px">
+        <label>App ID <span style="color:var(--text3)">(developers.deriv.com)</span></label>
+        <input type="text" id="inp-appid" placeholder="e.g. 12345" autocomplete="off">
+      </div>
+      <div class="af">
+        <label>PAT Token <span style="color:var(--text3)">(Bearer token · scopes: trade + account_manage)</span></label>
+        <input type="password" id="inp-token" placeholder="Paste your Personal Access Token" autocomplete="off">
+      </div>
+      <button id="btn-conn">▶ Connect</button>
+    </div>
+    <div id="auth-err"></div>
+  </div>
+
+  <!-- DIGIT TAPE -->
+  <div id="tape">
+    <div class="tape-top">
+      <div>
+        <div class="tape-lbl">R_25 · Volatility 25 Index · Live Last-Digit Stream</div>
+        <div id="tp-price"><span id="tp-body">— — —</span><span id="tp-last">—</span></div>
+      </div>
+      <div class="tape-meta">
+        <div class="tm-item"><span class="lbl">EVEN</span><span id="tm-even">—</span>%</div>
+        <div class="tm-item"><span class="lbl">ODD</span><span id="tm-odd">—</span>%</div>
+        <div class="tm-item"><span class="lbl">TICK#</span><span id="tm-tick">—</span></div>
+        <div class="tm-item"><span class="lbl">DIGITS</span><span id="tm-count" style="color:var(--text2)">0</span></div>
+      </div>
+    </div>
+    <div id="digit-tiles"><span style="color:var(--text3);font-size:12px;padding:4px">Waiting for ticks…</span></div>
+    <div id="ratio-bar"><div id="ratio-e" style="width:50%"></div></div>
+  </div>
+
+  <!-- STRATEGIES + SESSION ROW -->
+  <div id="strat-row">
+
+    <!-- ── Strategy 1: EvOd Percentage (EvOd_.xml) ── -->
+    <div class="sc" id="card-evod">
+      <div class="sc-head">
+        <div>
+          <div class="sc-name">EvOd Percentage</div>
+          <div class="sc-sub">Even/Odd % over N digits vs threshold</div>
+        </div>
+        <div class="sc-badge" id="bdg-evod">IDLE</div>
+      </div>
+      <div class="sc-body">
+        <div class="pg">
+          <div class="pi" style="grid-column:1/-1">
+            <label>Strategy Mode</label>
+            <select id="ep-mode">
+              <option value="0">Even% &gt; Threshold → Trade EVEN (follow)</option>
+              <option value="1">Even% &lt; Threshold → Trade EVEN (minority)</option>
+              <option value="2">Even% &gt; Threshold → Trade ODD (contrarian)</option>
+              <option value="3">Even% &lt; Threshold → Trade ODD (reverse)</option>
+            </select>
+          </div>
+          <div class="pi">
+            <label>Digits to Check (N)</label>
+            <input type="number" id="ep-n" value="30" min="5" max="200">
+          </div>
+          <div class="pi">
+            <label>% Threshold</label>
+            <input type="number" id="ep-thresh" value="55" min="50" max="90" step="1">
+          </div>
+          <div class="pi">
+            <label>Initial Stake ($)</label>
+            <input type="number" id="ep-stake" value="0.50" min="0.35" step="0.05">
+          </div>
+          <div class="pi">
+            <label>Martangle (×)</label>
+            <input type="number" id="ep-mart" value="2" min="1.1" max="5" step="0.1">
+          </div>
+          <div class="pi">
+            <label>Take Profit (wins)</label>
+            <input type="number" id="ep-tp" value="8" min="1" max="100">
+          </div>
+          <div class="pi">
+            <label>Stop Loss ($)</label>
+            <input type="number" id="ep-sl" value="30" min="1" step="0.5">
+          </div>
+          <div class="pi" style="grid-column:1/-1">
+            <label>Martingale on Loss</label>
+            <select id="ep-usemg">
+              <option value="true">Enabled (stake × Martangle)</option>
+              <option value="false">Disabled (reset to initial)</option>
+            </select>
+          </div>
+        </div>
+        <div class="sc-stats">
+          <div class="ss"><small>Stake</small><div class="sv b" id="ep-s-stake">$0.50</div></div>
+          <div class="ss"><small>Wins</small><div class="sv g" id="ep-s-wins">0</div></div>
+          <div class="ss"><small>Losses</small><div class="sv r" id="ep-s-loss">0</div></div>
+          <div class="ss"><small>P&amp;L</small><div class="sv n" id="ep-s-pnl">$0.00</div></div>
+        </div>
+        <div class="prog-wrap"><div class="prog-fill" id="ep-prog" style="width:0%"></div></div>
+        <button class="btn-s" id="btn-evod">▶ START</button>
+      </div>
+    </div>
+
+    <!-- ── Strategy 2: EvOd Directional/Streak Follow (EvOdDirectional.xml) ── -->
+    <div class="sc" id="card-dir">
+      <div class="sc-head">
+        <div>
+          <div class="sc-name">EvOd Directional</div>
+          <div class="sc-sub">Follow N-digit consecutive streak</div>
+        </div>
+        <div class="sc-badge" id="bdg-dir">IDLE</div>
+      </div>
+      <div class="sc-body">
+        <div class="pg">
+          <div class="pi" style="grid-column:1/-1">
+            <label>Streak Length (consecutive digits)</label>
+            <select id="di-streak">
+              <option value="2">2 consecutive same</option>
+              <option value="3">3 consecutive same</option>
+              <option value="4">4 consecutive same</option>
+              <option value="5">5 consecutive same</option>
+              <option value="6">6 consecutive same</option>
+              <option value="7">7 consecutive same</option>
+              <option value="8">8 consecutive same</option>
+              <option value="9">9 consecutive same</option>
+              <option value="10">10 consecutive same</option>
+            </select>
+          </div>
+          <div class="pi">
+            <label>Initial Stake ($)</label>
+            <input type="number" id="di-stake" value="0.50" min="0.35" step="0.05">
+          </div>
+          <div class="pi">
+            <label>Martangle (×)</label>
+            <input type="number" id="di-mart" value="2" min="1.1" max="5" step="0.1">
+          </div>
+          <div class="pi">
+            <label>Take Profit (wins)</label>
+            <input type="number" id="di-tp" value="8" min="1" max="100">
+          </div>
+          <div class="pi">
+            <label>Stop Loss ($)</label>
+            <input type="number" id="di-sl" value="30" min="1" step="0.5">
+          </div>
+          <div class="pi" style="grid-column:1/-1">
+            <label>Martingale on Loss</label>
+            <select id="di-usemg">
+              <option value="true">Enabled (stake × Martangle)</option>
+              <option value="false">Disabled (reset to initial)</option>
+            </select>
+          </div>
+        </div>
+        <div class="sc-stats">
+          <div class="ss"><small>Stake</small><div class="sv b" id="di-s-stake">$0.50</div></div>
+          <div class="ss"><small>Wins</small><div class="sv g" id="di-s-wins">0</div></div>
+          <div class="ss"><small>Losses</small><div class="sv r" id="di-s-loss">0</div></div>
+          <div class="ss"><small>P&amp;L</small><div class="sv n" id="di-s-pnl">$0.00</div></div>
+        </div>
+        <div class="prog-wrap"><div class="prog-fill" id="di-prog" style="width:0%"></div></div>
+        <button class="btn-s" id="btn-dir">▶ START</button>
+      </div>
+    </div>
+
+    <!-- ── Strategy 3: EvOd Reverse/Counter (EvOdreverse.xml) ── -->
+    <div class="sc" id="card-rev">
+      <div class="sc-head">
+        <div>
+          <div class="sc-name">EvOd Reverse</div>
+          <div class="sc-sub">Counter N-digit consecutive streak</div>
+        </div>
+        <div class="sc-badge" id="bdg-rev">IDLE</div>
+      </div>
+      <div class="sc-body">
+        <div class="pg">
+          <div class="pi" style="grid-column:1/-1">
+            <label>Streak Length (consecutive digits)</label>
+            <select id="rv-streak">
+              <option value="2">2 consecutive same</option>
+              <option value="3">3 consecutive same</option>
+              <option value="4">4 consecutive same</option>
+              <option value="5">5 consecutive same</option>
+              <option value="6">6 consecutive same</option>
+              <option value="7">7 consecutive same</option>
+              <option value="8">8 consecutive same</option>
+              <option value="9">9 consecutive same</option>
+              <option value="10">10 consecutive same</option>
+            </select>
+          </div>
+          <div class="pi">
+            <label>Initial Stake ($)</label>
+            <input type="number" id="rv-stake" value="0.50" min="0.35" step="0.05">
+          </div>
+          <div class="pi">
+            <label>Martangle (×)</label>
+            <input type="number" id="rv-mart" value="2" min="1.1" max="5" step="0.1">
+          </div>
+          <div class="pi">
+            <label>Take Profit (wins)</label>
+            <input type="number" id="rv-tp" value="8" min="1" max="100">
+          </div>
+          <div class="pi">
+            <label>Stop Loss ($)</label>
+            <input type="number" id="rv-sl" value="30" min="1" step="0.5">
+          </div>
+          <div class="pi" style="grid-column:1/-1">
+            <label>Martingale on Loss</label>
+            <select id="rv-usemg">
+              <option value="true">Enabled (stake × Martangle)</option>
+              <option value="false">Disabled (reset to initial)</option>
+            </select>
+          </div>
+        </div>
+        <div class="sc-stats">
+          <div class="ss"><small>Stake</small><div class="sv b" id="rv-s-stake">$0.50</div></div>
+          <div class="ss"><small>Wins</small><div class="sv g" id="rv-s-wins">0</div></div>
+          <div class="ss"><small>Losses</small><div class="sv r" id="rv-s-loss">0</div></div>
+          <div class="ss"><small>P&amp;L</small><div class="sv n" id="rv-s-pnl">$0.00</div></div>
+        </div>
+        <div class="prog-wrap"><div class="prog-fill" id="rv-prog" style="width:0%"></div></div>
+        <button class="btn-s" id="btn-rev">▶ START</button>
+      </div>
+    </div>
+
+    <!-- ── Session Stats ── -->
+    <div id="sess-panel">
+      <div class="ph"><h3>Session</h3></div>
+      <div class="pb">
+        <div class="sg">
+          <div class="si"><small>Total Trades</small><div class="sv n" id="s-total">0</div></div>
+          <div class="si"><small>Win Rate</small><div class="sv n" id="s-wr">—</div></div>
+          <div class="si"><small>Wins</small><div class="sv g" id="s-wins">0</div></div>
+          <div class="si"><small>Losses</small><div class="sv r" id="s-loss">0</div></div>
+        </div>
+        <div id="sess-pnl-box">
+          <small>Net P&amp;L</small>
+          <div id="sess-pnl" class="sv n" style="font-size:20px">$0.00</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /strat-row -->
+
+  <!-- ACTIVE TRADE -->
+  <div id="at-panel">
+    <div class="ph">
+      <h3>Active Trade</h3>
+      <div class="pill" id="at-pill" style="display:none">LIVE</div>
+    </div>
+    <div id="at-empty">No active trade · Strategies will place trades automatically when started</div>
+    <div id="at-content">
+      <div class="at-row">
+        <div class="at-badge e" id="at-type">DIGITEVEN</div>
+        <div class="atf"><small>Contract ID</small><div class="v" id="at-id">—</div></div>
+        <div class="atf"><small>Strategy</small><div class="v" id="at-strat">—</div></div>
+        <div class="atf"><small>Stake</small><div class="v" id="at-stake">—</div></div>
+        <div class="atf"><small>Buy Price</small><div class="v" id="at-buy">—</div></div>
+        <div class="atf"><small>Entry Spot</small><div class="v" id="at-spot">—</div></div>
+        <div class="atf"><small>Contract Type</small><div class="v" id="at-ctype">—</div></div>
+        <div id="at-pnl">$0.00</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM: HISTORY + LOG -->
+  <div id="bot">
+    <div class="bpanel">
+      <div class="ph">
+        <h3>Trade History</h3>
+        <span class="pill" id="h-count">0 trades</span>
+      </div>
+      <div class="scroll-a">
+        <table id="htbl">
+          <thead>
+            <tr>
+              <th>#</th><th>Time</th><th>Strategy</th><th>Type</th>
+              <th>Stake</th><th>Result</th><th>P&amp;L</th>
+            </tr>
+          </thead>
+          <tbody id="h-body">
+            <tr><td colspan="7" style="text-align:center;color:var(--text3);padding:18px 0">No trades yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="bpanel">
+      <div class="ph"><h3>Activity Log</h3></div>
+      <div id="log-w"></div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════════════════ */
+const API_BASE    = 'https://api.derivws.com';
+const SYMBOL      = 'R_25';
+const CURRENCY    = 'USD';
+const MAX_HIST    = 80;   // max digits to keep internally
+const TAPE_SHOW   = 44;   // digits shown in tape display
+const MAX_RECON   = 5;
+
+/* ═══════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════ */
+const S = {
+  appId: '', token: '',
+  ws: null, wsUrl: null,
+  account: null, balance: null,
+  connected: false, reqId: 0, recon: 0,
+  digits: [],          // last-digit history
+  trades: [],          // completed trade records
+  tradeNum: 0,
+  activeCtr: null,     // currently open contract info
+  pendingPropId: null, // req_id of in-flight proposal
+  pendingBuyId: null,  // req_id of in-flight buy
+  pendingStratId: null,// strategy waiting for this trade
+  pendingType: null,   // DIGITEVEN or DIGITODD
+  pendingStake: null,
+  session: { wins: 0, losses: 0, pnl: 0 }
+};
+
+/* ═══════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const rid = () => ++S.reqId;
+const isEven = d => d % 2 === 0;
+const dig = price => parseInt(price.toFixed(2).slice(-1), 10);
+const fmt2 = n => (n >= 0 ? '+' : '-') + '$' + Math.abs(n).toFixed(2);
+function ts() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+}
+
+/* ═══════════════════════════════════════════════════════
+   ACTIVITY LOG
+═══════════════════════════════════════════════════════ */
+function log(msg, type='i') {
+  const w = $('log-w');
+  const el = document.createElement('div');
+  el.className = 'le';
+  el.innerHTML = `<span class="le-t">${ts()}</span><span class="le-m ${type}">${msg}</span>`;
+  w.appendChild(el);
+  w.scrollTop = w.scrollHeight;
+  while (w.children.length > 300) w.removeChild(w.firstChild);
+}
+// types: i=info, s=success, e=error, w=warn, t=trade
+
+/* ═══════════════════════════════════════════════════════
+   REST API CLIENT
+═══════════════════════════════════════════════════════ */
+function hdr(body=false) {
+  const h = { 'Authorization': `Bearer ${S.token}`, 'Deriv-App-ID': S.appId };
+  if (body) h['Content-Type'] = 'application/json';
+  return h;
+}
+
+async function rGet(path) {
+  const r = await fetch(`${API_BASE}${path}`, { headers: hdr() });
+  const d = await r.json();
+  if (!r.ok) throw new Error(`[${r.status}] ${d.errors?.[0]?.code || 'Error'}: ${d.errors?.[0]?.message || r.statusText}`);
+  return d;
+}
+
+async function rPost(path, body=null) {
+  const opts = { method:'POST', headers: hdr(!!body) };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(`${API_BASE}${path}`, opts);
+  const d = await r.json();
+  if (!r.ok) throw new Error(`[${r.status}] ${d.errors?.[0]?.code || 'Error'}: ${d.errors?.[0]?.message || r.statusText}`);
+  return { d, status: r.status };
+}
+
+async function fetchAccounts() {
+  const res = await rGet('/trading/v1/options/accounts');
+  return res.data || [];
+}
+
+async function createAccount() {
+  const { d, status } = await rPost('/trading/v1/options/accounts', {
+    currency: CURRENCY, group: 'row', account_type: 'demo'
+  });
+  // 200 → data is object; 201 → data is array (newly created)
+  return Array.isArray(d.data) ? d.data[0] : d.data;
+}
+
+async function getOTP(accountId) {
+  const { d } = await rPost(`/trading/v1/options/accounts/${accountId}/otp`);
+  return d.data.url;
+}
+
+async function resetBalance(accountId) {
+  const { d } = await rPost(`/trading/v1/options/accounts/${accountId}/reset-demo-balance`);
+  return d.data;
+}
+
+/* ═══════════════════════════════════════════════════════
+   WEBSOCKET MANAGER
+═══════════════════════════════════════════════════════ */
+function wsSend(cmd) {
+  if (!S.ws || S.ws.readyState !== WebSocket.OPEN) return null;
+  const id = rid();
+  S.ws.send(JSON.stringify({ ...cmd, req_id: id }));
+  return id;
+}
+
+function wsConnect(url) {
+  setStatus('ing', 'Connecting…');
+  S.ws = new WebSocket(url);
+
+  S.ws.onopen = () => {
+    S.connected = true;
+    S.recon = 0;
+    setStatus('on', 'Live');
+    log('WebSocket connected to Deriv Options', 's');
+    $('btn-disc').style.display = 'block';
+    $('auth').classList.add('hidden');
+    if (S.account?.account_type === 'demo') $('btn-rst').style.display = 'block';
+
+    // Subscribe to balance
+    wsSend({ balance: 1, subscribe: 1 });
+    // Get tick history (warm up digit buffer)
+    wsSend({ ticks_history: SYMBOL, count: 60, end: 'latest', style: 'ticks' });
+    // Subscribe to live ticks
+    wsSend({ ticks: SYMBOL, subscribe: 1 });
+  };
+
+  S.ws.onmessage = ev => handleMsg(JSON.parse(ev.data));
+  S.ws.onerror   = () => log('WebSocket error', 'e');
+  S.ws.onclose   = () => {
+    S.connected = false;
+    setStatus('err', 'Disconnected');
+    log('WebSocket closed', 'w');
+    // Force-stop all strategies
+    STRATEGIES.forEach(s => { if (s.isRunning) s.forceStop('WS_DISCONNECT'); });
+    clearActiveTrade();
+    // Auto-reconnect if not manually disconnected
+    if (S.wsUrl && S.recon < MAX_RECON) {
+      S.recon++;
+      const delay = Math.min(1000 * Math.pow(2, S.recon - 1), 20000);
+      log(`Reconnecting in ${delay/1000}s (attempt ${S.recon}/${MAX_RECON})…`, 'w');
+      setStatus('ing', `Reconnecting in ${delay/1000}s…`);
+      setTimeout(doReconnect, delay);
+    }
+  };
+}
+
+async function doReconnect() {
+  try {
+    log('Requesting new OTP for reconnect…', 'i');
+    S.wsUrl = await getOTP(S.account.account_id);
+    wsConnect(S.wsUrl);
+  } catch(err) {
+    log(`Reconnect failed: ${err.message}`, 'e');
+    S.recon++;
+    if (S.recon < MAX_RECON) setTimeout(doReconnect, 5000);
+  }
+}
+
+function wsDisconnect() {
+  S.wsUrl = null; // prevent auto-reconnect
+  STRATEGIES.forEach(s => s.forceStop('MANUAL'));
+  if (S.ws) S.ws.close();
+  S.connected = false;
+  setStatus('', 'Disconnected');
+  $('btn-disc').style.display = 'none';
+  $('btn-rst').style.display = 'none';
+  $('auth').classList.remove('hidden');
+  $('h-acct').textContent = '—';
+  $('h-bal').textContent  = '—';
+  $('h-type').textContent = '—';
+  S.account = null;
+  clearActiveTrade();
+  log('Disconnected', 'w');
+}
+
+/* ═══════════════════════════════════════════════════════
+   MESSAGE ROUTER
+═══════════════════════════════════════════════════════ */
+function handleMsg(data) {
+  if (data.error) {
+    log(`API Error [${data.error.code}]: ${data.error.message}`, 'e');
+    // Unblock strategy if proposal/buy failed
+    if (data.req_id === S.pendingPropId || data.req_id === S.pendingBuyId) {
+      const s = strat(S.pendingStratId);
+      if (s) s.hasPending = false;
+      S.pendingPropId = S.pendingBuyId = S.pendingStratId = S.pendingType = null;
+    }
+    return;
+  }
+  switch (data.msg_type) {
+    case 'balance':               onBalance(data.balance); break;
+    case 'tick':                  onTick(data.tick); break;
+    case 'history':               onHistory(data.history); break;
+    case 'proposal':              onProposal(data); break;
+    case 'buy':                   onBuy(data.buy); break;
+    case 'proposal_open_contract':onContract(data.proposal_open_contract); break;
+    default: break;
+  }
+}
+
+/* ─── Balance ─── */
+function onBalance(bal) {
+  S.balance = bal.balance;
+  $('h-bal').textContent = `$${bal.balance.toFixed(2)}`;
+  $('h-bal').className = 'hval g';
+}
+
+/* ─── History (warm-up) ─── */
+function onHistory(h) {
+  if (!h?.prices) return;
+  h.prices.forEach(p => pushDigit(dig(p)));
+  renderTape();
+  log(`Loaded ${h.prices.length} historical digits for R_25`, 'i');
+}
+
+/* ─── Live Tick ─── */
+function onTick(tick) {
+  const d = dig(tick.quote);
+  pushDigit(d);
+  renderTape(tick);
+  // Trigger strategy signal check
+  tickStrategies();
+}
+
+/* ─── Proposal ─── */
+function onProposal(data) {
+  if (data.req_id !== S.pendingPropId) return;
+  if (data.error) {
+    log(`Proposal error: ${data.error.message}`, 'e');
+    const s = strat(S.pendingStratId);
+    if (s) s.hasPending = false;
+    S.pendingPropId = S.pendingStratId = null;
+    return;
+  }
+  // Immediately buy
+  const prop = data.proposal;
+  const buyId = wsSend({ buy: prop.id, price: prop.ask_price });
+  S.pendingBuyId = buyId;
+  S.pendingPropId = null;
+  log(`[${S.pendingStratId}] Proposal $${prop.ask_price.toFixed(2)} → buying ${S.pendingType}`, 't');
+}
+
+/* ─── Buy Confirmation ─── */
+function onBuy(buy) {
+  if (!buy) return;
+  S.activeCtr = {
+    id:       buy.contract_id,
+    stratId:  S.pendingStratId,
+    type:     S.pendingType,
+    stake:    S.pendingStake,
+    buyPrice: buy.buy_price,
+    spot:     buy.spot || null
+  };
+  S.pendingBuyId = null;
+
+  // Subscribe to contract updates
+  wsSend({ proposal_open_contract: 1, contract_id: buy.contract_id, subscribe: 1 });
+
+  showActiveTrade(S.activeCtr, buy);
+  log(`[${S.pendingStratId}] Contract open #${buy.contract_id} | ${S.pendingType} | $${buy.buy_price.toFixed(2)}`, 't');
+}
+
+/* ─── Contract Update ─── */
+function onContract(poc) {
+  if (!poc || !S.activeCtr) return;
+  if (poc.contract_id !== S.activeCtr.id) return;
+
+  // Update live P&L
+  if (poc.profit !== undefined) updateATpnl(poc.profit);
+
+  const settled = poc.is_sold === 1 || poc.status === 'sold' || poc.status === 'won' || poc.status === 'lost';
+  if (!settled) return;
+
+  // Forget subscription
+  if (poc.subscription?.id) wsSend({ forget: poc.subscription.id });
+
+  const won   = poc.profit > 0;
+  const pnl   = poc.profit;
+  const sid   = S.activeCtr.stratId;
+  const s     = strat(sid);
+
+  // Record trade
+  recordTrade(S.activeCtr, won, pnl);
+
+  // Update strategy
+  if (s) {
+    if (won) {
+      log(`[${s.name}] WIN ${fmt2(pnl)} | ${S.activeCtr.type}`, 's');
+      s.onWin(Math.abs(pnl));
+    } else {
+      log(`[${s.name}] LOSS ${fmt2(pnl)} | ${S.activeCtr.type}`, 'e');
+      s.onLoss(Math.abs(pnl));
+    }
+    refreshStratUI(sid);
+  }
+
+  // Session update
+  if (won) { S.session.wins++; S.session.pnl += Math.abs(pnl); }
+  else      { S.session.losses++; S.session.pnl -= Math.abs(pnl); }
+  refreshSession();
+
+  // Clear state
+  S.activeCtr = S.pendingStratId = S.pendingType = S.pendingStake = null;
+  clearActiveTrade();
+}
+
+/* ═══════════════════════════════════════════════════════
+   DIGIT MANAGEMENT
+═══════════════════════════════════════════════════════ */
+function pushDigit(d) {
+  S.digits.push(d);
+  if (S.digits.length > MAX_HIST) S.digits.shift();
+}
+
+function evenPct(n) {
+  const h = S.digits.slice(-n);
+  if (!h.length) return 50;
+  return (h.filter(d => isEven(d)).length / h.length) * 100;
+}
+
+/* ═══════════════════════════════════════════════════════
+   TAPE RENDERER
+═══════════════════════════════════════════════════════ */
+function renderTape(tick) {
+  const tiles = $('digit-tiles');
+  const view  = S.digits.slice(-TAPE_SHOW);
+
+  tiles.innerHTML = '';
+  view.forEach((d, i) => {
+    const el = document.createElement('div');
+    el.className = `dtile ${isEven(d) ? 'e' : 'o'}${i === view.length - 1 ? ' latest' : ''}`;
+    el.textContent = d;
+    tiles.appendChild(el);
+  });
+
+  // Ratio bar
+  const n  = Math.min(S.digits.length, 30);
+  const ep = evenPct(n);
+  $('ratio-e').style.width = ep.toFixed(1) + '%';
+  $('tm-even').textContent = ep.toFixed(0);
+  $('tm-odd').textContent  = (100 - ep).toFixed(0);
+  $('tm-count').textContent = S.digits.length;
+
+  // Price display
+  if (tick) {
+    const ps  = tick.quote.toFixed(2);
+    const ld  = ps.slice(-1);
+    const body = ps.slice(0, -1);
+    $('tp-body').textContent = body;
+    const tpLast = $('tp-last');
+    tpLast.textContent = ld;
+    tpLast.className  = 'tp-last ' + (isEven(parseInt(ld)) ? 'even-c' : 'odd-c');
+    $('tm-tick').textContent = tick.epoch;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   STRATEGY BASE
+═══════════════════════════════════════════════════════ */
+class StratBase {
+  constructor(id, name) {
+    this.id   = id;
+    this.name = name;
+    this.isRunning  = false;
+    this.hasPending = false;
+    this.wins    = 0;
+    this.losses  = 0;
+    this.totLoss = 0;  // cumulative dollar loss this session
+    this.totWin  = 0;
+    this.pnl     = 0;
+    this.stopReason = null;
+    this.curStake  = 0;
+    // params set by readParams()
+    this.initialStake = 0.5;
+    this.martangle    = 2;
+    this.noOfWin      = 8;
+    this.stopLoss     = 30;
+    this.useMG        = true;
+  }
+
+  readParams() {} // override
+
+  getSignal(digits) { return null; } // override → 'DIGITEVEN'|'DIGITODD'|null
+
+  start() {
+    this.readParams();
+    this.curStake   = this.initialStake;
+    this.wins       = 0;
+    this.losses     = 0;
+    this.totLoss    = 0;
+    this.totWin     = 0;
+    this.pnl        = 0;
+    this.stopReason = null;
+    this.hasPending = false;
+    this.isRunning  = true;
+    log(`[${this.name}] Started — Stake $${this.curStake.toFixed(2)} · TP ${this.noOfWin} wins · SL $${this.stopLoss}`, 's');
+  }
+
+  forceStop(reason) {
+    this.isRunning  = false;
+    this.hasPending = false;
+    this.stopReason = reason;
+    if (reason !== 'MANUAL') refreshStratUI(this.id);
+  }
+
+  stop(reason) {
+    this.isRunning  = false;
+    this.hasPending = false;
+    this.stopReason = reason;
+    if (reason === 'TAKE_PROFIT')
+      log(`[${this.name}] ✓ Take Profit — ${this.wins} wins | P&L ${fmt2(this.pnl)}`, 's');
+    else if (reason === 'STOP_LOSS')
+      log(`[${this.name}] ✕ Stop Loss — total loss $${this.totLoss.toFixed(2)} | P&L ${fmt2(this.pnl)}`, 'e');
+  }
+
+  onWin(profit) {
+    this.wins++;
+    this.totWin += profit;
+    this.pnl    += profit;
+    this.curStake  = this.initialStake; // reset on win
+    this.hasPending = false;
+    if (this.wins >= this.noOfWin) { this.stop('TAKE_PROFIT'); }
+  }
+
+  onLoss(loss) {
+    this.losses++;
+    this.totLoss += loss;
+    this.pnl     -= loss;
+    if (this.useMG) {
+      this.curStake = parseFloat((this.curStake * this.martangle).toFixed(2));
+    } else {
+      this.curStake = this.initialStake;
+    }
+    this.hasPending = false;
+    if (this.totLoss >= this.stopLoss) { this.stop('STOP_LOSS'); }
+  }
+
+  // Called each tick → returns signal or null
+  tick(digits) {
+    if (!this.isRunning || this.hasPending || this.stopReason) return null;
+    const sig = this.getSignal(digits);
+    if (sig) this.hasPending = true;
+    return sig;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   STRATEGY 1 — EvOd Percentage (EvOd_.xml)
+   Analyzes even% of last N digits vs threshold,
+   trades EVEN or ODD based on selected mode.
+═══════════════════════════════════════════════════════ */
+class EvOdPercentage extends StratBase {
+  constructor() { super('evod', 'EvOd%'); }
+
+  readParams() {
+    this.mode         = parseInt($('ep-mode').value);
+    this.numDigits    = parseInt($('ep-n').value)      || 30;
+    this.threshold    = parseFloat($('ep-thresh').value) || 55;
+    this.initialStake = parseFloat($('ep-stake').value)  || 0.50;
+    this.martangle    = parseFloat($('ep-mart').value)   || 2;
+    this.noOfWin      = parseInt($('ep-tp').value)       || 8;
+    this.stopLoss     = parseFloat($('ep-sl').value)     || 30;
+    this.useMG        = $('ep-usemg').value === 'true';
+  }
+
+  getSignal(digits) {
+    if (digits.length < this.numDigits) return null;
+    const recent   = digits.slice(-this.numDigits);
+    const evenCnt  = recent.filter(d => isEven(d)).length;
+    const ep       = (evenCnt / this.numDigits) * 100;
+    const op       = 100 - ep;
+    const t        = this.threshold;
+
+    switch (this.mode) {
+      // Mode 0: "If Even% > X → trade EVEN, else if Odd% > X → trade ODD" (follow dominant)
+      case 0:
+        if (ep > t) return 'DIGITEVEN';
+        if (op > t) return 'DIGITODD';
+        return null;
+      // Mode 1: "If Even% < X → trade EVEN" (trade when even is minority — mean revert to even)
+      case 1:
+        if (ep < (100 - t)) return 'DIGITEVEN';
+        if (op < (100 - t)) return 'DIGITODD';
+        return null;
+      // Mode 2: "If Even% > X → trade ODD" (contrarian — even dominates, bet ODD will come)
+      case 2:
+        if (ep > t) return 'DIGITODD';
+        if (op > t) return 'DIGITEVEN';
+        return null;
+      // Mode 3: "If Even% < X → trade ODD" (contrarian on minority)
+      case 3:
+        if (ep < (100 - t)) return 'DIGITODD';
+        if (op < (100 - t)) return 'DIGITEVEN';
+        return null;
+      default: return null;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   STRATEGY 2 — EvOd Directional / Streak Follow (EvOdDirectional.xml)
+   If last N digits are ALL_EVEN → trade EVEN (follow streak)
+   If last N digits are ALL_ODD  → trade ODD  (follow streak)
+═══════════════════════════════════════════════════════ */
+class EvOdDirectional extends StratBase {
+  constructor() { super('dir', 'EvOd Dir'); }
+
+  readParams() {
+    this.streak       = parseInt($('di-streak').value)   || 2;
+    this.initialStake = parseFloat($('di-stake').value)  || 0.50;
+    this.martangle    = parseFloat($('di-mart').value)   || 2;
+    this.noOfWin      = parseInt($('di-tp').value)       || 8;
+    this.stopLoss     = parseFloat($('di-sl').value)     || 30;
+    this.useMG        = $('di-usemg').value === 'true';
+  }
+
+  getSignal(digits) {
+    if (digits.length < this.streak) return null;
+    const recent = digits.slice(-this.streak);
+    const allEven = recent.every(d =>  isEven(d));
+    const allOdd  = recent.every(d => !isEven(d));
+    if (allEven) return 'DIGITEVEN'; // streak of evens → bet even continues
+    if (allOdd)  return 'DIGITODD';  // streak of odds → bet odd continues
+    return null;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   STRATEGY 3 — EvOd Reverse / Counter-streak (EvOdreverse.xml)
+   If last N digits are ALL_EVEN → trade ODD  (expect reversal)
+   If last N digits are ALL_ODD  → trade EVEN (expect reversal)
+═══════════════════════════════════════════════════════ */
+class EvOdReverse extends StratBase {
+  constructor() { super('rev', 'EvOd Rev'); }
+
+  readParams() {
+    this.streak       = parseInt($('rv-streak').value)   || 2;
+    this.initialStake = parseFloat($('rv-stake').value)  || 0.50;
+    this.martangle    = parseFloat($('rv-mart').value)   || 2;
+    this.noOfWin      = parseInt($('rv-tp').value)       || 8;
+    this.stopLoss     = parseFloat($('rv-sl').value)     || 30;
+    this.useMG        = $('rv-usemg').value === 'true';
+  }
+
+  getSignal(digits) {
+    if (digits.length < this.streak) return null;
+    const recent = digits.slice(-this.streak);
+    const allEven = recent.every(d =>  isEven(d));
+    const allOdd  = recent.every(d => !isEven(d));
+    if (allEven) return 'DIGITODD';  // even streak → bet reversal to odd
+    if (allOdd)  return 'DIGITEVEN'; // odd streak → bet reversal to even
+    return null;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   STRATEGY INSTANCES
+═══════════════════════════════════════════════════════ */
+const STRATEGIES = [
+  new EvOdPercentage(),
+  new EvOdDirectional(),
+  new EvOdReverse()
+];
+
+const strat = id => STRATEGIES.find(s => s.id === id);
+
+/* ═══════════════════════════════════════════════════════
+   TICK → STRATEGY DISPATCH
+   Only one strategy trades at a time.
+═══════════════════════════════════════════════════════ */
+function tickStrategies() {
+  // If a contract is still active, don't trigger new trade
+  if (S.activeCtr) return;
+
+  for (const s of STRATEGIES) {
+    const sig = s.tick(S.digits);
+    if (sig) {
+      executeTrade(s, sig);
+      break;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   TRADE EXECUTION
+═══════════════════════════════════════════════════════ */
+function executeTrade(s, contractType) {
+  if (!S.connected) {
+    log('Cannot trade: not connected', 'e');
+    s.hasPending = false;
+    return;
+  }
+
+  S.pendingStratId = s.id;
+  S.pendingType    = contractType;
+  S.pendingStake   = s.curStake;
+
+  log(`[${s.name}] Signal → ${contractType} | Stake: $${s.curStake.toFixed(2)}`, 't');
+
+  // Request price proposal (no subscribe — one shot, buy immediately on response)
+  const propId = wsSend({
+    proposal:           1,
+    amount:             s.curStake,
+    basis:              'stake',
+    contract_type:      contractType,
+    currency:           CURRENCY,
+    duration:           1,
+    duration_unit:      't',
+    underlying_symbol:  SYMBOL
+  });
+  S.pendingPropId = propId;
+}
+
+/* ═══════════════════════════════════════════════════════
+   UI — STRATEGY CARD REFRESH
+═══════════════════════════════════════════════════════ */
+const UI_MAP = {
+  evod: { pfx:'ep', stake:'ep-s-stake', wins:'ep-s-wins', loss:'ep-s-loss', pnl:'ep-s-pnl', prog:'ep-prog' },
+  dir:  { pfx:'di', stake:'di-s-stake', wins:'di-s-wins', loss:'di-s-loss', pnl:'di-s-pnl', prog:'di-prog' },
+  rev:  { pfx:'rv', stake:'rv-s-stake', wins:'rv-s-wins', loss:'rv-s-loss', pnl:'rv-s-pnl', prog:'rv-prog' }
+};
+
+function refreshStratUI(id) {
+  const s   = strat(id);
+  const ui  = UI_MAP[id];
+  if (!s || !ui) return;
+
+  // Stats
+  const displayStake = s.isRunning ? s.curStake : (s.initialStake || parseFloat(document.getElementById(`${ui.pfx}-stake`)?.value || 0.5));
+  $(ui.stake).textContent = `$${displayStake.toFixed(2)}`;
+  $(ui.wins).textContent  = s.wins;
+  $(ui.loss).textContent  = s.losses;
+  const pnlEl = $(ui.pnl);
+  pnlEl.textContent = fmt2(s.pnl);
+  pnlEl.className   = 'sv ' + (s.pnl > 0 ? 'g' : s.pnl < 0 ? 'r' : 'n');
+
+  // Progress bar (wins / take profit)
+  const tp = s.noOfWin || 8;
+  $(ui.prog).style.width = Math.min((s.wins / tp) * 100, 100) + '%';
+
+  // Card + badge
+  const card  = $(`card-${id}`);
+  const badge = $(`bdg-${id}`);
+  const btn   = $(`btn-${id}`);
+  card.className  = 'sc';
+  badge.className = 'sc-badge';
+
+  if (s.isRunning) {
+    card.classList.add('running');
+    if (s.hasPending) {
+      badge.classList.add('pend');
+      badge.textContent = 'PENDING';
+    } else {
+      badge.classList.add('run');
+      badge.textContent = 'RUNNING';
+    }
+    btn.className   = 'btn-s stop';
+    btn.textContent = '■ STOP';
+    setParamsDisabled(id, true);
+  } else {
+    setParamsDisabled(id, false);
+    btn.className   = 'btn-s';
+    btn.textContent = '▶ START';
+    if (s.stopReason === 'TAKE_PROFIT') {
+      card.classList.add('tp');
+      badge.classList.add('tp');
+      badge.textContent = '✓ PROFIT';
+    } else if (s.stopReason === 'STOP_LOSS') {
+      card.classList.add('sl');
+      badge.classList.add('sl');
+      badge.textContent = '✕ SL HIT';
+    } else {
+      badge.textContent = 'IDLE';
+    }
+  }
+}
+
+function setParamsDisabled(id, dis) {
+  document.querySelectorAll(`#card-${id} input, #card-${id} select`).forEach(el => el.disabled = dis);
+}
+
+/* ═══════════════════════════════════════════════════════
+   UI — SESSION STATS
+═══════════════════════════════════════════════════════ */
+function refreshSession() {
+  const { wins, losses, pnl } = S.session;
+  const total = wins + losses;
+  $('s-total').textContent = total;
+  $('s-wins').textContent  = wins;
+  $('s-loss').textContent  = losses;
+  $('s-wr').textContent    = total ? ((wins / total) * 100).toFixed(0) + '%' : '—';
+  $('s-wr').className      = 'sv ' + (wins > losses ? 'g' : losses > wins ? 'r' : 'n');
+  const pEl = $('sess-pnl');
+  pEl.textContent = (pnl >= 0 ? '+' : '') + '$' + Math.abs(pnl).toFixed(2);
+  pEl.className   = 'sv ' + (pnl > 0 ? 'g' : pnl < 0 ? 'r' : 'n');
+}
+
+/* ═══════════════════════════════════════════════════════
+   UI — ACTIVE TRADE PANEL
+═══════════════════════════════════════════════════════ */
+function showActiveTrade(ctr, buy) {
+  $('at-empty').style.display   = 'none';
+  $('at-content').style.display = 'block';
+  $('at-pill').style.display    = 'flex';
+
+  const isE = ctr.type === 'DIGITEVEN';
+  $('at-type').textContent  = ctr.type;
+  $('at-type').className    = 'at-badge ' + (isE ? 'e' : 'o');
+  $('at-id').textContent    = ctr.id;
+  $('at-strat').textContent = strat(ctr.stratId)?.name || '?';
+  $('at-stake').textContent = `$${ctr.stake.toFixed(2)}`;
+  $('at-buy').textContent   = `$${buy.buy_price.toFixed(2)}`;
+  $('at-spot').textContent  = buy.spot || '—';
+  $('at-ctype').textContent = ctr.type === 'DIGITEVEN' ? 'Win if last digit EVEN (0,2,4,6,8)' : 'Win if last digit ODD (1,3,5,7,9)';
+  const pEl = $('at-pnl');
+  pEl.textContent  = '$0.00';
+  pEl.className    = '';
+}
+
+function updateATpnl(profit) {
+  const pEl = $('at-pnl');
+  pEl.textContent = (profit >= 0 ? '+' : '') + '$' + Math.abs(profit).toFixed(2);
+  pEl.className   = 'at-pnl ' + (profit >= 0 ? 'pos' : 'neg');
+}
+
+function clearActiveTrade() {
+  $('at-empty').style.display   = 'block';
+  $('at-content').style.display = 'none';
+  $('at-pill').style.display    = 'none';
+}
+
+/* ═══════════════════════════════════════════════════════
+   UI — TRADE HISTORY TABLE
+═══════════════════════════════════════════════════════ */
+function recordTrade(ctr, won, pnl) {
+  S.tradeNum++;
+  const n = S.tradeNum;
+  const body = $('h-body');
+  if (n === 1) body.innerHTML = '';
+
+  const tr = document.createElement('tr');
+  tr.className = won ? 'wrow' : 'lrow';
+  const tClass = ctr.type === 'DIGITEVEN' ? 'e' : 'o';
+  const tLabel = ctr.type === 'DIGITEVEN' ? 'EVEN' : 'ODD';
+  tr.innerHTML = `
+    <td style="color:var(--text3)">${n}</td>
+    <td>${ts()}</td>
+    <td>${strat(ctr.stratId)?.name || '?'}</td>
+    <td><span class="tpill ${tClass}">${tLabel}</span></td>
+    <td>$${ctr.stake.toFixed(2)}</td>
+    <td><span class="rpill ${won ? 'w' : 'l'}">${won ? 'WIN' : 'LOSS'}</span></td>
+    <td style="color:var(--${won ? 'win' : 'loss'})">${fmt2(pnl)}</td>
+  `;
+  body.insertBefore(tr, body.firstChild);
+  while (body.children.length > 150) body.removeChild(body.lastChild);
+  $('h-count').textContent = `${n} trade${n !== 1 ? 's' : ''}`;
+}
+
+/* ═══════════════════════════════════════════════════════
+   UI — CONNECTION STATUS
+═══════════════════════════════════════════════════════ */
+function setStatus(cls, label) {
+  const d = $('cdot');
+  d.className = '';
+  if (cls) d.classList.add(cls);
+  $('clbl').textContent = label;
+}
+
+/* ═══════════════════════════════════════════════════════
+   EVENT LISTENERS
+═══════════════════════════════════════════════════════ */
+// CONNECT
+$('btn-conn').addEventListener('click', async () => {
+  const appId = $('inp-appid').value.trim();
+  const token = $('inp-token').value.trim();
+  const err   = $('auth-err');
+
+  if (!appId || !token) {
+    err.textContent = '⚠ Please enter both App ID and PAT Token.';
+    err.style.display = 'block';
+    return;
+  }
+
+  S.appId = appId;
+  S.token = token;
+  err.style.display = 'none';
+  $('btn-conn').disabled = true;
+  $('btn-conn').textContent = 'Connecting…';
+  setStatus('ing', 'Authenticating…');
+
+  try {
+    log('Fetching Options accounts…', 'i');
+    let accts = await fetchAccounts();
+    let account;
+
+    if (!accts || accts.length === 0) {
+      log('No accounts found — creating demo account…', 'w');
+      account = await createAccount();
+      log(`Demo account created: ${account.account_id}`, 's');
+    } else {
+      // Prefer demo, then any active
+      account = accts.find(a => a.account_type === 'demo' && a.status === 'active')
+             || accts.find(a => a.status === 'active')
+             || accts[0];
+      log(`Found ${accts.length} account(s) — using ${account.account_id} (${account.account_type})`, 'i');
+    }
+
+    if (!account) throw new Error('No usable account found');
+
+    S.account = account;
+    $('h-acct').textContent = account.account_id;
+    $('h-type').textContent = account.account_type.toUpperCase();
+    $('h-bal').textContent  = `$${account.balance.toFixed ? account.balance.toFixed(2) : account.balance}`;
+
+    log(`Account ${account.account_id} (${account.account_type}) · Balance $${account.balance}`, 's');
+    setStatus('ing', 'Requesting WebSocket URL…');
+
+    // Get OTP URL → connect IMMEDIATELY (OTP is short-lived)
+    log('Requesting OTP WebSocket URL…', 'i');
+    const wsUrl = await getOTP(account.account_id);
+    S.wsUrl = wsUrl;
+
+    log('Connecting WebSocket…', 'i');
+    wsConnect(wsUrl);
+
+    $('btn-conn').disabled = false;
+    $('btn-conn').textContent = '▶ Connect';
+
+  } catch (e) {
+    $('btn-conn').disabled = false;
+    $('btn-conn').textContent = '▶ Connect';
+    err.textContent = `⚠ ${e.message}`;
+    err.style.display = 'block';
+    setStatus('err', 'Connection failed');
+    log(`Connection error: ${e.message}`, 'e');
+  }
+});
+
+// DISCONNECT
+$('btn-disc').addEventListener('click', wsDisconnect);
+
+// RESET DEMO BALANCE
+$('btn-rst').addEventListener('click', async () => {
+  if (!S.account || S.account.account_type !== 'demo') {
+    log('Balance reset is only available for demo accounts', 'w');
+    return;
+  }
+  try {
+    log('Resetting demo balance to $10,000…', 'i');
+    const res = await resetBalance(S.account.account_id);
+    log(`Balance reset ✓ — new balance: $${res.balance}`, 's');
+    $('h-bal').textContent = `$${parseFloat(res.balance).toFixed(2)}`;
+  } catch(e) {
+    log(`Reset error: ${e.message}`, 'e');
+  }
+});
+
+// STRATEGY BUTTONS
+function setupStratBtn(btnId, stratId) {
+  $(btnId).addEventListener('click', () => {
+    if (!S.connected) {
+      log('Connect to Deriv first before starting a strategy', 'w');
+      return;
+    }
+    const s = strat(stratId);
+    if (!s) return;
+
+    if (s.isRunning) {
+      // STOP
+      s.forceStop('MANUAL');
+      log(`[${s.name}] Stopped by user | Session P&L ${fmt2(s.pnl)}`, 'w');
+      refreshStratUI(stratId);
+    } else {
+      // Check no other strategy is running
+      const other = STRATEGIES.find(x => x.id !== stratId && x.isRunning);
+      if (other) {
+        log(`[${s.name}] Cannot start — ${other.name} is already running. Stop it first.`, 'w');
+        return;
+      }
+      if (S.digits.length < 5) {
+        log(`[${s.name}] Waiting for more tick data (${S.digits.length} digits so far)…`, 'w');
+      }
+      s.start();
+      refreshStratUI(stratId);
+    }
+  });
+}
+
+setupStratBtn('btn-evod', 'evod');
+setupStratBtn('btn-dir',  'dir');
+setupStratBtn('btn-rev',  'rev');
+
+/* ═══════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════ */
+log('SmartXtrader ready — Enter your App ID and PAT Token above to connect', 'i');
+log('Strategies: EvOd% (percentage analysis) · EvOd Directional (streak follow) · EvOd Reverse (streak counter)', 'i');
+log('Symbol: R_25 (Volatility 25 Index) · Contract: DIGITEVEN / DIGITODD · Duration: 1 tick', 'i');
+log('⚠ Trading involves risk. Always test on a demo account first.', 'w');
+
+</script>
+</body>
+</html>

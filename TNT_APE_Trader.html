@@ -1,0 +1,1798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TNT-APE · Touch/No Touch Adaptive Probability Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#0a0e14;
+    --bg-1:#0e131b;
+    --bg-2:#131a24;
+    --bg-3:#1a2230;
+    --line:#1f2a38;
+    --line-soft:#19212c;
+    --txt-0:#e8edf4;
+    --txt-1:#9aacc2;
+    --txt-2:#5e7186;
+    --touch:#00d9c0;
+    --touch-dim:#0a3a36;
+    --notouch:#ffb020;
+    --notouch-dim:#3d2a0a;
+    --green:#3ddc84;
+    --red:#ff5c5c;
+    --amber:#ffcc66;
+    --purple:#9d7bff;
+    --mono:'JetBrains Mono',monospace;
+    --sans:'Inter',-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:radial-gradient(ellipse at top, #0c1118 0%, var(--bg-0) 55%);
+    color:var(--txt-0);
+    font-family:var(--sans);
+    min-height:100vh;
+    padding-bottom:60px;
+  }
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+
+  /* ===== Header ===== */
+  header{
+    position:sticky;top:0;z-index:50;
+    background:rgba(10,14,20,0.92);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+    padding:12px 20px;
+    display:flex;align-items:center;justify-content:space-between;
+    flex-wrap:wrap;gap:10px;
+  }
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-mark{
+    width:34px;height:34px;border-radius:9px;
+    background:linear-gradient(135deg,var(--touch),var(--purple));
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-weight:700;font-size:13px;color:#001310;
+    flex-shrink:0;
+  }
+  .brand-text h1{font-size:15px;font-weight:700;letter-spacing:0.2px;}
+  .brand-text span{font-size:11px;color:var(--txt-2);font-family:var(--mono);}
+  .header-right{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .status-pill{
+    display:flex;align-items:center;gap:7px;
+    padding:6px 12px;border-radius:20px;
+    background:var(--bg-2);border:1px solid var(--line);
+    font-family:var(--mono);font-size:11.5px;color:var(--txt-1);
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--txt-2);transition:.2s;}
+  .dot.live{background:var(--green);box-shadow:0 0 8px var(--green);}
+  .dot.warn{background:var(--amber);box-shadow:0 0 8px var(--amber);}
+  .dot.err{background:var(--red);box-shadow:0 0 8px var(--red);}
+  .balance-pill{
+    font-family:var(--mono);font-size:13px;font-weight:600;
+    padding:6px 14px;border-radius:20px;
+    background:var(--bg-2);border:1px solid var(--line);
+  }
+  .balance-pill .cur{color:var(--txt-2);font-weight:400;font-size:11px;margin-left:4px;}
+
+  /* ===== Layout ===== */
+  .wrap{max-width:1440px;margin:0 auto;padding:18px 20px;}
+  .grid{display:grid;grid-template-columns:340px 1fr 340px;gap:16px;align-items:start;}
+  @media (max-width:1180px){.grid{grid-template-columns:1fr;}}
+  .col{display:flex;flex-direction:column;gap:16px;}
+
+  .card{
+    background:linear-gradient(180deg,var(--bg-2),var(--bg-1));
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px;
+  }
+  .card h2{
+    font-size:11px;text-transform:uppercase;letter-spacing:1.2px;
+    color:var(--txt-2);font-weight:700;margin-bottom:12px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .card h2 small{font-family:var(--mono);text-transform:none;letter-spacing:0;font-size:10.5px;color:var(--txt-2);}
+
+  label{font-size:11.5px;color:var(--txt-1);display:block;margin-bottom:5px;font-weight:500;}
+  input[type=text],input[type=password],input[type=number],select{
+    width:100%;background:var(--bg-0);border:1px solid var(--line);
+    color:var(--txt-0);padding:9px 10px;border-radius:8px;
+    font-family:var(--mono);font-size:12.5px;outline:none;
+    transition:border-color .15s;
+  }
+  input:focus,select:focus{border-color:var(--touch);}
+  .field{margin-bottom:11px;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+
+  button{
+    font-family:var(--sans);font-weight:600;font-size:12.5px;
+    border:none;border-radius:8px;padding:10px 14px;cursor:pointer;
+    transition:transform .08s, opacity .15s, filter .15s;
+  }
+  button:active{transform:scale(0.97);}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-primary{background:linear-gradient(135deg,var(--touch),#00b8a3);color:#00211c;}
+  .btn-primary:hover:not(:disabled){filter:brightness(1.08);}
+  .btn-ghost{background:var(--bg-3);color:var(--txt-1);border:1px solid var(--line);}
+  .btn-ghost:hover:not(:disabled){color:var(--txt-0);border-color:var(--txt-2);}
+  .btn-danger{background:linear-gradient(135deg,#ff6b6b,#c23a3a);color:#2a0606;}
+  .btn-amber{background:linear-gradient(135deg,var(--notouch),#cc8800);color:#2a1900;}
+  .btn-full{width:100%;}
+  .btn-row{display:flex;gap:8px;}
+
+  .toggle{
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--bg-0);border:1px solid var(--line);
+    border-radius:8px;padding:9px 12px;cursor:pointer;user-select:none;
+  }
+  .toggle .label{font-size:12px;color:var(--txt-1);font-weight:500;}
+  .switch{width:36px;height:20px;border-radius:12px;background:var(--bg-3);position:relative;transition:.2s;flex-shrink:0;}
+  .switch::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:var(--txt-2);top:2px;left:2px;transition:.2s;}
+  .switch.on{background:var(--touch-dim);}
+  .switch.on::after{background:var(--touch);transform:translateX(16px);}
+
+  .small-muted{font-size:10.5px;color:var(--txt-2);font-family:var(--mono);margin-top:4px;}
+  .hr{height:1px;background:var(--line-soft);margin:12px 0;}
+
+  /* ===== Tick tape / price ===== */
+  .price-display{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;}
+  .price-big{font-family:var(--mono);font-size:30px;font-weight:700;letter-spacing:-0.5px;}
+  .price-delta{font-family:var(--mono);font-size:13px;font-weight:600;padding:3px 8px;border-radius:6px;}
+  .price-delta.up{color:var(--green);background:rgba(61,220,132,0.1);}
+  .price-delta.down{color:var(--red);background:rgba(255,92,92,0.1);}
+  .price-delta.flat{color:var(--txt-2);background:var(--bg-3);}
+  canvas#tickChart{width:100%;height:160px;display:block;border-radius:10px;background:var(--bg-0);}
+  .tape{
+    display:flex;gap:6px;overflow-x:auto;margin-top:10px;padding-bottom:4px;
+  }
+  .tape-item{
+    font-family:var(--mono);font-size:11px;padding:4px 8px;border-radius:6px;
+    background:var(--bg-0);border:1px solid var(--line-soft);white-space:nowrap;flex-shrink:0;
+  }
+  .tape-item.up{color:var(--green);}
+  .tape-item.down{color:var(--red);}
+
+  /* ===== State badges ===== */
+  .state-badge{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:10px 16px;border-radius:10px;font-family:var(--mono);
+    font-weight:700;font-size:14px;width:100%;justify-content:center;
+    border:1px solid var(--line);
+  }
+  .state-IDLE{background:var(--bg-3);color:var(--txt-1);}
+  .state-COMPRESSED{background:rgba(157,123,255,0.12);color:var(--purple);border-color:rgba(157,123,255,0.3);}
+  .state-BREAKOUT{background:rgba(0,217,192,0.12);color:var(--touch);border-color:rgba(0,217,192,0.3);}
+  .state-TRENDING{background:rgba(61,220,132,0.12);color:var(--green);border-color:rgba(61,220,132,0.3);}
+  .state-EXHAUSTED{background:rgba(255,176,32,0.12);color:var(--notouch);border-color:rgba(255,176,32,0.3);}
+  .state-REVERSING{background:rgba(255,204,102,0.12);color:var(--amber);border-color:rgba(255,204,102,0.3);}
+  .state-HIGH_RISK{background:rgba(255,92,92,0.14);color:var(--red);border-color:rgba(255,92,92,0.35);}
+
+  .pattern-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
+  .pattern-flag{
+    font-family:var(--mono);font-size:10.5px;padding:8px;border-radius:8px;
+    background:var(--bg-0);border:1px solid var(--line-soft);color:var(--txt-2);
+    text-align:center;transition:.2s;
+  }
+  .pattern-flag.active{color:var(--bg-0);background:var(--touch);border-color:var(--touch);font-weight:700;}
+
+  /* ===== Probability meters ===== */
+  .meter{margin-bottom:14px;}
+  .meter-head{display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:6px;}
+  .meter-head .name{color:var(--txt-1);font-weight:600;}
+  .meter-head .val{font-family:var(--mono);font-weight:700;}
+  .meter-track{height:9px;border-radius:6px;background:var(--bg-0);overflow:hidden;border:1px solid var(--line-soft);}
+  .meter-fill{height:100%;border-radius:6px;transition:width .3s ease;}
+  .fill-touch{background:linear-gradient(90deg,#008f80,var(--touch));}
+  .fill-notouch{background:linear-gradient(90deg,#8a5e00,var(--notouch));}
+  .fill-conf{background:linear-gradient(90deg,#5a3fc0,var(--purple));}
+
+  /* ===== Signal panel ===== */
+  .signal-box{
+    border-radius:12px;padding:18px;text-align:center;border:1px solid var(--line);
+    background:var(--bg-0);
+  }
+  .signal-box .sig{font-family:var(--mono);font-size:20px;font-weight:700;margin-bottom:4px;}
+  .signal-box.none .sig{color:var(--txt-2);}
+  .signal-box.touch{border-color:rgba(0,217,192,0.4);background:rgba(0,217,192,0.06);}
+  .signal-box.touch .sig{color:var(--touch);}
+  .signal-box.notouch{border-color:rgba(255,176,32,0.4);background:rgba(255,176,32,0.06);}
+  .signal-box.notouch .sig{color:var(--notouch);}
+  .signal-box .sub{font-size:11px;color:var(--txt-2);}
+
+  .checklist{margin-top:12px;display:flex;flex-direction:column;gap:6px;}
+  .check-item{
+    display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--txt-2);
+    font-family:var(--mono);
+  }
+  .check-item .ic{width:14px;height:14px;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;background:var(--bg-3);}
+  .check-item.pass{color:var(--txt-0);}
+  .check-item.pass .ic{background:var(--green);color:#04210f;}
+  .check-item.fail .ic{background:var(--bg-3);color:var(--txt-2);}
+
+  /* ===== Risk panel ===== */
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .stat-box{background:var(--bg-0);border:1px solid var(--line-soft);border-radius:9px;padding:10px;}
+  .stat-box .lbl{font-size:10px;color:var(--txt-2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;}
+  .stat-box .num{font-family:var(--mono);font-size:16px;font-weight:700;}
+  .stat-box .num.pos{color:var(--green);}
+  .stat-box .num.neg{color:var(--red);}
+  .pause-banner{
+    margin-top:10px;padding:10px;border-radius:8px;background:rgba(255,92,92,0.1);
+    border:1px solid rgba(255,92,92,0.3);color:var(--red);font-size:11.5px;
+    font-family:var(--mono);text-align:center;display:none;
+  }
+  .pause-banner.show{display:block;}
+
+  /* ===== History table ===== */
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px;}
+  thead th{
+    text-align:left;color:var(--txt-2);font-weight:600;font-size:10px;
+    text-transform:uppercase;letter-spacing:0.5px;padding:6px 8px;
+    border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg-2);
+  }
+  tbody td{padding:7px 8px;border-bottom:1px solid var(--line-soft);color:var(--txt-1);}
+  tbody tr:hover{background:var(--bg-3);}
+  .tag{padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;}
+  .tag.touch{background:var(--touch-dim);color:var(--touch);}
+  .tag.notouch{background:var(--notouch-dim);color:var(--notouch);}
+  .tag.win{background:rgba(61,220,132,0.15);color:var(--green);}
+  .tag.loss{background:rgba(255,92,92,0.15);color:var(--red);}
+  .tag.open{background:rgba(157,123,255,0.15);color:var(--purple);}
+  .table-wrap{max-height:280px;overflow-y:auto;border-radius:8px;}
+  .empty-row{text-align:center;color:var(--txt-2);padding:24px 0 !important;}
+
+  .log-box{
+    background:var(--bg-0);border:1px solid var(--line-soft);border-radius:8px;
+    padding:8px 10px;height:120px;overflow-y:auto;font-family:var(--mono);font-size:10.5px;
+    color:var(--txt-2);line-height:1.6;
+  }
+  .log-line.err{color:var(--red);}
+  .log-line.ok{color:var(--green);}
+  .log-line.warn{color:var(--amber);}
+
+  .footer-note{text-align:center;color:var(--txt-2);font-size:10.5px;font-family:var(--mono);margin-top:24px;}
+
+  .weight-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .weight-row label{flex:0 0 110px;margin-bottom:0;font-size:11px;}
+  .weight-row input[type=range]{flex:1;accent-color:var(--touch);}
+  .weight-row .wval{font-family:var(--mono);font-size:11px;width:28px;text-align:right;color:var(--txt-1);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-mark">TNT</div>
+    <div class="brand-text">
+      <h1>TNT-APE Trading Terminal</h1>
+      <span>Touch / No Touch Adaptive Probability Engine</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="status-pill"><span class="dot" id="wsDot"></span><span id="wsStatusText">Disconnected</span></div>
+    <div class="status-pill"><span class="dot" id="tickDot"></span><span id="tickStatusText">No feed</span></div>
+    <div class="balance-pill" id="balancePill">— <span class="cur">USD</span></div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+
+    <!-- ============ LEFT COLUMN ============ -->
+    <div class="col" id="colLeft">
+
+      <!-- Connection -->
+      <div class="card">
+        <h2>Connection <small id="connSub">not connected</small></h2>
+        <div class="field">
+          <label>Deriv App ID</label>
+          <input type="text" id="inpAppId" placeholder="e.g. 70123" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Auth Token (PAT or OAuth)</label>
+          <input type="password" id="inpToken" placeholder="Bearer token" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Account Type</label>
+          <select id="inpAccType">
+            <option value="demo">Demo</option>
+            <option value="real">Real</option>
+          </select>
+        </div>
+        <div class="btn-row">
+          <button class="btn-primary btn-full" id="btnConnect">Connect</button>
+          <button class="btn-ghost" id="btnDisconnect" disabled>✕</button>
+        </div>
+        <div class="hr"></div>
+        <div class="field" style="margin-bottom:8px;">
+          <label>Active Account</label>
+          <select id="inpAccountSelect" disabled>
+            <option value="">— connect first —</option>
+          </select>
+        </div>
+        <div class="btn-row">
+          <button class="btn-ghost btn-full" id="btnResetDemo" disabled>Reset Demo Balance</button>
+        </div>
+      </div>
+
+      <!-- Contract parameters -->
+      <div class="card">
+        <h2>Option Parameters</h2>
+        <div class="field">
+          <label>Symbol</label>
+          <select id="inpSymbol">
+            <option value="R_10">Volatility 10 Index</option>
+            <option value="R_25">Volatility 25 Index</option>
+            <option value="R_50">Volatility 50 Index</option>
+            <option value="R_75">Volatility 75 Index</option>
+            <option value="R_100" selected>Volatility 100 Index</option>
+            <option value="1HZ10V">Volatility 10 (1s) Index</option>
+            <option value="1HZ25V">Volatility 25 (1s) Index</option>
+            <option value="1HZ50V">Volatility 50 (1s) Index</option>
+            <option value="1HZ75V">Volatility 75 (1s) Index</option>
+            <option value="1HZ100V">Volatility 100 (1s) Index</option>
+          </select>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Stake</label>
+            <input type="number" id="inpStake" value="10" min="0.35" step="0.5">
+          </div>
+          <div class="field">
+            <label>Currency</label>
+            <input type="text" id="inpCurrency" value="USD" disabled>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Duration</label>
+            <input type="number" id="inpDuration" value="5" min="1" step="1">
+          </div>
+          <div class="field">
+            <label>Duration Unit</label>
+            <select id="inpDurationUnit">
+              <option value="t">Ticks</option>
+              <option value="s">Seconds</option>
+              <option value="m" selected>Minutes</option>
+              <option value="h">Hours</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Barrier Offset (from spot, ATR-aware)</label>
+          <input type="number" id="inpBarrierOffset" value="0.5" min="0.01" step="0.01">
+          <div class="small-muted">Engine evaluates barrier as ± offset around live spot. Touch entries use 0.5–1×ATR; No Touch entries use &gt;2×ATR automatically via distance filter.</div>
+        </div>
+        <div class="hr"></div>
+        <div class="toggle" id="toggleAuto">
+          <span class="label">Auto-Trade Engine</span>
+          <div class="switch" id="switchAuto"></div>
+        </div>
+        <div class="small-muted" style="margin-top:6px;">One open contract at a time. Engine will not fire a new trade while a position is open or while risk-paused.</div>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="btn-primary btn-full" id="btnManualTouch" disabled>Buy Touch</button>
+          <button class="btn-amber btn-full" id="btnManualNoTouch" disabled>Buy No Touch</button>
+        </div>
+      </div>
+
+      <!-- Connection log -->
+      <div class="card">
+        <h2>Connection Log</h2>
+        <div class="log-box" id="logBox"></div>
+      </div>
+
+    </div>
+
+    <!-- ============ CENTER COLUMN ============ -->
+    <div class="col" id="colCenter">
+
+      <!-- Tick chart -->
+      <div class="card">
+        <h2><span id="symbolLabel">R_100</span> <small id="lastUpdateLabel">—</small></h2>
+        <div class="price-display">
+          <div class="price-big" id="priceBig">—</div>
+          <div class="price-delta flat" id="priceDelta">0.00</div>
+        </div>
+        <canvas id="tickChart"></canvas>
+        <div class="tape" id="tickTape"></div>
+      </div>
+
+      <!-- Market state + patterns -->
+      <div class="card">
+        <h2>Market State Machine</h2>
+        <div class="state-badge state-IDLE" id="stateBadge">IDLE</div>
+        <div class="pattern-grid" id="patternGrid">
+          <div class="pattern-flag" data-pattern="compression">COMPRESSION</div>
+          <div class="pattern-flag" data-pattern="expansion">EXPANSION</div>
+          <div class="pattern-flag" data-pattern="exhaustion">EXHAUSTION</div>
+          <div class="pattern-flag" data-pattern="reversion">MEAN REVERSION</div>
+        </div>
+      </div>
+
+      <!-- Probability engine -->
+      <div class="card">
+        <h2>Probability Engine</h2>
+        <div class="meter">
+          <div class="meter-head"><span class="name">Touch Probability</span><span class="val" id="valTouchProb">0%</span></div>
+          <div class="meter-track"><div class="meter-fill fill-touch" id="fillTouch" style="width:0%"></div></div>
+        </div>
+        <div class="meter">
+          <div class="meter-head"><span class="name">No Touch Probability</span><span class="val" id="valNoTouchProb">0%</span></div>
+          <div class="meter-track"><div class="meter-fill fill-notouch" id="fillNoTouch" style="width:0%"></div></div>
+        </div>
+        <div class="meter">
+          <div class="meter-head"><span class="name">Confidence</span><span class="val" id="valConfidence">0%</span></div>
+          <div class="meter-track"><div class="meter-fill fill-conf" id="fillConf" style="width:0%"></div></div>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="lbl">Distance Ratio</div><div class="num" id="valDistRatio">—</div></div>
+          <div class="stat-box"><div class="lbl">Volatility</div><div class="num" id="valVolatility">—</div></div>
+          <div class="stat-box"><div class="lbl">Trend Strength</div><div class="num" id="valTrend">—</div></div>
+          <div class="stat-box"><div class="lbl">ATR (proxy)</div><div class="num" id="valATR">—</div></div>
+        </div>
+      </div>
+
+      <!-- Trade history -->
+      <div class="card">
+        <h2>Trade History</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Time</th><th>Type</th><th>Barrier</th><th>Stake</th><th>Result</th><th>P/L</th></tr></thead>
+            <tbody id="historyBody">
+              <tr><td colspan="6" class="empty-row">No trades yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ============ RIGHT COLUMN ============ -->
+    <div class="col" id="colRight">
+
+      <!-- Trade signal -->
+      <div class="card">
+        <h2>Trade Signal</h2>
+        <div class="signal-box none" id="signalBox">
+          <div class="sig" id="signalText">NO SIGNAL</div>
+          <div class="sub" id="signalSub">Waiting for qualifying conditions</div>
+        </div>
+        <div class="checklist" id="checklistBox"></div>
+      </div>
+
+      <!-- Risk management -->
+      <div class="card">
+        <h2>Risk Manager</h2>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="lbl">Session P/L</div><div class="num" id="riskPL">$0.00</div></div>
+          <div class="stat-box"><div class="lbl">Drawdown</div><div class="num" id="riskDrawdown">0.0%</div></div>
+          <div class="stat-box"><div class="lbl">Consec. Losses</div><div class="num" id="riskConsecLoss">0</div></div>
+          <div class="stat-box"><div class="lbl">Stake / Trade</div><div class="num" id="riskStakePct">1.0%</div></div>
+        </div>
+        <div class="pause-banner" id="pauseBanner">Trading paused</div>
+        <div class="hr"></div>
+        <div class="row2">
+          <div class="field">
+            <label>Risk per Trade (%)</label>
+            <input type="number" id="inpRiskPct" value="1" min="0.1" max="5" step="0.1">
+          </div>
+          <div class="field">
+            <label>Max Daily Drawdown (%)</label>
+            <input type="number" id="inpMaxDrawdown" value="5" min="1" max="50" step="0.5">
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Max Consec. Losses</label>
+            <input type="number" id="inpMaxConsecLoss" value="3" min="1" max="10" step="1">
+          </div>
+          <div class="field">
+            <label>Cooldown (minutes)</label>
+            <input type="number" id="inpCooldown" value="30" min="1" max="240" step="1">
+          </div>
+        </div>
+      </div>
+
+      <!-- Session analytics -->
+      <div class="card">
+        <h2>Session Analytics</h2>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="lbl">Total Trades</div><div class="num" id="statTotal">0</div></div>
+          <div class="stat-box"><div class="lbl">Win Rate</div><div class="num" id="statWinRate">0.0%</div></div>
+          <div class="stat-box"><div class="lbl">Touch Accuracy</div><div class="num" id="statTouchAcc">—</div></div>
+          <div class="stat-box"><div class="lbl">No Touch Accuracy</div><div class="num" id="statNoTouchAcc">—</div></div>
+          <div class="stat-box"><div class="lbl">Profit Factor</div><div class="num" id="statProfitFactor">—</div></div>
+          <div class="stat-box"><div class="lbl">Expected Value</div><div class="num" id="statEV">—</div></div>
+        </div>
+        <div class="small-muted" id="adaptiveLabel" style="margin-top:10px;">Adaptive learning: 0 / 100 trades to next weight review</div>
+      </div>
+
+      <!-- Probability weights -->
+      <div class="card">
+        <h2>Engine Weights <small>auto-tunes every 100 trades</small></h2>
+        <div id="weightsBox"></div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="footer-note">TNT-APE · single-file trading terminal · session state is in-memory only — refreshing clears history · connects via Deriv-App-ID + Bearer auth → OTP → WebSocket</div>
+</div>
+
+<script>
+/* ====================================================================
+   TNT-APE — Touch / No Touch Adaptive Probability Engine
+   Single-file trading terminal for Deriv Options
+   ==================================================================== */
+"use strict";
+
+/* ---------------------------------------------------------------------
+   0. CONFIG / DOM HELPERS
+--------------------------------------------------------------------- */
+const API_BASE = 'https://api.derivws.com';
+const $ = (id) => document.getElementById(id);
+
+function logLine(msg, type) {
+  const box = $('logBox');
+  const line = document.createElement('div');
+  line.className = 'log-line' + (type ? ' ' + type : '');
+  const t = new Date().toLocaleTimeString();
+  line.textContent = `[${t}] ${msg}`;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+function fmt(n, dp) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return Number(n).toFixed(dp === undefined ? 4 : dp);
+}
+function fmtMoney(n) {
+  if (n === null || n === undefined || isNaN(n)) return '$0.00';
+  const sign = n < 0 ? '-' : '';
+  return `${sign}$${Math.abs(n).toFixed(2)}`;
+}
+function pct(n) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return (n * 100).toFixed(1) + '%';
+}
+function nowISO() { return new Date().toISOString(); }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+/* ---------------------------------------------------------------------
+   1. TICK BUFFER ENGINE  (Module 1)
+--------------------------------------------------------------------- */
+class TickBuffer {
+  constructor(maxLen = 200) {
+    this.maxLen = maxLen;
+    this.ticks = []; // { price, time }
+  }
+  addTick(price, time) {
+    this.ticks.push({ price, time });
+    if (this.ticks.length > this.maxLen) this.ticks.shift();
+  }
+  get length() { return this.ticks.length; }
+  prices(n) {
+    const arr = this.ticks;
+    return n ? arr.slice(Math.max(0, arr.length - n)).map(t => t.price) : arr.map(t => t.price);
+  }
+  window(n) {
+    const arr = this.ticks;
+    return arr.slice(Math.max(0, arr.length - n));
+  }
+  calculateRange(n) {
+    const p = this.prices(n);
+    if (!p.length) return 0;
+    return Math.max(...p) - Math.min(...p);
+  }
+  last() { return this.ticks[this.ticks.length - 1] || null; }
+  prev() { return this.ticks[this.ticks.length - 2] || null; }
+}
+
+/* ---------------------------------------------------------------------
+   2. MATH / FEATURE PRIMITIVES
+--------------------------------------------------------------------- */
+function mean(arr) { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0; }
+function stdDev(arr) {
+  if (arr.length < 2) return 0;
+  const m = mean(arr);
+  const variance = mean(arr.map(v => (v - m) ** 2));
+  return Math.sqrt(variance);
+}
+function ema(values, period) {
+  if (!values.length) return 0;
+  const k = 2 / (period + 1);
+  let e = values[0];
+  for (let i = 1; i < values.length; i++) e = values[i] * k + e * (1 - k);
+  return e;
+}
+function rsi(values, period = 14) {
+  if (values.length < period + 1) return 50;
+  const slice = values.slice(-(period + 1));
+  let gains = 0, losses = 0;
+  for (let i = 1; i < slice.length; i++) {
+    const d = slice[i] - slice[i - 1];
+    if (d >= 0) gains += d; else losses += Math.abs(d);
+  }
+  const avgGain = gains / period, avgLoss = losses / period;
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return 100 - (100 / (1 + rs));
+}
+function atrProxy(buffer, period = 14) {
+  const w = buffer.window(period + 1);
+  if (w.length < 2) return 0;
+  let trSum = 0, count = 0;
+  for (let i = 1; i < w.length; i++) {
+    trSum += Math.abs(w[i].price - w[i - 1].price);
+    count++;
+  }
+  return count ? trSum / count : 0;
+}
+
+/* ---------------------------------------------------------------------
+   3. FEATURE GENERATION ENGINE  (Module 2)
+--------------------------------------------------------------------- */
+class FeatureEngine {
+  constructor() {
+    this.prevVelocity = 0;
+    this.volHistory = []; // rolling volatility readings for "increasing" detection
+  }
+
+  compute(buffer, barrierUp, barrierDown) {
+    const n = buffer.length;
+    if (n < 5) return null;
+
+    const last = buffer.last();
+    const prev = buffer.prev();
+    const p20 = buffer.prices(20);
+    const p50 = buffer.prices(50);
+    const pAll = buffer.prices();
+
+    const delta = prev ? last.price - prev.price : 0;
+    const timeDiff = prev ? Math.max(0.001, (last.time - prev.time)) : 1;
+    const velocity = Math.abs(delta) / timeDiff;
+    const acceleration = velocity - this.prevVelocity;
+    this.prevVelocity = velocity;
+
+    const volatility = stdDev(p20);
+    this.volHistory.push(volatility);
+    if (this.volHistory.length > 30) this.volHistory.shift();
+    const volAvg = mean(this.volHistory);
+    const volatilityIncreasing = this.volHistory.length > 5 &&
+      volatility > mean(this.volHistory.slice(-6, -1));
+
+    const ema10 = ema(buffer.prices(Math.min(n, 30)), 10);
+    const ema25 = ema(buffer.prices(Math.min(n, 60)), 25);
+    const ema50 = ema(buffer.prices(Math.min(n, 100)), 50);
+    const trendStrength = ema10 - ema50;
+
+    const rsi14 = rsi(pAll, 14);
+    const atr = atrProxy(buffer, 14) || 1e-9;
+
+    const range20 = buffer.calculateRange(20);
+    const range50 = buffer.calculateRange(50);
+
+    // momentum: 10-tick price change
+    const m10 = buffer.prices(11);
+    const momentum = m10.length >= 2 ? (m10[m10.length - 1] - m10[0]) : 0;
+
+    // average velocity over recent window (for expansion comparison)
+    const recentWindow = buffer.window(15);
+    let avgVelocity = 0;
+    if (recentWindow.length > 2) {
+      let sum = 0, c = 0;
+      for (let i = 1; i < recentWindow.length; i++) {
+        const dt = Math.max(0.001, recentWindow[i].time - recentWindow[i - 1].time);
+        sum += Math.abs(recentWindow[i].price - recentWindow[i - 1].price) / dt;
+        c++;
+      }
+      avgVelocity = c ? sum / c : 0;
+    }
+
+    // wick ratio proxy: bucket last 10 ticks into a pseudo-candle
+    const bucket = buffer.prices(10);
+    const open = bucket[0], close = bucket[bucket.length - 1];
+    const high = Math.max(...bucket), low = Math.min(...bucket);
+    const body = Math.abs(close - open) || 1e-9;
+    const upperWick = high - Math.max(open, close);
+    const lowerWick = Math.min(open, close) - low;
+    const wickRatio = (upperWick + lowerWick) / body;
+    const candleStrength = body / (atr * 3 || 1e-9);
+
+    // barrier distance (use nearer barrier of up/down — touch entries probe nearest)
+    const distUp = Math.abs(barrierUp - last.price);
+    const distDown = Math.abs(last.price - barrierDown);
+    const nearestBarrierDist = Math.min(distUp, distDown);
+    const distanceRatio = nearestBarrierDist / atr;
+
+    // volatility classification relative to its own rolling baseline
+    let volLevel = 'LOW';
+    const volRatio = volAvg > 0 ? volatility / volAvg : 1;
+    if (volRatio > 2.2) volLevel = 'EXTREME';
+    else if (volRatio > 1.5) volLevel = 'HIGH';
+    else if (volRatio > 0.8) volLevel = 'MEDIUM';
+    else volLevel = 'LOW';
+
+    return {
+      price: last.price, delta, velocity, acceleration,
+      volatility, volAvg, volatilityIncreasing, volLevel,
+      ema10, ema25, ema50, trendStrength,
+      rsi14, atr, range20, range50, momentum, avgVelocity,
+      wickRatio, candleStrength,
+      distanceRatio, nearestBarrierDist,
+      n
+    };
+  }
+}
+
+/* ---------------------------------------------------------------------
+   4. PATTERN DETECTION LAYER  (Module 3)
+--------------------------------------------------------------------- */
+class PatternDetector {
+  constructor() {
+    this.velocityHistory = [];
+    this.emaCrossHistory = [];
+  }
+  detect(f, buffer) {
+    if (!f) return { compression: false, expansion: false, exhaustion: false, reversion: false };
+
+    this.velocityHistory.push(f.velocity);
+    if (this.velocityHistory.length > 10) this.velocityHistory.shift();
+    const velocityFalling = this.velocityHistory.length > 3 &&
+      f.velocity < mean(this.velocityHistory.slice(0, -1));
+
+    const compression = f.range50 > 0 && f.range20 < f.range50 * 0.5;
+    const expansion = f.velocity > f.avgVelocity && f.volatilityIncreasing;
+    const largeWicks = f.wickRatio > 1.2;
+    const exhaustion = velocityFalling && f.acceleration < 0 && largeWicks;
+
+    // mean reversion: count EMA10 crossings in recent prices
+    const prices = buffer.prices(20);
+    let crosses = 0;
+    for (let i = 1; i < prices.length; i++) {
+      const a = prices[i - 1] - f.ema10, b = prices[i] - f.ema10;
+      if ((a > 0 && b < 0) || (a < 0 && b > 0)) crosses++;
+    }
+    const reversion = crosses >= 4;
+
+    return { compression, expansion, exhaustion, reversion, velocityFalling };
+  }
+}
+
+/* ---------------------------------------------------------------------
+   5. MARKET STATE MACHINE  (Module 4)
+--------------------------------------------------------------------- */
+class MarketStateMachine {
+  constructor() {
+    this.state = 'IDLE';
+    this.wasCompressed = false;
+  }
+  transition(f, patterns) {
+    if (!f) { this.state = 'IDLE'; return this.state; }
+
+    if (f.volLevel === 'EXTREME') {
+      this.state = 'HIGH_RISK';
+      this.wasCompressed = false;
+      return this.state;
+    }
+
+    if (patterns.compression) {
+      this.state = 'COMPRESSED';
+      this.wasCompressed = true;
+      return this.state;
+    }
+
+    if (this.wasCompressed && patterns.expansion) {
+      this.state = 'BREAKOUT';
+      this.wasCompressed = false;
+      return this.state;
+    }
+
+    if (f.acceleration > 0 && Math.abs(f.trendStrength) > (f.atr * 0.5)) {
+      this.state = 'TRENDING';
+      return this.state;
+    }
+
+    if (patterns.exhaustion) {
+      this.state = 'EXHAUSTED';
+      return this.state;
+    }
+
+    if (patterns.reversion) {
+      this.state = 'REVERSING';
+      return this.state;
+    }
+
+    this.state = 'IDLE';
+    return this.state;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   6. PROBABILITY ENGINE  (Module 5)
+--------------------------------------------------------------------- */
+class ProbabilityEngine {
+  constructor(weights) {
+    // weights sum to 100 by design (velocity15, acceleration10, volatility15,
+    // highLowPattern15, candleStrength10, EMA10, RSI5, ATR10, pattern10)
+    this.weights = weights;
+  }
+
+  // squash any signed/raw feature into 0..1 "bullishness toward touch" score
+  static norm(v, scale) { return clamp(0.5 + (v / scale) * 0.5, 0, 1); }
+
+  score(f, patterns, marketState) {
+    if (!f) return { touchProbability: 0, noTouchProbability: 0, confidence: 0, components: {} };
+    const w = this.weights;
+
+    // Each component normalized to 0..1 representing "favors touch" strength
+    const cVelocity = clamp(f.velocity / (f.avgVelocity * 2 || 1), 0, 1);
+    const cAcceleration = ProbabilityEngine.norm(f.acceleration, Math.max(f.atr, 1e-6));
+    const cVolatility = clamp((f.volatility / (f.volAvg * 2 || 1)), 0, 1);
+    const cHighLow = patterns.expansion ? 0.85 : (patterns.compression ? 0.35 : 0.5);
+    const cCandle = clamp(f.candleStrength, 0, 1);
+    const cEMA = ProbabilityEngine.norm(f.trendStrength, Math.max(f.atr * 2, 1e-6));
+    const cRSI = clamp(1 - Math.abs(f.rsi14 - 50) / 50, 0, 1) * (f.rsi14 > 50 ? 1 : 0.6);
+    const cATR = clamp(f.distanceRatio > 0 ? (1 / (1 + f.distanceRatio)) : 0.5, 0, 1);
+    let cPattern = 0.5;
+    if (patterns.expansion) cPattern = 0.85;
+    else if (patterns.compression) cPattern = 0.4;
+    else if (patterns.exhaustion) cPattern = 0.15;
+    else if (patterns.reversion) cPattern = 0.2;
+
+    const score =
+      cVelocity * w.velocity +
+      cAcceleration * w.acceleration +
+      cVolatility * w.volatility +
+      cHighLow * w.highLowPattern +
+      cCandle * w.candleStrength +
+      cEMA * w.EMA +
+      cRSI * w.RSI +
+      cATR * w.ATR +
+      cPattern * w.pattern;
+
+    const totalWeight = Object.values(w).reduce((a, b) => a + b, 0) || 100;
+    const touchProbability = clamp(score / totalWeight, 0, 1);
+    const noTouchProbability = clamp(1 - touchProbability, 0, 1);
+    const confidence = clamp(Math.abs(touchProbability - 0.5) * 2, 0, 1);
+
+    return {
+      touchProbability, noTouchProbability, confidence,
+      components: { cVelocity, cAcceleration, cVolatility, cHighLow, cCandle, cEMA, cRSI, cATR, cPattern }
+    };
+  }
+}
+
+/* ---------------------------------------------------------------------
+   7. TRADE VALIDATION LAYER  (Module 6)
+--------------------------------------------------------------------- */
+class TradeValidator {
+  validate(prob, f, marketState) {
+    const checks = { touch: [], notouch: [] };
+    if (!f) return { signal: 'NONE', checks, reason: 'Insufficient tick data' };
+
+    const touchPass = {
+      prob: prob.touchProbability > 0.75,
+      dist: f.distanceRatio < 1,
+      state: marketState === 'TRENDING',
+      vol: f.volLevel !== 'EXTREME'
+    };
+    checks.touch = [
+      { label: `Touch probability > 75% (${pct(prob.touchProbability)})`, pass: touchPass.prob },
+      { label: `Distance ratio < 1 (${fmt(f.distanceRatio, 2)})`, pass: touchPass.dist },
+      { label: `Market state = TRENDING (${marketState})`, pass: touchPass.state },
+      { label: `Volatility ≠ EXTREME (${f.volLevel})`, pass: touchPass.vol }
+    ];
+
+    const notouchPass = {
+      prob: prob.noTouchProbability > 0.75,
+      dist: f.distanceRatio > 2,
+      state: marketState === 'EXHAUSTED',
+      vol: f.volLevel !== 'HIGH' && f.volLevel !== 'EXTREME'
+    };
+    checks.notouch = [
+      { label: `No Touch probability > 75% (${pct(prob.noTouchProbability)})`, pass: notouchPass.prob },
+      { label: `Distance ratio > 2 (${fmt(f.distanceRatio, 2)})`, pass: notouchPass.dist },
+      { label: `Market state = EXHAUSTED (${marketState})`, pass: notouchPass.state },
+      { label: `Volatility ≠ HIGH/EXTREME (${f.volLevel})`, pass: notouchPass.vol }
+    ];
+
+    // ambiguous score rejection (45-60 band)
+    const touchPctScore = prob.touchProbability * 100;
+    const ambiguous = touchPctScore >= 45 && touchPctScore <= 60;
+
+    if (!ambiguous && Object.values(touchPass).every(Boolean)) {
+      return { signal: 'BUY_TOUCH', checks, reason: 'All touch conditions satisfied' };
+    }
+    if (!ambiguous && Object.values(notouchPass).every(Boolean)) {
+      return { signal: 'BUY_NOTOUCH', checks, reason: 'All no-touch conditions satisfied' };
+    }
+    return { signal: 'NONE', checks, reason: ambiguous ? 'Ambiguous score band (45–60)' : 'Conditions not fully met' };
+  }
+}
+
+/* ---------------------------------------------------------------------
+   8. RISK MANAGEMENT ENGINE  (Module 7)
+--------------------------------------------------------------------- */
+class RiskManager {
+  constructor() {
+    this.startBalance = null;
+    this.peakBalance = null;
+    this.sessionPL = 0;
+    this.consecutiveLosses = 0;
+    this.pausedUntil = null;
+    this.tradeCooldownUntil = null;
+  }
+  init(balance) {
+    if (this.startBalance === null) { this.startBalance = balance; this.peakBalance = balance; }
+  }
+  recordResult(profit, currentBalance) {
+    this.sessionPL += profit;
+    if (currentBalance !== undefined) this.peakBalance = Math.max(this.peakBalance ?? currentBalance, currentBalance);
+    if (profit < 0) this.consecutiveLosses++; else this.consecutiveLosses = 0;
+
+    const maxLosses = parseInt($('inpMaxConsecLoss').value, 10) || 3;
+    const cooldownMin = parseFloat($('inpCooldown').value) || 30;
+    if (this.consecutiveLosses >= maxLosses) {
+      this.pausedUntil = Date.now() + cooldownMin * 60000;
+      logLine(`Risk pause triggered: ${this.consecutiveLosses} consecutive losses. Cooling down ${cooldownMin}m.`, 'warn');
+    }
+  }
+  drawdownPct(currentBalance) {
+    if (!this.peakBalance || this.peakBalance <= 0) return 0;
+    return clamp((this.peakBalance - currentBalance) / this.peakBalance, 0, 1);
+  }
+  canTrade(currentBalance, volLevel) {
+    if (this.pausedUntil && Date.now() < this.pausedUntil) {
+      return { ok: false, reason: `Paused (consecutive losses) — resumes ${new Date(this.pausedUntil).toLocaleTimeString()}` };
+    }
+    if (this.pausedUntil && Date.now() >= this.pausedUntil) this.pausedUntil = null;
+
+    const maxDD = (parseFloat($('inpMaxDrawdown').value) || 5) / 100;
+    if (currentBalance !== undefined && this.drawdownPct(currentBalance) >= maxDD) {
+      return { ok: false, reason: `Max daily drawdown reached (${pct(this.drawdownPct(currentBalance))})` };
+    }
+    if (volLevel === 'EXTREME') {
+      return { ok: false, reason: 'Volatility protection: market state EXTREME' };
+    }
+    return { ok: true, reason: '' };
+  }
+  computeStake(balance) {
+    const riskPct = (parseFloat($('inpRiskPct').value) || 1) / 100;
+    const manualStake = parseFloat($('inpStake').value) || 0;
+    if (!balance) return manualStake;
+    const sized = balance * riskPct;
+    // use the smaller of manual stake field and computed risk-sized stake as a safety floor
+    return Math.max(0.35, Math.min(manualStake, sized > 0 ? sized : manualStake));
+  }
+}
+
+/* ---------------------------------------------------------------------
+   9. ADAPTIVE LEARNING LAYER  (Module 10)
+--------------------------------------------------------------------- */
+class AdaptiveLearning {
+  constructor(weights) {
+    this.weights = weights;
+    this.touchTrades = []; // {win:bool}
+    this.notouchTrades = [];
+    this.reviewEvery = 100;
+  }
+  recordTrade(type, win) {
+    if (type === 'TOUCH') this.touchTrades.push(win);
+    else this.notouchTrades.push(win);
+    const total = this.touchTrades.length + this.notouchTrades.length;
+    if (total > 0 && total % this.reviewEvery === 0) this.review();
+  }
+  winRate(arr) {
+    if (!arr.length) return null;
+    return arr.filter(Boolean).length / arr.length;
+  }
+  review() {
+    const touchWR = this.winRate(this.touchTrades.slice(-this.reviewEvery));
+    const notouchWR = this.winRate(this.notouchTrades.slice(-this.reviewEvery));
+    if (touchWR !== null && touchWR < 0.55) {
+      this.weights.velocity = clamp(this.weights.velocity + 2, 0, 40);
+      this.weights.pattern = clamp(this.weights.pattern + 3, 0, 40);
+      logLine(`Adaptive review: Touch win rate ${pct(touchWR)} < 55%. Nudged velocity/pattern weights up.`, 'warn');
+    }
+    if (notouchWR !== null && notouchWR < 0.55) {
+      this.weights.volatility = clamp(this.weights.volatility + 2, 0, 40);
+      this.weights.ATR = clamp(this.weights.ATR + 2, 0, 40);
+      logLine(`Adaptive review: No Touch win rate ${pct(notouchWR)} < 55%. Nudged volatility/ATR weights up.`, 'warn');
+    }
+    renderWeights();
+  }
+  get totalTrades() { return this.touchTrades.length + this.notouchTrades.length; }
+  get tradesUntilReview() { return this.reviewEvery - (this.totalTrades % this.reviewEvery); }
+}
+
+/* ---------------------------------------------------------------------
+   10. DERIV API SERVICE  — REST (account/OTP) + WebSocket (trading)
+       Follows the project's documented connection flow:
+       App ID + Bearer → GET/POST /accounts → POST /otp → new WebSocket(url)
+--------------------------------------------------------------------- */
+class DerivAPIService {
+  constructor() {
+    this.appId = null;
+    this.token = null;
+    this.account = null;
+    this.ws = null;
+    this.reqId = 0;
+    this.subscriptions = new Map();   // req_id -> command
+    this.pending = new Map();         // req_id -> {resolve, reject}
+    this.handlers = new Map();        // msg_type -> fn(data)
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 5;
+    this.manuallyClosed = false;
+    this.onOpenCallbacks = [];
+  }
+
+  headers(json) {
+    const h = { 'Authorization': `Bearer ${this.token}`, 'Deriv-App-ID': this.appId };
+    if (json) h['Content-Type'] = 'application/json';
+    return h;
+  }
+
+  async restCall(method, path, body) {
+    const opts = { method, headers: this.headers(!!body) };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(`${API_BASE}${path}`, opts);
+    let data;
+    try { data = await res.json(); } catch (e) { data = {}; }
+    if (!res.ok) {
+      const code = data.errors?.[0]?.code || 'UnknownError';
+      const msg = data.errors?.[0]?.message || `HTTP ${res.status}`;
+      const err = new Error(`${code}: ${msg}`);
+      err.status = res.status; err.code = code;
+      throw err;
+    }
+    return { status: res.status, data };
+  }
+
+  async listAccounts() {
+    const { data } = await this.restCall('GET', '/trading/v1/options/accounts');
+    return data.data || [];
+  }
+
+  async createAccount(accountType) {
+    const { status, data } = await this.restCall('POST', '/trading/v1/options/accounts', {
+      currency: 'USD', group: 'row', account_type: accountType
+    });
+    // 200 -> object (existed), 201 -> array (newly created)
+    const account = Array.isArray(data.data) ? data.data[0] : data.data;
+    return account;
+  }
+
+  async resetDemoBalance(accountId) {
+    const { data } = await this.restCall('POST', `/trading/v1/options/accounts/${accountId}/reset-demo-balance`);
+    return data.data;
+  }
+
+  async getOtpUrl(accountId) {
+    const { data } = await this.restCall('POST', `/trading/v1/options/accounts/${accountId}/otp`);
+    return data.data.url;
+  }
+
+  async connectWebSocket(accountId) {
+    // OTP is short-lived — request it immediately before connecting
+    const wsUrl = await this.getOtpUrl(accountId);
+    return new Promise((resolve, reject) => {
+      this.manuallyClosed = false;
+      this.ws = new WebSocket(wsUrl);
+
+      this.ws.onopen = () => {
+        this.reconnectAttempts = 0;
+        logLine('WebSocket connected', 'ok');
+        this._restoreSubscriptions();
+        this.onOpenCallbacks.forEach(cb => cb());
+        resolve(this);
+      };
+
+      this.ws.onmessage = (event) => {
+        let data;
+        try { data = JSON.parse(event.data); } catch (e) { return; }
+        this._route(data);
+      };
+
+      this.ws.onerror = (err) => {
+        logLine('WebSocket error', 'err');
+      };
+
+      this.ws.onclose = () => {
+        logLine('WebSocket closed', 'warn');
+        setWsStatus(false);
+        if (!this.manuallyClosed) this._scheduleReconnect(accountId);
+      };
+    });
+  }
+
+  _route(data) {
+    if (data.req_id && this.pending.has(data.req_id)) {
+      const { resolve, reject } = this.pending.get(data.req_id);
+      this.pending.delete(data.req_id);
+      if (data.error) reject(new Error(`${data.error.code}: ${data.error.message}`));
+      else resolve(data);
+      return;
+    }
+    if (data.error) {
+      logLine(`API error [${data.error.code}]: ${data.error.message}`, 'err');
+    }
+    if (data.msg_type && this.handlers.has(data.msg_type)) {
+      this.handlers.get(data.msg_type)(data);
+    }
+  }
+
+  send(command) {
+    return new Promise((resolve, reject) => {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        reject(new Error('WebSocket not connected'));
+        return;
+      }
+      this.reqId++;
+      const msg = { ...command, req_id: this.reqId };
+      if (command.subscribe) this.subscriptions.set(this.reqId, command);
+      else this.pending.set(this.reqId, { resolve, reject });
+      this.ws.send(JSON.stringify(msg));
+      if (command.subscribe) resolve(this.reqId);
+    });
+  }
+
+  on(msgType, fn) { this.handlers.set(msgType, fn); }
+
+  async forgetAll(type) { return this.send({ forget_all: type }); }
+
+  _restoreSubscriptions() {
+    for (const [, command] of this.subscriptions) {
+      this.reqId++;
+      this.ws.send(JSON.stringify({ ...command, req_id: this.reqId }));
+    }
+  }
+
+  async _scheduleReconnect(accountId) {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      logLine('Max reconnect attempts reached. Please reconnect manually.', 'err');
+      return;
+    }
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+    this.reconnectAttempts++;
+    logLine(`Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts})...`, 'warn');
+    setTimeout(async () => {
+      try {
+        // OTP may have expired — request a fresh one
+        await this.connectWebSocket(accountId);
+      } catch (e) {
+        logLine(`Reconnect failed: ${e.message}`, 'err');
+        this._scheduleReconnect(accountId);
+      }
+    }, delay);
+  }
+
+  disconnect() {
+    this.manuallyClosed = true;
+    this.maxReconnectAttempts = 0;
+    if (this.ws) this.ws.close();
+  }
+}
+
+/* ---------------------------------------------------------------------
+   11. GLOBAL STATE
+--------------------------------------------------------------------- */
+const state = {
+  api: new DerivAPIService(),
+  connected: false,
+  account: null,
+  balance: null,
+  symbol: 'R_100',
+  buffer: new TickBuffer(200),
+  featureEngine: new FeatureEngine(),
+  patternDetector: new PatternDetector(),
+  stateMachine: new MarketStateMachine(),
+  weights: { velocity: 15, acceleration: 10, volatility: 15, highLowPattern: 15, candleStrength: 10, EMA: 10, RSI: 5, ATR: 10, pattern: 10 },
+  probEngine: null,
+  validator: new TradeValidator(),
+  risk: new RiskManager(),
+  adaptive: null,
+  history: [],
+  openContract: null,
+  autoTrade: false,
+  lastFeatures: null,
+  lastPatterns: null,
+  lastProb: null,
+  lastValidation: null,
+  chartPrices: [],
+  tradeLock: false,
+};
+state.probEngine = new ProbabilityEngine(state.weights);
+state.adaptive = new AdaptiveLearning(state.weights);
+
+/* ---------------------------------------------------------------------
+   12. CONNECTION FLOW
+--------------------------------------------------------------------- */
+function setWsStatus(live, warn) {
+  const dot = $('wsDot'), txt = $('wsStatusText');
+  dot.className = 'dot' + (live ? ' live' : warn ? ' warn' : '');
+  txt.textContent = live ? 'Connected' : warn ? 'Connecting…' : 'Disconnected';
+}
+function setTickStatus(live) {
+  const dot = $('tickDot'), txt = $('tickStatusText');
+  dot.className = 'dot' + (live ? ' live' : '');
+  txt.textContent = live ? 'Live feed' : 'No feed';
+}
+
+async function handleConnect() {
+  const appId = $('inpAppId').value.trim();
+  const token = $('inpToken').value.trim();
+  const accType = $('inpAccType').value;
+  if (!appId || !token) { logLine('App ID and Auth Token are required', 'err'); return; }
+
+  $('btnConnect').disabled = true;
+  setWsStatus(false, true);
+  state.api.appId = appId;
+  state.api.token = token;
+
+  try {
+    logLine('Fetching accounts...');
+    let accounts = await state.api.listAccounts();
+    let account = accounts.find(a => a.account_type === accType && a.status === 'active');
+
+    if (!account) {
+      logLine(`No active ${accType} account found — creating one...`);
+      account = await state.api.createAccount(accType);
+    }
+    logLine(`Account ready: ${account.account_id} (${account.account_type}) — ${account.balance} ${account.currency}`, 'ok');
+
+    state.account = account;
+    state.api.account = account;
+    populateAccountSelect(accounts, account);
+
+    logLine('Requesting OTP and opening WebSocket...');
+    await state.api.connectWebSocket(account.account_id);
+    state.connected = true;
+    setWsStatus(true);
+    $('connSub').textContent = account.account_id;
+    $('btnDisconnect').disabled = false;
+    $('inpAccountSelect').disabled = false;
+    $('btnResetDemo').disabled = accType !== 'demo';
+    $('btnManualTouch').disabled = false;
+    $('btnManualNoTouch').disabled = false;
+
+    wireWsHandlers();
+    await subscribeMarket();
+  } catch (err) {
+    logLine(`Connection failed: ${err.message}`, 'err');
+    setWsStatus(false);
+    $('btnConnect').disabled = false;
+  }
+}
+
+function populateAccountSelect(accounts, active) {
+  const sel = $('inpAccountSelect');
+  sel.innerHTML = '';
+  accounts.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a.account_id;
+    opt.textContent = `${a.account_id} · ${a.account_type} · ${a.balance} ${a.currency}`;
+    if (a.account_id === active.account_id) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function handleDisconnect() {
+  state.api.disconnect();
+  state.connected = false;
+  setWsStatus(false);
+  setTickStatus(false);
+  $('btnConnect').disabled = false;
+  $('btnDisconnect').disabled = true;
+  $('btnManualTouch').disabled = true;
+  $('btnManualNoTouch').disabled = true;
+  $('connSub').textContent = 'not connected';
+  logLine('Disconnected');
+}
+
+async function handleResetDemo() {
+  if (!state.account) return;
+  try {
+    const data = await state.api.resetDemoBalance(state.account.account_id);
+    logLine(`Demo balance reset to ${data.balance} ${data.currency}`, 'ok');
+    state.balance = data.balance;
+    renderBalance();
+  } catch (e) {
+    logLine(`Reset failed: ${e.message}`, 'err');
+  }
+}
+
+/* ---------------------------------------------------------------------
+   13. WEBSOCKET MESSAGE HANDLERS + MARKET SUBSCRIPTION
+--------------------------------------------------------------------- */
+function wireWsHandlers() {
+  state.api.on('balance', (data) => {
+    state.balance = data.balance.balance;
+    state.risk.init(state.balance);
+    renderBalance();
+  });
+
+  state.api.on('tick', (data) => {
+    const tick = data.tick;
+    state.buffer.addTick(tick.quote, tick.epoch || (Date.now() / 1000));
+    setTickStatus(true);
+    onNewTick();
+  });
+
+  // Note: proposal and buy requests are sent WITHOUT subscribe:1, so their
+  // responses route through the standard pending-request promise in
+  // DerivAPIService.send() (matched by req_id) rather than through a
+  // separate msg_type handler. That path already rejects cleanly on
+  // data.error, so no custom handling is needed here.
+
+  state.api.on('proposal_open_contract', (data) => {
+    onContractUpdate(data.proposal_open_contract);
+  });
+}
+
+async function subscribeMarket() {
+  state.symbol = $('inpSymbol').value;
+  $('symbolLabel').textContent = state.symbol;
+  await state.api.send({ balance: 1, subscribe: 1 });
+  await state.api.send({ ticks: state.symbol, subscribe: 1 });
+  logLine(`Subscribed to balance + ticks for ${state.symbol}`, 'ok');
+}
+
+async function resubscribeSymbol() {
+  if (!state.connected) return;
+  try {
+    await state.api.forgetAll('ticks');
+  } catch (e) { /* ignore */ }
+  state.buffer = new TickBuffer(200);
+  state.featureEngine = new FeatureEngine();
+  state.patternDetector = new PatternDetector();
+  state.stateMachine = new MarketStateMachine();
+  state.chartPrices = [];
+  await subscribeMarket();
+}
+
+/* ---------------------------------------------------------------------
+   14. ENGINE TICK LOOP
+--------------------------------------------------------------------- */
+function onNewTick() {
+  const last = state.buffer.last();
+  if (!last) return;
+
+  renderPrice();
+  renderChart();
+  renderTape();
+
+  if (state.buffer.length < 15) return; // need warm-up data
+
+  const offset = parseFloat($('inpBarrierOffset').value) || 0.5;
+  const barrierUp = last.price + offset;
+  const barrierDown = last.price - offset;
+
+  const f = state.featureEngine.compute(state.buffer, barrierUp, barrierDown);
+  const patterns = state.patternDetector.detect(f, state.buffer);
+  const marketState = state.stateMachine.transition(f, patterns);
+  const prob = state.probEngine.score(f, patterns, marketState);
+  const validation = state.validator.validate(prob, f, marketState);
+
+  state.lastFeatures = f;
+  state.lastPatterns = patterns;
+  state.lastProb = prob;
+  state.lastValidation = validation;
+
+  renderEngine(f, patterns, marketState, prob, validation);
+
+  if (state.autoTrade) maybeAutoTrade(validation);
+}
+
+/* ---------------------------------------------------------------------
+   15. TRADE EXECUTION  (Module 8)
+--------------------------------------------------------------------- */
+async function requestProposal(contractType, barrierOffset) {
+  const stake = state.risk.computeStake(state.balance);
+  const duration = parseInt($('inpDuration').value, 10) || 5;
+  const durationUnit = $('inpDurationUnit').value;
+  // Deriv barriers accept at most 2 decimal places
+  const barrier = (barrierOffset >= 0 ? '+' : '') + barrierOffset.toFixed(2);
+
+  // No subscribe flag -> single response, routed through the normal
+  // pending-request map in DerivAPIService.send(), which resolves on
+  // success and REJECTS with a proper Error on data.error. This avoids
+  // ever returning `undefined` from a failed proposal.
+  const res = await state.api.send({
+    proposal: 1,
+    amount: stake,
+    basis: 'stake',
+    contract_type: contractType,
+    currency: 'USD',
+    duration,
+    duration_unit: durationUnit,
+    barrier,
+    underlying_symbol: state.symbol,
+    subscribe: 0
+  });
+  return res.proposal;
+}
+
+async function executeTrade(signal) {
+  if (state.tradeLock || state.openContract) {
+    logLine('Trade blocked — a position is already open (one-at-a-time mutex)', 'warn');
+    return;
+  }
+  const guard = state.risk.canTrade(state.balance, state.lastFeatures?.volLevel);
+  if (!guard.ok) {
+    logLine(`Trade blocked by risk manager: ${guard.reason}`, 'warn');
+    return;
+  }
+
+  state.tradeLock = true;
+  const contractType = signal === 'BUY_TOUCH' ? 'ONETOUCH' : 'NOTOUCH';
+  const tradeTypeLabel = signal === 'BUY_TOUCH' ? 'TOUCH' : 'NOTOUCH';
+
+  // Barrier sizing follows the engine spec: Touch entries sit 0.5-1x ATR
+  // from spot, No Touch entries sit >2x ATR away (capped so the contract
+  // still offers a return — too far and Deriv rejects it as a sure win).
+  // A manual offset floor from the UI field guards against a near-zero ATR
+  // producing a barrier inside Deriv's minimum-distance rule (~3 pips).
+  const manualFloor = Math.abs(parseFloat($('inpBarrierOffset').value)) || 0.5;
+  const atr = (state.lastFeatures && state.lastFeatures.atr) || 0;
+  let offsetMag;
+  if (signal === 'BUY_TOUCH') {
+    offsetMag = Math.max(atr * 0.75, manualFloor * 0.3);
+  } else {
+    offsetMag = Math.max(Math.min(atr * 2.5, atr * 4), manualFloor);
+  }
+  offsetMag = Math.max(offsetMag, 0.05); // hard floor so we never breach the min-distance rule
+  offsetMag = Number(offsetMag.toFixed(2));
+
+  // touch entries bias toward the nearer barrier in the direction of current momentum;
+  // no-touch entries bias the same direction so the barrier sits clear of recent travel
+  const barrierOffset = (state.lastFeatures && state.lastFeatures.delta >= 0) ? offsetMag : -offsetMag;
+
+  try {
+    logLine(`Requesting proposal: ${contractType} @ barrier offset ${barrierOffset.toFixed(2)} (ATR ${fmt(atr, 4)})`);
+    const proposal = await requestProposal(contractType, barrierOffset);
+    logLine(`Proposal received: ask ${proposal.ask_price} / payout ${proposal.payout}`, 'ok');
+
+    const buyRes = await state.api.send({ buy: proposal.id, price: proposal.ask_price });
+    const buy = buyRes.buy;
+    logLine(`Contract bought — ID ${buy.contract_id}, price ${buy.buy_price}`, 'ok');
+
+    const record = {
+      id: buy.contract_id,
+      market: state.symbol,
+      tradeType: tradeTypeLabel,
+      barrier: barrierOffset,
+      stake: buy.buy_price,
+      touchProbability: state.lastProb?.touchProbability ?? 0,
+      confidence: state.lastProb?.confidence ?? 0,
+      marketState: state.stateMachine.state,
+      result: 'OPEN',
+      profit: 0,
+      timestamp: nowISO()
+    };
+    state.openContract = record;
+    state.history.unshift(record);
+    renderHistory();
+
+    await state.api.send({ proposal_open_contract: 1, contract_id: buy.contract_id, subscribe: 1 });
+  } catch (err) {
+    logLine(`Trade execution failed: ${err.message}`, 'err');
+  } finally {
+    state.tradeLock = false;
+  }
+}
+
+function onContractUpdate(contract) {
+  if (!state.openContract || contract.contract_id !== state.openContract.id) return;
+  if (contract.is_sold) {
+    const profit = contract.profit ?? 0;
+    const win = profit > 0;
+    state.openContract.result = win ? 'WIN' : 'LOSS';
+    state.openContract.profit = profit;
+    state.risk.recordResult(profit, state.balance);
+    state.adaptive.recordTrade(state.openContract.tradeType, win);
+    logLine(`Contract closed: ${win ? 'WIN' : 'LOSS'} — P/L ${fmtMoney(profit)}`, win ? 'ok' : 'err');
+    state.openContract = null;
+    renderHistory();
+    renderRisk();
+    renderStats();
+    renderAdaptive();
+  }
+}
+
+function maybeAutoTrade(validation) {
+  if (state.openContract || state.tradeLock) return;
+  if (validation.signal === 'BUY_TOUCH' || validation.signal === 'BUY_NOTOUCH') {
+    executeTrade(validation.signal);
+  }
+}
+
+/* ---------------------------------------------------------------------
+   16. RENDERING
+--------------------------------------------------------------------- */
+function renderBalance() {
+  const pill = $('balancePill');
+  if (state.balance === null) { pill.innerHTML = '— <span class="cur">USD</span>'; return; }
+  pill.innerHTML = `${fmt(state.balance, 2)} <span class="cur">USD</span>`;
+}
+
+function renderPrice() {
+  const last = state.buffer.last();
+  const prev = state.buffer.prev();
+  if (!last) return;
+  $('priceBig').textContent = fmt(last.price, 4);
+  $('lastUpdateLabel').textContent = new Date((last.time || Date.now() / 1000) * 1000).toLocaleTimeString();
+  const delta = prev ? last.price - prev.price : 0;
+  const dEl = $('priceDelta');
+  dEl.textContent = (delta >= 0 ? '+' : '') + fmt(delta, 4);
+  dEl.className = 'price-delta ' + (delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat');
+}
+
+function renderTape() {
+  const tape = $('tickTape');
+  const recent = state.buffer.window(25);
+  tape.innerHTML = '';
+  for (let i = 1; i < recent.length; i++) {
+    const up = recent[i].price >= recent[i - 1].price;
+    const item = document.createElement('div');
+    item.className = 'tape-item ' + (up ? 'up' : 'down');
+    item.textContent = fmt(recent[i].price, 2);
+    tape.appendChild(item);
+  }
+  tape.scrollLeft = tape.scrollWidth;
+}
+
+function renderChart() {
+  const canvas = $('tickChart');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  if (canvas.width !== rect.width * dpr || canvas.height !== 160 * dpr) {
+    canvas.width = rect.width * dpr;
+    canvas.height = 160 * dpr;
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = rect.width, h = 160;
+  ctx.clearRect(0, 0, w, h);
+
+  const prices = state.buffer.prices();
+  if (prices.length < 2) return;
+  const min = Math.min(...prices), max = Math.max(...prices);
+  const range = (max - min) || 1;
+  const pad = 10;
+
+  ctx.beginPath();
+  prices.forEach((p, i) => {
+    const x = pad + (i / (prices.length - 1)) * (w - pad * 2);
+    const y = h - pad - ((p - min) / range) * (h - pad * 2);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, '#00d9c0');
+  grad.addColorStop(1, '#9d7bff');
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+
+  // fill under line
+  const last = prices[prices.length - 1];
+  const lx = pad + (w - pad * 2);
+  ctx.lineTo(lx, h);
+  ctx.lineTo(pad, h);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(0,217,192,0.06)';
+  ctx.fill();
+}
+
+function renderEngine(f, patterns, marketState, prob, validation) {
+  // state badge
+  const badge = $('stateBadge');
+  badge.className = 'state-badge state-' + marketState;
+  badge.textContent = marketState;
+
+  // pattern flags
+  document.querySelectorAll('.pattern-flag').forEach(el => {
+    const key = el.dataset.pattern;
+    const map = { compression: patterns.compression, expansion: patterns.expansion, exhaustion: patterns.exhaustion, reversion: patterns.reversion };
+    el.classList.toggle('active', !!map[key]);
+  });
+
+  // probability meters
+  $('valTouchProb').textContent = pct(prob.touchProbability);
+  $('valNoTouchProb').textContent = pct(prob.noTouchProbability);
+  $('valConfidence').textContent = pct(prob.confidence);
+  $('fillTouch').style.width = (prob.touchProbability * 100) + '%';
+  $('fillNoTouch').style.width = (prob.noTouchProbability * 100) + '%';
+  $('fillConf').style.width = (prob.confidence * 100) + '%';
+
+  $('valDistRatio').textContent = fmt(f.distanceRatio, 2);
+  $('valVolatility').textContent = f.volLevel;
+  $('valTrend').textContent = (f.trendStrength >= 0 ? '+' : '') + fmt(f.trendStrength, 4);
+  $('valATR').textContent = fmt(f.atr, 4);
+
+  // signal box
+  const box = $('signalBox');
+  const text = $('signalText');
+  const sub = $('signalSub');
+  box.className = 'signal-box ' + (validation.signal === 'BUY_TOUCH' ? 'touch' : validation.signal === 'BUY_NOTOUCH' ? 'notouch' : 'none');
+  text.textContent = validation.signal === 'NONE' ? 'NO SIGNAL' : validation.signal.replace('BUY_', 'BUY ');
+  sub.textContent = validation.reason;
+
+  // checklist (show whichever side is closer to qualifying)
+  const checklistBox = $('checklistBox');
+  checklistBox.innerHTML = '';
+  const activeChecks = validation.signal === 'BUY_NOTOUCH' ? validation.checks.notouch :
+    (prob.touchProbability >= prob.noTouchProbability ? validation.checks.touch : validation.checks.notouch);
+  activeChecks.forEach(c => {
+    const row = document.createElement('div');
+    row.className = 'check-item ' + (c.pass ? 'pass' : 'fail');
+    row.innerHTML = `<span class="ic">${c.pass ? '✓' : '·'}</span><span>${c.label}</span>`;
+    checklistBox.appendChild(row);
+  });
+}
+
+function renderRisk() {
+  $('riskPL').textContent = fmtMoney(state.risk.sessionPL);
+  $('riskPL').className = 'num ' + (state.risk.sessionPL >= 0 ? 'pos' : 'neg');
+  const dd = state.balance !== null ? state.risk.drawdownPct(state.balance) : 0;
+  $('riskDrawdown').textContent = pct(dd);
+  $('riskConsecLoss').textContent = state.risk.consecutiveLosses;
+  $('riskStakePct').textContent = ($('inpRiskPct').value || '1') + '%';
+
+  const banner = $('pauseBanner');
+  const guard = state.risk.canTrade(state.balance, null);
+  if (!guard.ok && guard.reason.includes('Paused')) {
+    banner.textContent = guard.reason;
+    banner.classList.add('show');
+  } else {
+    banner.classList.remove('show');
+  }
+}
+
+function renderHistory() {
+  const body = $('historyBody');
+  if (!state.history.length) {
+    body.innerHTML = '<tr><td colspan="6" class="empty-row">No trades yet</td></tr>';
+    return;
+  }
+  body.innerHTML = '';
+  state.history.slice(0, 50).forEach(t => {
+    const tr = document.createElement('tr');
+    const resultTag = t.result === 'WIN' ? '<span class="tag win">WIN</span>' :
+      t.result === 'LOSS' ? '<span class="tag loss">LOSS</span>' :
+      '<span class="tag open">OPEN</span>';
+    const typeTag = t.tradeType === 'TOUCH' ? '<span class="tag touch">TOUCH</span>' : '<span class="tag notouch">NO TOUCH</span>';
+    tr.innerHTML = `
+      <td>${new Date(t.timestamp).toLocaleTimeString()}</td>
+      <td>${typeTag}</td>
+      <td>${(t.barrier >= 0 ? '+' : '') + fmt(t.barrier, 3)}</td>
+      <td>${fmtMoney(t.stake)}</td>
+      <td>${resultTag}</td>
+      <td class="${t.profit > 0 ? 'tag win' : t.profit < 0 ? 'tag loss' : ''}" style="background:none;">${t.result === 'OPEN' ? '—' : fmtMoney(t.profit)}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function renderStats() {
+  const closed = state.history.filter(t => t.result !== 'OPEN');
+  const total = closed.length;
+  const wins = closed.filter(t => t.result === 'WIN');
+  const touch = closed.filter(t => t.tradeType === 'TOUCH');
+  const notouch = closed.filter(t => t.tradeType === 'NOTOUCH');
+  const touchWins = touch.filter(t => t.result === 'WIN');
+  const notouchWins = notouch.filter(t => t.result === 'WIN');
+  const grossWin = closed.filter(t => t.profit > 0).reduce((a, t) => a + t.profit, 0);
+  const grossLoss = Math.abs(closed.filter(t => t.profit < 0).reduce((a, t) => a + t.profit, 0));
+
+  $('statTotal').textContent = total;
+  $('statWinRate').textContent = total ? pct(wins.length / total) : '0.0%';
+  $('statTouchAcc').textContent = touch.length ? pct(touchWins.length / touch.length) : '—';
+  $('statNoTouchAcc').textContent = notouch.length ? pct(notouchWins.length / notouch.length) : '—';
+  $('statProfitFactor').textContent = grossLoss > 0 ? fmt(grossWin / grossLoss, 2) : (grossWin > 0 ? '∞' : '—');
+
+  if (total) {
+    const winRate = wins.length / total;
+    const avgWin = wins.length ? wins.reduce((a, t) => a + t.profit, 0) / wins.length : 0;
+    const losses = closed.filter(t => t.result === 'LOSS');
+    const avgLoss = losses.length ? Math.abs(losses.reduce((a, t) => a + t.profit, 0) / losses.length) : 0;
+    const ev = (winRate * avgWin) - ((1 - winRate) * avgLoss);
+    $('statEV').textContent = fmtMoney(ev);
+  } else {
+    $('statEV').textContent = '—';
+  }
+}
+
+function renderAdaptive() {
+  $('adaptiveLabel').textContent = `Adaptive learning: ${state.adaptive.totalTrades % 100} / 100 trades to next weight review`;
+}
+
+const weightMeta = [
+  ['velocity', 'Velocity', 40], ['acceleration', 'Acceleration', 40], ['volatility', 'Volatility', 40],
+  ['highLowPattern', 'High/Low Pattern', 40], ['candleStrength', 'Candle Strength', 40],
+  ['EMA', 'EMA Trend', 40], ['RSI', 'RSI', 40], ['ATR', 'ATR', 40], ['pattern', 'Pattern', 40]
+];
+function renderWeights() {
+  const box = $('weightsBox');
+  box.innerHTML = '';
+  weightMeta.forEach(([key, label, max]) => {
+    const row = document.createElement('div');
+    row.className = 'weight-row';
+    row.innerHTML = `
+      <label>${label}</label>
+      <input type="range" min="0" max="${max}" step="1" value="${state.weights[key]}" data-weight="${key}">
+      <span class="wval">${state.weights[key]}</span>
+    `;
+    box.appendChild(row);
+  });
+  box.querySelectorAll('input[type=range]').forEach(inp => {
+    inp.addEventListener('input', (e) => {
+      const key = e.target.dataset.weight;
+      state.weights[key] = parseFloat(e.target.value);
+      e.target.nextElementSibling.textContent = e.target.value;
+    });
+  });
+}
+
+/* ---------------------------------------------------------------------
+   17. EVENT WIRING
+--------------------------------------------------------------------- */
+$('btnConnect').addEventListener('click', handleConnect);
+$('btnDisconnect').addEventListener('click', handleDisconnect);
+$('btnResetDemo').addEventListener('click', handleResetDemo);
+
+$('inpAccountSelect').addEventListener('change', async (e) => {
+  if (!state.connected) return;
+  const accId = e.target.value;
+  if (!accId || accId === state.account?.account_id) return;
+  logLine(`Switching to account ${accId}...`);
+  state.account = { ...state.account, account_id: accId };
+  state.api.account = state.account;
+  try {
+    await state.api.connectWebSocket(accId);
+    await subscribeMarket();
+    logLine(`Switched to ${accId}`, 'ok');
+  } catch (err) {
+    logLine(`Account switch failed: ${err.message}`, 'err');
+  }
+});
+
+$('inpSymbol').addEventListener('change', () => { if (state.connected) resubscribeSymbol(); });
+
+$('toggleAuto').addEventListener('click', () => {
+  state.autoTrade = !state.autoTrade;
+  $('switchAuto').classList.toggle('on', state.autoTrade);
+  logLine(`Auto-trade ${state.autoTrade ? 'ENABLED' : 'disabled'}`, state.autoTrade ? 'ok' : 'warn');
+});
+
+$('btnManualTouch').addEventListener('click', () => executeTrade('BUY_TOUCH'));
+$('btnManualNoTouch').addEventListener('click', () => executeTrade('BUY_NOTOUCH'));
+
+['inpRiskPct', 'inpMaxDrawdown', 'inpMaxConsecLoss', 'inpCooldown'].forEach(id => {
+  $(id).addEventListener('input', renderRisk);
+});
+
+window.addEventListener('resize', () => { if (state.buffer.length) renderChart(); });
+
+/* ---------------------------------------------------------------------
+   18. INIT
+--------------------------------------------------------------------- */
+renderWeights();
+renderBalance();
+renderHistory();
+renderStats();
+renderAdaptive();
+setWsStatus(false);
+setTickStatus(false);
+logLine('TNT-APE terminal ready. Enter your Deriv App ID and Auth Token to connect.');
+
+
+</script>
+</body>
+</html>
