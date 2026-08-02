@@ -263,7 +263,10 @@ footer{text-align:center;color:var(--text-faint);font-size:11px;padding:30px 0 1
   <!-- ============ MAIN APP ============ -->
   <div id="appView" style="display:none">
 
-    <div class="symbol-feed" id="symbolFeed"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:6px">
+      <div class="symbol-feed" id="symbolFeed"></div>
+      <button class="btn small" id="resetMarketDataBtn">Reset Market Data</button>
+    </div>
 
     <div class="grid">
       <!-- LEFT: account / risk panel -->
@@ -277,7 +280,9 @@ footer{text-align:center;color:var(--text-faint);font-size:11px;padding:30px 0 1
           <div class="stat"><span>Open contracts</span><b id="s_open">0</b></div>
           <div class="stat"><span>WS reconnects</span><b id="s_recon">0</b></div>
           <button class="btn block" id="switchAcctBtn" style="margin-top:12px">Switch Account</button>
+          <button class="btn block" id="refreshBalBtn" style="margin-top:8px">Refresh Balance Now</button>
           <button class="btn block" id="resetDemoBtn" style="margin-top:8px">Reset Demo Balance</button>
+          <button class="btn block" id="resetStatsBtn" style="margin-top:8px">Reset Session Statistics</button>
         </div>
 
         <div class="card">
@@ -309,10 +314,11 @@ footer{text-align:center;color:var(--text-faint);font-size:11px;padding:30px 0 1
         <div class="card">
           <h2>🧾 Trade &amp; Event Log</h2>
           <div class="log" id="eventLog"></div>
-          <button class="btn small" id="clearLogBtn" style="margin-top:8px">Clear log</button>
+          <button class="btn small" id="clearLogBtn" style="margin-top:8px">Reset Trade Log</button>
         </div>
       </div>
     </div>
+
   </div>
 </div>
 
@@ -578,7 +584,20 @@ wsOn('balance', (data) => {
   state.balance = data.balance;
   document.getElementById('balLabel').textContent = `${num(data.balance.balance).toFixed(2)} ${data.balance.currency}`;
   document.getElementById('s_bal').textContent = `${num(data.balance.balance).toFixed(2)} ${data.balance.currency}`;
+  if (state.account) state.account.balance = data.balance.balance;
 });
+
+// Fallback poll — belt-and-suspenders in case the push subscription ever drops silently.
+setInterval(() => {
+  if (state.ws && state.ws.readyState === WebSocket.OPEN){
+    wsSend({ balance:1 }).then(resp => {
+      if (resp && resp.balance){
+        document.getElementById('balLabel').textContent = `${num(resp.balance.balance).toFixed(2)} ${resp.balance.currency}`;
+        document.getElementById('s_bal').textContent = `${num(resp.balance.balance).toFixed(2)} ${resp.balance.currency}`;
+      }
+    }).catch(()=>{});
+  }
+}, 20000);
 
 wsOn('proposal_open_contract', (data) => {
   const c = data.proposal_open_contract; if (!c) return;
@@ -599,6 +618,11 @@ function registerTradeResult(profit, strat){
   const plEl = document.getElementById('s_pl');
   plEl.textContent = state.sessionPL.toFixed(2);
   plEl.className = state.sessionPL >= 0 ? 'pos' : 'neg';
+  if (strat){
+    strat.stats.trades++;
+    strat.stats.netProfit += profit;
+    if (profit >= 0) strat.stats.wins++; else strat.stats.losses++;
+  }
   if (profit >= 0){
     state.risk.dailyProfit += profit; state.risk.consecLosses = 0;
     log(`WIN  ${strat?strat.name:''}  +${profit.toFixed(2)} USD`, 'win');
@@ -607,6 +631,7 @@ function registerTradeResult(profit, strat){
     log(`LOSS ${strat?strat.name:''}  ${profit.toFixed(2)} USD`, 'loss');
   }
   if (strat) strat.onTradeResult(profit >= 0, profit);
+  if (state.activeStrategyId && strat && strat.id === state.activeStrategyId) renderStrategyPanel();
   evaluateRiskGate();
 }
 
@@ -634,11 +659,12 @@ function evaluateRiskGate(){
 setInterval(evaluateRiskGate, 5000);
 
 /* ================= Risk-gated buy ================= */
-async function riskGatedBuy(strategy, proposalReq){
+async function riskGatedBuy(strategy, proposalReq, opts){
+  opts = opts || {};
   if (state.killed){ log(`Blocked ${strategy.name}: kill switch active`, 'err'); return null; }
   if (state.risk.paused){ log(`Blocked ${strategy.name}: risk engine paused`, 'err'); return null; }
   if (state.account.account_type === 'real' && !state.realArmed){ log(`Blocked ${strategy.name}: real account not armed`, 'err'); return null; }
-  if (!strategy.active){ return null; }
+  if (!strategy.active && !opts.force){ return null; }
   if (strategy.inFlight){ return null; } // separate active/inFlight flags — never combined
 
   strategy.inFlight = true;
@@ -669,6 +695,35 @@ async function riskGatedBuy(strategy, proposalReq){
   }
 }
 
+/* ================= Manual test-fire (bypasses signal wait, still risk-gated) ================= */
+function manualFireStrategy(stratId, direction){
+  const s = state.strategies[stratId]; if (!s) return;
+  log(`${s.name}: manual test trade triggered by user (${direction||'default'})`, 'info');
+  if (stratId === 'trendtouch') return riskGatedBuy(s, {
+    amount:s.stake, basis:'stake', contract_type: direction==='down'?'NOTOUCH':'ONETOUCH', currency:'USD',
+    duration:s.config.duration, duration_unit:'t',
+    barrier:(direction==='down'?'-':'+')+(+s.config.barrierOffset).toFixed(3), underlying_symbol:s.symbol,
+  }, {force:true});
+  if (stratId === 'risefallx') return riskGatedBuy(s, {
+    amount:s.stake, basis:'stake', contract_type: direction==='put'?'PUT':'CALL', currency:'USD',
+    duration:s.config.duration, duration_unit:'t', underlying_symbol:s.symbol,
+  }, {force:true});
+  if (stratId === 'touchsma') return riskGatedBuy(s, {
+    amount:s.stake, basis:'stake', contract_type: direction==='down'?'NOTOUCH':'ONETOUCH', currency:'USD',
+    duration:s.config.duration, duration_unit:'t',
+    barrier:(direction==='down'?'-':'+')+(+s.config.barrierOffset).toFixed(3), underlying_symbol:s.symbol,
+  }, {force:true});
+  if (stratId === 'digitstreak') return riskGatedBuy(s, {
+    amount:s.stake, basis:'stake', contract_type: direction==='odd'?'DIGITODD':'DIGITEVEN', currency:'USD',
+    duration:s.config.duration, duration_unit:'t', underlying_symbol:s.symbol,
+  }, {force:true});
+  if (stratId === 'laddercall') return riskGatedBuy(s, {
+    amount: s.config.ladder[Math.min(s.config.stepIdx, s.config.ladder.length-1)], basis:'stake',
+    contract_type: direction==='put'?'PUT':'CALL', currency:'USD',
+    duration:s.config.duration, duration_unit:'t', underlying_symbol:s.symbol,
+  }, {force:true});
+}
+
 /* ================= Strategy base ================= */
 function makeStrategy(cfg){
   return {
@@ -676,6 +731,8 @@ function makeStrategy(cfg){
     active:false, inFlight:false, pendingContracts:new Map(),
     baseStake: cfg.baseStake, stake: cfg.baseStake,
     consec:0, config: cfg.config,
+    stats:{ trades:0, wins:0, losses:0, netProfit:0 },
+    lastIndicator:{},
     onTick(){}, onContractUpdate(){}, onTradeResult(){},
     ...cfg.overrides,
   };
@@ -686,17 +743,19 @@ function makeStrategy(cfg){
 function buildTrendTouch(){
   const s = makeStrategy({
     id:'trendtouch', name:'TrendTouch SMA', symbol:'R_10', baseStake:1,
-    config:{ symbol:'R_10', stake:1, duration:7, barrierOffset:0.42, martMult:2.1, martMaxSteps:6 },
+    config:{ symbol:'R_10', stake:1, duration:7, barrierOffset:0.42, martMult:2.1, martMaxSteps:6, direction:'both' },
     overrides:{
       onTick(rec){
-        if (rec.prices.length < 50) return;
+        if (rec.prices.length < 50){ this.lastIndicator = { status:`warming up (${rec.prices.length}/50 ticks)` }; return; }
         const s25=sma(rec.prices,25), s30=sma(rec.prices,30), s35=sma(rec.prices,35),
               s40=sma(rec.prices,40), s45=sma(rec.prices,45), s50=sma(rec.prices,50);
         if ([s25,s30,s35,s40,s45,s50].some(v=>v==null)) return;
         const up = s25>s30 && s30>s35 && s35>s40 && s40>s45 && s45>s50;
         const down = s25<s30 && s30<s35 && s35<s40 && s40<s45 && s45<s50;
-        if (up) fireTrendTouch(this, 'up');
-        else if (down) fireTrendTouch(this, 'down');
+        this.lastIndicator = { SMA25:s25.toFixed(3), SMA50:s50.toFixed(3), trend: up?'UP':down?'DOWN':'flat/mixed' };
+        const dirCfg = this.config.direction;
+        if (up && (dirCfg==='both'||dirCfg==='up')) fireTrendTouch(this, 'up');
+        else if (down && (dirCfg==='both'||dirCfg==='down')) fireTrendTouch(this, 'down');
       },
       onTradeResult(win){
         if (win){ this.consec=0; this.stake=this.config.stake; }
@@ -723,15 +782,17 @@ function fireTrendTouch(strat, direction){
 function buildRiseFallX(){
   const s = makeStrategy({
     id:'risefallx', name:'RiseFall SMA/EMA', symbol:'R_25', baseStake:0.35,
-    config:{ symbol:'R_25', stake:0.35, duration:5, smaPeriod:10, emaPeriod:10, martMult:2.0, martMaxSteps:6 },
+    config:{ symbol:'R_25', stake:0.35, duration:5, smaPeriod:10, emaPeriod:10, martMult:2.0, martMaxSteps:6, direction:'both' },
     overrides:{
       onTick(rec){
-        if (rec.prices.length < Math.max(this.config.smaPeriod,this.config.emaPeriod)+1) return;
+        if (rec.prices.length < Math.max(this.config.smaPeriod,this.config.emaPeriod)+1){ this.lastIndicator = { status:'warming up' }; return; }
         const s1 = sma(rec.prices, this.config.smaPeriod);
         const e1 = ema(rec.prices, this.config.emaPeriod);
         if (s1==null||e1==null||rec.dir==null) return;
-        if (s1 < e1 && rec.dir === 'down') fireRiseFallX(this, 'CALL');
-        else if (s1 > e1 && rec.dir === 'up') fireRiseFallX(this, 'PUT');
+        this.lastIndicator = { SMA:s1.toFixed(3), EMA:e1.toFixed(3), lastTickDir: rec.dir||'—' };
+        const dirCfg = this.config.direction;
+        if (s1 < e1 && rec.dir === 'down' && (dirCfg==='both'||dirCfg==='call')) fireRiseFallX(this, 'CALL');
+        else if (s1 > e1 && rec.dir === 'up' && (dirCfg==='both'||dirCfg==='put')) fireRiseFallX(this, 'PUT');
       },
       onTradeResult(win){
         if (win){ this.consec=0; this.stake=this.config.stake; }
@@ -755,15 +816,17 @@ function fireRiseFallX(strat, side){
 function buildTouchSMA(){
   const s = makeStrategy({
     id:'touchsma', name:'TouchSMA V25', symbol:'R_25', baseStake:0.35,
-    config:{ symbol:'R_25', stake:0.35, duration:5, barrierOffset:0.2, smaPeriod:10, emaPeriod:10, martMult:2.0, martMaxSteps:6 },
+    config:{ symbol:'R_25', stake:0.35, duration:5, barrierOffset:0.2, smaPeriod:10, emaPeriod:10, martMult:2.0, martMaxSteps:6, direction:'both' },
     overrides:{
       onTick(rec){
-        if (rec.prices.length < Math.max(this.config.smaPeriod,this.config.emaPeriod)+1) return;
+        if (rec.prices.length < Math.max(this.config.smaPeriod,this.config.emaPeriod)+1){ this.lastIndicator = { status:'warming up' }; return; }
         const s1 = sma(rec.prices, this.config.smaPeriod);
         const e1 = ema(rec.prices, this.config.emaPeriod);
         if (s1==null||e1==null||rec.dir==null) return;
-        if (s1 < e1 && rec.dir === 'down') fireTouchSMA(this, 'up');
-        else if (s1 > e1 && rec.dir === 'up') fireTouchSMA(this, 'down');
+        this.lastIndicator = { SMA:s1.toFixed(3), EMA:e1.toFixed(3), lastTickDir: rec.dir||'—' };
+        const dirCfg = this.config.direction;
+        if (s1 < e1 && rec.dir === 'down' && (dirCfg==='both'||dirCfg==='up')) fireTouchSMA(this, 'up');
+        else if (s1 > e1 && rec.dir === 'up' && (dirCfg==='both'||dirCfg==='down')) fireTouchSMA(this, 'down');
       },
       onTradeResult(win){
         if (win){ this.consec=0; this.stake=this.config.stake; }
@@ -790,7 +853,7 @@ function fireTouchSMA(strat, direction){
 function buildDigitStreak(){
   const s = makeStrategy({
     id:'digitstreak', name:'Digit Streak', symbol:'1HZ50V', baseStake:0.35,
-    config:{ symbol:'1HZ50V', stake:0.35, duration:1, streakLen:3, martMult:2.0, martMaxSteps:6 },
+    config:{ symbol:'1HZ50V', stake:0.35, duration:1, streakLen:3, martMult:2.0, martMaxSteps:6, direction:'auto' },
     overrides:{
       digitHistory:[],
       onTick(rec){
@@ -799,12 +862,14 @@ function buildDigitStreak(){
         this.digitHistory.push(rec.lastDigit % 2 === 0 ? 'E' : 'O');
         if (this.digitHistory.length > 20) this.digitHistory.shift();
         const n = this.config.streakLen;
+        this.lastIndicator = { lastDigit: rec.lastDigit, streak: this.digitHistory.slice(-n).join('') };
         if (this.digitHistory.length < n) return;
         const window = this.digitHistory.slice(-n);
         const allOdd = window.every(x=>x==='O');
         const allEven = window.every(x=>x==='E');
-        if (allOdd) fireDigitStreak(this, 'DIGITEVEN'); // strict streak-of-N-odd -> bet even reversal
-        else if (allEven) fireDigitStreak(this, 'DIGITODD');
+        const dirCfg = this.config.direction;
+        if (allOdd && (dirCfg==='auto'||dirCfg==='even')) fireDigitStreak(this, 'DIGITEVEN'); // strict streak-of-N-odd -> bet even reversal
+        else if (allEven && (dirCfg==='auto'||dirCfg==='odd')) fireDigitStreak(this, 'DIGITODD');
       },
       onTradeResult(win){
         if (win){ this.consec=0; this.stake=this.config.stake; }
@@ -830,17 +895,18 @@ function buildLadderCall(){
   const ladder = [0.35,0.43,0.85,1.74,3.55,7.3,15,31,65,130,260];
   const s = makeStrategy({
     id:'laddercall', name:'Ladder CALL', symbol:'R_10', baseStake:ladder[0],
-    config:{ symbol:'R_10', duration:1, ladder, tp:100, sl:120, cooldownMs:3000, stepIdx:0 },
+    config:{ symbol:'R_10', duration:1, ladder, tp:100, sl:120, cooldownMs:3000, stepIdx:0, direction:'call' },
     overrides:{
       lastFireAt:0,
       onTick(rec){
         const t = Date.now();
+        this.lastIndicator = { step: this.config.stepIdx+1, nextStake: this.config.ladder[Math.min(this.config.stepIdx, this.config.ladder.length-1)] };
         if (t - this.lastFireAt < this.config.cooldownMs) return;
         if (this.inFlight) return;
         this.lastFireAt = t;
         const stake = this.config.ladder[Math.min(this.config.stepIdx, this.config.ladder.length-1)];
         riskGatedBuy(this, {
-          amount: stake, basis:'stake', contract_type:'CALL', currency:'USD',
+          amount: stake, basis:'stake', contract_type: this.config.direction==='put'?'PUT':'CALL', currency:'USD',
           duration: this.config.duration, duration_unit:'t', underlying_symbol: this.symbol,
         });
       },
@@ -866,11 +932,21 @@ function initStrategies(){
 }
 
 const STRAT_META = {
-  trendtouch: { label:'Trend SMA · Touch', desc:'Touch/No Touch · R_10 · 6-SMA trend confirm', source:'TC-AUTO-TREND-V10.xml' },
-  risefallx: { label:'RiseFall SMA/EMA', desc:'Rise/Fall · R_25 · SMA↔EMA contrarian cross', source:'Rise-Fall_Auto_Vix_25.xml' },
-  touchsma: { label:'Touch SMA V25', desc:'Touch/No Touch · R_25 · same SMA/EMA signal', source:'Rise-Fall_Auto_Vix_25-v2.xml' },
-  digitstreak: { label:'Digit Streak', desc:'Even/Odd · 1HZ50V · N-in-a-row reversal', source:'ROCKET_DIFFER analyzer' },
-  laddercall: { label:'Ladder CALL', desc:'Rise/Fall · R_10 · fixed-ladder martingale', source:'TRADE_CITY_BOT v1.2' },
+  trendtouch: { label:'Trend SMA · Touch', desc:'Touch/No Touch · R_10 · 6-SMA trend confirm', source:'TC-AUTO-TREND-V10.xml',
+    directionOptions:[['both','Both directions'],['up','Up only (ONETOUCH)'],['down','Down only (NOTOUCH)']],
+    testDirections:[['up','Test ONETOUCH'],['down','Test NOTOUCH']] },
+  risefallx: { label:'RiseFall SMA/EMA', desc:'Rise/Fall · R_25 · SMA↔EMA contrarian cross', source:'Rise-Fall_Auto_Vix_25.xml',
+    directionOptions:[['both','Both directions'],['call','CALL only'],['put','PUT only']],
+    testDirections:[['call','Test CALL'],['put','Test PUT']] },
+  touchsma: { label:'Touch SMA V25', desc:'Touch/No Touch · R_25 · same SMA/EMA signal', source:'Rise-Fall_Auto_Vix_25-v2.xml',
+    directionOptions:[['both','Both directions'],['up','Up only (ONETOUCH)'],['down','Down only (NOTOUCH)']],
+    testDirections:[['up','Test ONETOUCH'],['down','Test NOTOUCH']] },
+  digitstreak: { label:'Digit Streak', desc:'Even/Odd · 1HZ50V · N-in-a-row reversal', source:'ROCKET_DIFFER analyzer',
+    directionOptions:[['auto','Auto (streak-based)'],['even','Force DIGITEVEN'],['odd','Force DIGITODD']],
+    testDirections:[['even','Test DIGITEVEN'],['odd','Test DIGITODD']] },
+  laddercall: { label:'Ladder CALL', desc:'Rise/Fall · R_10 · fixed-ladder martingale', source:'TRADE_CITY_BOT v1.2',
+    directionOptions:[['call','CALL (rise)'],['put','PUT (fall)']],
+    testDirections:[['call','Test CALL'],['put','Test PUT']] },
 };
 
 function renderStrategyTabs(){
@@ -891,30 +967,62 @@ function renderStrategyPanel(){
   const el = document.getElementById('strategyPanels'); el.innerHTML = '';
   const card = document.createElement('div'); card.className = 'card';
 
-  const cfgFields = Object.keys(s.config).filter(k => typeof s.config[k] !== 'object').map(k => `
+  const hiddenKeys = new Set(['symbol','stake','direction']);
+  const cfgFields = Object.keys(s.config).filter(k => !hiddenKeys.has(k) && typeof s.config[k] !== 'object').map(k => `
     <div>
       <label>${k}</label>
       <input type="${typeof s.config[k]==='number'?'number':'text'}" step="any" data-cfgkey="${k}" value="${s.config[k]}">
     </div>`).join('');
 
+  const dirOptions = meta.directionOptions.map(([v,l]) => `<option value="${v}" ${s.config.direction===v?'selected':''}>${l}</option>`).join('');
+  const testBtns = meta.testDirections.map(([v,l]) => `<button class="btn small" data-testdir="${v}">${l}</button>`).join('');
+  const wr = s.stats.trades ? ((s.stats.wins/s.stats.trades)*100).toFixed(1) : '0.0';
+
   card.innerHTML = `
     <h2>${meta.label} <span class="tag">${s.active?'RUNNING':'STOPPED'}</span></h2>
     <div class="muted small">Source strategy: <code>${meta.source}</code></div>
     <hr class="sep">
+
     <div class="field-grid">
       <div><label>Symbol</label><input type="text" id="symField" value="${s.symbol}"></div>
-      <div><label>Current stake</label><input type="text" value="${s.stake}" disabled></div>
+      <div><label>Trade Type / Direction</label><select id="dirField">${dirOptions}</select></div>
+      <div><label>Base Stake (USD)</label><input type="number" id="stakeField" step="0.01" min="0.35" value="${s.config.stake ?? s.baseStake}"></div>
+      <div><label>Current live stake</label><input type="text" value="${s.stake}" disabled></div>
       ${cfgFields}
     </div>
-    <div style="display:flex;gap:10px;align-items:center;margin-top:16px">
+
+    <div style="display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap">
       <label class="toggle"><input type="checkbox" id="stratToggle" ${s.active?'checked':''}><span class="tswitch"></span><span class="small">Active</span></label>
       <button class="btn small" id="saveCfgBtn">Save Config</button>
       <button class="btn small" id="resetStakeBtn">Reset Stake to Base</button>
     </div>
+
+    <hr class="sep">
+    <div class="muted small" style="margin-bottom:8px">Manual test trade — fires immediately through the live buy pipeline, still subject to the risk engine, kill switch, and real-account arming. Use this to confirm the connection is executing trades.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${testBtns}</div>
+
+    <hr class="sep">
+    <h2 style="margin-bottom:8px">📡 Live Indicator Readout</h2>
+    <div id="indicatorReadout" class="muted small" style="font-family:var(--mono)">—</div>
+
+    <hr class="sep">
+    <h2 style="margin-bottom:8px">📈 Strategy Statistics</h2>
+    <div class="stat"><span>Trades taken</span><b>${s.stats.trades}</b></div>
+    <div class="stat"><span>Wins / Losses</span><b>${s.stats.wins} / ${s.stats.losses}</b></div>
+    <div class="stat"><span>Win rate</span><b>${wr}%</b></div>
+    <div class="stat"><span>Net P/L</span><b class="${s.stats.netProfit>=0?'pos':'neg'}">${s.stats.netProfit.toFixed(2)}</b></div>
+    <button class="btn small" id="resetStratStatsBtn" style="margin-top:10px">Reset This Strategy's Stats</button>
   `;
   el.appendChild(card);
 
   document.getElementById('symField').onchange = (e) => { s.symbol = e.target.value.trim(); s.config.symbol = s.symbol; ensureTickFeed(s.symbol); };
+  document.getElementById('dirField').onchange = (e) => { s.config.direction = e.target.value; log(`${meta.label}: direction set to ${e.target.value}`, 'info'); };
+  document.getElementById('stakeField').onchange = (e) => {
+    const v = Math.max(0.35, num(e.target.value));
+    s.config.stake = v;
+    if (s.consec === 0) s.stake = v; // only snap live stake if not mid-martingale escalation
+    log(`${meta.label}: base stake set to ${v.toFixed(2)} USD`, 'info');
+  };
   document.getElementById('saveCfgBtn').onclick = () => {
     card.querySelectorAll('[data-cfgkey]').forEach(inp => {
       const key = inp.dataset.cfgkey; const raw = inp.value;
@@ -924,13 +1032,35 @@ function renderStrategyPanel(){
     renderStrategyPanel();
   };
   document.getElementById('resetStakeBtn').onclick = () => { s.stake = s.config.stake ?? s.baseStake; s.consec = 0; renderStrategyPanel(); };
+  document.getElementById('resetStratStatsBtn').onclick = () => {
+    s.stats = { trades:0, wins:0, losses:0, netProfit:0 };
+    log(`${meta.label}: strategy stats reset`, 'info');
+    renderStrategyPanel();
+  };
   document.getElementById('stratToggle').onchange = (e) => {
     s.active = e.target.checked;
     if (s.active){ ensureTickFeed(s.symbol); log(`${meta.label}: ARMED on ${s.symbol}`, 'info'); }
     else log(`${meta.label}: stopped`, 'info');
     renderStrategyTabs();
   };
+  card.querySelectorAll('[data-testdir]').forEach(btn => {
+    btn.onclick = () => manualFireStrategy(id, btn.dataset.testdir);
+  });
+
+  refreshIndicatorReadout();
 }
+
+function refreshIndicatorReadout(){
+  const id = state.activeStrategyId; const s = state.strategies && state.strategies[id];
+  const el = document.getElementById('indicatorReadout');
+  if (!s || !el) return;
+  const ind = s.lastIndicator || {};
+  const keys = Object.keys(ind);
+  el.innerHTML = keys.length
+    ? keys.map(k => `<div class="kv"><span>${k}</span><b>${ind[k]}</b></div>`).join('')
+    : 'No ticks processed yet for this symbol.';
+}
+setInterval(refreshIndicatorReadout, 1000);
 
 /* ================= UI wiring: gate / auth ================= */
 document.getElementById('tabPAT').onclick = () => { setAuthTab('pat'); };
@@ -1101,6 +1231,41 @@ document.getElementById('killBtn').onclick = () => {
 };
 
 document.getElementById('clearLogBtn').onclick = () => { document.getElementById('eventLog').innerHTML = ''; };
+
+document.getElementById('refreshBalBtn').onclick = async () => {
+  try {
+    const resp = await wsSend({ balance:1 });
+    if (resp && resp.balance){
+      document.getElementById('balLabel').textContent = `${num(resp.balance.balance).toFixed(2)} ${resp.balance.currency}`;
+      document.getElementById('s_bal').textContent = `${num(resp.balance.balance).toFixed(2)} ${resp.balance.currency}`;
+      log('Balance refreshed manually.', 'info');
+    }
+  } catch(e){ log(`Balance refresh failed: ${e.message}`, 'err'); }
+};
+
+document.getElementById('resetStatsBtn').onclick = () => {
+  // Scoped reset: clears session P/L, per-strategy stats, and risk counters.
+  // Does NOT touch the WebSocket connection, running strategies, or open contracts.
+  state.sessionPL = 0;
+  const plEl = document.getElementById('s_pl'); plEl.textContent = '0.00'; plEl.className = '';
+  state.risk.dailyProfit = 0; state.risk.dailyLoss = 0; state.risk.consecLosses = 0;
+  if (state.risk.paused){ state.risk.paused = false; document.getElementById('riskStatus').innerHTML = '<span class="badge on">ACTIVE</span>'; }
+  Object.values(state.strategies).forEach(s => { s.stats = { trades:0, wins:0, losses:0, netProfit:0 }; });
+  log('Session statistics reset (P/L, per-strategy stats, risk counters). Connection and running strategies untouched.', 'info');
+  if (document.getElementById('strategyPanels').firstChild) renderStrategyPanel();
+};
+
+document.getElementById('resetMarketDataBtn').onclick = () => {
+  // Scoped reset: clears cached tick/price history per symbol so indicators rebuild from fresh data.
+  // Does NOT unsubscribe from feeds or affect the WebSocket connection.
+  for (const [sym, rec] of state.ticksBySymbol){
+    rec.prices = []; rec.lastQuote = null; rec.lastDigit = null; rec.dir = null;
+  }
+  Object.values(state.strategies).forEach(s => { s.lastIndicator = {}; if (s.digitHistory) s.digitHistory = []; });
+  renderSymbolFeed();
+  if (document.getElementById('strategyPanels').firstChild) renderStrategyPanel();
+  log('Market data (tick/price history) cleared. Indicators will re-warm from new ticks.', 'info');
+};
 
 /* ================= init ================= */
 setAuthTab('pat');
