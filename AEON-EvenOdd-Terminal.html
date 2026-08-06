@@ -343,9 +343,12 @@ small.hint{color:var(--dim2);font-size:10.5px;line-height:1.5;display:block;marg
   <div class="card">
     <h3>Profit Control <span class="tag">enforced</span></h3>
     <div class="toggle"><span>Enable Session Take Profit</span><div class="sw" id="swSessionTP"><i></i></div></div>
-    <label class="field">Session Take Profit (USD)</label>
+    <label class="field">Session Take Profit (USD, per cycle)</label>
     <input type="number" id="riskSessionTP" value="50" min="0.5" step="0.5">
-    <small class="hint">Once cumulative session P&amp;L reaches this target, the Risk Engine halts all further trading (auto and manual) until you reset stats or raise the target.</small>
+    <div class="toggle" style="margin-top:4px;"><span>Auto-Cycle on Target Hit (seamless restart)</span><div class="sw on" id="swAutoCycle"><i></i></div></div>
+    <label class="field">Cycle Cooldown (ticks, before next cycle re-arms)</label>
+    <input type="number" id="riskCycleCooldown" value="5" min="0" max="200">
+    <small class="hint">When ON: hitting the target banks that cycle's profit, resets progression, holds briefly for the cooldown window, then automatically resumes toward the next target — no manual reset needed. When OFF: hitting the target halts all trading until you reset stats manually (legacy behavior).</small>
     <div class="toggle" style="margin-top:12px;"><span>Enable Trade Run Take Profit</span><div class="sw" id="swRunTP"><i></i></div></div>
     <label class="field">Trade Run Take Profit (USD)</label>
     <input type="number" id="riskRunTP" value="10" min="0.5" step="0.5">
@@ -353,9 +356,13 @@ small.hint{color:var(--dim2);font-size:10.5px;line-height:1.5;display:block;marg
     <input type="number" id="riskRunCooldown" value="10" min="0" max="200">
     <small class="hint" style="margin-top:0;">A "run" is the current martingale progression. Once its cumulative P&amp;L reaches this target, the Reset Engine locks in the gain, resets the run to base stake, and holds entries for the cooldown window above.</small>
     <div class="grid3" style="margin-top:12px;">
-      <div class="stat"><div class="v" id="tpSessionNow">0.00</div><div class="l">Session P&L / Target</div></div>
+      <div class="stat"><div class="v" id="tpSessionNow">0.00</div><div class="l">Cycle P&L / Target</div></div>
       <div class="stat"><div class="v" id="tpRunNow">0.00</div><div class="l">Run P&L / Target</div></div>
-      <div class="stat"><div class="v" id="runCooldownNow">—</div><div class="l">Cooldown Left</div></div>
+      <div class="stat"><div class="v" id="statCycles">0</div><div class="l">Cycles Completed</div></div>
+    </div>
+    <div class="grid2" style="margin-top:8px;">
+      <div class="stat"><div class="v" id="cycleCooldownNow">—</div><div class="l">Cycle Cooldown Left</div></div>
+      <div class="stat"><div class="v" id="runCooldownNow">—</div><div class="l">Run Cooldown Left</div></div>
     </div>
   </div>
   <div class="card">
@@ -522,8 +529,11 @@ const S = {
   durationTicks:1,
   stake:1,
   risk:{dailyCap:20,consecLoss:4,stakeCeiling:20,maxConcurrent:1,volPause:true,
-        sessionTPEnabled:false, sessionTP:50, runTPEnabled:false, runTP:10, runCooldownTicks:10},
-  session:{trades:0,wins:0,losses:0,pnl:0,peak:0,drawdown:0,consecLoss:0,dailyLossAccum:0,runPnl:0,sessionTPHit:false,runCooldownRemaining:0},
+        sessionTPEnabled:false, sessionTP:50, sessionAutoCycle:true, cycleCooldownTicks:5,
+        runTPEnabled:false, runTP:10, runCooldownTicks:10},
+  session:{trades:0,wins:0,losses:0,pnl:0,peak:0,drawdown:0,consecLoss:0,dailyLossAccum:0,
+           runPnl:0,sessionTPHit:false,runCooldownRemaining:0,
+           cycleBaselinePnl:0,cycleCount:0,cycleCooldownRemaining:0},
   openContracts:new Map(), // contract_id -> {call, stake, confidence, req_id}
   tradeInFlight:false, // guards the proposal->buy round-trip against duplicate concurrent entries
   journal:[],
@@ -627,7 +637,10 @@ function handlePublicMessage(data){
     if(bucket.buffer.length>3000) bucket.buffer.shift();
     if(sym === S.symbol){
       pushTickUI(d, d%2===0);
-      if(S.session.runCooldownRemaining > 0){ S.session.runCooldownRemaining--; renderSessionStats(); }
+      let cooldownChanged=false;
+      if(S.session.runCooldownRemaining > 0){ S.session.runCooldownRemaining--; cooldownChanged=true; }
+      if(S.session.cycleCooldownRemaining > 0){ S.session.cycleCooldownRemaining--; cooldownChanged=true; }
+      if(cooldownChanged) renderSessionStats();
       recomputeAnalytics();
       maybeAutoTrade();
     }
@@ -770,6 +783,7 @@ function maybeAutoTrade(){
   if(!S.auto || S.killed) return;
   if(S.tradeInFlight) return; // proposal->buy round-trip already in progress — don't double-fire on the next tick
   if(S.session.runCooldownRemaining > 0) return; // cooling down after a run take-profit lock-in
+  if(S.session.cycleCooldownRemaining > 0) return; // cooling down after a session-cycle take-profit lock-in
   if(!S.analytics || S.analytics.noTrade) return;
   if(S.analytics.confidence < S.minConfidence) return;
   if(S.openContracts.size >= S.risk.maxConcurrent) return;
@@ -781,7 +795,8 @@ function riskGatePass(){
   if(S.killed) { log('Kill switch engaged — trade suppressed.','w'); return false; }
   if(S.tradeInFlight){ log('Trade already in flight — waiting for proposal/buy to resolve.','w'); return false; }
   if(!S.tradeWs || S.tradeWsState!=='open'){ log('Not connected to trading WS.','w'); return false; }
-  if(S.risk.sessionTPEnabled && S.session.pnl >= S.risk.sessionTP){ log('Session take-profit reached — trading halted.','w'); return false; }
+  if(S.risk.sessionTPEnabled && S.session.sessionTPHit && !S.risk.sessionAutoCycle){ log('Session take-profit reached — trading halted (auto-cycle off). Reset stats to resume.','w'); return false; }
+  if(S.session.cycleCooldownRemaining > 0){ log(`Cycle cooldown active — ${S.session.cycleCooldownRemaining} ticks until next target re-arms.`,'w'); return false; }
   if(S.session.runCooldownRemaining > 0){ log(`Run take-profit cooldown active — ${S.session.runCooldownRemaining} ticks remaining.`,'w'); return false; }
   if(S.session.dailyLossAccum >= S.risk.dailyCap){ log('Daily drawdown cap reached — trading paused.','w'); return false; }
   if(S.session.consecLoss >= S.risk.consecLoss){ log('Consecutive loss limit reached — trading paused.','w'); return false; }
@@ -902,12 +917,26 @@ function recordTradeResult(rec, profit, win){
   // A loss-driven martingale reset (win, or confidence-scaled reset) also closes out the run ledger naturally;
   // runPnl otherwise keeps accumulating until an explicit run take-profit hit or manual stats reset.
 
-  // Session Take Profit: halt all trading (auto + gate) once session target is hit
-  if(S.risk.sessionTPEnabled && !S.session.sessionTPHit && S.session.pnl >= S.risk.sessionTP){
-    S.session.sessionTPHit = true;
-    S.auto = false;
-    document.getElementById('swAuto').classList.remove('on');
-    log(`SESSION TAKE PROFIT REACHED (+${fmt2(S.session.pnl)}) — automation disabled, further trading blocked until stats reset.`,'w');
+  // Session Take Profit: cycle-relative P&L since the last cycle boundary
+  const cyclePnl = S.session.pnl - S.session.cycleBaselinePnl;
+  if(S.risk.sessionTPEnabled && !S.session.sessionTPHit && cyclePnl >= S.risk.sessionTP){
+    if(S.risk.sessionAutoCycle){
+      // Seamless auto-restart: bank this cycle's profit, reset progression state, hold for the cooldown
+      // window, then automatically resume toward the next target — no manual intervention required.
+      S.session.cycleCount++;
+      S.session.cycleBaselinePnl = S.session.pnl; // move the baseline forward — next cycle starts at 0
+      S.martLevel = 0;
+      S.session.runPnl = 0;
+      S.session.runCooldownRemaining = 0; // cycle cooldown supersedes any pending run cooldown
+      S.session.cycleCooldownRemaining = S.risk.cycleCooldownTicks;
+      log(`SESSION TAKE PROFIT #${S.session.cycleCount} REACHED (+${fmt2(cyclePnl)}, total +${fmt2(S.session.pnl)}) — profit banked, progression reset, resuming automatically toward next target${S.risk.cycleCooldownTicks>0? ` in ${S.risk.cycleCooldownTicks} ticks`:''}.`);
+      // S.auto is deliberately left untouched — automation keeps running, chasing the next cycle.
+    } else {
+      S.session.sessionTPHit = true;
+      S.auto = false;
+      document.getElementById('swAuto').classList.remove('on');
+      log(`SESSION TAKE PROFIT REACHED (+${fmt2(cyclePnl)}) — automation disabled, further trading blocked until stats reset (auto-cycle is off).`,'w');
+    }
   }
 
   // Calibration
@@ -1237,8 +1266,11 @@ function renderSessionStats(){
   document.getElementById('pnlChip').className = S.session.pnl>=0?'pos':'neg';
   document.getElementById('riskDDNow').textContent = fmt2(S.session.dailyLossAccum);
   document.getElementById('riskConsecNow').textContent = S.session.consecLoss;
-  document.getElementById('tpSessionNow').textContent = `${fmt2(S.session.pnl)} / ${S.risk.sessionTPEnabled? fmt2(S.risk.sessionTP) : '—'}`;
+  const cyclePnl = S.session.pnl - S.session.cycleBaselinePnl;
+  document.getElementById('tpSessionNow').textContent = `${fmt2(cyclePnl)} / ${S.risk.sessionTPEnabled? fmt2(S.risk.sessionTP) : '—'}`;
   document.getElementById('tpRunNow').textContent = `${fmt2(S.session.runPnl)} / ${S.risk.runTPEnabled? fmt2(S.risk.runTP) : '—'}`;
+  document.getElementById('statCycles').textContent = S.session.cycleCount;
+  document.getElementById('cycleCooldownNow').textContent = S.session.cycleCooldownRemaining > 0 ? `${S.session.cycleCooldownRemaining} ticks` : '—';
   document.getElementById('runCooldownNow').textContent = S.session.runCooldownRemaining > 0 ? `${S.session.runCooldownRemaining} ticks` : '—';
 }
 function renderJournal(){
@@ -1355,8 +1387,25 @@ document.getElementById('riskDailyCap').onchange = e=> S.risk.dailyCap = parseFl
 document.getElementById('riskConsecLoss').onchange = e=> S.risk.consecLoss = parseInt(e.target.value,10)||4;
 document.getElementById('riskStakeCeiling').onchange = e=> S.risk.stakeCeiling = parseFloat(e.target.value)||20;
 document.getElementById('riskMaxConcurrent').onchange = e=> S.risk.maxConcurrent = parseInt(e.target.value,10)||1;
-document.getElementById('swSessionTP').onclick = function(){ this.classList.toggle('on'); S.risk.sessionTPEnabled = this.classList.contains('on'); if(!S.risk.sessionTPEnabled) S.session.sessionTPHit=false; renderSessionStats(); log('Session take-profit '+(S.risk.sessionTPEnabled?'enabled':'disabled')+'.'); };
+document.getElementById('swSessionTP').onclick = function(){
+  this.classList.toggle('on'); S.risk.sessionTPEnabled = this.classList.contains('on');
+  if(!S.risk.sessionTPEnabled){ S.session.sessionTPHit=false; S.session.cycleCooldownRemaining=0; }
+  else { S.session.cycleBaselinePnl = S.session.pnl; S.session.sessionTPHit=false; } // start measuring forward from activation, not from stale historical P&L
+  renderSessionStats(); log('Session take-profit '+(S.risk.sessionTPEnabled?'enabled':'disabled')+'.');
+};
 document.getElementById('riskSessionTP').onchange = e=>{ S.risk.sessionTP = parseFloat(e.target.value)||50; renderSessionStats(); };
+document.getElementById('swAutoCycle').onclick = function(){
+  this.classList.toggle('on'); S.risk.sessionAutoCycle = this.classList.contains('on');
+  if(S.risk.sessionAutoCycle && S.session.sessionTPHit){
+    // switching auto-cycle on while previously halted: clear the halt and resume from a fresh cycle baseline
+    S.session.sessionTPHit = false;
+    S.session.cycleBaselinePnl = S.session.pnl;
+    log('Auto-cycle enabled — halt cleared, resuming from a fresh cycle baseline.');
+  }
+  renderSessionStats();
+  log('Session take-profit auto-cycle '+(S.risk.sessionAutoCycle?'enabled':'disabled')+'.');
+};
+document.getElementById('riskCycleCooldown').onchange = e=>{ S.risk.cycleCooldownTicks = Math.max(0, parseInt(e.target.value,10)||0); };
 document.getElementById('swRunTP').onclick = function(){ this.classList.toggle('on'); S.risk.runTPEnabled = this.classList.contains('on'); renderSessionStats(); log('Trade run take-profit '+(S.risk.runTPEnabled?'enabled':'disabled')+'.'); };
 document.getElementById('riskRunTP').onchange = e=>{ S.risk.runTP = parseFloat(e.target.value)||10; renderSessionStats(); };
 document.getElementById('riskRunCooldown').onchange = e=>{ S.risk.runCooldownTicks = Math.max(0, parseInt(e.target.value,10)||0); };
@@ -1385,7 +1434,9 @@ document.getElementById('btnResetJournal').onclick = async ()=>{
   S.journal = []; await clearJournalIDB(); renderJournal(); log('Journal cleared.');
 };
 document.getElementById('btnResetStats').onclick = ()=>{
-  S.session = {trades:0,wins:0,losses:0,pnl:0,peak:0,drawdown:0,consecLoss:0,dailyLossAccum:0,runPnl:0,sessionTPHit:false,runCooldownRemaining:0};
+  S.session = {trades:0,wins:0,losses:0,pnl:0,peak:0,drawdown:0,consecLoss:0,dailyLossAccum:0,
+               runPnl:0,sessionTPHit:false,runCooldownRemaining:0,
+               cycleBaselinePnl:0,cycleCount:0,cycleCooldownRemaining:0};
   S.calibration = {confSum:0,confCount:0,wins:0,total:0};
   S.martLevel = 0;
   renderAll(); log('Session stats reset.');
