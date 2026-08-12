@@ -351,7 +351,16 @@ input,select{font-family:var(--mono);}
         <input type="number" class="param-val" id="riskMaxConcurrent" value="1" style="width:80px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:5px;color:var(--ink);text-align:right;"></div>
       <div class="param-row"><span class="param-name">Max Open Trade Lifetime (s)</span>
         <input type="number" class="param-val" id="riskMaxLifetime" value="180" style="width:80px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:5px;color:var(--ink);text-align:right;"></div>
-      <div class="hint" style="margin-top:8px;">This gate is checked before every single buy() call across all engines. Any breach halts new entries; open contracts are still monitored to settlement.</div>
+      <div class="param-row"><span class="param-name">Session Take Profit ($) · auto-cycle</span>
+        <input type="number" class="param-val" id="riskSessionTP" value="15" style="width:80px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:5px;color:var(--ink);text-align:right;"></div>
+      <div class="param-row"><span class="param-name">Auto-Restart on Session TP</span>
+        <div class="engine-toggle on" id="riskAutoRestartToggle"></div></div>
+      <div class="hint" style="margin-top:8px;">This gate is checked before every single buy() call across all engines. Any breach halts new entries; open contracts are still monitored to settlement. When Session Take Profit is reached, all armed engines cycle instantly — stake/step/section P&amp;L reset to baseline and trading resumes toward the next target with zero downtime.</div>
+      <div class="param-row" style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;">
+        <span class="param-name">Session Cycles Completed</span>
+        <span class="param-val" id="riskCycleCount">0</span></div>
+      <div class="param-row"><span class="param-name">Cumulative Cycled Profit</span>
+        <span class="param-val up" id="riskCycledProfit">$0.00</span></div>
     </div>
 
     <div class="section-title">Strategy Engines</div>
@@ -419,7 +428,8 @@ const APEX = {
   otpExpiryGuess: null,
   engines: {},
   killed: false,
-  riskState: { dailyStartBalance: null, sessionStartBalance: null, consecLossGlobal: 0, openTradeCount: 0 },
+  riskState: { dailyStartBalance: null, sessionStartBalance: null, consecLossGlobal: 0, openTradeCount: 0,
+    sessionTPBaseline: 0, cycleCount: 0, cycledProfit: 0 },
   db: null,
 };
 
@@ -587,6 +597,8 @@ function recomputeStats() {
 
   const chg = document.getElementById('dashSessionChg');
   if (chg) { chg.textContent = `Session P&L: ${moneySigned(sessionPL)}`; chg.className = 'chg ' + (sessionPL >= 0 ? 'up' : 'down'); }
+
+  checkSessionTPCycle(sessionPL);
 }
 function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
 function colorize(id, v) { const el = document.getElementById(id); if (!el) return; el.classList.remove('up', 'down'); el.classList.add(v >= 0 ? 'up' : 'down'); }
@@ -615,7 +627,38 @@ function getRiskConfig() {
     stakeCeiling: num(document.getElementById('riskStakeCeiling')?.value, 25),
     maxConcurrent: num(document.getElementById('riskMaxConcurrent')?.value, 1),
     maxLifetime: num(document.getElementById('riskMaxLifetime')?.value, 180),
+    sessionTP: num(document.getElementById('riskSessionTP')?.value, 15),
+    autoRestart: document.getElementById('riskAutoRestartToggle')?.classList.contains('on') ?? true,
   };
+}
+
+/* ============================================================
+   SESSION TAKE-PROFIT AUTO-CYCLE ENGINE
+   Fires the instant cumulative session P&L clears the configured
+   Session Take Profit above the current cycle baseline. Resets
+   every armed engine's local progression (stake/step/section P&L)
+   in-place — no disarm, no unsubscribe, no reconnect, zero gap —
+   then immediately resumes hunting the next target.
+   ============================================================ */
+function checkSessionTPCycle(sessionPL) {
+  const cfg = getRiskConfig();
+  if (!cfg.autoRestart || cfg.sessionTP <= 0) return;
+  const delta = sessionPL - APEX.riskState.sessionTPBaseline;
+  if (delta < cfg.sessionTP) return;
+
+  APEX.riskState.cycleCount++;
+  APEX.riskState.cycledProfit += delta;
+  APEX.riskState.sessionTPBaseline = sessionPL;
+
+  sysLog(`SESSION TAKE PROFIT HIT (+$${delta.toFixed(2)}) — auto-cycling all armed engines to next target · cycle #${APEX.riskState.cycleCount}`, 'ok');
+  toast(`Session TP hit! Cycling to target #${APEX.riskState.cycleCount + 1}`, 'ok');
+
+  Object.values(APEX.engines).forEach(e => {
+    if (e.armed && !e.inFlight) e.cycleReset('global session take profit');
+  });
+
+  setText('riskCycleCount', APEX.riskState.cycleCount);
+  setText('riskCycledProfit', money(APEX.riskState.cycledProfit));
 }
 function riskCheck(stake) {
   if (APEX.killed) return { ok: false, reason: 'Kill switch is engaged' };
@@ -1042,6 +1085,8 @@ class StrategyEngine {
     this.currentContractId = null;
     this.busUnsubs = [];
     this.pendingProposal = null;
+    this.cycleCount = 0;
+    this.cycledProfit = 0;
   }
 
   log(msg, level = 'info') { sysLog(`[${this.name}] ${msg}`, level); }
@@ -1069,10 +1114,29 @@ class StrategyEngine {
     this.render();
   }
 
+  /* Seamless auto-restart: fires when this engine's own Take Profit is hit,
+     or when the global Session Take Profit cycles all armed engines.
+     Unlike disarm(), this NEVER unsubscribes ticks or touches the WebSocket —
+     progression (stake/step/section P&L) resets in-place on the same tick
+     cycle so the engine keeps hunting the next target with zero downtime.
+     Trade history is untouched; only the local cycle counters advance. */
+  cycleReset(reason) {
+    if (!this.armed || this.inFlight) return;
+    this.cycleCount++;
+    this.cycledProfit += this.sectionPL;
+    const closedPL = this.sectionPL;
+    this.step = 0;
+    this.currentStake = this.baseStake;
+    this.sectionPL = 0;
+    this.log(`Take profit cycle #${this.cycleCount} complete (+$${closedPL.toFixed(2)}) — ${reason} — auto-restarting toward next target`, 'ok');
+    toast(`${this.name}: TP cycle #${this.cycleCount} complete — restarting`, 'ok');
+    this.render();
+  }
+
   onTick(tick) {
     if (!this.armed || this.inFlight || APEX.killed) return;
     if (this.tradesThisSession >= this.maxTrades) { this.disarm('max trades reached'); return; }
-    if (this.sectionPL >= this.takeProfit) { this.disarm(`take profit hit (+$${this.sectionPL.toFixed(2)})`); toast(`${this.name}: Take profit hit!`, 'ok'); return; }
+    if (this.sectionPL >= this.takeProfit) { this.cycleReset('engine take profit'); return; }
     if (this.sectionPL <= -Math.abs(this.stopLoss)) { this.disarm(`stop loss hit ($${this.sectionPL.toFixed(2)})`); toast(`${this.name}: Stop loss hit!`, 'err'); return; }
     const feed = APEX.tickFeeds.get(this.symbol);
     if (!feed || feed.lastTicks.length < this.warmupTicks) return; // warm-up gate
@@ -1148,6 +1212,13 @@ class StrategyEngine {
 
     this.applyMartingale(won);
     this.log(`Settled: ${won ? 'WIN' : 'LOSS'} ${moneySigned(profit)} · next stake $${this.currentStake.toFixed(2)}`, won ? 'ok' : 'warn');
+
+    // Evaluate TP/SL immediately on settlement — don't wait for the next tick.
+    // TP → seamless auto-restart (cycleReset). SL → hard safety disarm.
+    if (this.armed && !this.inFlight) {
+      if (this.sectionPL >= this.takeProfit) this.cycleReset('engine take profit');
+      else if (this.sectionPL <= -Math.abs(this.stopLoss)) { this.disarm(`stop loss hit ($${this.sectionPL.toFixed(2)})`); toast(`${this.name}: Stop loss hit!`, 'err'); }
+    }
     this.render();
   }
 
@@ -1388,6 +1459,7 @@ function engineCardHtml(e) {
     <div class="engine-status-strip">
       <span class="status-chip ${chip.cls}" id="chip_${e.id}">${chip.text}</span>
       <span id="pl_${e.id}" class="mono">Section P&amp;L: ${moneySigned(e.sectionPL)}</span>
+      <span class="mono" id="cyc_${e.id}" style="color:var(--accent);">· ${e.cycleCount} cycles</span>
     </div>
     <div class="engine-body" id="body_${e.id}">
       <div class="hint" style="margin-bottom:12px;">${e.description}</div>
@@ -1442,6 +1514,7 @@ function renderEngineCard(e) {
   setText(`chip_${e.id}`, chip.text);
   const chipEl = document.getElementById(`chip_${e.id}`); if (chipEl) chipEl.className = `status-chip ${chip.cls}`;
   const plEl = document.getElementById(`pl_${e.id}`); if (plEl) { plEl.textContent = `Section P&L: ${moneySigned(e.sectionPL)}`; plEl.style.color = e.sectionPL >= 0 ? 'var(--up)' : 'var(--down)'; }
+  setText(`cyc_${e.id}`, `· ${e.cycleCount} cycles`);
   setText(`hdstake_${e.id}`, e.currentStake.toFixed(2));
   setText(`step_${e.id}`, e.step);
   setText(`nextstake_${e.id}`, `$${e.currentStake.toFixed(2)}`);
@@ -1492,7 +1565,7 @@ function bindEngineCardEvents(e) {
     document.getElementById(`mgreset_${e.id}`).classList.toggle('on', e.martingaleResetOnWin);
   });
   document.querySelector(`[data-reset-engine="${e.id}"]`)?.addEventListener('click', () => {
-    e.step = 0; e.currentStake = e.baseStake; e.sectionPL = 0; e.tradesThisSession = 0;
+    e.step = 0; e.currentStake = e.baseStake; e.sectionPL = 0; e.tradesThisSession = 0; e.cycleCount = 0; e.cycledProfit = 0;
     e.log('Progression reset manually', 'sys');
     renderEngineCard(e);
     toast(`${e.name} progression reset`, 'ok');
@@ -1633,8 +1706,10 @@ async function boot() {
     const ok = await showConfirmModal('Reset Dashboard & Logs', 'This permanently clears all trade history, P&L stats, and dashboard counters. Engine parameters are kept. Type CONFIRM to proceed.');
     if (!ok) return;
     await Journal.resetAll();
-    Object.values(APEX.engines).forEach(e => { e.sectionPL = 0; e.tradesThisSession = 0; e.step = 0; e.currentStake = e.baseStake; renderEngineCard(e); });
-    sysLog('Dashboard stats and trade logs reset', 'warn');
+    Object.values(APEX.engines).forEach(e => { e.sectionPL = 0; e.tradesThisSession = 0; e.step = 0; e.currentStake = e.baseStake; e.cycleCount = 0; e.cycledProfit = 0; renderEngineCard(e); });
+    APEX.riskState.sessionTPBaseline = 0; APEX.riskState.cycleCount = 0; APEX.riskState.cycledProfit = 0;
+    setText('riskCycleCount', 0); setText('riskCycledProfit', money(0));
+    sysLog('Dashboard stats, trade logs, and TP cycle counters reset', 'warn');
     toast('Stats and logs cleared', 'ok');
   });
 
@@ -1643,8 +1718,14 @@ async function boot() {
   document.getElementById('clearSysLogBtn').addEventListener('click', () => { document.getElementById('sysLog').innerHTML = ''; });
 
   // Risk config live projection update
-  ['riskDailyCap', 'riskConsecLoss', 'riskStakeCeiling', 'riskMaxConcurrent', 'riskMaxLifetime'].forEach(id => {
+  ['riskDailyCap', 'riskConsecLoss', 'riskStakeCeiling', 'riskMaxConcurrent', 'riskMaxLifetime', 'riskSessionTP'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', updateRiskChip);
+  });
+  document.getElementById('riskAutoRestartToggle')?.addEventListener('click', (ev) => {
+    ev.target.classList.toggle('on');
+    const on = ev.target.classList.contains('on');
+    sysLog(`Session Take Profit auto-restart ${on ? 'ENABLED' : 'DISABLED'}`, 'sys');
+    toast(`Auto-restart on session TP ${on ? 'enabled' : 'disabled'}`, on ? 'ok' : 'warn');
   });
 
   setInterval(updateRiskChip, 4000);
@@ -1652,7 +1733,7 @@ async function boot() {
 }
 
 document.addEventListener('DOMContentLoaded', boot);
-
 </script>
+
 </body>
 </html>
