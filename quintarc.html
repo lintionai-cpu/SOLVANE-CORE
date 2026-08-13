@@ -250,6 +250,8 @@ input,select{font-family:var(--font-mono);}
 .tick-bar.down{background:var(--red);}
 
 .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0;}
+.stat-row.cols-5{grid-template-columns:repeat(5,1fr);}
+.stat-row.cols-6{grid-template-columns:repeat(6,1fr);}
 .stat-tile{
   background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
   padding:10px 12px;
@@ -416,14 +418,24 @@ footer.app-foot{
         <input type="number" id="globalMaxLoss" value="20" step="1" min="0">
       </div>
       <div class="field">
-        <label>Daily Take-Profit (USD)</label>
+        <label>Session Take-Profit (USD)</label>
         <input type="number" id="globalTakeProfit" value="15" step="1" min="0">
       </div>
       <div class="field">
         <label>Max Concurrent Strategies</label>
         <input type="number" id="globalMaxConcurrent" value="2" step="1" min="1" max="5">
       </div>
-      <span class="hint">Applies across all running strategies. Any breach stops every bot immediately.</span>
+      <span class="hint">Any breach of loss or take-profit stops every bot immediately.</span>
+
+      <div class="toggle-row" style="margin-top:6px;border-top:1px solid var(--line);padding-top:12px;">
+        <label style="font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.4px;">Auto-Restart on Take-Profit</label>
+        <label class="switch"><input type="checkbox" id="autoRestartToggle" checked><span class="slider"></span></label>
+      </div>
+      <div class="field">
+        <label>Max Cycles This Session (0 = unlimited)</label>
+        <input type="number" id="globalMaxCycles" value="0" step="1" min="0">
+      </div>
+      <span class="hint">When a strategy or the whole session hits its take-profit target, the profit is banked and that scope resets to base stake and resumes immediately — no delay, no manual restart. Stop-loss, max-martingale, and manual Stop always halt fully and are <b>never</b> overridden by auto-restart.</span>
     </div>
 
   </div>
@@ -433,8 +445,10 @@ footer.app-foot{
     <div class="section-title">Strategy Console</div>
     <div class="section-sub">Five strategies ported from your DBot XML files. Configure parameters, watch the live signal, then arm execution.</div>
 
-    <div class="stat-row" id="globalStats">
-      <div class="stat-tile"><div class="v mono" id="gpTotal">$0.00</div><div class="k">Session P&amp;L</div></div>
+    <div class="stat-row cols-6" id="globalStats">
+      <div class="stat-tile"><div class="v mono" id="gpTotal">$0.00</div><div class="k">Cycle P&amp;L</div></div>
+      <div class="stat-tile"><div class="v mono pos" id="gpBanked">$0.00</div><div class="k">Banked P&amp;L</div></div>
+      <div class="stat-tile"><div class="v mono" id="gpCycles">0</div><div class="k">TP Cycles</div></div>
       <div class="stat-tile"><div class="v mono" id="gpTrades">0</div><div class="k">Trades</div></div>
       <div class="stat-tile"><div class="v mono" id="gpWinrate">—</div><div class="k">Win Rate</div></div>
       <div class="stat-tile"><div class="v mono" id="gpActive">0</div><div class="k">Bots Running</div></div>
@@ -493,6 +507,7 @@ const state = {
   pendingProposals:{}, pendingBuys:{}, contractWatch:{},
   market:{},               // symbol -> {ticks,digits,colors,candle,completedCandles}
   killed:false,
+  globalCycleCount:0, globalBankedPL:0,
 };
 
 /* ---------------- Small Utils ---------------- */
@@ -975,7 +990,7 @@ const STRATEGY_DEFS = [
 const STRATEGIES = STRATEGY_DEFS.map(def => ({
   ...def,
   values: Object.fromEntries(def.schema.map(f => [f.key, f.default])),
-  state: { running:false, busy:false, currentStake: def.schema.find(f=>f.key==='stake').default, martingaleStep:0, consecutiveLosses:0, sessionPL:0, wins:0, losses:0, trades:0, lastSignal:null },
+  state: { running:false, busy:false, currentStake: def.schema.find(f=>f.key==='stake').default, martingaleStep:0, consecutiveLosses:0, sessionPL:0, wins:0, losses:0, trades:0, lastSignal:null, cycles:0, bankedPL:0, stopReason:null },
 }));
 
 /* ============================================================================
@@ -1020,23 +1035,96 @@ function onStrategyResult(strategy, profit){
   } else {
     st.losses++; st.consecutiveLosses++; st.martingaleStep++;
     if (st.martingaleStep > strategy.values.maxSteps){
+      // Hard stop — martingale depth is a safety limit, auto-restart never overrides it.
       connLog(`${strategy.name}: max martingale depth reached — stopping bot.`, 'warn');
-      stopStrategy(strategy);
+      stopStrategy(strategy, 'maxsteps');
     } else {
       st.currentStake = round2(st.currentStake * strategy.values.martingaleFactor);
     }
   }
+
   if (st.sessionPL <= -strategy.values.stopLoss){
+    // Hard stop — stop-loss is a safety limit, auto-restart never overrides it.
     connLog(`${strategy.name}: stop-loss hit (${fmtMoney(st.sessionPL)}) — stopping bot.`, 'err');
-    stopStrategy(strategy);
-  } else if (st.sessionPL >= strategy.values.targetProfit){
-    connLog(`${strategy.name}: take-profit reached (${fmtMoney(st.sessionPL)}) — stopping bot.`, 'ok');
-    stopStrategy(strategy);
+    stopStrategy(strategy, 'stoploss');
+  } else if (st.sessionPL >= strategy.values.targetProfit && st.running){
+    if (isAutoRestartEnabled() && !cycleLimitReached(st.cycles + 1)){
+      cycleStrategy(strategy);
+    } else {
+      if (isAutoRestartEnabled()) connLog(`${strategy.name}: max cycle limit reached — stopping bot.`, 'warn');
+      else connLog(`${strategy.name}: take-profit reached (${fmtMoney(st.sessionPL)}) — stopping bot.`, 'ok');
+      stopStrategy(strategy, 'takeprofit');
+    }
   }
+
   checkGlobalRisk();
   renderStrategyStats(strategy);
+  renderSignalBox(strategy, strategy.state.lastSignal);
   renderGlobalStats();
   renderStrategyTabs();
+}
+
+/* ----------------------------------------------------------------------------
+   TAKE-PROFIT AUTO-RESTART ENGINE
+   Fires synchronously the instant a settling trade crosses a take-profit
+   threshold — no setTimeout, no round-trip, so the very next tick can already
+   trigger the next signal. Stop-loss and max-martingale stops are hard stops
+   and are never touched by this engine, by construction (see onStrategyResult
+   and checkGlobalRisk — cycling is only ever invoked from the TP branches).
+   ---------------------------------------------------------------------------- */
+
+function isAutoRestartEnabled(){
+  return $('autoRestartToggle').checked && !state.killed;
+}
+function cycleLimitReached(nextCount){
+  const max = Number($('globalMaxCycles').value || 0);
+  return max > 0 && nextCount > max;
+}
+
+function cycleStrategy(strategy){
+  const st = strategy.state;
+  st.bankedPL = round2(st.bankedPL + st.sessionPL);
+  st.cycles++;
+  st.sessionPL = 0;
+  st.martingaleStep = 0;
+  st.consecutiveLosses = 0;
+  st.currentStake = strategy.values.stake;
+  st.stopReason = null;
+  st.running = true; // stays/becomes armed — no manual restart needed
+  connLog(`${strategy.name}: take-profit banked — cycle ${st.cycles} complete, restarting immediately at base stake.`, 'ok');
+  renderStrategyStats(strategy);
+  renderStrategyTabs();
+  renderStrategyHeadControls(strategy);
+}
+
+function cycleGlobalSession(){
+  state.globalCycleCount++;
+  STRATEGIES.forEach(s => {
+    const st = s.state;
+    // Bank whatever this strategy is currently holding into both its own and
+    // the session ledger, then reset it to a clean base-stake state.
+    st.bankedPL = round2(st.bankedPL + st.sessionPL);
+    state.globalBankedPL = round2(state.globalBankedPL + st.sessionPL);
+    st.sessionPL = 0;
+    st.martingaleStep = 0;
+    st.consecutiveLosses = 0;
+    st.currentStake = s.values.stake;
+    // Only re-arm strategies that were still running, or were only paused
+    // because THEY individually hit take-profit. Strategies halted for
+    // stop-loss, max-martingale, or a manual Stop stay stopped — the
+    // session-level auto-restart never revives a safety stop.
+    if (st.running || st.stopReason === 'takeprofit'){
+      st.running = true;
+      st.stopReason = null;
+      subscribeSymbol(s.values.symbol);
+    }
+    renderStrategyStats(s);
+    renderSignalBox(s, st.lastSignal);
+  });
+  connLog(`Session take-profit banked — cycle ${state.globalCycleCount} complete. All eligible bots resumed immediately at base stake.`, 'ok');
+  renderStrategyTabs();
+  STRATEGIES.forEach(renderStrategyHeadControls);
+  renderGlobalStats();
 }
 
 function checkGlobalRisk(){
@@ -1044,11 +1132,19 @@ function checkGlobalRisk(){
   const maxLoss = Number($('globalMaxLoss').value || 0);
   const takeProfit = Number($('globalTakeProfit').value || 0);
   if (maxLoss > 0 && totalPL <= -maxLoss){
+    // Hard stop — daily loss limit is a safety limit, never overridden.
     connLog(`Global daily loss limit hit (${fmtMoney(totalPL)}). Stopping all bots.`, 'err');
-    stopAllStrategies();
-  } else if (takeProfit > 0 && totalPL >= takeProfit){
-    connLog(`Global take-profit reached (${fmtMoney(totalPL)}). Stopping all bots.`, 'ok');
-    stopAllStrategies();
+    stopAllStrategies('stoploss');
+    return;
+  }
+  if (takeProfit > 0 && totalPL >= takeProfit){
+    if (isAutoRestartEnabled() && !cycleLimitReached(state.globalCycleCount + 1)){
+      cycleGlobalSession();
+    } else {
+      if (isAutoRestartEnabled()) connLog('Session max cycle limit reached — stopping all bots.', 'warn');
+      else connLog(`Session take-profit reached (${fmtMoney(totalPL)}). Stopping all bots.`, 'ok');
+      stopAllStrategies('takeprofit');
+    }
   }
 }
 
@@ -1102,25 +1198,30 @@ function startStrategy(strategy){
 
 function armStrategy(strategy){
   strategy.state.running = true;
+  strategy.state.stopReason = null;
   state.killed = false;
   subscribeSymbol(strategy.values.symbol);
   connLog(`${strategy.name} armed on ${strategy.values.symbol} (${state.selectedAccount.account_type}).`, 'ok');
   renderStrategyTabs();
   renderStrategyHeadControls(strategy);
+  renderSignalBox(strategy, strategy.state.lastSignal);
 }
 
-function stopStrategy(strategy){
+function stopStrategy(strategy, reason){
   strategy.state.running = false;
+  strategy.state.stopReason = reason || 'manual';
   renderStrategyTabs();
   renderStrategyHeadControls(strategy);
+  renderSignalBox(strategy, strategy.state.lastSignal);
 }
 
-function stopAllStrategies(){
+function stopAllStrategies(reason){
+  const r = reason || 'manual';
   state.killed = true;
-  STRATEGIES.forEach(s => { s.state.running = false; });
+  STRATEGIES.forEach(s => { s.state.running = false; s.state.stopReason = r; renderSignalBox(s, s.state.lastSignal); });
   renderStrategyTabs();
   STRATEGIES.forEach(renderStrategyHeadControls);
-  connLog('Emergency stop engaged — all bots halted.', 'warn');
+  if (r === 'manual') connLog('Emergency stop engaged — all bots halted.', 'warn');
 }
 
 /* ----------------------------------------------------------------------------
@@ -1134,7 +1235,7 @@ function resetSessionData(){
   $('tradeLogEmpty').classList.remove('hidden');
   tradeRowSeq = 0;
 
-  // Per-strategy P&L / win-loss / martingale stats (stake resets to base)
+  // Per-strategy P&L / win-loss / martingale / cycle stats (stake resets to base)
   STRATEGIES.forEach(s => {
     s.state.sessionPL = 0;
     s.state.wins = 0;
@@ -1144,8 +1245,12 @@ function resetSessionData(){
     s.state.consecutiveLosses = 0;
     s.state.currentStake = s.values.stake;
     s.state.lastSignal = null;
+    s.state.cycles = 0;
+    s.state.bankedPL = 0;
     renderStrategyStats(s);
   });
+  state.globalCycleCount = 0;
+  state.globalBankedPL = 0;
 
   // Market data buffers — keep active subscriptions alive, just clear history
   // and re-seed so running strategies aren't left evaluating stale data.
@@ -1235,8 +1340,10 @@ function renderStrategyPanels(){
             <span class="signal-text dim">Waiting for data…</span>
           </div>
           <div class="ticker-strip" id="ticker_${s.id}"></div>
-          <div class="stat-row">
-            <div class="stat-tile"><div class="v mono ${s.state.sessionPL>=0?'pos':'neg'}" id="stat_pl_${s.id}">${fmtMoney(s.state.sessionPL)}</div><div class="k">Strategy P&amp;L</div></div>
+          <div class="stat-row cols-6">
+            <div class="stat-tile"><div class="v mono ${s.state.sessionPL>=0?'pos':'neg'}" id="stat_pl_${s.id}">${fmtMoney(s.state.sessionPL)}</div><div class="k">Cycle P&amp;L</div></div>
+            <div class="stat-tile"><div class="v mono pos" id="stat_banked_${s.id}">${fmtMoney(s.state.bankedPL)}</div><div class="k">Banked P&amp;L</div></div>
+            <div class="stat-tile"><div class="v mono" id="stat_cycles_${s.id}">${s.state.cycles}</div><div class="k">TP Cycles</div></div>
             <div class="stat-tile"><div class="v mono" id="stat_trades_${s.id}">${s.state.trades}</div><div class="k">Trades</div></div>
             <div class="stat-tile"><div class="v mono" id="stat_stake_${s.id}">$${s.state.currentStake.toFixed(2)}</div><div class="k">Next Stake</div></div>
             <div class="stat-tile"><div class="v mono" id="stat_step_${s.id}">${s.state.martingaleStep}/${s.values.maxSteps}</div><div class="k">Martingale Step</div></div>
@@ -1269,10 +1376,18 @@ function renderStrategyHeadControls(strategy){
   if (stopBtn) stopBtn.onclick = () => stopStrategy(strategy);
 }
 
+const STOP_REASON_LABEL = {
+  stoploss:'Stop-loss hit', maxsteps:'Max martingale depth reached',
+  takeprofit:'Take-profit reached', manual:'Manually stopped'
+};
+
 function renderSignalBox(strategy, signal){
   const box = $(`signal_${strategy.id}`);
   if (!box) return;
-  if (signal){
+  if (!strategy.state.running){
+    const label = STOP_REASON_LABEL[strategy.state.stopReason] || 'Idle';
+    box.innerHTML = `<span class="signal-light"></span><span class="signal-text dim">Stopped — ${label}</span>`;
+  } else if (signal){
     box.innerHTML = `<span class="signal-light go"></span><span class="signal-text"><span class="main">${signal.contract_type}</span> · ${signal.reason}</span>`;
   } else {
     box.innerHTML = `<span class="signal-light wait"></span><span class="signal-text dim">No signal — monitoring ${strategy.values.symbol}…</span>`;
@@ -1284,6 +1399,8 @@ function renderStrategyStats(strategy){
   if (!pl) return;
   pl.textContent = fmtMoney(strategy.state.sessionPL);
   pl.className = 'v mono ' + (strategy.state.sessionPL>=0?'pos':'neg');
+  $(`stat_banked_${strategy.id}`).textContent = fmtMoney(strategy.state.bankedPL);
+  $(`stat_cycles_${strategy.id}`).textContent = strategy.state.cycles;
   $(`stat_trades_${strategy.id}`).textContent = strategy.state.trades;
   $(`stat_stake_${strategy.id}`).textContent = `$${strategy.state.currentStake.toFixed(2)}`;
   $(`stat_step_${strategy.id}`).textContent = `${strategy.state.martingaleStep}/${strategy.values.maxSteps}`;
@@ -1295,6 +1412,9 @@ function renderGlobalStats(){
   const wins = STRATEGIES.reduce((a,s)=>a+s.state.wins,0);
   $('gpTotal').textContent = fmtMoney(total);
   $('gpTotal').className = 'v mono ' + (total>=0?'pos':'neg');
+  $('gpBanked').textContent = fmtMoney(state.globalBankedPL);
+  $('gpBanked').className = 'v mono ' + (state.globalBankedPL>=0?'pos':'neg');
+  $('gpCycles').textContent = state.globalCycleCount;
   $('gpTrades').textContent = trades;
   $('gpWinrate').textContent = trades ? `${((wins/trades)*100).toFixed(0)}%` : '—';
   $('gpActive').textContent = STRATEGIES.filter(s=>s.state.running).length;
