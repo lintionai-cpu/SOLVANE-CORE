@@ -130,6 +130,8 @@ td.loss{color:var(--red);font-weight:700;}
 .pill.even{background:#1c3350;color:#7db4ff;}
 .pill.odd{background:#3a1c1c;color:#ff8a8a;}
 .pill.diff{background:#2b1c3a;color:#c99bff;}
+.pill.cycle{background:#123a2a;color:#4be8a6;}
+tr.cycle-row td{background:#0f1f18;color:#4be8a6;font-family:var(--sans);font-weight:600;padding:8px;border-bottom:1px solid #163a2a;font-size:11px;}
 
 /* ---------- Risk panel ---------- */
 .risk-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:12px;border-bottom:1px solid #1a2230;}
@@ -192,23 +194,29 @@ td.loss{color:var(--red);font-weight:700;}
       <div class="panel-body">
         <div class="risk-row"><span class="l">Active Strategy</span><span class="v" id="rActiveStrategy">None</span></div>
         <div class="risk-row"><span class="l">Session P&amp;L</span><span class="v" id="rSessionPnl">0.00</span></div>
-        <div class="risk-row"><span class="l">Trades Today</span><span class="v" id="rTradesCount">0</span></div>
+        <div class="risk-row"><span class="l">Trades This Cycle</span><span class="v" id="rTradesCount">0</span></div>
         <div class="risk-row"><span class="l">Win Rate</span><span class="v" id="rWinRate">—</span></div>
         <div class="risk-row"><span class="l">Consecutive Losses</span><span class="v" id="rConsecLoss">0</span></div>
         <div class="risk-row"><span class="l">Martingale Step</span><span class="v" id="rMartStep">0</span></div>
         <div class="risk-row"><span class="l">Next Stake</span><span class="v" id="rNextStake">—</span></div>
+        <div class="risk-row" style="border-top:1px solid var(--border);margin-top:6px;padding-top:10px;">
+          <span class="l">🔁 Auto-Restart Cycles</span><span class="v" id="rCycles">0</span></div>
+        <div class="risk-row"><span class="l">Lifetime P&amp;L (this strategy)</span><span class="v" id="rLifetimePnl">0.00</span></div>
+        <div class="risk-row"><span class="l">🌐 Global Session Cycles</span><span class="v" id="rGlobalCycles">0</span></div>
         <div class="field" style="margin-top:14px">
           <label>Global Kill-Switch — Stop Loss (USD)</label>
           <input type="number" id="inGlobalSL" value="50" min="0" step="1">
+          <div class="help">Hard stop. Unconditional — never auto-restarts.</div>
         </div>
         <div class="field">
           <label>Global Kill-Switch — Take Profit (USD)</label>
           <input type="number" id="inGlobalTP" value="100" min="0" step="1">
+          <div class="help">Soft target. Banked automatically, then the session cycle restarts seamlessly.</div>
         </div>
         <button class="btn danger" id="btnEmergencyStop" style="width:100%">⏹ Emergency Stop All</button>
         <button class="btn ghost" id="btnResetStats" style="width:100%;margin-top:8px">↺ Reset Statistics</button>
       </div>
-      <div class="footer-note">Digit-contract trading carries high risk of rapid loss. This terminal enforces your configured stop-loss/take-profit and martingale caps, but cannot guarantee outcomes. Trade demo first.</div>
+      <div class="footer-note">Take-profit hits (per-strategy or session) are banked to lifetime totals and the strategy auto-restarts immediately toward the next target. Stop-loss and max-martingale-step hits are hard, unconditional stops that require a manual restart — they never auto-restart.</div>
     </div>
   </div>
 
@@ -540,6 +548,10 @@ class RiskManager {
     this.takeProfit = opts.takeProfit;
     this.stopLoss = opts.stopLoss;
     this.reset();
+    this.cyclesCompleted = 0;
+    this.lifetimePnl = 0;
+    this.lifetimeTrades = 0;
+    this.lifetimeWins = 0;
   }
   reset() {
     this.stake = this.initialStake;
@@ -548,6 +560,21 @@ class RiskManager {
     this.sessionPnl = 0;
     this.trades = 0;
     this.wins = 0;
+  }
+  /**
+   * Banks the just-completed cycle's results into lifetime totals, then resets
+   * only the session-scoped counters (stake, step, P&L) so the very next tick
+   * can immediately begin working toward the next take-profit target.
+   * Called exclusively from the take-profit (soft-stop) branch — never on a hard stop.
+   */
+  bankCycle() {
+    this.cyclesCompleted++;
+    this.lifetimePnl += this.sessionPnl;
+    this.lifetimeTrades += this.trades;
+    this.lifetimeWins += this.wins;
+    const bankedPnl = this.sessionPnl;
+    this.reset();
+    return bankedPnl;
   }
   currentStake() { return Number(this.stake.toFixed(2)); }
   registerResult(profit) {
@@ -565,11 +592,16 @@ class RiskManager {
     }
     return this.evaluateStop();
   }
-  /** Returns a stop reason string if trading should halt, else null. */
+  /**
+   * Single authoritative post-settlement risk check.
+   * Returns { reason, hard } or null.
+   *  - hard:true  -> unconditional stop (stop-loss / max martingale steps). NEVER auto-restarts.
+   *  - hard:false -> take-profit target reached. Eligible for seamless auto-restart.
+   */
   evaluateStop() {
-    if (this.maxSteps > 0 && this.step >= this.maxSteps) return "Max martingale steps reached";
-    if (this.takeProfit > 0 && this.sessionPnl >= this.takeProfit) return "Take-profit target reached";
-    if (this.stopLoss > 0 && this.sessionPnl <= -this.stopLoss) return "Stop-loss limit reached";
+    if (this.maxSteps > 0 && this.step >= this.maxSteps) return { reason: "Max martingale steps reached", hard: true };
+    if (this.stopLoss > 0 && this.sessionPnl <= -this.stopLoss) return { reason: "Stop-loss limit reached", hard: true };
+    if (this.takeProfit > 0 && this.sessionPnl >= this.takeProfit) return { reason: "Take-profit target reached", hard: false };
     return null;
   }
 }
@@ -731,6 +763,8 @@ const App = {
   runningStrategy: null, // {key, cfg, risk, state, subId}
   tradeLog: [],
   globalPnl: 0,
+  globalCyclesCompleted: 0,
+  globalLifetimePnl: 0,
 
   init() {
     $("btnFetchAccounts").onclick = () => this.fetchAccounts();
@@ -975,10 +1009,16 @@ const App = {
   },
 
   resetStatistics() {
-    if (!confirm("Reset session statistics (P&L, win rate, martingale step, trade count)? This does not affect your live Deriv balance.")) return;
+    if (!confirm("Reset ALL session statistics — including banked auto-restart cycle totals (P&L, win rate, martingale step, trade count, lifetime/cycle counters)? This does not affect your live Deriv balance.")) return;
     this.globalPnl = 0;
+    this.globalCyclesCompleted = 0;
+    this.globalLifetimePnl = 0;
     if (this.runningStrategy) {
       this.runningStrategy.risk.reset();
+      this.runningStrategy.risk.cyclesCompleted = 0;
+      this.runningStrategy.risk.lifetimePnl = 0;
+      this.runningStrategy.risk.lifetimeTrades = 0;
+      this.runningStrategy.risk.lifetimeWins = 0;
       this.refreshRunningStats();
     } else {
       $("rActiveStrategy").textContent = "None";
@@ -988,6 +1028,9 @@ const App = {
       $("rConsecLoss").textContent = "0";
       $("rMartStep").textContent = "0";
       $("rNextStake").textContent = "—";
+      $("rCycles").textContent = "0";
+      $("rLifetimePnl").textContent = "0.00"; $("rLifetimePnl").className = "v";
+      $("rGlobalCycles").textContent = "0";
       if ($("statPnl")) {
         $("statPnl").textContent = "0.00"; $("statPnl").className = "v";
         $("statTrades").textContent = "0";
@@ -1099,13 +1142,16 @@ const App = {
     $("rActiveStrategy").textContent = def.label;
     document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("running", t.dataset.key === key));
     this.renderStrategyBody(key);
-    toast(`${def.label} started on ${resolvedSymbol}`, "ok");
+    this.refreshRunningStats();
+    toast(`${def.label} started on ${resolvedSymbol} — will auto-restart on every take-profit hit`, "ok");
   },
 
   stopStrategy(reason) {
     if (!this.runningStrategy) return;
     const key = this.runningStrategy.key;
-    toast(`Strategy stopped: ${reason}`, reason.toLowerCase().includes("target") ? "ok" : "");
+    const isManual = /manual|disconnect|emergency/i.test(reason);
+    const msg = isManual ? `Strategy stopped: ${reason}` : `Strategy stopped (hard stop — manual restart required): ${reason}`;
+    toast(msg, isManual ? "" : "err");
     this.runningStrategy = null;
     $("rActiveStrategy").textContent = "None";
     document.querySelectorAll(".tab").forEach((t) => t.classList.remove("running"));
@@ -1117,7 +1163,7 @@ const App = {
     if (!rs || rs.busy) return;
     const decision = rs.def.decide(this.tickStore, rs.state, rs.cfg);
     if (!decision) return;
-    rs.busy = true;
+    rs.busy = true; // global trade mutex — guarantees zero overlap across the settle→restart window
     const stake = rs.risk.currentStake();
     try {
       const result = await this.trader.execute({
@@ -1129,15 +1175,68 @@ const App = {
         durationUnit: rs.cfg.durationUnit
       });
       rs.def.onResult(rs.state, result.won);
-      const stopReason = rs.risk.registerResult(result.profit);
+      const stopInfo = rs.risk.registerResult(result.profit);
       this.logTrade(rs.def.label, decision, stake, result);
       this.refreshRunningStats();
-      if (stopReason) this.stopStrategy(stopReason);
+      this.postSettlementEvaluate(rs, stopInfo); // sole authoritative decision point, post-settlement only
     } catch (err) {
       toast(`Trade error: ${err.message}`, "err");
     } finally {
-      if (this.runningStrategy === rs) rs.busy = false;
+      if (this.runningStrategy === rs) rs.busy = false; // mutex released only after restart/stop decision is final
     }
+  },
+
+  /**
+   * PostSettlement.evaluate() — the ONLY place stop/restart decisions are made,
+   * and only ever called right after a contract has settled.
+   *   • Hard stops (stop-loss, max martingale steps) are unconditional and always
+   *     win over any soft signal — they fully stop the strategy and never auto-restart.
+   *   • Take-profit (per-strategy and/or global session) is a soft signal: it banks
+   *     the cycle to lifetime totals and restarts immediately, with the WebSocket
+   *     connection, symbol subscription and running strategy left completely
+   *     untouched — so the very next tick can trade again with zero delay.
+   */
+  postSettlementEvaluate(rs, stopInfo) {
+    const globalInfo = this.evaluateGlobalRisk();
+
+    if (globalInfo && globalInfo.hard) { this.stopStrategy(globalInfo.reason); return; }
+    if (stopInfo && stopInfo.hard) { this.stopStrategy(stopInfo.reason); return; }
+
+    if (stopInfo && !stopInfo.hard) this.autoRestartStrategyCycle(rs, stopInfo.reason);
+    if (globalInfo && !globalInfo.hard) this.autoRestartGlobalCycle(globalInfo.reason);
+  },
+
+  evaluateGlobalRisk() {
+    const gsl = Number($("inGlobalSL").value) || 0;
+    const gtp = Number($("inGlobalTP").value) || 0;
+    if (gsl > 0 && this.globalPnl <= -gsl) return { reason: "Global stop-loss reached", hard: true };
+    if (gtp > 0 && this.globalPnl >= gtp) return { reason: "Global take-profit reached", hard: false };
+    return null;
+  },
+
+  /** Banks the strategy's cycle P&L to lifetime totals and resets stake/step for an immediate next cycle. */
+  autoRestartStrategyCycle(rs, reason) {
+    const banked = rs.risk.bankCycle();
+    this.addCycleLogEntry(`🔁 ${rs.def.label}`, banked, reason, rs.risk.cyclesCompleted);
+    toast(`${rs.def.label}: ${reason} — banked ${banked >= 0 ? "+" : ""}${fmt(banked)} — auto-restarting`, "ok");
+    this.refreshRunningStats();
+  },
+
+  /** Banks the global session P&L to lifetime totals and resets it for an immediate next session cycle. */
+  autoRestartGlobalCycle(reason) {
+    this.globalCyclesCompleted = (this.globalCyclesCompleted || 0) + 1;
+    this.globalLifetimePnl = (this.globalLifetimePnl || 0) + this.globalPnl;
+    const banked = this.globalPnl;
+    this.globalPnl = 0;
+    this.addCycleLogEntry("🌐 Session (Global)", banked, reason, this.globalCyclesCompleted);
+    toast(`Session Take-Profit achieved — banked ${banked >= 0 ? "+" : ""}${fmt(banked)} — session cycle restarting`, "ok");
+    $("rGlobalCycles").textContent = this.globalCyclesCompleted;
+  },
+
+  addCycleLogEntry(label, banked, reason, cycleNumber) {
+    this.tradeLog.unshift({ type: "cycle", time: nowStr(), strategy: label, banked, reason, cycleNumber });
+    if (this.tradeLog.length > 200) this.tradeLog.pop();
+    this.renderTradeLog();
   },
 
   refreshRunningStats() {
@@ -1158,29 +1257,43 @@ const App = {
     $("rConsecLoss").textContent = rs.risk.consecLosses;
     $("rMartStep").textContent = rs.risk.step;
     $("rNextStake").textContent = fmt(rs.risk.currentStake());
+    $("rCycles").textContent = rs.risk.cyclesCompleted;
+    $("rLifetimePnl").textContent = fmt(rs.risk.lifetimePnl);
+    $("rLifetimePnl").className = "v " + (rs.risk.lifetimePnl >= 0 ? "pos" : "neg");
+    $("rGlobalCycles").textContent = this.globalCyclesCompleted || 0;
   },
 
   logTrade(strategyLabel, decision, stake, result) {
     const entry = {
-      time: nowStr(), strategy: strategyLabel, contract: decision.contract_type,
+      type: "trade", time: nowStr(), strategy: strategyLabel, contract: decision.contract_type,
       barrier: decision.barrier, stake, profit: result.profit, won: result.won
     };
     this.tradeLog.unshift(entry);
     if (this.tradeLog.length > 200) this.tradeLog.pop();
     this.globalPnl += result.profit;
     this.renderTradeLog();
-    this.checkGlobalKillSwitch();
   },
 
   renderTradeLog() {
     $("logEmpty").classList.toggle("hidden", this.tradeLog.length > 0);
-    $("logCount").textContent = `${this.tradeLog.length} trades`;
+    $("logCount").textContent = `${this.tradeLog.length} entries`;
     const body = $("tradeLogBody");
     body.innerHTML = "";
     this.tradeLog.slice(0, 60).forEach((t) => {
+      const row = document.createElement("tr");
+      if (t.type === "cycle") {
+        row.className = "cycle-row";
+        row.innerHTML = `<td colspan="6">
+          <span class="pill cycle">CYCLE #${t.cycleNumber}</span>
+          <b>${t.strategy}</b> — ${t.reason} — banked
+          <span class="${t.banked >= 0 ? "win" : "loss"}">${t.banked >= 0 ? "+" : ""}${fmt(t.banked)}</span>
+          — auto-restarted <span class="mono" style="color:var(--txt-lo)">${t.time}</span>
+        </td>`;
+        body.appendChild(row);
+        return;
+      }
       const pillClass = /OVER/.test(t.contract) ? "over" : /UNDER/.test(t.contract) ? "under" :
                          /EVEN/.test(t.contract) ? "even" : /ODD/.test(t.contract) ? "odd" : "diff";
-      const row = document.createElement("tr");
       row.innerHTML = `
         <td>${t.time}</td>
         <td>${t.strategy}</td>
@@ -1190,13 +1303,6 @@ const App = {
         <td class="${t.profit >= 0 ? "win" : "loss"}">${t.profit >= 0 ? "+" : ""}${fmt(t.profit)}</td>`;
       body.appendChild(row);
     });
-  },
-
-  checkGlobalKillSwitch() {
-    const gsl = Number($("inGlobalSL").value) || 0;
-    const gtp = Number($("inGlobalTP").value) || 0;
-    if (gsl > 0 && this.globalPnl <= -gsl) this.stopStrategy("Global stop-loss reached");
-    if (gtp > 0 && this.globalPnl >= gtp) this.stopStrategy("Global take-profit reached");
   }
 };
 
