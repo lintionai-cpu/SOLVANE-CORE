@@ -494,14 +494,93 @@ input[type=number]{-moz-appearance:textfield}
   transition:background .2s;margin-top:7px;
 }
 .sec-btn:hover{background:var(--s3)}
+/* ── SESSION PROGRESS CARD ── */
+.sess-card{border-color:rgba(79,142,247,.25)!important}
+.cyc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}
+.prog-wrap{margin-top:10px}
+.prog-header{display:flex;justify-content:space-between;margin-bottom:5px;font-size:11px}
+.prog-track{
+  height:6px;background:var(--s3);border-radius:3px;overflow:hidden;
+}
+.prog-fill{
+  height:100%;border-radius:3px;
+  background:linear-gradient(90deg,var(--blue),var(--teal));
+  transition:width .5s cubic-bezier(.4,0,.2,1);
+  width:0%;
+}
+.prog-fill.cyc{
+  background:linear-gradient(90deg,var(--green),#19d4c8);
+}
+/* Cycle completed pulse on the session card */
+.sess-card.tp-pulse{
+  animation:sessFlash .7s ease;
+}
+@keyframes sessFlash{
+  0%{border-color:rgba(79,142,247,.25);box-shadow:none}
+  40%{border-color:var(--green);box-shadow:0 0 24px rgba(33,217,122,.35)}
+  100%{border-color:rgba(79,142,247,.25);box-shadow:none}
+}
+/* Countdown badge inside status bar */
+.cd-badge{
+  margin-left:auto;flex-shrink:0;
+  font-size:12px;font-weight:800;
+  background:var(--green-g);color:var(--green);
+  border:1px solid rgba(33,217,122,.3);
+  border-radius:6px;padding:2px 8px;
+}
+/* ── TP CELEBRATION OVERLAY ── */
+#tp-celebration{
+  position:fixed;inset:0;
+  background:rgba(6,8,15,.88);
+  display:flex;align-items:center;justify-content:center;
+  z-index:7000;opacity:0;transition:opacity .3s;
+}
+#tp-celebration.show{opacity:1}
+.tp-toast{
+  background:var(--s1);border:1px solid var(--green);
+  border-radius:22px;padding:32px 28px;
+  text-align:center;max-width:290px;width:90%;
+  box-shadow:0 0 60px rgba(33,217,122,.25);
+  transform:scale(.9);transition:transform .3s;
+}
+#tp-celebration.show .tp-toast{transform:scale(1)}
+.tp-icon{font-size:52px;margin-bottom:10px;animation:iconBounce .6s .2s both}
+@keyframes iconBounce{0%{transform:scale(0) rotate(-20deg)}60%{transform:scale(1.2) rotate(5deg)}100%{transform:scale(1) rotate(0)}}
+.tp-title{font-size:22px;font-weight:800;letter-spacing:-.3px;margin-bottom:4px}
+.tp-sub{font-size:13px;color:var(--muted);margin-bottom:14px}
+.tp-pnl{
+  font-size:36px;font-weight:800;color:var(--green);
+  letter-spacing:-.8px;margin-bottom:20px;
+}
+.tp-details{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px;
+}
+.tp-det{
+  background:var(--s2);border-radius:10px;padding:10px;
+  border:1px solid var(--b1);
+}
+.tp-det-v{font-size:15px;font-weight:700}
+.tp-det-l{font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.4px}
+.tp-close{
+  width:100%;padding:13px;border-radius:12px;border:none;
+  background:linear-gradient(135deg,#0f9a4e,var(--green));
+  color:#fff;font-size:14px;font-weight:700;cursor:pointer;
+}
 /* ── UTILS ── */
 .row{display:flex;justify-content:space-between;align-items:center}
 .g{color:var(--green)}.r{color:var(--red)}.a{color:var(--amber)}.b{color:var(--blue)}
 .muted{color:var(--muted)}.sm{font-size:11.5px}.bold{font-weight:700}
 .flash-g{animation:flashG .5s ease}
 .flash-r{animation:flashR .5s ease}
+.flash-tp{animation:flashTP .8s ease}
 @keyframes flashG{0%,100%{background:transparent}50%{background:var(--green-g)}}
 @keyframes flashR{0%,100%{background:transparent}50%{background:var(--red-g)}}
+@keyframes flashTP{
+  0%{background:transparent}
+  30%{background:rgba(33,217,122,.22)}
+  60%{background:rgba(25,212,200,.15)}
+  100%{background:transparent}
+}
 </style>
 </head>
 <body>
@@ -648,10 +727,12 @@ input[type=number]{-moz-appearance:textfield}
     <!-- ── TRADE TAB ── -->
     <div class="tab on" id="tab-trade">
 
-      <div class="st-row">
+      <!-- 4-cell stats: Wins / Losses / Cycle P&L / Session P&L -->
+      <div class="st-row" style="grid-template-columns:repeat(2,1fr)">
         <div class="st"><div class="sv g" id="st-wins">0</div><div class="sl">Wins</div></div>
         <div class="st"><div class="sv r" id="st-loss">0</div><div class="sl">Losses</div></div>
-        <div class="st"><div class="sv b" id="st-pnl">$0.00</div><div class="sl">P&amp;L</div></div>
+        <div class="st"><div class="sv b" id="st-pnl">$0.00</div><div class="sl">Cycle P&amp;L</div></div>
+        <div class="st"><div class="sv" id="st-sess-pnl">$0.00</div><div class="sl">Session P&amp;L</div></div>
       </div>
 
       <div class="card">
@@ -725,9 +806,51 @@ input[type=number]{-moz-appearance:textfield}
         </div>
       </div>
 
+      <!-- ── SESSION PROGRESS CARD ── -->
+      <div class="card sess-card" id="sess-card">
+        <div class="row">
+          <div class="c-ttl" style="margin:0">Session Progress</div>
+          <span style="font-size:11px;font-weight:700;color:var(--blue)" id="sess-cycle-badge">Cycle 1 · Active</span>
+        </div>
+
+        <div class="cyc-grid">
+          <div class="mm">
+            <div class="mm-v g" id="sess-cyc-pnl">$0.00</div>
+            <div class="mm-l">Cycle P&amp;L</div>
+          </div>
+          <div class="mm">
+            <div class="mm-v b" id="sess-tot-pnl">$0.00</div>
+            <div class="mm-l">Session P&amp;L</div>
+          </div>
+          <div class="mm">
+            <div class="mm-v a" id="sess-cyc-count">0</div>
+            <div class="mm-l">Cycles Done</div>
+          </div>
+        </div>
+
+        <!-- Cycle TP progress bar — visible only when takeProfit > 0 -->
+        <div class="prog-wrap" id="cyc-prog-wrap" style="display:none">
+          <div class="prog-header">
+            <span class="muted">Cycle Target</span>
+            <span class="bold g" id="cyc-prog-lbl">$0.00 / $0.00</span>
+          </div>
+          <div class="prog-track"><div class="prog-fill cyc" id="cyc-prog-fill"></div></div>
+        </div>
+
+        <!-- Session TP progress bar — visible only when sessionTakeProfit > 0 -->
+        <div class="prog-wrap" id="sess-prog-wrap" style="display:none">
+          <div class="prog-header">
+            <span class="muted">Session Target</span>
+            <span class="bold b" id="sess-prog-lbl">$0.00 / $0.00</span>
+          </div>
+          <div class="prog-track"><div class="prog-fill" id="sess-prog-fill"></div></div>
+        </div>
+      </div>
+
       <div class="status-bar" id="sbar">
         <div class="sdot" id="sdot"></div>
         <span class="stext" id="stext">Ready to trade</span>
+        <span class="cd-badge" id="cd-badge" style="display:none"></span>
       </div>
 
       <div class="tbtw">
@@ -796,12 +919,20 @@ input[type=number]{-moz-appearance:textfield}
       <div class="sec-hd">Risk Controls</div>
       <div class="card">
         <div class="set-item">
-          <div><div class="set-lbl">Stop Loss</div><div class="set-sub">Stop when total loss ≥ this (0 = off)</div></div>
+          <div><div class="set-lbl">Stop Loss</div><div class="set-sub">Halt session when cumulative loss ≥ this (0 = off)</div></div>
           <input type="number" class="set-inp" id="set-sl" value="0" min="0" step="1" onchange="saveSettings()">
         </div>
+        <div class="set-item">
+          <div><div class="set-lbl">Cycle Take Profit</div><div class="set-sub">Auto-reset &amp; restart when cycle profit ≥ this (0 = off)</div></div>
+          <input type="number" class="set-inp" id="set-tp" value="0" min="0" step="0.5" onchange="saveSettings()">
+        </div>
+        <div class="set-item">
+          <div><div class="set-lbl">Session Take Profit</div><div class="set-sub">Stop entire session when total profit ≥ this (0 = off)</div></div>
+          <input type="number" class="set-inp" id="set-sess-tp" value="0" min="0" step="1" onchange="saveSettings()">
+        </div>
         <div class="set-item" style="border:none">
-          <div><div class="set-lbl">Take Profit</div><div class="set-sub">Stop when profit ≥ this (0 = off)</div></div>
-          <input type="number" class="set-inp" id="set-tp" value="0" min="0" step="1" onchange="saveSettings()">
+          <div><div class="set-lbl">TP Restart Delay (ms)</div><div class="set-sub">Pause before restarting after each cycle TP</div></div>
+          <input type="number" class="set-inp" id="set-tp-delay" value="1500" min="0" max="30000" step="500" onchange="saveSettings()">
         </div>
       </div>
 
@@ -907,11 +1038,18 @@ const S = {
   tradeInFlight: false,
   openCid: null,
   pendingProposalId: null,
-  /* Stats */
+  /* Stats — session-wide (never resets mid-session) */
   wins: 0,
   losses: 0,
-  pnl: 0.0,
+  pnl: 0.0,        // cumulative session P&L across ALL cycles
   trades: [],
+  /* Cycle / session TP tracking */
+  cyclePnl: 0.0,        // P&L since last TP reset (resets each cycle)
+  cycleCount: 0,         // number of TP cycles completed
+  sessionTakeProfit: 0,  // stop the whole session when pnl >= this (0 = off)
+  tpRestartDelay: 1500,  // ms before auto-restarting after cycle TP
+  _tpRestartTimer: null, // handle for the pending restart timeout
+  _tpCdInterval: null,   // countdown interval handle
   /* Ticks */
   digits: [],
   lastPrice: null,
@@ -1223,6 +1361,7 @@ function onAuthorized(info) {
   renderMartSteps();
   updMart();
   updNextStake();
+  updStats();            // drives session progress card on first load
   loadSettingsUI();
   subTicks(S.symbol);
   notify(`Connected — ${S.loginId}`, 'ok');
@@ -1328,12 +1467,13 @@ function onContract(d) {
 function _processResult(won, profit, stake, ctype, dig) {
   if (won) S.wins++;
   else     S.losses++;
-  S.pnl += profit;
+  S.pnl      += profit;   // session-total (never resets)
+  S.cyclePnl += profit;   // per-cycle (resets on each TP hit)
 
   const trade = {
     id: Date.now(), time: new Date(),
     type: ctype, stake, profit, won,
-    dig, step: S.curStep,
+    dig, step: S.curStep, cycle: S.cycleCount,
   };
   S.trades.unshift(trade);
   if (S.trades.length > 200) S.trades.pop();
@@ -1373,19 +1513,175 @@ function _processResult(won, profit, stake, ctype, dig) {
 }
 
 function _checkStopConditions() {
+  // ── 1. Max martingale steps (hard stop) ──
   if (S.curStep >= S.maxSteps) {
-    stopBot(`🛑 Max steps (${S.maxSteps}) reached — reset & restart to continue`);
+    stopBot(`🛑 Max steps (${S.maxSteps}) reached — reset martingale & restart`);
     return true;
   }
+  // ── 2. Session Stop Loss (cumulative, never auto-resets) ──
   if (S.stopLoss > 0 && S.pnl <= -S.stopLoss) {
-    stopBot(`🛑 Stop Loss hit — Total P&L: ${_fm(S.pnl, S.currency)}`);
+    stopBot(`🛑 Stop Loss hit — Session P&L: ${_fm(S.pnl, S.currency)}`);
     return true;
   }
-  if (S.takeProfit > 0 && S.pnl >= S.takeProfit) {
-    stopBot(`🎯 Take Profit hit — Total P&L: +${_fm(S.pnl, S.currency)}`);
-    return true;
+  // ── 3. Session Take Profit (check before cycle TP — wins entirely) ──
+  if (S.sessionTakeProfit > 0 && S.pnl >= S.sessionTakeProfit) {
+    return _handleSessionTakeProfit();
+  }
+  // ── 4. Cycle Take Profit (auto-reset & restart) ──
+  if (S.takeProfit > 0 && S.cyclePnl >= S.takeProfit) {
+    return _handleCycleTakeProfit();
   }
   return false;
+}
+
+/* ── Cycle TP: reset martingale, reset cycle P&L, auto-restart ── */
+function _handleCycleTakeProfit() {
+  const cycProfit = S.cyclePnl;
+  S.cycleCount++;
+  S.cyclePnl = 0;           // reset cycle counter for next cycle
+
+  // Reset martingale sequence cleanly
+  S.curStep  = 0;
+  S.curStake = S.baseStake;
+  updMart();
+  updNextStake();
+  updStats();               // refresh all displays immediately
+
+  // Visual feedback
+  _flashTp();
+  notify(`🎯 Cycle ${S.cycleCount} TP! +${_fm(cycProfit, S.currency)} — restarting…`, 'ok');
+
+  // Re-check session TP after incrementing cycleCount
+  if (S.sessionTakeProfit > 0 && S.pnl >= S.sessionTakeProfit) {
+    return _handleSessionTakeProfit();
+  }
+
+  // Guard: bot must still be running
+  if (!S.botRunning || !S.authorized) return true;
+
+  // Start countdown then restart
+  _startTpCountdown(S.tpRestartDelay, S.cycleCount);
+  return true; // prevents schedNext() from firing
+}
+
+/* ── Session TP: full stop, celebration ── */
+function _handleSessionTakeProfit() {
+  // Cancel any pending TP restart first
+  _cancelTpRestart();
+  S.botRunning    = false;
+  S.tradeInFlight = false;
+  updateBotUI(false);
+  const msg = `🏆 Session TP hit! ${S.cycleCount} cycles · +${_fm(S.pnl, S.currency)}`;
+  setStatus('won', msg);
+  notify(msg, 'ok');
+  _flashTp();
+  setTimeout(() => _showTpCelebration(), 400);
+  return true;
+}
+
+/* ── Countdown + restart scheduler ── */
+function _startTpCountdown(delayMs, completedCycle) {
+  _cancelTpRestart(); // clear any stale timer/interval
+
+  const secs = Math.ceil(delayMs / 1000);
+  let remaining = secs;
+
+  // Show immediate status
+  setStatus('won',
+    `🎯 Cycle ${completedCycle} complete${secs > 0 ? ` — restarting in ${secs}s` : ' — restarting…'}`
+  );
+
+  // Show countdown badge
+  const badge = document.getElementById('cd-badge');
+  badge.style.display = secs > 1 ? '' : 'none';
+  badge.textContent   = secs > 1 ? secs + 's' : '';
+
+  if (secs > 1) {
+    S._tpCdInterval = setInterval(() => {
+      remaining--;
+      if (remaining > 0) {
+        badge.textContent = remaining + 's';
+        setStatus('won', `🎯 Cycle ${completedCycle} complete — restarting in ${remaining}s`);
+      } else {
+        clearInterval(S._tpCdInterval);
+        S._tpCdInterval = null;
+        badge.style.display = 'none';
+      }
+    }, 1000);
+  }
+
+  S._tpRestartTimer = setTimeout(() => {
+    _cancelTpRestart();
+    if (!S.botRunning || !S.authorized) return;
+    setStatus('trading', `🔄 Cycle ${completedCycle + 1} starting…`);
+    execTrade();
+  }, Math.max(0, delayMs));
+}
+
+function _cancelTpRestart() {
+  if (S._tpRestartTimer) { clearTimeout(S._tpRestartTimer);  S._tpRestartTimer = null; }
+  if (S._tpCdInterval)   { clearInterval(S._tpCdInterval);   S._tpCdInterval   = null; }
+  const badge = document.getElementById('cd-badge');
+  if (badge) badge.style.display = 'none';
+}
+
+/* ── TP visual flash ── */
+function _flashTp() {
+  const r = document.querySelector('.st-row');
+  r.classList.remove('flash-g','flash-r','flash-tp');
+  void r.offsetWidth;
+  r.classList.add('flash-tp');
+
+  const sc = document.getElementById('sess-card');
+  sc.classList.remove('tp-pulse');
+  void sc.offsetWidth;
+  sc.classList.add('tp-pulse');
+}
+
+/* ── Session completion celebration overlay ── */
+function _showTpCelebration() {
+  const old = document.getElementById('tp-celebration');
+  if (old) old.remove();
+
+  const el = document.createElement('div');
+  el.id = 'tp-celebration';
+  el.innerHTML = `
+    <div class="tp-toast">
+      <div class="tp-icon">🏆</div>
+      <div class="tp-title">Session Complete!</div>
+      <div class="tp-sub">All targets achieved</div>
+      <div class="tp-pnl">+${_fm(S.pnl, S.currency)}</div>
+      <div class="tp-details">
+        <div class="tp-det">
+          <div class="tp-det-v g">${S.cycleCount}</div>
+          <div class="tp-det-l">Cycles Done</div>
+        </div>
+        <div class="tp-det">
+          <div class="tp-det-v">${S.wins + S.losses}</div>
+          <div class="tp-det-l">Total Trades</div>
+        </div>
+        <div class="tp-det">
+          <div class="tp-det-v g">${S.wins}</div>
+          <div class="tp-det-l">Wins</div>
+        </div>
+        <div class="tp-det">
+          <div class="tp-det-v r">${S.losses}</div>
+          <div class="tp-det-l">Losses</div>
+        </div>
+      </div>
+      <button class="tp-close" onclick="closeCelebration()">✓ Continue Trading</button>
+    </div>`;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => el.classList.add('show'));
+  });
+}
+
+function closeCelebration() {
+  const el = document.getElementById('tp-celebration');
+  if (!el) return;
+  el.classList.remove('show');
+  setTimeout(() => el.remove(), 300);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1401,9 +1697,10 @@ function startBot() {
 }
 
 function stopBot(reason) {
-  S.botRunning     = false;
-  S.tradeInFlight  = false;
+  S.botRunning        = false;
+  S.tradeInFlight     = false;
   S.pendingProposalId = null;
+  _cancelTpRestart();          // always clear any pending TP restart
   updateBotUI(false);
   setStatus('idle', reason || 'Bot stopped');
   if (reason) notify(reason, 'info');
@@ -1549,19 +1846,71 @@ function updAcctHeader() {
 }
 
 function updStats() {
+  // ── Top 4-cell stats ──
   document.getElementById('st-wins').textContent = S.wins;
   document.getElementById('st-loss').textContent = S.losses;
 
-  const pEl = document.getElementById('st-pnl');
-  pEl.textContent = _fm(S.pnl, S.currency, true);
-  pEl.className   = 'sv ' + (S.pnl >= 0 ? 'g' : 'r');
+  // Cycle P&L cell
+  const cEl = document.getElementById('st-pnl');
+  cEl.textContent = _fm(S.cyclePnl, S.currency, true);
+  cEl.className   = 'sv ' + (S.cyclePnl >= 0 ? 'b' : 'r');
 
+  // Session P&L cell
+  const sEl = document.getElementById('st-sess-pnl');
+  sEl.textContent = _fm(S.pnl, S.currency, true);
+  sEl.className   = 'sv ' + (S.pnl >= 0 ? 'g' : 'r');
+
+  // ── History tab ──
   const tot = S.wins + S.losses;
   document.getElementById('h-total').textContent = tot;
   document.getElementById('h-rate').textContent  = tot ? Math.round(S.wins / tot * 100) + '%' : '0%';
   const hp = document.getElementById('h-pnl');
   hp.textContent = _fm(S.pnl, S.currency, true);
   hp.className   = 'pnl-big ' + (S.pnl >= 0 ? 'g' : 'r');
+
+  // ── Session progress card ──
+  updSessionProgress();
+}
+
+function updSessionProgress() {
+  // Cycle badge
+  document.getElementById('sess-cycle-badge').textContent =
+    `Cycle ${S.cycleCount + 1} · Active`;
+
+  // Grid values
+  const cpEl = document.getElementById('sess-cyc-pnl');
+  cpEl.textContent = _fm(S.cyclePnl, S.currency, true);
+  cpEl.className   = 'mm-v ' + (S.cyclePnl >= 0 ? 'g' : 'r');
+
+  const spEl = document.getElementById('sess-tot-pnl');
+  spEl.textContent = _fm(S.pnl, S.currency, true);
+  spEl.className   = 'mm-v ' + (S.pnl >= 0 ? 'b' : 'r');
+
+  document.getElementById('sess-cyc-count').textContent = S.cycleCount;
+
+  // ── Cycle TP progress bar ──
+  const cycWrap = document.getElementById('cyc-prog-wrap');
+  if (S.takeProfit > 0) {
+    cycWrap.style.display = '';
+    const pct = Math.min(100, Math.max(0, (S.cyclePnl / S.takeProfit) * 100));
+    document.getElementById('cyc-prog-fill').style.width = pct.toFixed(1) + '%';
+    document.getElementById('cyc-prog-lbl').textContent =
+      `${_fm(S.cyclePnl, S.currency)} / ${_fm(S.takeProfit, S.currency)}`;
+  } else {
+    cycWrap.style.display = 'none';
+  }
+
+  // ── Session TP progress bar ──
+  const sessWrap = document.getElementById('sess-prog-wrap');
+  if (S.sessionTakeProfit > 0) {
+    sessWrap.style.display = '';
+    const pct = Math.min(100, Math.max(0, (S.pnl / S.sessionTakeProfit) * 100));
+    document.getElementById('sess-prog-fill').style.width = pct.toFixed(1) + '%';
+    document.getElementById('sess-prog-lbl').textContent =
+      `${_fm(S.pnl, S.currency)} / ${_fm(S.sessionTakeProfit, S.currency)}`;
+  } else {
+    sessWrap.style.display = 'none';
+  }
 }
 
 function _flashStats(won) {
@@ -1660,7 +2009,7 @@ function addHistItem(t) {
         <span class="tr-pnl ${t.profit >= 0 ? 'pos' : 'neg'}">${pStr}</span>
       </div>
       <div class="tr-meta">
-        Stake: ${_fm(t.stake, S.currency)}${t.dig != null ? ' · Digit: ' + t.dig : ''} · ${ts}
+        Stake: ${_fm(t.stake, S.currency)}${t.dig != null ? ' · Digit: ' + t.dig : ''} · Cycle ${(t.cycle ?? 0) + 1} · ${ts}
       </div>
     </div>`;
   list.insertBefore(el, list.firstChild);
@@ -1931,25 +2280,31 @@ function adjStake(factor) {
    CONTROLS — SETTINGS
 ═══════════════════════════════════════════════════════════════ */
 function loadSettingsUI() {
-  document.getElementById('set-mult').value  = S.multiplier;
-  document.getElementById('set-maxs').value  = S.maxSteps;
-  document.getElementById('set-delay').value = S.tradeDelay;
-  document.getElementById('set-sl').value    = S.stopLoss;
-  document.getElementById('set-tp').value    = S.takeProfit;
-  document.getElementById('set-auto').value  = S.autoStrategy;
-  document.getElementById('tog-row').className = 'tog' + (S.resetOnWin ? ' on' : '');
+  document.getElementById('set-mult').value     = S.multiplier;
+  document.getElementById('set-maxs').value     = S.maxSteps;
+  document.getElementById('set-delay').value    = S.tradeDelay;
+  document.getElementById('set-sl').value       = S.stopLoss;
+  document.getElementById('set-tp').value       = S.takeProfit;
+  document.getElementById('set-sess-tp').value  = S.sessionTakeProfit;
+  document.getElementById('set-tp-delay').value = S.tpRestartDelay;
+  document.getElementById('set-auto').value     = S.autoStrategy;
+  document.getElementById('tog-row').className  = 'tog' + (S.resetOnWin ? ' on' : '');
   updAcctHeader();
+  updSessionProgress(); // refresh progress bars with current settings
 }
 
 function saveSettings() {
-  S.multiplier   = Math.max(1.1, parseFloat(document.getElementById('set-mult').value)  || 2);
-  S.maxSteps     = Math.max(1,   parseInt  (document.getElementById('set-maxs').value)  || 5);
-  S.tradeDelay   = Math.max(0,   parseInt  (document.getElementById('set-delay').value) || 500);
-  S.stopLoss     = Math.max(0,   parseFloat(document.getElementById('set-sl').value)    || 0);
-  S.takeProfit   = Math.max(0,   parseFloat(document.getElementById('set-tp').value)    || 0);
-  S.autoStrategy = document.getElementById('set-auto').value;
+  S.multiplier        = Math.max(1.1, parseFloat(document.getElementById('set-mult').value)     || 2);
+  S.maxSteps          = Math.max(1,   parseInt  (document.getElementById('set-maxs').value)     || 5);
+  S.tradeDelay        = Math.max(0,   parseInt  (document.getElementById('set-delay').value)    || 500);
+  S.stopLoss          = Math.max(0,   parseFloat(document.getElementById('set-sl').value)       || 0);
+  S.takeProfit        = Math.max(0,   parseFloat(document.getElementById('set-tp').value)       || 0);
+  S.sessionTakeProfit = Math.max(0,   parseFloat(document.getElementById('set-sess-tp').value)  || 0);
+  S.tpRestartDelay    = Math.max(0,   parseInt  (document.getElementById('set-tp-delay').value) || 1500);
+  S.autoStrategy      = document.getElementById('set-auto').value;
   renderMartSteps();
   updMart();
+  updSessionProgress(); // immediately reflect new targets in progress bars
 }
 
 function togReset() {
@@ -1958,12 +2313,17 @@ function togReset() {
 }
 
 function resetAll() {
-  if (!confirm('Reset all stats and trade history?')) return;
-  S.wins = 0; S.losses = 0; S.pnl = 0; S.trades = [];
+  if (!confirm('Reset all stats, cycles and trade history?')) return;
+  if (S.botRunning) stopBot('Stopped — stats reset');
+  S.wins = 0; S.losses = 0; S.pnl = 0; S.cyclePnl = 0;
+  S.cycleCount = 0; S.trades = [];
+  S.curStep = 0; S.curStake = S.baseStake;
   updStats();
+  updMart();
+  updNextStake();
   document.getElementById('hist-list').innerHTML =
     '<div class="empty"><div class="ei">📋</div><p>No trades yet.</p></div>';
-  notify('Stats reset', 'info');
+  notify('All stats and cycles reset', 'info');
 }
 
 function resetMart() {
