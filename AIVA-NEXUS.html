@@ -216,6 +216,16 @@ footer.bar{position:fixed; bottom:0; left:0; right:0; background:rgba(8,11,16,.9
   </div>
 
   <div class="card">
+    <div class="card-h"><h3>Lifetime P/L (Survives Auto-Restarts)</h3><span class="tag mono" id="lifetimeCyclesTag">0 cycles</span></div>
+    <div class="grid3">
+      <div class="stat"><div class="lbl">Lifetime Net P/L</div><div class="val mono" id="statLifetimePnl">0.00</div></div>
+      <div class="stat"><div class="lbl">Lifetime Trades</div><div class="val mono" id="statLifetimeTrades">0</div></div>
+      <div class="stat"><div class="lbl">Lifetime Win Rate</div><div class="val mono" id="statLifetimeWR">0.0%</div></div>
+    </div>
+    <div class="hint">Accumulates across every auto-restart cycle for this connection. Only cleared by an explicit Account Baseline / full reset.</div>
+  </div>
+
+  <div class="card">
     <div class="card-h"><h3>Trade Statistics</h3></div>
     <div class="grid3">
       <div class="stat"><div class="lbl">Total Trades</div><div class="val mono" id="statTotal">0</div></div>
@@ -492,6 +502,25 @@ footer.bar{position:fixed; bottom:0; left:0; right:0; background:rgba(8,11,16,.9
     <div class="toggle-row"><div><div class="tname">Auto-Stop Engine at Session TP/SL</div><div class="tdesc">Engine halts automatically when session limit is reached</div></div><label class="switch"><input type="checkbox" id="plAutoStop" checked><span class="slider"></span></label></div>
   </div>
   <div class="card">
+    <div class="card-h"><h3>Auto-Reset &amp; Restart System</h3><span class="badge on" id="autoRestartBadge">ARMED</span></div>
+    <div class="hint" style="margin-bottom:9px;">When the Session Take Profit (or Daily Stop Profit, if enabled below) is reached, the engine automatically cycles: session P/L, trade stats, and martingale/recovery state reset to zero, the cycle is logged, and trading resumes toward the next Take Profit target — with no manual intervention. Session Stop Loss and other risk breaches always perform a full STOP, never an auto-restart.</div>
+    <div class="toggle-row">
+      <div><div class="tname">Auto-Reset &amp; Restart on Take Profit</div><div class="tdesc">Master switch for the seamless TP → reset → resume cycle</div></div>
+      <label class="switch"><input type="checkbox" id="cfgAutoRestart" checked><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div><div class="tname">Also Restart on Daily Stop Profit</div><div class="tdesc">Treat Daily Stop Profit (Risk tab) as an additional TP trigger</div></div>
+      <label class="switch"><input type="checkbox" id="cfgAutoRestartOnDailyProfit" checked><span class="slider"></span></label>
+    </div>
+    <div class="field" style="margin-top:9px;"><label>Restart Settle Delay (ms)</label><input type="number" id="cfgAutoRestartDelay" class="mono" value="1200" min="0" max="10000" step="100"><div class="hint">Trade mutex stays locked for this entire window — guarantees zero overlap between the closing cycle and the next one.</div></div>
+    <div class="grid3" style="margin-top:9px;">
+      <div class="stat"><div class="lbl">Cycles Completed</div><div class="val mono" id="statCycles">0</div></div>
+      <div class="stat"><div class="lbl">Current Cycle P/L</div><div class="val mono" id="statCyclePnl">0.00</div></div>
+      <div class="stat"><div class="lbl">Restart State</div><div class="val mono" id="statRestartState">IDLE</div></div>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-h"><h3>Session Progress</h3></div>
     <div class="gauge-wrap"><div class="gauge-top"><span class="nm">Toward Take Profit</span><span class="pv mono" id="plTPProgress">0%</span></div><div class="gauge-track"><div class="gauge-fill" id="plTPFill" style="width:0%"></div></div></div>
     <div class="gauge-wrap"><div class="gauge-top"><span class="nm">Toward Stop Loss</span><span class="pv mono" id="plSLProgress">0%</span></div><div class="gauge-track"><div class="gauge-fill" id="plSLFill" style="width:0%; background:linear-gradient(90deg,var(--rose-dim),var(--rose));"></div></div></div>
@@ -629,6 +658,8 @@ const State = {
   session: { startTime:null, trades:0, wins:0, losses:0, primary:0, recoveryTrades:0, recoveryWins:0,
     grossWin:0, grossLoss:0, netPnl:0, best:0, worst:0, peak:0, maxDrawdown:0, consecLoss:0, consecWin:0,
     pnlHistory:[] },
+  lifetime: { netPnl:0, trades:0, wins:0, losses:0, cycles:0, cycleStartedAt:null },
+  restarting:false,
   tradeLog: [],
   engineRunning:false,
   autoTradeArmed:false,
@@ -688,6 +719,10 @@ const Cfg = {
   get plMaxTrades(){ return Number(document.getElementById('plMaxTrades').value)||0; },
   get plMaxDuration(){ return Number(document.getElementById('plMaxDuration').value)||0; },
   get plAutoStop(){ return document.getElementById('plAutoStop').checked; },
+
+  get autoRestartEnabled(){ return document.getElementById('cfgAutoRestart').checked; },
+  get autoRestartDelay(){ return Number(document.getElementById('cfgAutoRestartDelay').value)||1200; },
+  get autoRestartOnDailyProfit(){ return document.getElementById('cfgAutoRestartOnDailyProfit').checked; },
 };
 
 /* ============================================================
@@ -1139,7 +1174,8 @@ const Decision = {
     if(!State.engineRunning) return;
     if(TradeExec.inFlight) return;
     if(!Cfg.autoTrade || !State.autoTradeArmed) return;
-    if(SessionGuard.limitsHit()){ Engine.stop('session P/L limit reached'); return; }
+    if(State.restarting) return; // cycle reset in progress — mutex-equivalent guard, no new entries
+    if(SessionGuard.limitsHit()) return; // entry gate only; stop/restart is decided post-settlement by AutoRestart
     if(Cfg.rkEmergency && State.engines.risk.score>=Cfg.rkCeiling){
       Log.err('EMERGENCY SHUTDOWN — Risk Score '+fmt(State.engines.risk.score,0)+' breached ceiling '+Cfg.rkCeiling+'.');
       Engine.stop('risk ceiling breach');
@@ -1278,7 +1314,7 @@ const TradeExec = {
   },
 
   async placeTrade(cmd){
-    if(this.mutexLock){ Log.warn('Trade mutex locked — skipping duplicate fire.'); return; }
+    if(this.mutexLock || State.restarting){ Log.warn('Trade mutex locked — skipping duplicate fire.'); return; }
     if(Date.now() - this.lastErrorTime < 5000){ return; } // cooldown after error
     if(!Conn.ws || Conn.ws.readyState!==1){ Log.err('Cannot trade — WebSocket not connected.'); return; }
 
@@ -1403,6 +1439,7 @@ const TradeExec = {
     }
 
     renderAll();
+    AutoRestart.evaluate(); // authoritative — the only place a TP-cycle restart can be triggered
   }
 };
 
@@ -1410,22 +1447,121 @@ const TradeExec = {
    SESSION GUARD (P/L rules, risk limits)
 ============================================================ */
 const SessionGuard = {
-  limitsHit(){
+  // Single authoritative status resolver. type: 'TP' (profit target — eligible for auto-restart)
+  // or 'SL' (loss/exposure/duration breach — always a full stop, never auto-restarted).
+  status(){
     const s = State.session;
-    if(Cfg.plSessionTP>0 && s.netPnl>=Cfg.plSessionTP) return true;
-    if(Cfg.plSessionSL>0 && s.netPnl<=-Cfg.plSessionSL) return true;
-    if(Cfg.plMaxTrades>0 && s.trades>=Cfg.plMaxTrades) return true;
-    if(Cfg.plMaxDuration>0 && s.startTime){
-      const mins = (Date.now()-s.startTime)/60000;
-      if(mins>=Cfg.plMaxDuration) return true;
+    if(Cfg.plSessionTP>0 && s.netPnl>=Cfg.plSessionTP)
+      return { hit:true, type:'TP', reason:'Session Take Profit reached ('+fmt(s.netPnl,2)+' ≥ '+fmt(Cfg.plSessionTP,2)+')' };
+    if(Cfg.autoRestartOnDailyProfit && Cfg.rkDailyStopProfit>0 && s.netPnl>=Cfg.rkDailyStopProfit)
+      return { hit:true, type:'TP', reason:'Daily Stop Profit reached ('+fmt(s.netPnl,2)+' ≥ '+fmt(Cfg.rkDailyStopProfit,2)+')' };
+    if(Cfg.plSessionSL>0 && s.netPnl<=-Cfg.plSessionSL)
+      return { hit:true, type:'SL', reason:'Session Stop Loss reached ('+fmt(s.netPnl,2)+' ≤ -'+fmt(Cfg.plSessionSL,2)+')' };
+    if(!Cfg.autoRestartOnDailyProfit && Cfg.rkDailyStopProfit>0 && s.netPnl>=Cfg.rkDailyStopProfit)
+      return { hit:true, type:'SL', reason:'Daily Stop Profit reached ('+fmt(s.netPnl,2)+') — treated as stop (auto-restart-on-profit disabled)' };
+    if(Cfg.rkDailyStopLoss>0 && s.netPnl<=-Cfg.rkDailyStopLoss)
+      return { hit:true, type:'SL', reason:'Daily Stop Loss reached ('+fmt(s.netPnl,2)+' ≤ -'+fmt(Cfg.rkDailyStopLoss,2)+')' };
+    if(Cfg.plMaxTrades>0 && s.trades>=Cfg.plMaxTrades)
+      return { hit:true, type:'SL', reason:'Max trades per session reached ('+s.trades+')' };
+    if(Cfg.plMaxDuration>0 && s.startTime && (Date.now()-s.startTime)/60000>=Cfg.plMaxDuration)
+      return { hit:true, type:'SL', reason:'Max session duration reached' };
+    if(s.consecLoss>=Cfg.rkMaxConsecLoss)
+      return { hit:true, type:'SL', reason:'Max consecutive losses reached ('+s.consecLoss+')' };
+    if(Cfg.rkMaxDrawdown>0 && s.maxDrawdown>=Cfg.rkMaxDrawdown)
+      return { hit:true, type:'SL', reason:'Max drawdown reached ('+fmt(s.maxDrawdown,2)+')' };
+    return { hit:false, type:null, reason:null };
+  },
+  // Pre-trade convenience — used only to gate new entries, never to itself trigger stop/restart.
+  limitsHit(){ return this.status().hit; }
+};
+
+/* ============================================================
+   AUTO-RESET & AUTO-RESTART SYSTEM
+   Single authoritative trigger point: called ONLY from TradeExec._settle,
+   after a contract has fully settled and all stats/renders are up to date.
+   Never called pre-trade — pre-trade gates only read status(), they never decide.
+============================================================ */
+const AutoRestart = {
+  evaluate(){
+    if(!State.engineRunning) return;
+    if(State.restarting) return; // already cycling — idempotent guard
+
+    const status = SessionGuard.status();
+    if(!status.hit) return;
+
+    if(status.type === 'TP' && Cfg.autoRestartEnabled && Cfg.plAutoStop){
+      this._runCycle(status.reason);
+    } else {
+      // SL / risk / duration / trade-count breach, or auto-restart disabled → hard stop, no restart
+      Engine.stop(status.reason);
     }
-    if(Cfg.rkDailyStopLoss>0 && s.netPnl<=-Cfg.rkDailyStopLoss) return true;
-    if(Cfg.rkDailyStopProfit>0 && s.netPnl>=Cfg.rkDailyStopProfit) return true;
-    if(s.consecLoss>=Cfg.rkMaxConsecLoss) return true;
-    if(Cfg.rkMaxDrawdown>0 && s.maxDrawdown>=Cfg.rkMaxDrawdown) return true;
-    return false;
+  },
+
+  _runCycle(reason){
+    State.restarting = true;
+    TradeExec.mutexLock = true;   // hold the trade mutex for the entire settle window — zero overlap
+    State.autoTradeArmed = false; // belt-and-braces: Decision.evaluate() also checks State.restarting
+    renderRestartLive();
+    Log.ok('TAKE PROFIT HIT — '+reason+'. Cycle #'+(State.lifetime.cycles+1)+' closing in '+Cfg.autoRestartDelay+'ms…');
+
+    const delay = Math.max(0, Cfg.autoRestartDelay);
+    setTimeout(()=>{
+      try{
+        // 1) Fold this cycle into lifetime stats (persist across restarts)
+        State.lifetime.netPnl += State.session.netPnl;
+        State.lifetime.trades += State.session.trades;
+        State.lifetime.wins += State.session.wins;
+        State.lifetime.losses += State.session.losses;
+        State.lifetime.cycles += 1;
+
+        // 2) Reset every session-scoped subsystem — mirrors the individual Reset controls exactly,
+        //    so no subsystem is ever left half-reset.
+        const s = State.session;
+        s.trades=0; s.wins=0; s.losses=0; s.primary=0; s.recoveryTrades=0; s.recoveryWins=0;
+        s.grossWin=0; s.grossLoss=0; s.netPnl=0; s.best=0; s.worst=0; s.peak=0; s.maxDrawdown=0;
+        s.consecLoss=0; s.consecWin=0; s.pnlHistory=[];
+        s.startTime = Date.now();
+
+        MG.reset();
+        State.pendingRecovery = null;
+
+        // 3) Clear execution flags — this must be the ONLY place that re-arms trading after a TP cycle
+        TradeExec.inFlight = false;
+        TradeExec.mutexLock = false;
+        TradeExec.openContractId = null;
+        TradeExec.lastErrorTime = 0;
+
+        State.restarting = false;
+        State.autoTradeArmed = Cfg.autoTrade; // restore to configured auto-trade state
+        State.lifetime.cycleStartedAt = Date.now();
+
+        Log.ok('Cycle #'+State.lifetime.cycles+' complete. Session reset. Engine resumed toward next Take Profit.');
+        renderAll();
+        renderRestartLive();
+      }catch(e){
+        // Fail-safe: never leave the engine stuck mid-restart
+        State.restarting = false;
+        TradeExec.mutexLock = false;
+        TradeExec.inFlight = false;
+        Log.err('Auto-restart cycle error — forced unlock applied: '+e.message);
+        renderRestartLive();
+      }
+    }, delay);
   }
 };
+
+function renderRestartLive(){
+  const badge = document.getElementById('autoRestartBadge');
+  if(badge){
+    badge.textContent = Cfg.autoRestartEnabled ? (State.restarting ? 'CYCLING…' : 'ARMED') : 'DISABLED';
+    badge.className = 'badge '+(Cfg.autoRestartEnabled ? (State.restarting?'warn':'on') : 'off');
+  }
+  const stateEl = document.getElementById('statRestartState');
+  if(stateEl) stateEl.textContent = State.restarting ? 'CYCLING…' : (State.engineRunning?'MONITORING':'IDLE');
+  const cyclesEl = document.getElementById('statCycles'); if(cyclesEl) cyclesEl.textContent = State.lifetime.cycles;
+  const cyclePnlEl = document.getElementById('statCyclePnl');
+  if(cyclePnlEl){ cyclePnlEl.textContent = fmtSigned(State.session.netPnl,2); cyclePnlEl.className='val mono '+(State.session.netPnl>=0?'g':'r'); }
+}
 
 /* ============================================================
    ENGINE ORCHESTRATION
@@ -1437,6 +1573,7 @@ const Engine = {
     State.engineRunning = true;
     State.autoTradeArmed = Cfg.autoTrade;
     State.session.startTime = Date.now();
+    if(!State.lifetime.cycleStartedAt) State.lifetime.cycleStartedAt = Date.now();
     Log.ok('Engine STARTED. Auto-trade armed: '+State.autoTradeArmed);
     renderEngineState();
   },
@@ -1487,6 +1624,11 @@ const Reset = {
     State.session.consecLoss = 0;
     State.session.maxDrawdown = 0;
     Log.warn('Risk counters reset.');
+    renderAll();
+  },
+  lifetimeStats(){
+    State.lifetime = { netPnl:0, trades:0, wins:0, losses:0, cycles:0, cycleStartedAt:null };
+    Log.warn('Lifetime P/L statistics reset (cycle counter cleared).');
     renderAll();
   },
   everything(){
@@ -1629,6 +1771,15 @@ function renderPnlStats(){
   document.getElementById('plSLFill').style.width = slPct+'%';
 }
 
+function renderLifetimeStats(){
+  const l = State.lifetime;
+  document.getElementById('statLifetimePnl').textContent = fmtSigned(l.netPnl,2);
+  document.getElementById('statLifetimePnl').className = 'val mono '+(l.netPnl>=0?'g':'r');
+  document.getElementById('statLifetimeTrades').textContent = l.trades;
+  document.getElementById('statLifetimeWR').textContent = fmt(l.trades?(l.wins/l.trades*100):0,1)+'%';
+  document.getElementById('lifetimeCyclesTag').textContent = l.cycles+' cycles';
+}
+
 function renderTradeStats(){
   const s = State.session;
   document.getElementById('statTotal').textContent = s.trades;
@@ -1720,6 +1871,7 @@ function renderAll(){
   renderHeader(); renderMarket(); renderEngines(); renderGates(); renderExplain();
   renderPnlStats(); renderTradeStats(); renderAccountStats(); renderMartingaleLive();
   renderTradeLog(); renderSystemLog(); renderEngineState(); updateConnDiag();
+  renderLifetimeStats(); renderRestartLive();
 }
 
 /* ============================================================
@@ -1844,6 +1996,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     { key:'systemLog', name:'System Log', desc:'Clears all diagnostic/system log entries' },
     { key:'martingale', name:'Martingale & Recovery State', desc:'Resets progression level and cancels pending recovery' },
     { key:'riskCounters', name:'Risk Counters', desc:'Resets consecutive-loss counter and max drawdown tracker' },
+    { key:'lifetimeStats', name:'Lifetime P/L & Cycle Counter', desc:'Clears lifetime P/L accumulated across auto-restart cycles' },
   ];
   const list = document.getElementById('resetList');
   resetDefs.forEach(d=>{
@@ -1866,8 +2019,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
   });
 
+  document.getElementById('cfgAutoRestart').addEventListener('change', ()=>{
+    Log.info('Auto-Reset & Restart '+(Cfg.autoRestartEnabled?'ENABLED':'DISABLED')+'.');
+    renderRestartLive();
+  });
+  document.getElementById('cfgAutoRestartOnDailyProfit').addEventListener('change', renderRestartLive);
+  document.getElementById('cfgAutoRestartDelay').addEventListener('change', renderRestartLive);
+
   // periodic UI refresh for live gauges even without new ticks
-  setInterval(()=>{ renderGates(); renderRiskLive(); renderMartingaleLive(); }, 2000);
+  setInterval(()=>{ renderGates(); renderRiskLive(); renderMartingaleLive(); renderRestartLive(); }, 2000);
 
   Bus.on('log:new', renderSystemLog);
   Bus.on('log:reset', renderSystemLog);
