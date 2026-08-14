@@ -208,6 +208,15 @@ label{font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var
   </div>
 
   <div class="card">
+    <div class="card-h"><div class="card-title">Lifetime P&amp;L <span class="n">(persists across auto-restart cycles)</span></div></div>
+    <div class="stat-grid g3">
+      <div class="stat"><div class="stat-label">Lifetime P&amp;L</div><div class="stat-val" id="statLifetimePnl">$0.00</div></div>
+      <div class="stat"><div class="stat-label">Cycles Completed</div><div class="stat-val neu" id="statCycles">0</div></div>
+      <div class="stat"><div class="stat-label">Lifetime Trades</div><div class="stat-val neu" id="statLifetimeTrades">0</div></div>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-h"><div class="card-title">Account Stats</div><span class="badge" id="acctTypeBadge">—</span></div>
     <div class="stat-grid">
       <div class="stat"><div class="stat-label">Balance</div><div class="stat-val neu" id="statBalance">—</div></div>
@@ -301,7 +310,14 @@ label{font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var
       <div><label>Take Profit ($)</label><input type="number" step="0.01" id="plTakeProfit" value="20"></div>
       <div><label>Stop Loss ($)</label><input type="number" step="0.01" id="plStopLoss" value="30"></div>
     </div>
-    <div class="chk"><span>Auto-stop all engines when TP or SL hit</span><div class="toggle on" id="plAutoStop" onclick="toggleEl(this)"></div></div>
+    <div class="chk"><span>Auto-stop all engines when SL hit (TP behavior set below)</span><div class="toggle on" id="plAutoStop" onclick="toggleEl(this)"></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Auto-Reset &amp; Auto-Restart</div></div>
+    <div class="section-note">When enabled, hitting Session Take Profit — or any engine's own Target Profit — banks the result to <b>Lifetime P&amp;L</b>, resets that scope's counters, and resumes trading immediately toward the next Take Profit. Stop Loss / Max Consecutive Losses / Max Runs / Max Daily Loss remain hard safety halts and always require a manual Reset, regardless of this setting.</div>
+    <div class="chk"><span>Auto-Reset &amp; Auto-Restart on Take Profit (session + per-engine)</span><div class="toggle on" id="rpAutoRestartOnTP" onclick="toggleEl(this)"></div></div>
+    <div><label>Restart Delay After Cycle (sec) — 0 = instant</label><input type="number" min="0" id="rpAutoRestartCooldown" value="0"></div>
   </div>
 
   <div class="card">
@@ -382,7 +398,8 @@ label{font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var
   <div class="modal">
     <h3>Reset Session?</h3>
     <p>This clears trade logs, dashboard stats, P&amp;L, and consecutive win/loss counters. Live connections and any currently open contracts are preserved. This cannot be undone.</p>
-    <div class="btn-row">
+    <div class="chk"><span>Also reset Lifetime P&amp;L / Cycles Completed</span><div class="toggle" id="resetIncludesLifetime" onclick="toggleEl(this)"></div></div>
+    <div class="btn-row" style="margin-top:10px;">
       <button class="btn full ghost" onclick="closeResetModal()">Cancel</button>
       <button class="btn full danger" onclick="doReset()">Reset Session</button>
     </div>
@@ -425,10 +442,12 @@ const STATE = {
   reconnects: 0,
   session: { pnl:0, wins:0, losses:0, totalTrades:0, consLoss:0, consWin:0, maxConsLoss:0,
              bestTrade:0, worstTrade:0, stakeSum:0, halted:false, haltReason:null },
+  lifetime: { pnl:0, wins:0, losses:0, totalTrades:0, cycles:0 }, // persists across auto-restart cycles and manual session resets
   trades: [], // {time, engine, type, stake, result, pnl}
   globalParams: null,
   tickHistories: {}, // symbol -> array of last digits / prices
   activeSymbolSubs: new Set(),
+  cycleInProgress: false, // mutex: prevents overlapping auto-cycle triggers
 };
 
 const GLOBAL_DEFAULTS = {
@@ -437,7 +456,8 @@ const GLOBAL_DEFAULTS = {
   tpDuration:1, tpDurationUnit:'t', tpBasis:'stake', tpReconfirm:true,
   plMaxStakeTrade:50, plMinPayout:60,
   plTakeProfit:20, plStopLoss:30, plAutoStop:true,
-  rpMaxConsLoss:8, rpMaxRuns:200, rpMaxDailyLoss:50, rpCooldown:0
+  rpMaxConsLoss:8, rpMaxRuns:200, rpMaxDailyLoss:50, rpCooldown:0,
+  rpAutoRestartOnTP:true, rpAutoRestartCooldown:0
 };
 STATE.globalParams = {...GLOBAL_DEFAULTS};
 
@@ -721,6 +741,8 @@ class Engine {
     this.digitStats = new Array(10).fill(0);
     this.status = 'idle'; // idle | running | paused | halted
     this.lastSignalReason = '';
+    this.lifetimePnl = 0;
+    this.cycles = 0;
   }
   digits(){ return STATE.tickHistories[this.symbol] || []; }
   updateDigitStats(){
@@ -985,7 +1007,7 @@ function onOpenContract(contract){
   engine.pnl += profit;
   engine.runs++;
 
-  // per-engine limits
+  // per-engine limits — SL / cons.loss / max runs are hard safety limits (never auto-restarted)
   if(engine.consLoss >= engine.maxConsLosses){
     engine.status = 'paused';
     log('WARN', `[${engine.name}] Max Consecutive Losses (${engine.maxConsLosses}) hit — engine paused.`);
@@ -994,19 +1016,93 @@ function onOpenContract(contract){
     engine.status = 'halted';
     log('WARN', `[${engine.name}] Engine Stop Loss (${money(engine.stopLoss)}) hit — engine halted.`);
   }
-  if(engine.pnl >= engine.targetProfit){
-    engine.status = 'paused';
-    log('TRADE', `[${engine.name}] Engine Target Profit (${money(engine.targetProfit)}) achieved — engine paused.`);
-  }
   if(engine.runs >= engine.maxRuns){
     engine.status = 'halted';
     log('WARN', `[${engine.name}] Max Runs (${engine.maxRuns}) reached — engine halted.`);
   }
 
-  // global risk enforcement
+  // per-engine TARGET PROFIT — success condition: auto-cycle (reset & keep running) if enabled,
+  // otherwise fall back to the old pause-on-target behavior.
+  if(engine.pnl >= engine.targetProfit && engine.status !== 'halted'){
+    if(gp.rpAutoRestartOnTP){
+      autoCycleEngine(engine);
+    } else {
+      engine.status = 'paused';
+      log('TRADE', `[${engine.name}] Engine Target Profit (${money(engine.targetProfit)}) achieved — engine paused.`);
+    }
+  }
+
+  // global risk enforcement (session-level TP / SL / limits)
   enforceGlobalRisk();
   renderEngines();
   renderDashboard();
+}
+
+/* ============================================================
+   AUTO-RESET / AUTO-RESTART — SINGLE AUTHORITATIVE ENTRY POINTS
+   Triggered ONLY from post-settlement checks above/in enforceGlobalRisk.
+   Never gated by pre-trade guards — those would silently block the
+   restart before this logic ever runs.
+============================================================ */
+function autoCycleEngine(engine){
+  // Fold this cycle's result into the engine's lifetime tracker, then reset
+  // the engine's transient trading state and let it keep running immediately.
+  engine.lifetimePnl += engine.pnl;
+  engine.cycles++;
+  const completedPnl = engine.pnl;
+  log('TRADE', `[${engine.name}] Target Profit (${money(engine.targetProfit)}) achieved — cycle #${engine.cycles} complete (${fmt(completedPnl)}). Auto-resetting and restarting engine for next target.`);
+  engine.pnl = 0;
+  engine.consLoss = 0;
+  engine.stepIndex = 0;
+  engine.currentStake = engine.baseStake;
+  engine.wins = 0; engine.losses = 0; engine.runs = 0;
+  // status stays 'running' (or resumes running) — no gap, no manual intervention needed
+  engine.status = engine.enabled ? 'running' : 'idle';
+  if(engine.enabled) engine.running = true;
+}
+
+function autoCycleSession(reason){
+  if(STATE.cycleInProgress) return; // mutex — prevents overlapping triggers from near-simultaneous settlements
+  STATE.cycleInProgress = true;
+
+  const completedPnl = STATE.session.pnl;
+  STATE.lifetime.pnl += STATE.session.pnl;
+  STATE.lifetime.wins += STATE.session.wins;
+  STATE.lifetime.losses += STATE.session.losses;
+  STATE.lifetime.totalTrades += STATE.session.totalTrades;
+  STATE.lifetime.cycles++;
+
+  log('SYS', `SESSION TAKE PROFIT ACHIEVED (${reason}) — cycle #${STATE.lifetime.cycles} complete, session P&L ${fmt(completedPnl)} banked to Lifetime P&L (${fmt(STATE.lifetime.pnl)}).`);
+
+  // Reset session counters (audit trail in Trade Log / System Logs is preserved, not wiped)
+  STATE.session = { pnl:0, wins:0, losses:0, totalTrades:0, consLoss:0, consWin:0, maxConsLoss:0,
+                     bestTrade:0, worstTrade:0, stakeSum:0, halted:false, haltReason:null };
+
+  // Reset every non-hard-halted engine's transient state so the next cycle starts clean
+  ENGINES.forEach(e=>{
+    if(e.status !== 'halted'){
+      e.pnl = 0; e.consLoss = 0; e.stepIndex = 0; e.currentStake = e.baseStake;
+      e.wins = 0; e.losses = 0; e.runs = 0;
+      e.status = e.enabled ? 'running' : 'idle';
+      if(e.enabled) e.running = true;
+    }
+  });
+
+  $('riskStatusLine').textContent = `Cycle #${STATE.lifetime.cycles} complete — auto-restarted, pursuing next Take Profit target.`;
+  $('riskStatusLine').parentElement.style.borderColor = 'var(--green)';
+
+  renderEngines();
+  renderDashboard();
+  renderTradeLog();
+
+  const doRestart = () => {
+    STATE.cycleInProgress = false;
+    if(STATE.connected) masterStart();
+    log('SYS', `Cycle #${STATE.lifetime.cycles} — all app functions restarted, seeking next Take Profit.`);
+  };
+  const cooldown = Math.max(0, STATE.globalParams.rpAutoRestartCooldown || 0);
+  if(cooldown > 0) setTimeout(doRestart, cooldown * 1000);
+  else doRestart(); // zero-delay path — required for "no bugs or delay"
 }
 
 function recordTrade(engine, isWin, stake, pnl){
@@ -1024,22 +1120,37 @@ function recordTrade(engine, isWin, stake, pnl){
 
 /* ---------- Global risk enforcement ---------- */
 function enforceGlobalRisk(){
+  if(STATE.cycleInProgress) return;
   const gp = STATE.globalParams;
+
+  // SUCCESS condition — Session Take Profit. Auto-cycle if enabled; otherwise hard-halt.
+  if(gp.plAutoStop && STATE.session.pnl >= gp.plTakeProfit && !STATE.session.halted){
+    if(gp.rpAutoRestartOnTP){
+      autoCycleSession(`Session Take Profit ${money(gp.plTakeProfit)} reached`);
+      return; // session was reset — nothing else to enforce this cycle
+    } else {
+      haltSession(`Session Take Profit ${money(gp.plTakeProfit)} reached`);
+      return;
+    }
+  }
+
+  // SAFETY conditions — always hard-halt, regardless of auto-restart setting
   let reason = null;
-  if(gp.plAutoStop && STATE.session.pnl >= gp.plTakeProfit) reason = `Session Take Profit ${money(gp.plTakeProfit)} reached`;
   if(gp.plAutoStop && STATE.session.pnl <= -Math.abs(gp.plStopLoss)) reason = `Session Stop Loss ${money(gp.plStopLoss)} hit`;
   if(STATE.session.consLoss >= gp.rpMaxConsLoss) reason = `Global Max Consecutive Losses (${gp.rpMaxConsLoss}) hit`;
   if(STATE.session.totalTrades >= gp.rpMaxRuns) reason = `Global Max Runs (${gp.rpMaxRuns}) reached`;
   if(STATE.session.pnl <= -Math.abs(gp.rpMaxDailyLoss)) reason = `Max Daily Loss (${money(gp.rpMaxDailyLoss)}) hit`;
 
-  if(reason && !STATE.session.halted){
-    STATE.session.halted = true;
-    STATE.session.haltReason = reason;
-    masterStop();
-    log('WARN', `GLOBAL HALT: ${reason}. All engines stopped.`);
-    $('riskStatusLine').textContent = 'HALTED — ' + reason;
-    $('riskStatusLine').parentElement.style.borderColor = 'var(--red)';
-  }
+  if(reason && !STATE.session.halted) haltSession(reason);
+}
+
+function haltSession(reason){
+  STATE.session.halted = true;
+  STATE.session.haltReason = reason;
+  masterStop();
+  log('WARN', `GLOBAL HALT: ${reason}. All engines stopped.`);
+  $('riskStatusLine').textContent = 'HALTED — ' + reason;
+  $('riskStatusLine').parentElement.style.borderColor = 'var(--red)';
 }
 
 /* ============================================================
@@ -1110,6 +1221,11 @@ function renderDashboard(){
   $('statBest').textContent = fmt(STATE.session.bestTrade);
   $('statWorst').textContent = fmt(STATE.session.worstTrade);
 
+  $('statLifetimePnl').textContent = fmt(STATE.lifetime.pnl);
+  $('statLifetimePnl').className = 'stat-val ' + (STATE.lifetime.pnl>0?'pos':STATE.lifetime.pnl<0?'neg':'neu');
+  $('statCycles').textContent = STATE.lifetime.cycles;
+  $('statLifetimeTrades').textContent = STATE.lifetime.totalTrades;
+
   const gp = STATE.globalParams;
   const tp = gp.plTakeProfit, sl = gp.plStopLoss;
   const range = tp+sl;
@@ -1157,6 +1273,8 @@ function renderEngines(){
           <span>W/L: <b>${e.wins}/${e.losses}</b></span>
           <span>Cons.Loss: <b>${e.consLoss}/${e.maxConsLosses}</b></span>
           <span>Runs: <b>${e.runs}/${e.maxRuns}</b></span>
+          <span>Cycles: <b>${e.cycles}</b></span>
+          <span>Lifetime P&amp;L: <b class="${e.lifetimePnl>0?'pos':e.lifetimePnl<0?'neg':''}">${fmt(e.lifetimePnl)}</b></span>
         </div>
         <div class="divider"></div>
         <div class="row2">
@@ -1276,6 +1394,8 @@ function applyGlobalParams(){
   gp.rpMaxRuns = parseInt($('rpMaxRuns').value) || GLOBAL_DEFAULTS.rpMaxRuns;
   gp.rpMaxDailyLoss = parseFloat($('rpMaxDailyLoss').value) || GLOBAL_DEFAULTS.rpMaxDailyLoss;
   gp.rpCooldown = parseInt($('rpCooldown').value) || 0;
+  gp.rpAutoRestartOnTP = $('rpAutoRestartOnTP').classList.contains('on');
+  gp.rpAutoRestartCooldown = parseInt($('rpAutoRestartCooldown').value) || 0;
 
   updateMgPreview();
   log('SYS', 'Global parameters applied and enforced across all engines.');
@@ -1303,13 +1423,18 @@ function doReset(){
     bestTrade:0, worstTrade:0, stakeSum:0, halted:false, haltReason:null };
   STATE.trades = [];
   ENGINES.forEach(e=>e.reset());
+  const includeLifetime = $('resetIncludesLifetime').classList.contains('on');
+  if(includeLifetime){
+    STATE.lifetime = { pnl:0, wins:0, losses:0, totalTrades:0, cycles:0 };
+    ENGINES.forEach(e=>{ e.lifetimePnl = 0; e.cycles = 0; });
+  }
   renderDashboard();
   renderTradeLog();
   renderEngines();
   $('riskStatusLine').textContent = 'All systems nominal. No limits triggered.';
   $('riskStatusLine').parentElement.style.borderColor = 'var(--line-soft)';
   closeResetModal();
-  log('SYS', 'Session reset — trade logs, dashboard stats, and engine counters cleared. Connections preserved.');
+  log('SYS', `Session reset — trade logs, dashboard stats, and engine counters cleared.${includeLifetime?' Lifetime P&L and Cycles also reset.':' Lifetime P&L preserved.'} Connections preserved.`);
 }
 
 /* ============================================================
