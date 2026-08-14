@@ -315,6 +315,12 @@ h1,h2,h3{font-family:'Inter',sans-serif;}
       <div class="stat-tile"><div class="label">Best Trade</div><div class="value mono pos" id="statBestTrade">0.00</div></div>
       <div class="stat-tile"><div class="label">Worst Trade</div><div class="value mono neg" id="statWorstTrade">0.00</div></div>
     </div>
+    <div class="section-divider">Lifetime (persists across auto-restarts)</div>
+    <div class="grid3">
+      <div class="stat-tile"><div class="label">Lifetime PnL</div><div class="value mono" id="statLifetimePnl">0.00</div></div>
+      <div class="stat-tile"><div class="label">Cycles Completed</div><div class="value mono" id="statCycles">0</div></div>
+      <div class="stat-tile"><div class="label">Lifetime Trades</div><div class="value mono" id="statLifetimeTrades">0</div></div>
+    </div>
   </div>
 
   <div class="card">
@@ -477,7 +483,11 @@ h1,h2,h3{font-family:'Inter',sans-serif;}
         <input type="number" id="globalSL" value="15" min="0" step="1">
       </div>
     </div>
-    <div class="small-note">All engines auto-disable once session PnL hits either boundary.</div>
+    <div class="field-inline">
+      <label>Auto-Reset &amp; Restart on Take-Profit</label>
+      <label class="switch"><input type="checkbox" id="autoRestartToggle" checked><span class="slider"></span></label>
+    </div>
+    <div class="small-note" id="cycleStatusNote">Cycle #1 active. On Take-Profit: session stats bank to Lifetime, all engines reset and immediately re-arm to chase the next Take-Profit &mdash; no manual action needed. On Stop-Loss, engines disable and stay stopped (requires manual re-arm).</div>
   </div>
 
   <div class="section-divider">Trading Engines</div>
@@ -503,6 +513,9 @@ h1,h2,h3{font-family:'Inter',sans-serif;}
     <div class="btn-row">
       <button class="btn danger" id="btnResetAll">Reset Everything</button>
       <button class="btn danger" id="btnDisconnect">Disconnect</button>
+    </div>
+    <div class="btn-row" style="margin-top:8px;">
+      <button class="btn ghost" data-reset="lifetime">Reset Lifetime Stats Only</button>
     </div>
   </div>
 </div>
@@ -1069,6 +1082,8 @@ const State = {
   sessionStartBalance: 0,
   trades: [],          // {id, time, engine, dir, stake, pnl, status}
   totals: { total:0, wins:0, losses:0, winStreak:0, lossStreak:0, grossProfit:0, grossLoss:0, best:0, worst:0 },
+  lifetime: { pnl:0, cycles:0, totalTrades:0, wins:0, losses:0 },
+  restartInProgress: false,
   symbol: null,
   regime: 'RANGING'
 };
@@ -1173,14 +1188,9 @@ class Engine{
 
   async tryTrade(){
     if (!this.enabled || !State.connected) return;
+    if (State.restartInProgress) return;
     if (this.status !== 'IDLE') return;
     if (Date.now() - this.lastTradeAt < TradeMutex.cooldownMs) return;
-    if (this.pnl >= this.tp){ this.disable('Take-profit reached'); return; }
-    if (this.pnl <= -this.sl){ this.disable('Stop-loss reached'); return; }
-    if (State.risk.dailyPnl >= num($('globalTP').value) || State.risk.dailyPnl <= -num($('globalSL').value)){
-      Engines.forEach(e => e.disable('Session P&L guard triggered'));
-      return;
-    }
 
     const allow = State.risk.isTradeAllowed();
     if (!allow.allowed){ return; }
@@ -1269,6 +1279,12 @@ class Engine{
 
         this.status = 'IDLE';
         this.lastTradeAt = Date.now();
+
+        // Single authoritative post-settlement checkpoint — TP/SL evaluation and
+        // auto-reset/restart happen ONLY here, never as a pre-trade guard, so
+        // engines are never silently blocked ahead of a restart decision.
+        PostSettlement.evaluate(this);
+
         this._releaseMutex();
       }
     };
@@ -1309,6 +1325,94 @@ function recordGlobalTradeResult(pnl, isWin){
   t.best = Math.max(t.best, pnl);
   t.worst = Math.min(t.worst, pnl);
   renderDashboard();
+}
+
+/* =========================================================================
+   POST-SETTLEMENT CONTROLLER — the single authoritative source of truth for
+   TP/SL evaluation. Runs ONLY after a trade has fully settled (never as a
+   pre-trade guard), so it can never race against or silently block a fresh
+   entry. This is what drives per-engine cycling and the global auto-reset/
+   auto-restart loop.
+   ========================================================================= */
+const PostSettlement = {
+  evaluate(engine){
+    // --- per-engine take-profit / stop-loss (its own "section") ---
+    if (engine.tp > 0 && engine.pnl >= engine.tp){
+      SysLog.trade(`${engine.name}: engine take-profit reached (+$${fmt(engine.pnl)}) — cycling engine, staying armed.`);
+      engine.pnl = 0;
+      engine.martingale.reset();
+    } else if (engine.sl > 0 && engine.pnl <= -engine.sl){
+      engine.disable(`Engine stop-loss reached (${fmt(engine.pnl)})`);
+    }
+
+    // --- global session take-profit / stop-loss ---
+    const sessionPnl = State.balance - State.sessionStartBalance;
+    const tp = num($('globalTP').value);
+    const sl = num($('globalSL').value);
+
+    if (tp > 0 && sessionPnl >= tp){
+      if ($('autoRestartToggle').checked) autoResetAndRestart('SESSION_TAKE_PROFIT', sessionPnl);
+      else {
+        Engines.forEach(e => e.disable('Session take-profit reached'));
+        SysLog.trade(`Session take-profit reached (+$${fmt(sessionPnl)}). Auto-restart is OFF — engines stopped.`);
+      }
+    } else if (sl > 0 && sessionPnl <= -sl){
+      Engines.forEach(e => e.disable('Session stop-loss reached'));
+      SysLog.error(`Session stop-loss reached (${fmt(sessionPnl)}). All engines stopped — manual re-arm required.`);
+    }
+  }
+};
+
+/**
+ * Seamlessly resets and restarts every app function once the session
+ * take-profit target is achieved, then immediately resumes trading toward
+ * the next target. Re-entrancy-guarded so a burst of near-simultaneous
+ * settlements can never trigger this twice. No artificial delay is added —
+ * the only gating left after reset is the existing mutex cooldown.
+ */
+function autoResetAndRestart(reason, sessionPnl){
+  if (State.restartInProgress) return;
+  State.restartInProgress = true;
+
+  const cycleJustCompleted = State.lifetime.cycles + 1;
+
+  // 1) Bank this cycle's results into the Lifetime tracker (never wiped by a restart)
+  State.lifetime.pnl = +(State.lifetime.pnl + sessionPnl).toFixed(2);
+  State.lifetime.cycles = cycleJustCompleted;
+  State.lifetime.totalTrades += State.totals.total;
+  State.lifetime.wins += State.totals.wins;
+  State.lifetime.losses += State.totals.losses;
+
+  SysLog.trade(`\u{1F501} AUTO-RESET-RESTART #${cycleJustCompleted} — ${reason}. +$${fmt(sessionPnl)} banked to lifetime (now $${fmt(State.lifetime.pnl)}).`);
+  toast(`Target hit! Cycle #${cycleJustCompleted} complete — restarting automatically.`);
+
+  // 2) Remember exactly which engines were armed, so the restart resumes
+  //    the identical trading configuration without any manual input.
+  const armedEngineIds = Engines.filter(e => e.enabled).map(e => e.id);
+
+  // 3) Reset every session-scoped function: stats, trade counters, risk
+  //    baseline, every engine's PnL/martingale ladder. Lifetime + trade log
+  //    history are untouched (trade log is a rolling audit trail, not
+  //    session state — clear it manually from the Dashboard if desired).
+  State.totals = { total:0, wins:0, losses:0, winStreak:0, lossStreak:0, grossProfit:0, grossLoss:0, best:0, worst:0 };
+  State.risk.reset(State.balance);
+  State.sessionStartBalance = State.balance;
+  Engines.forEach(e => e.reset());
+
+  // 4) Immediately re-activate trading — re-arm exactly the engines that
+  //    were running before, with fresh config pulled from the live controls.
+  armedEngineIds.forEach(id => {
+    const e = Engines.find(x => x.id === id);
+    if (e){ e.enabled = true; e.configureFromGlobals(); }
+  });
+
+  renderDashboard();
+  renderEngineCards();
+  $('cycleStatusNote').textContent =
+    `Cycle #${cycleJustCompleted + 1} active. On Take-Profit: session stats bank to Lifetime, all engines reset and immediately re-arm to chase the next Take-Profit — no manual action needed. On Stop-Loss, engines disable and stay stopped (requires manual re-arm).`;
+
+  State.restartInProgress = false;
+  SysLog.info(`Cycle #${cycleJustCompleted + 1} active — engines re-armed, chasing next take-profit target.`);
 }
 
 /* =========================================================================
@@ -1508,6 +1612,11 @@ function renderDashboard(){
 
   el('statPeakBal').textContent = fmt(State.risk.peakBalance);
   el('statDrawdown').textContent = fmt(State.risk.maxDrawdown*100) + '%';
+
+  el('statLifetimePnl').textContent = (State.lifetime.pnl>=0?'+':'') + fmt(State.lifetime.pnl);
+  el('statLifetimePnl').className = 'value mono ' + (State.lifetime.pnl>=0?'pos':'neg');
+  el('statCycles').textContent = State.lifetime.cycles;
+  el('statLifetimeTrades').textContent = State.lifetime.totalTrades + t.total;
 
   el('statTotal').textContent = t.total;
   el('statWins').textContent = t.wins;
@@ -1728,7 +1837,7 @@ function askConfirm(title, body, onOk){
 document.querySelectorAll('[data-reset]').forEach(btn => {
   btn.addEventListener('click', () => {
     const type = btn.dataset.reset;
-    const labels = { pnl:'P&L stats', trades:'trade stats', log:'trade log', syslog:'system logs' };
+    const labels = { pnl:'P&L stats', trades:'trade stats', log:'trade log', syslog:'system logs', lifetime:'lifetime stats' };
     askConfirm(`Reset ${labels[type]}?`, 'This action cannot be undone.', () => {
       if (type === 'pnl'){
         State.totals.grossProfit = 0; State.totals.grossLoss = 0; State.totals.best = 0; State.totals.worst = 0;
@@ -1742,6 +1851,9 @@ document.querySelectorAll('[data-reset]').forEach(btn => {
         renderTradeLog();
       } else if (type === 'syslog'){
         SysLog.clear();
+      } else if (type === 'lifetime'){
+        State.lifetime = { pnl:0, cycles:0, totalTrades:0, wins:0, losses:0 };
+        renderDashboard();
       }
       toast('Reset complete');
     });
@@ -1749,9 +1861,11 @@ document.querySelectorAll('[data-reset]').forEach(btn => {
 });
 
 $('btnResetAll').addEventListener('click', () => {
-  askConfirm('Reset everything?', 'This clears all stats, logs, trade history and engine state. Cannot be undone.', () => {
+  askConfirm('Reset everything?', 'This clears all stats, logs, trade history, lifetime tracker and engine state. Cannot be undone.', () => {
     State.trades = [];
     State.totals = { total:0, wins:0, losses:0, winStreak:0, lossStreak:0, grossProfit:0, grossLoss:0, best:0, worst:0 };
+    State.lifetime = { pnl:0, cycles:0, totalTrades:0, wins:0, losses:0 };
+    State.restartInProgress = false;
     State.stats.reset();
     if (State.connected) State.risk.reset(State.balance);
     Engines.forEach(e => e.reset());
