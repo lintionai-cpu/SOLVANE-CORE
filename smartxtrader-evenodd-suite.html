@@ -61,6 +61,10 @@
   .field label{display:block; font-size:10.5px; color:var(--txt-2); margin-bottom:5px; text-transform:uppercase; letter-spacing:.5px; font-weight:600;}
   .field input, .field select{width:100%; background:var(--bg-2); border:1px solid var(--line); color:var(--txt-0); padding:10px 11px; border-radius:9px; font-size:13.5px; outline:none; transition:border-color .15s;}
   .field input:focus, .field select:focus{border-color:var(--acc);}
+  .field input:disabled, .field select:disabled{opacity:.4; cursor:not-allowed; background:var(--bg-1);}
+  .switch.locked{opacity:.4; pointer-events:none;}
+  .lock-hint{display:none; align-items:center; gap:6px; font-size:10.5px; color:var(--amber); background:var(--amber-soft); border:1px solid #3a2f14; border-radius:8px; padding:7px 10px; margin-top:8px; margin-bottom:4px;}
+  .lock-hint.show{display:flex;}
   .row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
 
@@ -163,7 +167,7 @@
   <div class="acct-strip" id="acctStrip">
     <div class="acct-chip"><div class="l">Account</div><div class="v mono" id="chipAcct">—</div></div>
     <div class="acct-chip"><div class="l">Balance</div><div class="v mono" id="chipBal">—</div></div>
-    <div class="acct-chip"><div class="l">Session P/L</div><div class="v mono" id="chipPnl">$0.00</div></div>
+    <div class="acct-chip"><div class="l">Lifetime P/L</div><div class="v mono" id="chipPnl">$0.00</div></div>
     <div class="acct-chip"><div class="l">Mode</div><div class="v mono" id="chipMode">DEMO</div></div>
   </div>
 </div>
@@ -389,6 +393,11 @@
         <div class="field"><label>Max Trades / Session</label><input id="g_maxTrades" type="number" value="200" min="1"></div>
         <div class="field"><label>Max Consecutive Losses</label><input id="g_maxConsecLoss" type="number" value="12" min="1"></div>
       </div>
+      <div class="switch-row">
+        <span class="switch-lbl">Auto-Reset &amp; Restart on Take Profit</span>
+        <div class="switch on" id="g_sw_autorestart"></div>
+      </div>
+      <div class="hint" style="margin-bottom:10px;">When ON, hitting a Take Profit target (engine-level or global) does not stop trading — it resets that target's P/L, stake, and martingale level back to baseline and immediately re-arms toward the next Take Profit cycle. Stop Loss and Max Consecutive Losses always hard-stop regardless of this setting.</div>
       <button class="btn btn-down" id="btnStopAll">⏹ Stop All Engines</button>
     </div>
   </div>
@@ -398,7 +407,7 @@
     <div class="card">
       <div class="card-head"><div class="card-title">💰 P/L Stats</div><span class="card-sub" id="dashClock">—</span></div>
       <div class="stat-grid">
-        <div class="stat-box"><div class="l">Session P/L</div><div class="v" id="s_pnl">$0.00</div></div>
+        <div class="stat-box"><div class="l">Cycle P/L (since last restart)</div><div class="v" id="s_pnl">$0.00</div></div>
         <div class="stat-box"><div class="l">Total Staked</div><div class="v" id="s_staked">$0.00</div></div>
         <div class="stat-box"><div class="l">Total Payout</div><div class="v" id="s_payout">$0.00</div></div>
         <div class="stat-box"><div class="l">ROI</div><div class="v" id="s_roi">0.0%</div></div>
@@ -425,6 +434,8 @@
         <div class="stat-box"><div class="l">Losses</div><div class="v down" id="s_losses">0</div></div>
         <div class="stat-box"><div class="l">Current Streak</div><div class="v" id="s_streak">—</div></div>
         <div class="stat-box"><div class="l">Active Martingale Level</div><div class="v" id="s_martilevel">0</div></div>
+        <div class="stat-box"><div class="l">TP Cycles Completed</div><div class="v" id="s_cycles">0</div></div>
+        <div class="stat-box"><div class="l">Lifetime P/L (all cycles)</div><div class="v" id="s_cyclepnl">$0.00</div></div>
       </div>
     </div>
 
@@ -490,7 +501,7 @@ const S = {
   ws:null, wsUrl:'', reqId:0, pending:new Map(), subs:new Map(),
   connected:false,
   balance:null, currency:'USD',
-  sessionPnl:0, sessionStaked:0, sessionPayout:0,
+  sessionPnl:0, sessionStaked:0, sessionPayout:0, lifetimePnl:0,
   totalTrades:0, wins:0, losses:0, consecLosses:0, consecWins:0,
   tradeInProgress:false,
   tradeLog:[],
@@ -498,6 +509,7 @@ const S = {
   tickSubs:{},       // symbol -> req_id subscribed
   pnlHistory:[0],
   pendingRealArm:null,
+  cycleCount:0,
 };
 
 const $ = id => document.getElementById(id);
@@ -531,6 +543,7 @@ document.querySelectorAll('.nav-btn').forEach(btn=>{
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
     btn.classList.add('active');
     $('view-' + btn.dataset.view).classList.add('active');
+    if(btn.dataset.view === 'dash'){ renderDashboard(); renderTradeLog(); }
   });
 });
 document.querySelectorAll('.tab').forEach(tab=>{
@@ -650,8 +663,22 @@ function connectWebSocket(){
     log('WebSocket connected: ' + S.selectedAccount.account_id, 's');
     $('chipAcct').textContent = S.selectedAccount.account_id;
     $('chipMode').textContent = S.accountType.toUpperCase();
-    send({ balance:1, subscribe:1 });
-    send({ portfolio:1 });
+    send({ balance:1, subscribe:1 }).catch(e=> log('Balance subscribe failed: ' + e.message, 'e'));
+    send({ portfolio:1 }).catch(()=>{});
+
+    // PERSISTENCY FIX: re-establish tick streams for every currently armed engine.
+    // Without this, a reconnect silently starved armed engines of tick data forever.
+    ENGINES.forEach(e=>{ if(e.armed) ensureTickSub(e.symbol); });
+
+    // PERSISTENCY FIX: re-attach monitors for any contract still open across the drop,
+    // instead of leaving the trade mutex locked with no way to ever resolve it.
+    if(S.openContracts){
+      Object.keys(S.openContracts).forEach(cid=>{
+        send({ proposal_open_contract:1, contract_id:Number(cid), subscribe:1 })
+          .then(()=> log('Re-attached monitor for contract ' + cid + ' after reconnect.', 'i'))
+          .catch(e=> log('Could not re-attach monitor for contract ' + cid + ': ' + e.message, 'e'));
+      });
+    }
   };
 
   ws.onmessage = (event)=>{
@@ -668,32 +695,82 @@ function connectWebSocket(){
   ws.onclose = ()=>{
     S.connected = false;
     setWsStatus('err', 'Disconnected');
-    log('WebSocket closed. Re-requesting a fresh OTP and reconnecting in 3s…', 'w');
-    setTimeout(async ()=>{
-      if(!S.selectedAccount) return;
-      try{
-        const { data } = await restCall('POST', '/trading/v1/options/accounts/' + S.selectedAccount.account_id + '/otp');
-        S.wsUrl = data.data.url;
-        connectWebSocket();
-      }catch(err){
-        log('Reconnect OTP failed: ' + err.message, 'e');
-      }
-    }, 3000);
+    log('WebSocket closed.', 'e');
+
+    // PERSISTENCY FIX: never let an in-flight request hang forever — fail it loudly instead.
+    S.pending.forEach(({reject})=> reject(new Error('WebSocket closed before a response arrived')));
+    S.pending.clear();
+
+    // PERSISTENCY FIX: tick subscriptions die with the socket. Clear tracking so
+    // ensureTickSub() actually resubscribes on the new connection instead of assuming
+    // (incorrectly) that it's already subscribed.
+    S.tickSubs = {};
+
+    if(S.tradeInProgress){
+      log('⚠️ Connection dropped while a trade was in flight. Waiting to reconnect and re-attach the contract monitor before unlocking.', 'w');
+    }
+
+    log('Re-requesting a fresh OTP and reconnecting in 3s…', 'w');
+    setTimeout(attemptReconnect, 3000);
   };
+}
+
+async function attemptReconnect(){
+  if(!S.selectedAccount) return;
+  setWsStatus('wait', 'Reconnecting…');
+  try{
+    const { data } = await restCall('POST', '/trading/v1/options/accounts/' + S.selectedAccount.account_id + '/otp');
+    S.wsUrl = data.data.url;
+    connectWebSocket();
+  }catch(err){
+    log('Reconnect OTP failed: ' + err.message + ' — retrying in 5s.', 'e');
+    setTimeout(attemptReconnect, 5000);
+  }
 }
 
 function nextReqId(){ return ++S.reqId; }
 
-function send(cmd){
+function send(cmd, timeoutMs){
+  timeoutMs = timeoutMs || 15000;
   return new Promise((resolve, reject)=>{
     if(!S.ws || S.ws.readyState !== 1){ reject(new Error('WebSocket not open')); return; }
     const id = nextReqId();
     const msg = Object.assign({}, cmd, { req_id:id });
     if(cmd.subscribe){ S.subs.set(id, cmd); }
-    S.pending.set(id, { resolve, reject });
+    // PERSISTENCY FIX: guarantee every request eventually resolves or rejects —
+    // a request that never gets a response used to hang the caller (and the trade
+    // mutex) forever with zero feedback.
+    const timer = setTimeout(()=>{
+      if(S.pending.has(id)){
+        S.pending.delete(id);
+        reject(new Error('Request timed out after ' + (timeoutMs/1000) + 's (req_id ' + id + ')'));
+      }
+    }, timeoutMs);
+    S.pending.set(id, {
+      resolve:(v)=>{ clearTimeout(timer); resolve(v); },
+      reject:(e)=>{ clearTimeout(timer); reject(e); }
+    });
     S.ws.send(JSON.stringify(msg));
   });
 }
+
+// PERSISTENCY FIX: watchdog — if the trade mutex is ever stuck locked for an
+// unreasonable amount of time (contract lost across a reconnect, unexpected API
+// silence, etc.) force it open with a loud, explicit warning rather than freezing
+// the app forever with no explanation.
+setInterval(()=>{
+  if(S.tradeInProgress){
+    S.mutexLockedSince = S.mutexLockedSince || Date.now();
+    if(Date.now() - S.mutexLockedSince > 45000){
+      log('⚠️ Trade mutex locked for 45s+ with no settlement — force-unlocking to prevent a permanent freeze. Verify any open contracts manually in your Deriv account.', 'e');
+      S.tradeInProgress = false;
+      ENGINES.forEach(e=>{ e.locked = false; updateEngineStatus(e); });
+      S.mutexLockedSince = null;
+    }
+  } else {
+    S.mutexLockedSince = null;
+  }
+}, 5000);
 
 function routeMessage(data){
   if(data.req_id && S.pending.has(data.req_id)){
@@ -763,9 +840,8 @@ function onTick(tick){
    ============================================================ */
 async function executeTrade(engine, contractType, prediction, stake, duration){
   if(S.tradeInProgress){ return; } // one-trade-at-a-time mutex
+  if(!engine.armed){ return; } // engine was already stopped/reset — nothing to do
   if(engine.cooldownUntil && Date.now() < engine.cooldownUntil){ return; } // error cooldown
-  if(!checkGlobalRisk()) { stopAllEngines('Global risk limit reached.'); return; }
-  if(!checkEngineRisk(engine)) { engine.stop('Engine risk limit reached.'); return; }
 
   S.tradeInProgress = true;
   engine.locked = true;
@@ -825,6 +901,7 @@ function finalizeTrade(engine, contractType, stake, profit, won){
   S.sessionStaked += stake;
   S.sessionPayout += stake + profit;
   S.sessionPnl += profit;
+  S.lifetimePnl += profit;
   if(won){ S.wins++; S.consecWins++; S.consecLosses=0; } else { S.losses++; S.consecLosses++; S.consecWins=0; }
   S.pnlHistory.push(S.sessionPnl);
   if(S.pnlHistory.length > 200) S.pnlHistory.shift();
@@ -845,22 +922,104 @@ function finalizeTrade(engine, contractType, stake, profit, won){
   checkEngineRisk(engine, true);
 }
 
+function autoRestartEnabled(){ return $('g_sw_autorestart').classList.contains('on'); }
+
+// FULL APP AUTO-RESET & RESTART — triggered whenever a Take Profit target is achieved
+// (engine-level or global) while Auto-Restart is ON. This wipes session stats, the
+// trade log, and the dashboard back to zero, resets every armed engine's stake and
+// martingale level to its configured baseline, and lets analysis + trading continue
+// immediately with the SAME selected engine(s) and parameters — chasing the next TP.
+function performAutoRestart(sourceLabel, achievedAmount, targetAmount){
+  S.cycleCount++;
+  const cycleNum = S.cycleCount;
+
+  // --- wipe session stats & data (everything except connection, credentials, and lifetime P/L) ---
+  S.sessionPnl = 0;
+  S.sessionStaked = 0;
+  S.sessionPayout = 0;
+  S.totalTrades = 0;
+  S.wins = 0;
+  S.losses = 0;
+  S.consecWins = 0;
+  S.consecLosses = 0;
+  S.tradeLog = [];
+  S.pnlHistory = [0];
+  S.mutexLockedSince = null;
+
+  // --- restart analysis/trading on every currently armed engine, on its own parameters ---
+  ENGINES.forEach(e=>{
+    if(e.armed){
+      e.pnl = 0;
+      e.stake = e.baseStake;
+      e.martiLevel = 0;
+      e.consecLosses = 0;
+      if(e.recoveryMode !== undefined) e.recoveryMode = false;
+      updateEngineStatus(e, e.name + ' restarted — analysing fresh toward next target.');
+    }
+  });
+
+  log('🎯 TAKE PROFIT ACHIEVED — ' + sourceLabel + ' (+$' + achievedAmount.toFixed(2) + ' vs $' + targetAmount.toFixed(2) + ' target).', 's');
+  log('🔄 FULL AUTO-RESET & RESTART #' + cycleNum + ': session stats, trade log, and dashboard cleared. Analysis restarting now on the selected engine(s) and parameters, chasing the next Take Profit.', 's');
+
+  renderDashboard();
+  renderTradeLog();
+}
+
 function checkGlobalRisk(announceOnly){
   const tp = Number($('g_tp').value), sl = Number($('g_sl').value);
   const maxTrades = Number($('g_maxTrades').value), maxConsec = Number($('g_maxConsecLoss').value);
-  let ok = true;
-  if(tp > 0 && S.sessionPnl >= tp){ if(!announceOnly) return false; log('Global Take Profit hit ($' + S.sessionPnl.toFixed(2) + '). Stopping all engines.', 'w'); stopAllEngines('Global TP hit'); ok=false; }
-  if(sl > 0 && S.sessionPnl <= -sl){ if(!announceOnly) return false; log('Global Stop Loss hit ($' + S.sessionPnl.toFixed(2) + '). Stopping all engines.', 'e'); stopAllEngines('Global SL hit'); ok=false; }
-  if(maxTrades > 0 && S.totalTrades >= maxTrades){ if(!announceOnly) return false; log('Max trades/session reached. Stopping all engines.', 'w'); stopAllEngines('Max trades reached'); ok=false; }
-  if(maxConsec > 0 && S.consecLosses >= maxConsec){ if(!announceOnly) return false; log('Max consecutive losses reached. Stopping all engines.', 'e'); stopAllEngines('Max consecutive losses'); ok=false; }
-  return ok;
+
+  // --- SL / hard-stop conditions always win, regardless of auto-restart setting ---
+  if(sl > 0 && S.sessionPnl <= -sl){
+    if(!announceOnly) return false;
+    log('Global Stop Loss hit ($' + S.sessionPnl.toFixed(2) + '). Stopping all engines.', 'e');
+    stopAllEngines('Global SL hit'); return false;
+  }
+  if(maxTrades > 0 && S.totalTrades >= maxTrades){
+    if(!announceOnly) return false;
+    log('Max trades/session reached. Stopping all engines.', 'w');
+    stopAllEngines('Max trades reached'); return false;
+  }
+  if(maxConsec > 0 && S.consecLosses >= maxConsec){
+    if(!announceOnly) return false;
+    log('Max consecutive losses reached. Stopping all engines.', 'e');
+    stopAllEngines('Max consecutive losses'); return false;
+  }
+
+  // --- Take Profit: full app auto-reset & restart if enabled ---
+  if(tp > 0 && S.sessionPnl >= tp){
+    if(!announceOnly) return false;
+    if(autoRestartEnabled()){
+      performAutoRestart('Global Take Profit', S.sessionPnl, tp);
+      return true;
+    } else {
+      log('Global Take Profit hit ($' + S.sessionPnl.toFixed(2) + '). Stopping all engines.', 'w');
+      stopAllEngines('Global TP hit'); return false;
+    }
+  }
+  return true;
 }
+
 function checkEngineRisk(engine, announceOnly){
   const tp = Number($(engine.prefix + '_tp').value), sl = Number($(engine.prefix + '_sl').value);
-  let ok = true;
-  if(tp > 0 && engine.pnl >= tp){ if(!announceOnly) return false; engine.stop('Engine Take Profit hit ($' + engine.pnl.toFixed(2) + ')'); ok=false; }
-  if(sl > 0 && engine.pnl <= -sl){ if(!announceOnly) return false; engine.stop('Engine Stop Loss hit ($' + engine.pnl.toFixed(2) + ')'); ok=false; }
-  return ok;
+
+  if(sl > 0 && engine.pnl <= -sl){
+    if(!announceOnly) return false;
+    engine.stop('Engine Stop Loss hit ($' + engine.pnl.toFixed(2) + ')');
+    return false;
+  }
+
+  if(tp > 0 && engine.pnl >= tp){
+    if(!announceOnly) return false;
+    if(autoRestartEnabled()){
+      performAutoRestart(engine.name + ' Take Profit', engine.pnl, tp);
+      return true;
+    } else {
+      engine.stop('Engine Take Profit hit ($' + engine.pnl.toFixed(2) + ')');
+      return false;
+    }
+  }
+  return true;
 }
 
 function stopAllEngines(reason){
@@ -881,11 +1040,12 @@ class BaseEngine{
   start(){
     this.readConfig();
     this.baseStake = this.stake;
-    this.pnl = 0; this.martiLevel = 0; this.consecLosses = 0;
+    this.pnl = 0; this.martiLevel = 0; this.consecLosses = 0; this.cycleCount = 0;
     this.armed = true;
     ensureTickSub(this.symbol);
     $('badge-' + this.key).textContent = 'ON'; $('badge-' + this.key).className = 'badge on';
     log(this.name + ' armed on ' + this.symbol + '.', 's');
+    setPanelLocked(this, true);
     updateEngineStatus(this);
     const btn = $('btnStart-' + this.key);
     btn.textContent = '⏹ Stop ' + this.label + ' Engine';
@@ -896,10 +1056,16 @@ class BaseEngine{
     this.armed = false;
     $('badge-' + this.key).textContent = 'OFF'; $('badge-' + this.key).className = 'badge off';
     log(this.name + ' stopped. ' + (reason||''), 'w');
+    setPanelLocked(this, false);
     updateEngineStatus(this, reason);
     const btn = $('btnStart-' + this.key);
     btn.textContent = '▶ Start ' + this.label + ' Engine';
     btn.classList.remove('btn-down'); btn.classList.add('btn-up');
+    // PERSISTENCY FIX: release tick streams once nothing needs them, instead of
+    // leaving orphaned subscriptions running silently forever.
+    if(!ENGINES.some(e=>e.armed)){
+      send({ forget_all:'ticks' }).then(()=>{ S.tickSubs = {}; log('All tick subscriptions released — no engines armed.', 'i'); }).catch(()=>{});
+    }
   }
   onDigit(){}
   onSettled(won, profit){
@@ -1057,6 +1223,33 @@ function updateEngineStatus(engine, extra){
   if(extra){ $('status-' + engine.key).textContent = extra; }
 }
 
+// PERSISTENCY FIX: while an engine is armed, its strategy/martingale parameters are
+// captured once and used for the whole run — editing them silently had zero effect.
+// Lock those fields (visibly) so the UI never lies about what's actually in effect.
+// Risk fields (TP/SL, ids ending _tp/_sl) stay live-editable since they ARE re-read
+// fresh on every risk check.
+function setPanelLocked(engine, locked){
+  const panel = $('panel-' + engine.key);
+  if(!panel) return;
+  panel.querySelectorAll('input, select').forEach(el=>{
+    if(/_tp$|_sl$/.test(el.id)) return;
+    el.disabled = locked;
+  });
+  panel.querySelectorAll('.switch').forEach(sw=>{
+    if(sw.id === 'g_sw_autorestart') return;
+    sw.classList.toggle('locked', locked);
+  });
+  let hint = document.getElementById('lockhint-' + engine.key);
+  if(!hint){
+    hint = document.createElement('div');
+    hint.id = 'lockhint-' + engine.key;
+    hint.className = 'lock-hint';
+    hint.innerHTML = '🔒 Strategy parameters locked while armed — Take Profit / Stop Loss stay live. Stop the engine to edit.';
+    $('btnStart-' + engine.key).insertAdjacentElement('beforebegin', hint);
+  }
+  hint.classList.toggle('show', locked);
+}
+
 /* ============================================================
    ENGINE START/STOP WIRING (with real-account confirmation gate)
    ============================================================ */
@@ -1083,8 +1276,8 @@ $('btnStopAll').addEventListener('click', ()=> stopAllEngines('Manual stop-all.'
    DASHBOARD RENDERING
    ============================================================ */
 function renderDashboard(){
-  $('chipPnl').textContent = (S.sessionPnl>=0?'+':'') + '$' + S.sessionPnl.toFixed(2);
-  $('chipPnl').className = 'v mono ' + (S.sessionPnl>=0?'up':'down');
+  $('chipPnl').textContent = (S.lifetimePnl>=0?'+':'') + '$' + S.lifetimePnl.toFixed(2);
+  $('chipPnl').className = 'v mono ' + (S.lifetimePnl>=0?'up':'down');
   $('s_pnl').textContent = (S.sessionPnl>=0?'+':'') + '$' + S.sessionPnl.toFixed(2);
   $('s_pnl').className = 'v ' + (S.sessionPnl>=0?'up':'down');
   $('s_staked').textContent = '$' + S.sessionStaked.toFixed(2);
@@ -1099,6 +1292,9 @@ function renderDashboard(){
   $('s_streak').textContent = S.consecWins > 0 ? (S.consecWins + 'W streak') : (S.consecLosses > 0 ? (S.consecLosses + 'L streak') : '—');
   const maxLevel = Math.max(0, ...ENGINES.map(e=>e.martiLevel||0));
   $('s_martilevel').textContent = maxLevel;
+  $('s_cycles').textContent = S.cycleCount;
+  $('s_cyclepnl').textContent = (S.lifetimePnl>=0?'+':'') + '$' + S.lifetimePnl.toFixed(2);
+  $('s_cyclepnl').className = 'v ' + (S.lifetimePnl>=0?'up':'down');
   $('dashClock').textContent = nowTs();
   drawChart();
 }
@@ -1147,12 +1343,13 @@ function drawChart(){
    RESET FUNCTION
    ============================================================ */
 $('btnResetLogs').addEventListener('click', ()=>{
-  S.sessionPnl=0; S.sessionStaked=0; S.sessionPayout=0;
+  S.sessionPnl=0; S.sessionStaked=0; S.sessionPayout=0; S.lifetimePnl=0;
   S.totalTrades=0; S.wins=0; S.losses=0; S.consecLosses=0; S.consecWins=0;
   S.tradeLog = []; S.pnlHistory=[0];
+  S.cycleCount = 0; S.mutexLockedSince = null;
   ENGINES.forEach(e=>{ e.pnl=0; e.stake=e.baseStake||e.stake; e.martiLevel=0; e.consecLosses=0; });
   renderDashboard(); renderTradeLog();
-  log('Trade logs and dashboard stats reset. Live engines remain armed.', 'w');
+  log('Full manual reset: all stats, trade log, lifetime P/L, and cycle count cleared. Live engines remain armed.', 'w');
 });
 
 /* ============================================================
