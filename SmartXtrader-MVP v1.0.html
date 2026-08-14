@@ -130,7 +130,16 @@
       </div>
       <label>Analysis Window (ticks)</label>
       <input type="number" id="windowSize" value="20" min="5" max="1000">
-      <div class="footer-note">Bot stops automatically when TP or SL is reached, or Max Steps exceeded on a losing streak.</div>
+      <label style="margin-top:10px;"><input type="checkbox" id="autoRestartToggle" style="width:auto;" checked> Auto-Restart on Take Profit</label>
+      <div class="footer-note">When enabled, hitting Take Profit banks the cycle result and seamlessly restarts the bot toward the next Take Profit. Stop Loss always halts trading — it never auto-restarts.</div>
+    </div>
+
+    <div class="card">
+      <h3>Lifetime Tracker</h3>
+      <div class="row"><span>Cycles Completed</span><span id="cyclesCompleted">0</span></div>
+      <div class="row"><span>Lifetime P&amp;L</span><span id="lifetimePL" class="green">$0.00</span></div>
+      <div class="row"><span>Lifetime Wins/Losses</span><span id="lifetimeWL">0 / 0</span></div>
+      <button id="resetLifetimeBtn" style="width:100%;margin-top:6px;">Reset Lifetime Tracker</button>
     </div>
 
     <div class="card">
@@ -252,6 +261,11 @@ const state = {
   strategy: 'atm',
   symbol: '1HZ10V',
   tickSubId: null, balanceSubId: null,
+  // Auto-Restart / lifetime tracking
+  tradeMutex: false,          // global mutex: true while a proposal/buy/settlement cycle is in flight
+  restarting: false,          // true only during the brief restart transition window
+  lifetimePL: 0, cyclesCompleted: 0, lifetimeWins: 0, lifetimeLosses: 0,
+  watchdogTimer: null,
 };
 
 const $ = id => document.getElementById(id);
@@ -505,7 +519,8 @@ function renderDigitGrid(){
 // recent last-digit history, then purchases DIGITEVEN/DIGITODD or DIGITOVER/DIGITUNDER.
 
 function evaluateStrategy(){
-  if(state.pendingProposal || state.openContractId) return; // one trade at a time
+  if(!state.botRunning || state.restarting) return;
+  if(state.tradeMutex || state.pendingProposal || state.openContractId) return; // one trade at a time, enforced globally
   const win = state.ticks.slice(-state.windowSize);
   if(win.length < Math.min(5, state.windowSize)) return;
 
@@ -567,8 +582,26 @@ function requestProposal(signal){
   if(signal.barrier !== undefined) proposalReq.barrier = String(signal.barrier);
 
   state.pendingProposal = { signal, stake };
+  state.tradeMutex = true;
+  armWatchdog();
   log(`Requesting proposal: ${signal.contract_type} stake=$${stake}${signal.barrier!==undefined?' barrier='+signal.barrier:''}`);
   send(proposalReq);
+}
+
+// Watchdog: force-unlocks the mutex if a proposal/settlement cycle stalls (e.g. dropped message),
+// so the bot never gets permanently stuck waiting on a trade that will never resolve.
+function armWatchdog(){
+  clearWatchdog();
+  state.watchdogTimer = setTimeout(() => {
+    if(state.tradeMutex && !state.openContractId){
+      log('Watchdog: proposal cycle stalled — force-unlocking trade mutex.', 'err');
+      state.pendingProposal = null;
+      state.tradeMutex = false;
+    }
+  }, 20000);
+}
+function clearWatchdog(){
+  if(state.watchdogTimer){ clearTimeout(state.watchdogTimer); state.watchdogTimer = null; }
 }
 
 function onProposal(p){
@@ -581,6 +614,7 @@ function onBuy(b){
   state.openContractId = b.contract_id;
   const meta = state.pendingProposal;
   state.pendingProposal = null;
+  armWatchdog(); // mutex stays locked until settlement; watchdog re-armed for the open-contract wait
   log(`Contract bought. ID=${b.contract_id} price=${b.buy_price}`, 'ok');
   addTradeRow({ id: b.contract_id, type: meta?.signal?.contract_type || '—', stake: b.buy_price, digit: state.ticks[state.ticks.length-1]?.digit ?? '—', result: 'open', pl: 0 });
   send({ proposal_open_contract: 1, contract_id: b.contract_id, subscribe: 1 });
@@ -595,6 +629,19 @@ function onOpenContract(c){
     <div class="row"><span>Status</span><span>${c.status}</span></div>
   `;
   if(c.is_sold){
+    PostSettlement.evaluate(c);
+  }
+}
+
+// ============================================================
+// PostSettlement — the SOLE decision point for restart/risk logic.
+// Called exactly once per settled contract, after all state (P&L,
+// win/loss, martingale step) has been updated. Nothing upstream of
+// this function is allowed to trigger a restart or a hard stop —
+// this keeps the logic centralized, race-free, and auditable.
+// ============================================================
+const PostSettlement = {
+  evaluate(c){
     const won = c.profit > 0;
     state.sessionPL += Number(c.profit);
     if(won){ state.wins++; state.martStep = 0; }
@@ -602,10 +649,94 @@ function onOpenContract(c){
     updateTradeRow(c.contract_id, won ? 'win' : 'loss', c.profit);
     updateSessionStats();
     state.openContractId = null;
+    clearWatchdog();
+    state.tradeMutex = false; // release mutex — settlement is complete
     $('openContractPanel').innerHTML = '<div class="sub">No open contract</div>';
-    checkRiskLimits();
+
+    const tp = parseFloat($('takeProfit').value) || 0;
+    const sl = parseFloat($('stopLoss').value) || 0;
+    const maxSteps = parseInt($('maxSteps').value, 10) || 6;
+
+    // Hard stops are UNCONDITIONAL — they never auto-restart, regardless of the toggle.
+    if(sl > 0 && state.sessionPL <= -sl){
+      hardStop(`Stop Loss of $${sl} reached.`);
+      return;
+    }
+    if(state.martStep >= maxSteps && state.losses > 0 && !won){
+      hardStop(`Max consecutive-loss steps (${maxSteps}) reached.`);
+      return;
+    }
+
+    // Take Profit reached → bank cycle, auto-restart toward the next TP.
+    if(tp > 0 && state.sessionPL >= tp){
+      bankCycleAndRestart(tp);
+      return;
+    }
+    // Otherwise: normal continuation. Next tick's evaluateStrategy() will
+    // naturally pick up the next trade since the mutex is now free.
   }
+};
+
+function hardStop(reason){
+  clearWatchdog();
+  state.tradeMutex = false;
+  stopBot(reason);
 }
+
+// ============================================================
+// Auto-Restart on Take Profit — banks the completed cycle to the
+// lifetime tracker, then resets trade history / system log / session
+// P&L in place and resumes trading immediately (softStop semantics:
+// botRunning stays true throughout, so buttons never flicker and the
+// very next tick can trigger the next trade — zero delay, zero gap).
+// ============================================================
+function bankCycleAndRestart(tp){
+  state.restarting = true; // brief guard so evaluateStrategy() doesn't fire mid-reset
+  clearWatchdog();
+
+  state.lifetimePL += state.sessionPL;
+  state.lifetimeWins += state.wins;
+  state.lifetimeLosses += state.losses;
+  state.cyclesCompleted++;
+  updateLifetimeUI();
+
+  const auto = $('autoRestartToggle').checked;
+  if(!auto){
+    state.restarting = false;
+    hardStop(`Take Profit of $${tp} reached. Auto-Restart is off — bot stopped.`);
+    return;
+  }
+
+  log(`✔ Take Profit of $${tp} reached — cycle #${state.cyclesCompleted} banked at $${state.sessionPL.toFixed(2)}. Auto-restarting...`, 'ok');
+
+  // Reset app functions for the new cycle: trade history, system log, session P&L/stats
+  $('tradeLogBody').innerHTML = '';
+  $('sysLog').innerHTML = '';
+  state.sessionPL = 0; state.wins = 0; state.losses = 0; state.martStep = 0; state.currentStake = 0;
+  $('currentStakeVal').textContent = '$0.00';
+  $('martStep').textContent = '0';
+  updateSessionStats();
+
+  log(`Cycle #${state.cyclesCompleted + 1} started — bot resumed automatically toward the next Take Profit.`, 'ok');
+
+  // softStop semantics: state.botRunning was never touched, so trading resumes
+  // on the very next tick with no manual intervention and no UI state change.
+  state.restarting = false;
+}
+
+function updateLifetimeUI(){
+  $('cyclesCompleted').textContent = state.cyclesCompleted;
+  $('lifetimePL').textContent = `$${state.lifetimePL.toFixed(2)}`;
+  $('lifetimePL').className = state.lifetimePL >= 0 ? 'green' : 'red';
+  $('lifetimeWL').textContent = `${state.lifetimeWins} / ${state.lifetimeLosses}`;
+}
+
+$('resetLifetimeBtn').onclick = () => {
+  if(!confirm('Reset the lifetime tracker (cycles completed, lifetime P&L, lifetime wins/losses)? This cannot be undone.')) return;
+  state.lifetimePL = 0; state.cyclesCompleted = 0; state.lifetimeWins = 0; state.lifetimeLosses = 0;
+  updateLifetimeUI();
+  log('Lifetime tracker reset.', 'ok');
+};
 
 function updateSessionStats(){
   $('sessionPL').textContent = `$${state.sessionPL.toFixed(2)}`;
@@ -614,13 +745,6 @@ function updateSessionStats(){
   $('lossCount').textContent = state.losses;
   const total = state.wins + state.losses;
   $('winRate').textContent = total ? ((state.wins/total)*100).toFixed(1) + '%' : '0%';
-}
-
-function checkRiskLimits(){
-  const tp = parseFloat($('takeProfit').value) || 0;
-  const sl = parseFloat($('stopLoss').value) || 0;
-  if(tp > 0 && state.sessionPL >= tp){ stopBot(`Take Profit of $${tp} reached.`); return; }
-  if(sl > 0 && state.sessionPL <= -sl){ stopBot(`Stop Loss of $${sl} reached.`); return; }
 }
 
 // ---------------- TRADE LOG UI ----------------
@@ -649,6 +773,8 @@ $('startBotBtn').onclick = () => {
   state.baseStake = parseFloat($('baseStake').value) || 5;
   state.martStep = 0;
   state.sessionPL = 0; state.wins = 0; state.losses = 0;
+  state.tradeMutex = false; state.restarting = false; state.pendingProposal = null;
+  clearWatchdog();
   updateSessionStats();
   state.botRunning = true;
   $('startBotBtn').disabled = true; $('stopBotBtn').disabled = false;
@@ -660,6 +786,10 @@ $('stopBotBtn').onclick = () => stopBot('Manual stop');
 
 function stopBot(reason){
   state.botRunning = false;
+  state.restarting = false;   // abort any pending restart
+  state.tradeMutex = false;
+  state.pendingProposal = null;
+  clearWatchdog();
   $('startBotBtn').disabled = !state.connected; $('stopBotBtn').disabled = true;
   $('botStatus').textContent = 'Stopped'; $('botStatus').className = 'red';
   log(`Bot stopped — ${reason}`, 'err');
