@@ -603,7 +603,7 @@ class DerivSocket{
 
 async function connectPublicFeed(){
   State.publicWs = new DerivSocket('public');
-  await State.publicWs.connect('wss://ws.derivws.com/websockets/v3?app_id=1089');
+  await State.publicWs.connect('wss://api.derivws.com/trading/v1/options/ws/public');
   State.publicConnected = true;
   updateConnUI();
 }
@@ -618,12 +618,11 @@ async function connectTradeSocket(){
   // Balance subscription
   State.tradeWs.on('balance', onBalanceUpdate);
   await State.tradeWs.send({balance:1, subscribe:1});
-  // Contract monitoring routed centrally
-  State.tradeWs.on('proposal_open_contract', onOpenContractUpdate);
 }
 
 function onBalanceUpdate(data){
   const b = data.balance;
+  if(!b) return;
   document.getElementById('statBalance').textContent = fmtMoney(b.balance) + ' ' + (b.currency||'');
   if(Stats.peakBalance===0) Stats.peakBalance = num(b.balance);
   Stats.peakBalance = Math.max(Stats.peakBalance, num(b.balance));
@@ -649,7 +648,7 @@ async function ensureTickFeed(symbol){
     }
   }catch(e){ log('History fetch failed for '+symbol+': '+e.message,'warn'); }
   State.publicWs.on('tick', (data)=>{
-    if(data.tick.symbol !== symbol) return;
+    if(!data.tick || data.tick.symbol !== symbol) return;
     feed.history.push({quote:num(data.tick.quote), epoch:data.tick.epoch, pip_size:data.tick.pip_size});
     if(feed.history.length > 300) feed.history.shift();
     for(const fn of feed.listeners) { try{ fn(feed); }catch(e){} }
@@ -974,7 +973,7 @@ class LinearDivergencePro extends StrategyEngine{
       color: isRise ? '#4da3ff' : '#ff4d5e',
       defaultSymbol:'RDBULL',
       symbolOptions:['RDBULL','RDBEAR','R_75','R_100'],
-      contractLabel: isRise ? 'Higher (CALL barrier)' : 'Lower (PUT barrier)',
+      contractLabel: isRise ? 'Higher (HIGHER barrier)' : 'Lower (LOWER barrier)',
       warmupTicks:12,
       params:{ divergenceWindow:7, barrierOffset:0.50, duration:5, durationUnit:'t' }
     });
@@ -1007,7 +1006,7 @@ class LinearDivergencePro extends StrategyEngine{
     const barrier = this.direction==='rise' ? `+${offset}` : `-${offset}`;
     return {
       proposal:1, amount:Number(stake.toFixed(2)), basis:'stake',
-      contract_type: this.direction==='rise' ? 'CALL' : 'PUT', currency:'USD',
+      contract_type: this.direction==='rise' ? 'HIGHER' : 'LOWER', currency:'USD',
       duration:this.params.duration, duration_unit:this.params.durationUnit,
       underlying_symbol:this.params.symbol, barrier
     };
