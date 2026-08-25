@@ -353,6 +353,10 @@ a.link{color:var(--accent2);}
         <div class="stat"><div class="v" id="statStreak">0</div><div class="l">Loss Streak</div></div>
         <div class="stat"><div class="v" id="statMartLevel">0</div><div class="l">Martingale Lvl</div></div>
       </div>
+      <div class="grid2" style="margin-top:8px;">
+        <div class="stat"><div class="v" id="statCyclesCompletedDash">0</div><div class="l">TP Cycles Completed</div></div>
+        <div class="stat"><div class="v" id="statCycleStatusDash">Idle</div><div class="l">Cycle Status</div></div>
+      </div>
     </div>
   </div>
 
@@ -392,6 +396,17 @@ a.link{color:var(--accent2);}
       <div class="rowline"><span>Enable martingale</span><div class="switch on" id="martSwitch"><div class="knob"></div></div></div>
       <div class="field"><label>Max Levels (hard stop)</label><input id="martMaxLevelsInput" type="number" value="5" min="1" max="7"></div>
       <div class="smallnote">Multiplier scales inversely with fusion confidence — 95%→×1.25, 90%→×1.45, 85%→×1.70, 80%→×2.00 — capped at max levels, then forced stop (per Even/Odd Strategy doc).</div>
+    </div>
+    <div class="card">
+      <h3>Session Take-Profit Auto-Reset Cycle</h3>
+      <div class="rowline">
+        <span>Enable auto-reset on session TP</span>
+        <div class="switch" id="sessionCycleSwitch"><div class="knob"></div></div>
+      </div>
+      <div class="field"><label>Session Take-Profit Target (USD)</label><input id="sessionTpTargetInput" type="number" value="10" min="0.1" step="0.1"></div>
+      <div class="rowline"><span>Cycles completed this connection</span><b id="statCyclesCompleted">0</b></div>
+      <div class="rowline"><span>Cycle status</span><span id="sessionCycleStatus">Idle</span></div>
+      <div class="smallnote">When session P&amp;L reaches the target, new entries pause instantly, any still-open contract is allowed to settle naturally, then session P&amp;L/trades/loss-streak/martingale level reset to zero and auto-trade re-arms automatically — same WebSocket, same subscriptions, same engine and risk config, no reconnect and no idle gap — so the terminal immediately starts pursuing the next take-profit cycle.</div>
     </div>
     <div class="card">
       <h3>Kill Switch</h3>
@@ -508,6 +523,14 @@ const state = {
     durationUnit: 't', basis: 'stake', contractMode: 'auto',
     maxTradesSession: 0, cooldownSeconds: 0, lastTradeAt: 0,
     tpEnabled: false, tpValue: 5, slEnabled: false, slValue: 5
+  },
+  // sessionCycle drives the enforced auto-reset/restart loop: once session P&L
+  // reaches the target, new entries pause, open contracts are allowed to settle,
+  // then all session-scoped counters reset and the terminal auto-resumes on the
+  // same connection to pursue the next take-profit cycle — no reconnect, no gap.
+  sessionCycle: {
+    enabled: false, targetPnl: 10, cyclesCompleted: 0,
+    pendingReset: false, wasAutoArmedBeforePause: false
   },
   fusion: {confidence:0, coverage:0, conflictRatio:0, dominant:'NONE'},
   autoTradeArmed: false,
@@ -1276,6 +1299,67 @@ function onContractUpdate(contract){
   log('Contract closed: P&L '+fmtMoney(pnl), pnl>=0?'ok':'err');
   renderStats();
   if (document.getElementById('view-journal').classList.contains('active')) renderJournal();
+  checkSessionCycle();
+}
+
+// ============================================================
+// SESSION TAKE-PROFIT AUTO-RESET / RESTART CYCLE (enforced)
+// ============================================================
+// Called after every contract settlement. Two-phase to avoid races:
+//  Phase 1 (arm):   pnl target reached -> pause new entries immediately,
+//                    let any still-open contract settle naturally.
+//  Phase 2 (reset):  once no contracts remain open -> reset session-scoped
+//                    counters and seamlessly re-arm on the SAME connection.
+// No WebSocket teardown, no OTP refetch, no subscription changes occur here —
+// that's what makes the restart instant and gap-free.
+function checkSessionCycle(){
+  const sc = state.sessionCycle;
+  if (!sc.enabled) return;
+
+  if (!sc.pendingReset && sc.targetPnl > 0 && state.session.pnl >= sc.targetPnl) {
+    sc.pendingReset = true;
+    sc.wasAutoArmedBeforePause = state.autoTradeArmed;
+    if (state.autoTradeArmed) armAutoTrade(false); // stop new entries instantly
+    setSessionCycleStatus('Target hit — settling open contracts…');
+    log('🎯 Session take-profit reached: '+fmtMoney(state.session.pnl)+' ≥ target '+fmtMoney(sc.targetPnl)+'. New entries paused, waiting for '+state.openContracts.size+' open contract(s) to settle before reset.', 'ok');
+  }
+
+  if (sc.pendingReset && state.openContracts.size === 0) {
+    performSessionReset();
+  }
+}
+function performSessionReset(){
+  const sc = state.sessionCycle;
+  const closedPnl = state.session.pnl;
+  sc.cyclesCompleted += 1;
+  // Reset ONLY session-scoped counters. Auth, WebSocket, selected account,
+  // symbol, engine selection/weights, trade parameters, and risk rails are
+  // left untouched, so the next cycle runs under identical configuration.
+  state.session = { pnl:0, trades:0, wins:0, losses:0, lossStreak:0, startBalance: state.balance };
+  state.martLevel = 0;
+  state.tradeParams.lastTradeAt = 0; // clear cooldown so the new cycle can trade immediately
+  sc.pendingReset = false;
+  document.getElementById('statCyclesCompleted').textContent = sc.cyclesCompleted;
+  document.getElementById('statCyclesCompletedDash').textContent = sc.cyclesCompleted;
+  renderStats();
+  log('🔁 Session cycle #'+sc.cyclesCompleted+' complete (closed at '+fmtMoney(closedPnl)+'). All counters reset to zero.', 'ok');
+  if (state.killEngaged) {
+    setSessionCycleStatus('Idle (kill switch engaged)');
+    return;
+  }
+  if (sc.wasAutoArmedBeforePause) {
+    armAutoTrade(true); // seamless re-arm on the same connection, no delay
+    setSessionCycleStatus('Cycle '+(sc.cyclesCompleted+1)+' running');
+    log('▶ Auto-trade re-armed — pursuing next take-profit target of '+fmtMoney(sc.targetPnl)+'.', 'ok');
+  } else {
+    setSessionCycleStatus('Reset complete — auto-trade was off');
+  }
+}
+function setSessionCycleStatus(text){
+  const el = document.getElementById('sessionCycleStatus');
+  if (el) el.textContent = text;
+  const dashEl = document.getElementById('statCycleStatusDash');
+  if (dashEl) dashEl.textContent = text;
 }
 
 // ============================================================
@@ -1348,6 +1432,27 @@ document.getElementById('slSwitch').onclick = function(){
 document.getElementById('slValueInput').onchange = (e) => {
   state.tradeParams.slValue = Math.max(0, Number(e.target.value) || 0);
 };
+document.getElementById('sessionCycleSwitch').onclick = function(){
+  const sc = state.sessionCycle;
+  sc.enabled = !sc.enabled;
+  this.classList.toggle('on', sc.enabled);
+  if (!sc.enabled) {
+    // Disabling mid-cycle must not strand auto-trade paused forever.
+    if (sc.pendingReset && sc.wasAutoArmedBeforePause && !state.autoTradeArmed && !state.killEngaged) {
+      armAutoTrade(true);
+    }
+    sc.pendingReset = false;
+    setSessionCycleStatus('Idle');
+    log('Session take-profit auto-reset cycle DISABLED', 'warn');
+  } else {
+    setSessionCycleStatus('Cycle 1 running');
+    log('Session take-profit auto-reset cycle ENABLED — target '+fmtMoney(sc.targetPnl), 'ok');
+  }
+};
+document.getElementById('sessionTpTargetInput').onchange = (e) => {
+  state.sessionCycle.targetPnl = Math.max(0.01, Number(e.target.value) || 10);
+  log('Session take-profit target set to '+fmtMoney(state.sessionCycle.targetPnl), 'info');
+};
 
 // ============================================================
 // REAL-MONEY ARM / CONFIRM MODAL
@@ -1382,6 +1487,9 @@ function engageKillSwitch(){
   state.killEngaged = true;
   armAutoTrade(false);
   setRealArmed(false);
+  state.sessionCycle.pendingReset = false;
+  state.sessionCycle.wasAutoArmedBeforePause = false;
+  setSessionCycleStatus('Idle (kill switch engaged)');
   try { sendWs({ forget_all:'ticks' }); sendWs({ forget_all:'proposal' }); sendWs({ forget_all:'proposal_open_contract' }); } catch(e){}
   log('KILL SWITCH ENGAGED — all subscriptions torn down, auto-trade and real-arm disabled', 'err');
   setTimeout(() => { state.killEngaged = false; }, 2000); // allow re-arming after teardown settles
@@ -1555,6 +1663,7 @@ function renderStats(){
 document.getElementById('btnResetStats').onclick = () => {
   state.session = { pnl:0, trades:0, wins:0, losses:0, lossStreak:0, startBalance: state.balance };
   state.martLevel = 0;
+  state.sessionCycle.pendingReset = false;
   renderStats();
   log('Session stats reset', 'warn');
 };

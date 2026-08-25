@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#070a0f">
+<title>PULSE9 — Digit &amp; Parity Terminal</title>
+<style>
+:root{
+  --bg:#070a0f; --panel:#0d131c; --panel2:#111a26; --line:#1c2836;
+  --ink:#dbe7f2; --dim:#7288a0; --dimmer:#4a5c70;
+  --pulse:#39ffb0; --pulse-dim:#0f4d3a;
+  --amber:#ffb04a; --red:#ff5470; --blue:#4ab6ff;
+  --mono: 'SF Mono', 'Roboto Mono', Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased; overscroll-behavior:none; height:100%;}
+body{padding-bottom:env(safe-area-inset-bottom); font-size:14px;}
+::-webkit-scrollbar{width:0;height:0;}
+
+/* ---------- top bar ---------- */
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:10px;
+  padding:calc(10px + env(safe-area-inset-top)) 14px 10px;background:linear-gradient(180deg,#070a0f 70%,rgba(7,10,15,0));
+  border-bottom:1px solid var(--line);}
+.brand{display:flex;align-items:center;gap:8px;font-weight:800;letter-spacing:.5px;font-size:16px;}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--dimmer);box-shadow:0 0 0 0 rgba(57,255,176,.6);}
+.brand .dot.live{background:var(--pulse);animation:pulse 1.6s infinite;}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(57,255,176,.55);}70%{box-shadow:0 0 0 8px rgba(57,255,176,0);}100%{box-shadow:0 0 0 0 rgba(57,255,176,0);}}
+.brand b{color:var(--pulse);}
+.spacer{flex:1;}
+.acct-pill{font-family:var(--mono);font-size:11px;color:var(--dim);background:var(--panel2);
+  border:1px solid var(--line);padding:5px 9px;border-radius:20px;display:flex;gap:6px;align-items:center;}
+.acct-pill b{color:var(--ink);}
+.badge-mode{font-size:10px;font-weight:800;letter-spacing:.6px;padding:3px 7px;border-radius:6px;}
+.badge-demo{background:#123047;color:var(--blue);}
+.badge-real{background:#3a1220;color:var(--red);}
+
+/* ---------- kill switch ---------- */
+.killbar{position:sticky;top:48px;z-index:49;padding:8px 14px;background:#1a0b10;border-bottom:1px solid #3a1220;
+  display:none;align-items:center;gap:10px;}
+.killbar.show{display:flex;}
+.killbtn{margin-left:auto;background:var(--red);color:#1a0308;border:none;font-weight:800;
+  padding:8px 14px;border-radius:8px;font-size:12px;letter-spacing:.4px;}
+
+/* ---------- layout ---------- */
+.wrap{max-width:520px;margin:0 auto;padding:12px 12px 100px;}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px;}
+.card h3{margin:0 0 10px;font-size:12px;letter-spacing:.8px;text-transform:uppercase;color:var(--dim);
+  display:flex;align-items:center;gap:8px;}
+.card h3 .line{flex:1;height:1px;background:var(--line);}
+.row{display:flex;gap:8px;align-items:center;}
+.row + .row{margin-top:8px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+
+label{font-size:11px;color:var(--dim);display:block;margin-bottom:4px;}
+select,input[type=text],input[type=password],input[type=number]{
+  width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+  padding:10px 10px;border-radius:9px;font-size:14px;font-family:var(--sans);}
+select:focus,input:focus{outline:1px solid var(--pulse);}
+.field{margin-bottom:8px;}
+
+button{cursor:pointer;font-family:var(--sans);}
+.btn{background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:10px 12px;
+  border-radius:9px;font-size:13px;font-weight:600;}
+.btn.primary{background:var(--pulse);color:#04140d;border:none;}
+.btn.ghost{background:transparent;}
+.btn.danger{background:var(--red);color:#1a0308;border:none;}
+.btn.block{width:100%;}
+.btn:disabled{opacity:.4;}
+.tabs{display:flex;background:var(--panel2);border-radius:10px;padding:3px;border:1px solid var(--line);}
+.tab{flex:1;text-align:center;padding:8px;border-radius:8px;font-size:12px;font-weight:700;color:var(--dim);}
+.tab.active{background:var(--pulse-dim);color:var(--pulse);}
+
+.switch{position:relative;width:42px;height:24px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:20px;flex-shrink:0;}
+.switch i{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--dim);transition:.15s;}
+.switch.on{background:var(--pulse-dim);border-color:var(--pulse);}
+.switch.on i{left:20px;background:var(--pulse);}
+.switchrow{display:flex;align-items:center;justify-content:space-between;padding:6px 0;}
+.switchrow span{font-size:13px;}
+.switchrow small{display:block;color:var(--dim);font-size:11px;margin-top:1px;}
+
+/* ---------- digit readout ---------- */
+.digitgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:6px 0 10px;}
+.dbox{position:relative;aspect-ratio:1;border-radius:10px;background:var(--panel2);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;flex-direction:column;overflow:hidden;}
+.dbox .n{font-family:var(--mono);font-size:19px;font-weight:700;}
+.dbox .p{font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:2px;}
+.dbox .bar{position:absolute;bottom:0;left:0;right:0;background:rgba(57,255,176,.18);}
+.dbox.top{border-color:var(--pulse);}
+.dbox.top .n{color:var(--pulse);}
+.dbox.top .bar{background:rgba(57,255,176,.32);}
+.dbox.last{outline:2px solid var(--amber);}
+
+.predictbig{display:flex;align-items:center;gap:14px;padding:12px 4px 4px;}
+.predictbig .num{font-family:var(--mono);font-size:44px;font-weight:800;color:var(--pulse);line-height:1;}
+.predictbig .meta{flex:1;}
+.confbar{height:6px;background:var(--panel2);border-radius:4px;overflow:hidden;margin-top:5px;}
+.confbar i{display:block;height:100%;background:linear-gradient(90deg,var(--amber),var(--pulse));}
+.metarow{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-top:6px;}
+.metarow b{color:var(--ink);font-family:var(--mono);}
+.nosig{color:var(--dim);font-style:italic;font-size:13px;padding:6px 2px;}
+
+.tickstrip{display:flex;gap:4px;overflow-x:auto;padding:2px 0;}
+.tickstrip .t{flex-shrink:0;width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:11px;background:var(--panel2);color:var(--dim);}
+.tickstrip .t.odd{color:var(--amber);}
+.tickstrip .t.even{color:var(--blue);}
+
+.statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px;text-align:center;}
+.stat .v{font-family:var(--mono);font-size:17px;font-weight:700;}
+.stat .l{font-size:10px;color:var(--dim);margin-top:2px;text-transform:uppercase;letter-spacing:.4px;}
+.stat .v.pos{color:var(--pulse);}
+.stat .v.neg{color:var(--red);}
+
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:3px 8px;border-radius:20px;
+  background:var(--panel2);border:1px solid var(--line);color:var(--dim);font-weight:700;}
+.chip.on{color:var(--pulse);border-color:var(--pulse-dim);}
+.chiprow{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+
+.log{max-height:150px;overflow-y:auto;font-family:var(--mono);font-size:11px;color:var(--dim);}
+.log div{padding:4px 0;border-bottom:1px solid var(--line);}
+.log .win{color:var(--pulse);}
+.log .loss{color:var(--red);}
+
+.toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  background:#0d131c;border:1px solid var(--pulse);color:var(--ink);padding:10px 16px;border-radius:10px;
+  font-size:13px;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.5); max-width:90vw;}
+
+.modal-bg{position:fixed;inset:0;background:rgba(3,5,8,.75);backdrop-filter:blur(3px);z-index:300;
+  display:none;align-items:flex-end;justify-content:center;}
+.modal-bg.show{display:flex;}
+.modal{width:100%;max-width:520px;background:var(--panel);border:1px solid var(--line);border-radius:18px 18px 0 0;
+  padding:18px 16px calc(18px + env(safe-area-inset-bottom));}
+.modal h2{margin:0 0 6px;font-size:16px;color:var(--red);}
+.modal p{color:var(--dim);font-size:13px;line-height:1.5;}
+
+.navbar{position:fixed;left:0;right:0;bottom:0;z-index:50;background:#0a0e15;border-top:1px solid var(--line);
+  display:flex;padding:6px 6px calc(6px + env(safe-area-inset-bottom));}
+.navbtn{flex:1;text-align:center;padding:8px 2px;color:var(--dim);font-size:10px;font-weight:700;border-radius:10px;}
+.navbtn.active{color:var(--pulse);background:var(--panel2);}
+.navbtn .ic{font-size:18px;display:block;}
+
+.hide{display:none !important;}
+.small{font-size:11px;color:var(--dim);}
+.mono{font-family:var(--mono);}
+a{color:var(--blue);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="dot" id="liveDot"></span>PULSE<b>9</b></div>
+  <div class="spacer"></div>
+  <span class="badge-mode badge-demo" id="modeBadge">DEMO</span>
+  <div class="acct-pill" id="acctPill"><span>—</span></div>
+</div>
+
+<div class="killbar" id="killbar">
+  <span class="small" style="color:#ff8fa3">⚠ LIVE ARMED — real funds at risk</span>
+  <button class="killbtn" id="killBtn">KILL SWITCH</button>
+</div>
+
+<div class="wrap">
+
+  <!-- ============ CONNECTION ============ -->
+  <div class="card" id="connCard">
+    <h3>Connection <span class="line"></span> <span class="small mono" id="connState">disconnected</span></h3>
+    <div class="tabs" id="authTabs">
+      <div class="tab active" data-auth="pat">PAT</div>
+      <div class="tab" data-auth="oauth">OAuth 2.0</div>
+    </div>
+
+    <div id="patPanel" style="margin-top:10px;">
+      <div class="field"><label>Deriv App ID</label><input type="text" id="patAppId" placeholder="e.g. 90210"></div>
+      <div class="field"><label>Personal Access Token</label><input type="password" id="patToken" placeholder="Paste PAT (never stored)"></div>
+    </div>
+    <div id="oauthPanel" class="hide" style="margin-top:10px;">
+      <div class="field"><label>Deriv App ID (OAuth type)</label><input type="text" id="oauthAppId" placeholder="e.g. 90211"></div>
+      <div class="field"><label>Redirect URI</label><input type="text" id="oauthRedirect" placeholder="https://yourapp.com/callback"></div>
+      <button class="btn block" id="oauthLoginBtn">Continue with Deriv →</button>
+      <p class="small" style="margin-top:6px">PKCE flow. Token exchange must happen server-side per Deriv security guidance — paste the resulting access token below if you're testing client-side.</p>
+      <div class="field"><label>Access token (post-exchange)</label><input type="password" id="oauthToken" placeholder="access_token"></div>
+    </div>
+
+    <div class="row" style="margin-top:10px;">
+      <button class="btn primary block" id="connectBtn">Connect</button>
+    </div>
+    <div class="row" style="margin-top:8px;">
+      <select id="accountSelect" class="hide"></select>
+    </div>
+    <div class="chiprow" id="connChips"></div>
+  </div>
+
+  <!-- ============ MARKET ============ -->
+  <div class="card">
+    <h3>Market <span class="line"></span> <span class="small mono" id="tickRate">0 t/s</span></h3>
+    <div class="field">
+      <label>Synthetic Index</label>
+      <select id="symbolSelect">
+        <option value="1HZ10V">Volatility 10 (1s) Index</option>
+        <option value="1HZ25V">Volatility 25 (1s) Index</option>
+        <option value="1HZ50V" selected>Volatility 50 (1s) Index</option>
+        <option value="1HZ75V">Volatility 75 (1s) Index</option>
+        <option value="1HZ100V">Volatility 100 (1s) Index</option>
+        <option value="R_10">Volatility 10 Index</option>
+        <option value="R_25">Volatility 25 Index</option>
+        <option value="R_50">Volatility 50 Index</option>
+        <option value="R_75">Volatility 75 Index</option>
+        <option value="R_100">Volatility 100 Index</option>
+      </select>
+    </div>
+    <div class="row">
+      <div style="flex:1"><span class="small">Spot</span><div class="mono" id="spotVal" style="font-size:20px;font-weight:700">—</div></div>
+      <div style="flex:1"><span class="small">Last digit</span><div class="mono" id="lastDigitVal" style="font-size:20px;font-weight:700;color:var(--amber)">—</div></div>
+      <div style="flex:1"><span class="small">Sample</span><div class="mono" id="sampleVal" style="font-size:20px;font-weight:700">0</div></div>
+    </div>
+    <div class="tickstrip" id="tickStrip"></div>
+  </div>
+
+  <!-- ============ PREDICTION ENGINE ============ -->
+  <div class="card">
+    <h3>PULSE9 Prediction Engine <span class="line"></span> <span class="small mono" id="engineState">INITIALIZING</span></h3>
+    <div id="predictionArea">
+      <div class="nosig">Collecting ticks — need ≥10 samples before first read.</div>
+    </div>
+    <div class="digitgrid" id="digitGrid"></div>
+    <div class="metarow">
+      <span>Entropy: <b id="entropyVal">—</b></span>
+      <span>Consensus: <b id="consensusVal">—</b></span>
+      <span>Edge: <b id="edgeVal">—</b></span>
+    </div>
+    <div class="chiprow">
+      <span class="chip" id="chipFreq">Frequency</span>
+      <span class="chip" id="chipMom">Momentum</span>
+      <span class="chip" id="chipGap">Gap</span>
+      <span class="chip" id="chipMarkov">Markov</span>
+      <span class="chip" id="chipOE">Odd/Even</span>
+      <span class="chip" id="chipHL">High/Low</span>
+    </div>
+  </div>
+
+  <!-- ============ TRADE SETUP ============ -->
+  <div class="card">
+    <h3>Trade Setup <span class="line"></span></h3>
+    <div class="tabs" id="modeTabs">
+      <div class="tab active" data-mode="parity">Even / Odd</div>
+      <div class="tab" data-mode="digit">Matches / Differs</div>
+      <div class="tab" data-mode="overunder">Over / Under</div>
+    </div>
+
+    <div id="parityOpts" style="margin-top:10px;">
+      <label>Predicted parity target</label>
+      <div class="grid2">
+        <button class="btn" id="btnEven">EVEN</button>
+        <button class="btn" id="btnOdd">ODD</button>
+      </div>
+    </div>
+    <div id="digitOpts" class="hide" style="margin-top:10px;">
+      <div class="grid2">
+        <div class="field"><label>Type</label>
+          <select id="digitDirSelect"><option value="DIGITMATCH">Matches</option><option value="DIGITDIFF">Differs</option></select>
+        </div>
+        <div class="field"><label>Target digit</label><input type="number" id="digitTargetInput" min="0" max="9" value="5"></div>
+      </div>
+    </div>
+    <div id="ouOpts" class="hide" style="margin-top:10px;">
+      <div class="grid2">
+        <div class="field"><label>Type</label>
+          <select id="ouDirSelect"><option value="DIGITOVER">Over</option><option value="DIGITUNDER">Under</option></select>
+        </div>
+        <div class="field"><label>Barrier digit</label><input type="number" id="ouTargetInput" min="0" max="9" value="4"></div>
+      </div>
+    </div>
+
+    <div class="grid2" style="margin-top:4px;">
+      <div class="field"><label>Stake (USD)</label><input type="number" id="stakeInput" value="1" min="0.35" step="0.05"></div>
+      <div class="field"><label>Ticks duration</label><input type="number" id="ticksInput" value="1" min="1" max="10"></div>
+    </div>
+
+    <div class="switchrow">
+      <div><span>Use PULSE9 signal to auto-select side</span><small>Overrides manual side when a valid signal exists</small></div>
+      <div class="switch" id="swUseSignal"><i></i></div>
+    </div>
+    <div class="switchrow">
+      <div><span>Min confidence to trade</span><small>Predictions below this are ignored (NO_SIGNAL)</small></div>
+      <input type="number" id="minConfInput" value="58" min="50" max="95" style="width:70px;text-align:center;">
+    </div>
+
+    <h3 style="margin-top:14px;">Money management</h3>
+    <div class="switchrow">
+      <div><span>Martingale on loss</span><small>Multiply stake after a loss; reset after a win</small></div>
+      <div class="switch on" id="swMartingale"><i></i></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Multiplier</label><input type="number" id="martMultInput" value="2.1" step="0.1" min="1"></div>
+      <div class="field"><label>Max steps</label><input type="number" id="martMaxInput" value="6" min="1" max="15"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Session Take Profit (USD)</label><input type="number" id="tpInput" value="20" min="0"></div>
+      <div class="field"><label>Session Stop Loss (USD)</label><input type="number" id="slInput" value="15" min="0"></div>
+    </div>
+
+    <div class="switchrow">
+      <div><span>Auto-trade loop</span><small>Executes automatically while armed &amp; risk gate passes</small></div>
+      <div class="switch" id="swAutoTrade"><i></i></div>
+    </div>
+
+    <div class="row" style="margin-top:12px;">
+      <button class="btn ghost block" id="btnArmDemo" style="border:1px solid var(--blue);color:var(--blue)">Arm — Demo</button>
+      <button class="btn danger block" id="btnArmReal">Arm — Real</button>
+    </div>
+    <button class="btn primary block" id="btnManualTrade" style="margin-top:8px;" disabled>Execute single trade</button>
+  </div>
+
+  <!-- ============ SESSION ============ -->
+  <div class="card">
+    <h3>Session <span class="line"></span> <button class="btn ghost" id="btnResetSession" style="padding:3px 8px;font-size:11px;">reset</button></h3>
+    <div class="statgrid">
+      <div class="stat"><div class="v" id="statPL">$0.00</div><div class="l">P&amp;L</div></div>
+      <div class="stat"><div class="v" id="statWin">0%</div><div class="l">Win rate</div></div>
+      <div class="stat"><div class="v" id="statTrades">0</div><div class="l">Trades</div></div>
+      <div class="stat"><div class="v" id="statStreak">0</div><div class="l">Streak</div></div>
+      <div class="stat"><div class="v" id="statMartStep">0</div><div class="l">Mart. step</div></div>
+      <div class="stat"><div class="v" id="statNextStake">$0.00</div><div class="l">Next stake</div></div>
+    </div>
+  </div>
+
+  <!-- ============ JOURNAL ============ -->
+  <div class="card">
+    <h3>Trade Journal <span class="line"></span> <button class="btn ghost" id="btnExportCsv" style="padding:3px 8px;font-size:11px;">export csv</button></h3>
+    <div class="log" id="journalLog"><div class="small">No trades yet this session.</div></div>
+  </div>
+
+  <div style="text-align:center;padding:10px 0 20px;" class="small">PULSE9 · Digit &amp; Parity Terminal · live execution engine · not investment advice</div>
+</div>
+
+<div class="navbar">
+  <div class="navbtn active"><span class="ic">◎</span>Terminal</div>
+</div>
+
+<div id="toastHost"></div>
+
+<!-- CONFIRM ARM MODAL -->
+<div class="modal-bg" id="confirmModal">
+  <div class="modal">
+    <h2 id="confirmTitle">Arm real-money trading</h2>
+    <p>You are about to enable <b>live execution</b> with real funds. PULSE9 will place actual buy() orders on your Deriv real-money account according to the parameters configured above, including auto-trade if enabled. This action carries financial risk. Type <b>CONFIRM</b> below to proceed.</p>
+    <input type="text" id="confirmInput" placeholder="Type CONFIRM" style="margin:10px 0;">
+    <div class="row">
+      <button class="btn block" id="confirmCancel">Cancel</button>
+      <button class="btn danger block" id="confirmOk" disabled>Arm live trading</button>
+    </div>
+  </div>
+</div>
+
+<audio id="sndAlert" preload="auto"><source src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=" type="audio/wav"></audio>
+
+<script>
+(function(){
+'use strict';
+
+/* =====================================================================
+   PULSE9 CORE — connection service, tick engine, prediction engine,
+   trading engine, risk gate, journal, notifications.
+   Architecture per LEVI-AI core standard:
+     REST  api.derivws.com  (Bearer + Deriv-App-ID)
+     OTP   POST /trading/v1/options/accounts/{id}/otp -> wss url (fresh per reconnect)
+     WS    public (ticks) + authenticated trading socket, separate sockets
+   ===================================================================== */
+
+const API_BASE = 'https://api.derivws.com';
+const PUBLIC_WS = 'wss://api.derivws.com/trading/v1/options/ws/public';
+const HEARTBEAT_MS = 25000;
+
+const $ = id => document.getElementById(id);
+const toastHost = $('toastHost');
+
+function toast(msg, ms=2600){
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  toastHost.appendChild(el);
+  setTimeout(()=>el.remove(), ms);
+}
+
+function notify(title, body){
+  try{
+    if('Notification' in window && Notification.permission === 'granted'){
+      new Notification(title, {body, icon:''});
+    }
+  }catch(e){}
+  if(navigator.vibrate) navigator.vibrate([40,30,40]);
+  try{ $('sndAlert').currentTime = 0; $('sndAlert').play().catch(()=>{}); }catch(e){}
+  toast(title + (body ? (' — '+body) : ''));
+}
+
+if('Notification' in window && Notification.permission === 'default'){
+  document.addEventListener('click', function once(){
+    Notification.requestPermission();
+    document.removeEventListener('click', once);
+  }, {once:true});
+}
+
+/* ---------------------------------------------------------------------
+   STATE
+   --------------------------------------------------------------------- */
+const state = {
+  appId:null, token:null, authType:'pat',
+  accounts:[], selectedAccount:null,
+  publicWs:null, tradeWs:null, tradeConnecting:null,
+  publicWsGen:0, tradeWsGen:0,
+  publicConnected:false, tradeConnected:false,
+  publicReconnectAttempts:0, tradeReconnectAttempts:0, maxReconnectAttempts:8, heartbeatTimer:null,
+  reqId:0, pending:new Map(),
+  symbol:'1HZ50V',
+  armed:false, armedMode:null, // 'demo' | 'real'
+  autoTrade:false,
+  tradeInFlight:false,
+  martingaleStep:0, currentStake:null,
+  session:{pl:0, wins:0, losses:0, trades:0, streak:0},
+  journal:[],
+  tickBuffer:[], // rolling raw ticks {price,digit,epoch}
+  lastDigit:null, lastPrice:null,
+  killed:false,
+  tradeType:'parity' // parity | digit | overunder
+};
+
+function persist(){
+  try{
+    localStorage.setItem('pulse9_settings', JSON.stringify({
+      symbol: state.symbol,
+      tradeType: state.tradeType,
+      stake: $('stakeInput').value,
+      ticks: $('ticksInput').value,
+      martingale: $('swMartingale').classList.contains('on'),
+      martMult: $('martMultInput').value,
+      martMax: $('martMaxInput').value,
+      tp: $('tpInput').value,
+      sl: $('slInput').value,
+      minConf: $('minConfInput').value,
+      session: state.session,
+      journal: state.journal.slice(-100)
+    }));
+  }catch(e){}
+}
+function restore(){
+  try{
+    const raw = localStorage.getItem('pulse9_settings');
+    if(!raw) return;
+    const s = JSON.parse(raw);
+    if(s.symbol){ state.symbol = s.symbol; $('symbolSelect').value = s.symbol; }
+    if(s.stake) $('stakeInput').value = s.stake;
+    if(s.ticks) $('ticksInput').value = s.ticks;
+    if(s.martMult) $('martMultInput').value = s.martMult;
+    if(s.martMax) $('martMaxInput').value = s.martMax;
+    if(s.tp) $('tpInput').value = s.tp;
+    if(s.sl) $('slInput').value = s.sl;
+    if(s.minConf) $('minConfInput').value = s.minConf;
+    if(s.martingale===false) toggleSwitch($('swMartingale'), false);
+    if(s.session) state.session = s.session;
+    if(s.journal) state.journal = s.journal;
+    renderSession(); renderJournal();
+  }catch(e){}
+}
+
+/* ---------------------------------------------------------------------
+   UI helpers
+   --------------------------------------------------------------------- */
+function toggleSwitch(el, force){
+  const on = force !== undefined ? force : !el.classList.contains('on');
+  el.classList.toggle('on', on);
+  return on;
+}
+document.querySelectorAll('.switch').forEach(sw=>{
+  sw.addEventListener('click', ()=>{ toggleSwitch(sw); onSwitchChange(sw.id); persist(); });
+});
+function onSwitchChange(id){
+  if(id==='swAutoTrade'){
+    state.autoTrade = $('swAutoTrade').classList.contains('on');
+    if(state.autoTrade && !state.armed){
+      toast('Arm demo or real trading first');
+      toggleSwitch($('swAutoTrade'), false);
+      state.autoTrade = false;
+    } else if(state.autoTrade){
+      toast('Auto-trade loop engaged');
+    }
+  }
+}
+
+document.querySelectorAll('#authTabs .tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    document.querySelectorAll('#authTabs .tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    state.authType = t.dataset.auth;
+    $('patPanel').classList.toggle('hide', state.authType!=='pat');
+    $('oauthPanel').classList.toggle('hide', state.authType!=='oauth');
+  });
+});
+
+document.querySelectorAll('#modeTabs .tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    document.querySelectorAll('#modeTabs .tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    state.tradeType = t.dataset.mode;
+    $('parityOpts').classList.toggle('hide', state.tradeType!=='parity');
+    $('digitOpts').classList.toggle('hide', state.tradeType!=='digit');
+    $('ouOpts').classList.toggle('hide', state.tradeType!=='overunder');
+    persist();
+  });
+});
+
+let parityTarget = 'EVEN';
+$('btnEven').addEventListener('click', ()=>{ parityTarget='EVEN'; $('btnEven').classList.add('primary'); $('btnOdd').classList.remove('primary'); });
+$('btnOdd').addEventListener('click', ()=>{ parityTarget='ODD'; $('btnOdd').classList.add('primary'); $('btnEven').classList.remove('primary'); });
+$('btnEven').classList.add('primary');
+
+$('symbolSelect').addEventListener('change', e=>{
+  state.symbol = e.target.value;
+  resetTickBuffers();
+  subscribeTicks();
+  persist();
+});
+
+/* ---------------------------------------------------------------------
+   CONNECTION SERVICE  (mirrors core/deriv-connection-service.js pattern)
+   --------------------------------------------------------------------- */
+function setConnState(txt){ $('connState').textContent = txt; }
+function setLive(on){ $('liveDot').classList.toggle('live', on); }
+
+function restHeaders(withContentType){
+  const h = { 'Authorization': `Bearer ${state.token}`, 'Deriv-App-ID': state.appId };
+  if(withContentType) h['Content-Type'] = 'application/json';
+  return h;
+}
+
+async function apiCall(method, path, body){
+  const opts = { method, headers: restHeaders(!!body) };
+  if(body) opts.body = JSON.stringify(body);
+  const res = await fetch(`${API_BASE}${path}`, opts);
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok){
+    const code = data.errors?.[0]?.code || 'UnknownError';
+    const msg = data.errors?.[0]?.message || `HTTP ${res.status}`;
+    const err = new Error(`${code}: ${msg}`); err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
+$('connectBtn').addEventListener('click', async ()=>{
+  try{
+    if(state.authType==='pat'){
+      state.appId = $('patAppId').value.trim();
+      state.token = $('patToken').value.trim();
+    } else {
+      state.appId = $('oauthAppId').value.trim();
+      state.token = $('oauthToken').value.trim();
+    }
+    if(!state.appId || !state.token){ toast('Enter App ID and token'); return; }
+    setConnState('authenticating…');
+    $('connectBtn').disabled = true;
+
+    const accRes = await apiCall('GET', '/trading/v1/options/accounts');
+    let accounts = accRes.data || [];
+    if(!accounts.length){
+      // create default demo account
+      const created = await apiCall('POST', '/trading/v1/options/accounts', {currency:'USD',group:'row',account_type:'demo'});
+      accounts = Array.isArray(created.data) ? created.data : [created.data];
+    }
+    state.accounts = accounts;
+    const sel = $('accountSelect');
+    sel.innerHTML = accounts.map(a=>`<option value="${a.account_id}">${a.account_id} · ${a.account_type.toUpperCase()} · ${a.balance} ${a.currency}</option>`).join('');
+    sel.classList.remove('hide');
+    state.selectedAccount = accounts[0];
+    updateAcctPill();
+
+    // The public market feed is already bootstrapped at page load and
+    // runs independently of auth — only (re)connect it here if it isn't
+    // already up, otherwise leave the live socket alone.
+    if(!state.publicConnected){
+      setConnState('connecting market feed…');
+      connectPublicSocket();
+    } else {
+      setConnState('live');
+    }
+    toast('Authenticated · '+accounts.length+' account(s) found');
+    renderConnChips();
+  }catch(err){
+    setConnState('failed');
+    toast('Connect failed: '+err.message);
+  }finally{
+    $('connectBtn').disabled = false;
+  }
+});
+
+$('accountSelect').addEventListener('change', e=>{
+  state.selectedAccount = state.accounts.find(a=>a.account_id===e.target.value);
+  updateAcctPill();
+  if(state.armed){ disarm('account changed'); }
+});
+
+function updateAcctPill(){
+  const a = state.selectedAccount;
+  if(!a){ $('acctPill').innerHTML = '<span>—</span>'; return; }
+  $('acctPill').innerHTML = `<span class="mono">${a.account_id}</span><b>${a.balance} ${a.currency}</b>`;
+  $('modeBadge').textContent = a.account_type.toUpperCase();
+  $('modeBadge').className = 'badge-mode ' + (a.account_type==='real' ? 'badge-real' : 'badge-demo');
+}
+
+function renderConnChips(){
+  $('connChips').innerHTML = `
+    <span class="chip on">App ${state.appId}</span>
+    <span class="chip on">${state.authType.toUpperCase()}</span>
+    <span class="chip on">api.derivws.com</span>`;
+}
+
+$('oauthLoginBtn').addEventListener('click', async ()=>{
+  const appId = $('oauthAppId').value.trim();
+  const redirect = $('oauthRedirect').value.trim();
+  if(!appId || !redirect){ toast('Enter App ID and redirect URI'); return; }
+  function genVerifier(){
+    const a = crypto.getRandomValues(new Uint8Array(64));
+    return Array.from(a).map(v=>'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'[v%66]).join('');
+  }
+  async function genChallenge(v){
+    const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v));
+    return btoa(String.fromCharCode(...new Uint8Array(h))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  const verifier = genVerifier();
+  const challenge = await genChallenge(verifier);
+  const state_ = crypto.getRandomValues(new Uint8Array(16)).reduce((s,b)=>s+b.toString(16).padStart(2,'0'),'');
+  sessionStorage.setItem('pkce_code_verifier', verifier);
+  sessionStorage.setItem('oauth_state', state_);
+  const url = new URL('https://auth.deriv.com/oauth2/auth');
+  url.searchParams.set('response_type','code');
+  url.searchParams.set('client_id', appId);
+  url.searchParams.set('redirect_uri', redirect);
+  url.searchParams.set('scope','trade account_manage');
+  url.searchParams.set('state', state_);
+  url.searchParams.set('code_challenge', challenge);
+  url.searchParams.set('code_challenge_method','S256');
+  window.location.href = url.toString();
+});
+
+/* -------- Public (market data) WebSocket --------
+   Guarded with a generation counter so a stale socket's onclose can
+   never trigger a duplicate/competing reconnect once it has been
+   deliberately replaced (this was the root cause of the
+   live <-> reconnecting flicker loop). */
+function connectPublicSocket(){
+  if(state.publicWs){
+    state.publicWs.onclose = null; // detach so the old socket can't fire a reconnect
+    state.publicWs.onerror = null;
+    try{ state.publicWs.close(); }catch(e){}
+  }
+  const myGen = ++state.publicWsGen;
+  const ws = new WebSocket(PUBLIC_WS);
+  state.publicWs = ws;
+  ws.onopen = ()=>{
+    if(myGen !== state.publicWsGen) return; // superseded before it finished opening
+    state.publicConnected = true;
+    state.publicReconnectAttempts = 0;
+    setLive(true);
+    setConnState('live');
+    subscribeTicks();
+    startHeartbeat();
+  };
+  ws.onmessage = (ev)=> { if(myGen === state.publicWsGen) handlePublicMessage(JSON.parse(ev.data)); };
+  ws.onerror = ()=>{};
+  ws.onclose = ()=>{
+    if(myGen !== state.publicWsGen) return; // stale socket, ignore — a newer one already replaced it
+    state.publicConnected = false;
+    setLive(false);
+    if(!state.killed){
+      setConnState('reconnecting…');
+      scheduleReconnect('public', connectPublicSocket);
+    } else {
+      setConnState('disconnected');
+    }
+  };
+}
+function startHeartbeat(){
+  clearInterval(state.heartbeatTimer);
+  state.heartbeatTimer = setInterval(()=>{
+    if(state.publicWs && state.publicWs.readyState===1) wsSend(state.publicWs, {ping:1});
+    if(state.tradeWs && state.tradeWs.readyState===1) wsSend(state.tradeWs, {ping:1});
+  }, HEARTBEAT_MS);
+}
+/* Separate attempt counters per socket so a busy trade reconnect
+   cycle never throttles or interferes with the public feed (and vice versa). */
+function scheduleReconnect(which, fn){
+  if(state.killed) return;
+  const attemptsKey = which==='public' ? 'publicReconnectAttempts' : 'tradeReconnectAttempts';
+  if(state[attemptsKey] >= state.maxReconnectAttempts){
+    toast((which==='public'?'Market feed':'Trade socket')+': max reconnect attempts reached');
+    return;
+  }
+  const delay = Math.min(1000*Math.pow(2, state[attemptsKey]), 30000);
+  state[attemptsKey]++;
+  setTimeout(fn, delay);
+}
+function wsSend(ws, cmd){
+  state.reqId++;
+  ws.send(JSON.stringify({...cmd, req_id: state.reqId}));
+  return state.reqId;
+}
+function subscribeTicks(){
+  if(!state.publicWs || state.publicWs.readyState!==1) return;
+  wsSend(state.publicWs, {forget_all:'ticks'});
+  wsSend(state.publicWs, {ticks: state.symbol, subscribe:1});
+}
+function handlePublicMessage(data){
+  if(data.error) return;
+  if(data.msg_type==='tick'){
+    onTick(data.tick);
+  }
+}
+
+/* -------- Authenticated trading WebSocket (OTP) -------- */
+async function getFreshTradeSocket(){
+  if(!state.selectedAccount) throw new Error('No account selected');
+  const otp = await apiCall('POST', `/trading/v1/options/accounts/${state.selectedAccount.account_id}/otp`);
+  const url = otp.data.url;
+  return new Promise((resolve, reject)=>{
+    const ws = new WebSocket(url);
+    const t = setTimeout(()=>reject(new Error('OTP socket timeout')), 8000);
+    ws.onopen = ()=>{ clearTimeout(t); resolve(ws); };
+    ws.onerror = (e)=>{ clearTimeout(t); reject(e); };
+  });
+}
+async function ensureTradeSocket(){
+  if(state.tradeWs && state.tradeWs.readyState===1) return state.tradeWs;
+  if(state.tradeConnecting) return state.tradeConnecting; // de-dupe concurrent callers
+  const myGen = ++state.tradeWsGen;
+  state.tradeConnecting = (async ()=>{
+    const ws = await getFreshTradeSocket(); // OTP is short-lived — always fetch fresh here
+    if(myGen !== state.tradeWsGen){ try{ ws.close(); }catch(e){} return state.tradeWs; }
+    if(state.tradeWs){ state.tradeWs.onclose = null; state.tradeWs.onerror = null; try{ state.tradeWs.close(); }catch(e){} }
+    state.tradeWs = ws;
+    state.tradeConnected = true;
+    ws.onmessage = (ev)=> { if(myGen === state.tradeWsGen) handleTradeMessage(JSON.parse(ev.data)); };
+    ws.onerror = ()=>{};
+    ws.onclose = ()=>{
+      if(myGen !== state.tradeWsGen) return; // superseded, ignore
+      state.tradeConnected = false;
+      if(state.armed && !state.killed){
+        toast('Trade socket dropped — reconnecting with fresh OTP');
+        scheduleReconnect('trade', ()=> ensureTradeSocket().catch(()=>{}));
+      }
+    };
+    wsSend(ws, {balance:1, subscribe:1});
+    state.tradeReconnectAttempts = 0;
+    return ws;
+  })();
+  try{
+    return await state.tradeConnecting;
+  } finally {
+    state.tradeConnecting = null;
+  }
+}
+function handleTradeMessage(data){
+  if(data.error){
+    toast('Trade error: '+data.error.message);
+    return;
+  }
+  if(data.msg_type==='balance' && data.balance && state.selectedAccount){
+    state.selectedAccount.balance = data.balance.balance;
+    updateAcctPill();
+  }
+  if(data.req_id && state.pending.has(data.req_id)){
+    const {resolve} = state.pending.get(data.req_id);
+    state.pending.delete(data.req_id);
+    resolve(data);
+  }
+}
+function tradeRequest(cmd){
+  return new Promise((resolve, reject)=>{
+    if(!state.tradeWs || state.tradeWs.readyState!==1){ reject(new Error('Trade socket not ready')); return; }
+    const id = wsSend(state.tradeWs, cmd);
+    state.pending.set(id, {resolve, reject});
+    setTimeout(()=>{
+      if(state.pending.has(id)){ state.pending.delete(id); reject(new Error('Request timeout')); }
+    }, 12000);
+  });
+}
+
+/* ---------------------------------------------------------------------
+   TICK ENGINE — digit extraction + rolling buffers
+   --------------------------------------------------------------------- */
+function resetTickBuffers(){
+  state.tickBuffer = [];
+  $('tickStrip').innerHTML = '';
+  $('sampleVal').textContent = '0';
+  renderPrediction(null);
+}
+function extractDigit(price){
+  const str = price.toString();
+  const parts = str.split('.');
+  const decimals = parts[1] || '0';
+  return parseInt(decimals[decimals.length-1] || '0', 10);
+}
+function onTick(tick){
+  const price = parseFloat(tick.quote);
+  const digit = extractDigit(tick.quote);
+  const rec = { price, digit, epoch: tick.epoch, ts: Date.now() };
+  state.tickBuffer.push(rec);
+  if(state.tickBuffer.length > 1000) state.tickBuffer.shift();
+  state.lastDigit = digit;
+  state.lastPrice = price;
+
+  $('spotVal').textContent = tick.quote;
+  $('lastDigitVal').textContent = digit;
+  $('sampleVal').textContent = state.tickBuffer.length;
+  pushTickStrip(digit);
+  updateTickRate();
+
+  runPredictionEngine();
+  maybeAutoTrade();
+}
+let tickTimes = [];
+function updateTickRate(){
+  const now = Date.now();
+  tickTimes.push(now);
+  tickTimes = tickTimes.filter(t=>now-t < 5000);
+  $('tickRate').textContent = (tickTimes.length/5).toFixed(1)+' t/s';
+}
+function pushTickStrip(d){
+  const strip = $('tickStrip');
+  const el = document.createElement('div');
+  el.className = 't ' + (d%2===0 ? 'even':'odd');
+  el.textContent = d;
+  strip.appendChild(el);
+  while(strip.children.length > 40) strip.removeChild(strip.firstChild);
+  strip.scrollLeft = strip.scrollWidth;
+}
+
+/* ---------------------------------------------------------------------
+   PULSE9 PREDICTION ENGINE
+   MVP ensemble subset of the full Digit Prediction Analytics spec:
+     - Frequency (multi-window)
+     - Weighted recency frequency (exponential decay)
+     - Digit momentum (recency-weighted delta)
+     - Digit gap/distance model
+     - Odd/Even pressure
+     - High/Low pressure
+     - 1st-order Markov transition matrix
+     - Shannon entropy of distribution -> confidence dampener
+     - Multi-window consensus check
+   Ensemble -> normalized P(0..9) -> edge/confidence -> NO_SIGNAL gate.
+   --------------------------------------------------------------------- */
+const ENGINE_MIN_SAMPLES = 10;
+let lastPrediction = null;
+let outcomeQueue = []; // predictions awaiting next-tick verification
+
+function digitsWindow(n){
+  const buf = state.tickBuffer;
+  return buf.slice(Math.max(0, buf.length-n)).map(t=>t.digit);
+}
+
+function frequencyModel(window){
+  const counts = new Array(10).fill(0);
+  window.forEach(d=>counts[d]++);
+  const total = window.length || 1;
+  // Laplace smoothing
+  return counts.map(c => (c+1)/(total+10));
+}
+
+function weightedRecencyModel(window){
+  const weights = new Array(10).fill(0);
+  let totalW = 0;
+  window.forEach((d,i)=>{
+    const w = Math.exp(-0.05*(window.length-1-i)); // more recent -> larger weight
+    weights[d]+=w; totalW+=w;
+  });
+  return weights.map(w=>(w+0.1)/(totalW+1));
+}
+
+function momentumModel(window){
+  if(window.length<2) return new Array(10).fill(0.1);
+  let momentum = 0, wsum=0;
+  for(let i=1;i<window.length;i++){
+    const w = i/window.length;
+    momentum += w*(window[i]-window[i-1]);
+    wsum += w;
+  }
+  momentum = wsum? momentum/wsum : 0;
+  const last = window[window.length-1];
+  const scores = new Array(10).fill(0.5);
+  const dir = momentum>0.15 ? 1 : (momentum<-0.15 ? -1 : 0);
+  if(dir!==0){
+    const target = Math.min(9, Math.max(0, last+dir));
+    scores[target] += 1.2;
+  }
+  const sum = scores.reduce((a,b)=>a+b,0);
+  return scores.map(s=>s/sum);
+}
+
+function gapModel(window){
+  if(window.length<3) return new Array(10).fill(0.1);
+  const gaps = [];
+  for(let i=1;i<window.length;i++) gaps.push(window[i]-window[i-1]);
+  const avgGap = gaps.reduce((a,b)=>a+b,0)/gaps.length;
+  const last = window[window.length-1];
+  const proj = Math.round(last+avgGap);
+  const target = Math.min(9, Math.max(0, proj));
+  const scores = new Array(10).fill(0.3);
+  scores[target]+=1;
+  const sum = scores.reduce((a,b)=>a+b,0);
+  return scores.map(s=>s/sum);
+}
+
+function markovModel(window){
+  if(window.length<12) return new Array(10).fill(0.1);
+  const matrix = Array.from({length:10}, ()=>new Array(10).fill(1)); // laplace=1
+  for(let i=1;i<window.length;i++) matrix[window[i-1]][window[i]]++;
+  const last = window[window.length-1];
+  const row = matrix[last];
+  const total = row.reduce((a,b)=>a+b,0);
+  return row.map(c=>c/total);
+}
+
+function oddEvenModifier(window){
+  if(!window.length) return new Array(10).fill(1);
+  let odd=0, even=0;
+  window.forEach(d=> d%2===0 ? even++ : odd++);
+  const oddRatio = odd/window.length, evenRatio = even/window.length;
+  const mod = new Array(10).fill(1);
+  for(let d=0; d<10; d++) mod[d] = (d%2===0) ? (0.6+evenRatio) : (0.6+oddRatio);
+  return mod;
+}
+function highLowModifier(window){
+  if(!window.length) return new Array(10).fill(1);
+  let low=0, high=0;
+  window.forEach(d=> d<=4 ? low++ : high++);
+  const lowR = low/window.length, highR = high/window.length;
+  const mod = new Array(10).fill(1);
+  for(let d=0; d<10; d++) mod[d] = (d<=4) ? (0.6+lowR) : (0.6+highR);
+  return mod;
+}
+
+function shannonEntropy(dist){
+  return -dist.reduce((s,p)=> s + (p>0 ? p*Math.log2(p) : 0), 0);
+}
+
+function runPredictionEngine(){
+  const n = state.tickBuffer.length;
+  if(n < ENGINE_MIN_SAMPLES){
+    $('engineState').textContent = 'COLLECTING_DATA';
+    renderPrediction(null);
+    return;
+  }
+  $('engineState').textContent = 'ANALYZING';
+
+  const w25 = digitsWindow(25);
+  const w50 = digitsWindow(50);
+  const w100 = digitsWindow(Math.min(100, n));
+
+  const freq = frequencyModel(w50);
+  const wrec = weightedRecencyModel(w50);
+  const mom  = momentumModel(w25);
+  const gap  = gapModel(w25);
+  const mkv  = markovModel(w100);
+  const oe   = oddEvenModifier(w50);
+  const hl   = highLowModifier(w50);
+
+  // weights (configurable conceptually; fixed sane defaults for MVP)
+  const weights = {freq:1.0, wrec:1.1, mom:0.8, gap:0.6, mkv:1.3};
+  let combined = new Array(10).fill(0);
+  for(let d=0; d<10; d++){
+    combined[d] =
+      weights.freq*freq[d] +
+      weights.wrec*wrec[d] +
+      weights.mom*mom[d] +
+      weights.gap*gap[d] +
+      weights.mkv*mkv[d];
+    combined[d] *= oe[d] * hl[d]; // apply parity/highlow modifiers
+  }
+  const total = combined.reduce((a,b)=>a+b,0) || 1;
+  const probs = combined.map(v=>v/total);
+
+  // multi-window consensus: does the short window (25) top digit agree with long window(100) top digit?
+  const shortFreq = frequencyModel(w25);
+  const topShort = shortFreq.indexOf(Math.max(...shortFreq));
+  const topLong = mkv.indexOf(Math.max(...mkv));
+  const consensus = topShort===topLong ? 1 : 0.5;
+
+  const entropy = shannonEntropy(probs);
+  const maxEntropy = Math.log2(10);
+  const entropyFactor = 1 - (entropy/maxEntropy); // 0 (flat) .. 1 (peaked)
+
+  const sorted = probs.map((p,d)=>({d,p})).sort((a,b)=>b.p-a.p);
+  const top = sorted[0], second = sorted[1];
+  const edge = top.p - second.p;
+
+  let confidence = (top.p*100) * (0.55 + 0.45*entropyFactor) * (0.7+0.3*consensus);
+  confidence = Math.max(0, Math.min(97, confidence));
+
+  const prediction = {
+    digit: top.d, probs, confidence, edge: edge*100, entropy, consensus,
+    n, ts: Date.now()
+  };
+  lastPrediction = prediction;
+  outcomeQueue.push(prediction);
+  if(outcomeQueue.length>200) outcomeQueue.shift();
+
+  $('engineState').textContent = 'PREDICTING';
+  renderPrediction(prediction);
+  updateModelChips(freq,wrec,mom,gap,mkv,oe,hl);
+}
+
+function updateModelChips(freq,wrec,mom,gap,mkv,oe,hl){
+  const active = (id, arr)=>{ $(id).classList.toggle('on', arr && arr.some(v=>v>0.12)); };
+  $('chipFreq').classList.add('on');
+  $('chipMom').classList.toggle('on', state.tickBuffer.length>=25);
+  $('chipGap').classList.toggle('on', state.tickBuffer.length>=25);
+  $('chipMarkov').classList.toggle('on', state.tickBuffer.length>=100);
+  $('chipOE').classList.add('on');
+  $('chipHL').classList.add('on');
+}
+
+function renderPrediction(p){
+  const area = $('predictionArea');
+  const minConf = parseFloat($('minConfInput').value)||58;
+  if(!p){
+    area.innerHTML = `<div class="nosig">Collecting ticks — need ≥${ENGINE_MIN_SAMPLES} samples before first read (${state.tickBuffer.length}/${ENGINE_MIN_SAMPLES}).</div>`;
+  } else if(p.confidence < minConf){
+    area.innerHTML = `<div class="nosig">NO_SIGNAL — statistical edge insufficient (confidence ${p.confidence.toFixed(1)}% &lt; threshold ${minConf}%).</div>`;
+  } else {
+    area.innerHTML = `
+      <div class="predictbig">
+        <div class="num">${p.digit}</div>
+        <div class="meta">
+          <div class="small">Predicted next terminal digit</div>
+          <div class="confbar"><i style="width:${p.confidence}%"></i></div>
+          <div class="small mono">${p.confidence.toFixed(1)}% confidence</div>
+        </div>
+      </div>`;
+  }
+  $('entropyVal').textContent = p ? p.entropy.toFixed(2) : '—';
+  $('consensusVal').textContent = p ? (p.consensus>=1?'AGREE':'MIXED') : '—';
+  $('edgeVal').textContent = p ? p.edge.toFixed(1)+'%' : '—';
+
+  // digit grid
+  const grid = $('digitGrid');
+  grid.innerHTML = '';
+  const probs = p ? p.probs : new Array(10).fill(0.1);
+  const maxP = Math.max(...probs);
+  for(let d=0; d<10; d++){
+    const box = document.createElement('div');
+    box.className = 'dbox' + (p && d===p.digit ? ' top':'') + (d===state.lastDigit ? ' last':'');
+    box.innerHTML = `<div class="bar" style="height:${(probs[d]/maxP*100)}%"></div><div class="n">${d}</div><div class="p">${(probs[d]*100).toFixed(0)}%</div>`;
+    grid.appendChild(box);
+  }
+}
+
+/* verify previous prediction against the tick that just arrived */
+const origOnTick = onTick;
+onTick = function(tick){
+  const digitBefore = state.lastDigit;
+  origOnTick(tick);
+  if(outcomeQueue.length){
+    const p = outcomeQueue[outcomeQueue.length-1];
+    if(p.correct===undefined && p.n < state.tickBuffer.length){
+      p.correct = (p.digit === state.lastDigit);
+      updateEngineStats(p.correct);
+    }
+  }
+};
+
+let engineStats = {total:0, correct:0};
+function updateEngineStats(correct){
+  engineStats.total++;
+  if(correct) engineStats.correct++;
+}
+
+/* ---------------------------------------------------------------------
+   RISK GATE  — mandatory logic-layer gate before any buy()
+   --------------------------------------------------------------------- */
+function riskGatePass(){
+  if(state.killed) return {ok:false, reason:'Kill switch engaged'};
+  if(!state.armed) return {ok:false, reason:'Not armed'};
+  if(!state.tradeConnected) return {ok:false, reason:'Trade socket not connected'};
+  if(state.tradeInFlight) return {ok:false, reason:'Trade already in flight'};
+  const tp = parseFloat($('tpInput').value)||0;
+  const sl = parseFloat($('slInput').value)||0;
+  if(tp>0 && state.session.pl >= tp) return {ok:false, reason:'Session take-profit reached'};
+  if(sl>0 && state.session.pl <= -sl) return {ok:false, reason:'Session stop-loss reached'};
+  const stake = nextStakeValue();
+  if(!state.selectedAccount || stake > state.selectedAccount.balance) return {ok:false, reason:'Insufficient balance for next stake'};
+  if(stake < 0.35) return {ok:false, reason:'Stake below minimum'};
+  return {ok:true};
+}
+
+function nextStakeValue(){
+  const base = parseFloat($('stakeInput').value)||1;
+  const martOn = $('swMartingale').classList.contains('on');
+  if(!martOn) return base;
+  const mult = parseFloat($('martMultInput').value)||2;
+  return +(base * Math.pow(mult, state.martingaleStep)).toFixed(2);
+}
+
+/* ---------------------------------------------------------------------
+   ARMING / KILL SWITCH
+   --------------------------------------------------------------------- */
+$('btnArmDemo').addEventListener('click', ()=> requestArm('demo'));
+$('btnArmReal').addEventListener('click', ()=> requestArm('real'));
+
+function requestArm(mode){
+  if(!state.selectedAccount){ toast('Connect and select an account first'); return; }
+  if(mode==='real' && state.selectedAccount.account_type!=='real'){
+    toast('Selected account is not a real-money account'); return;
+  }
+  if(mode==='demo' && state.selectedAccount.account_type!=='demo'){
+    toast('Selected account is not a demo account'); return;
+  }
+  if(mode==='demo'){
+    doArm('demo');
+    return;
+  }
+  // real requires typed CONFIRM
+  $('confirmModal').classList.add('show');
+  $('confirmInput').value = '';
+  $('confirmOk').disabled = true;
+}
+$('confirmInput').addEventListener('input', e=>{
+  $('confirmOk').disabled = e.target.value.trim() !== 'CONFIRM';
+});
+$('confirmCancel').addEventListener('click', ()=> $('confirmModal').classList.remove('show'));
+$('confirmOk').addEventListener('click', ()=>{
+  $('confirmModal').classList.remove('show');
+  doArm('real');
+});
+
+async function doArm(mode){
+  try{
+    await ensureTradeSocket();
+    state.armed = true;
+    state.armedMode = mode;
+    state.killed = false;
+    $('killbar').classList.toggle('show', mode==='real');
+    $('btnManualTrade').disabled = false;
+    toast(`Armed (${mode.toUpperCase()}) — risk gate active`);
+    notify('PULSE9 armed', mode==='real' ? 'LIVE trading enabled' : 'Demo trading enabled');
+  }catch(err){
+    toast('Arm failed: '+err.message);
+  }
+}
+function disarm(reason){
+  state.armed = false; state.armedMode = null;
+  state.autoTrade = false;
+  toggleSwitch($('swAutoTrade'), false);
+  $('killbar').classList.remove('show');
+  $('btnManualTrade').disabled = true;
+  if(reason) toast('Disarmed: '+reason);
+}
+$('killBtn').addEventListener('click', ()=>{
+  state.killed = true;
+  disarm('kill switch');
+  // forget_all teardown
+  if(state.tradeWs && state.tradeWs.readyState===1){
+    wsSend(state.tradeWs, {forget_all:'proposal'});
+    wsSend(state.tradeWs, {forget_all:'proposal_open_contract'});
+    try{ state.tradeWs.close(); }catch(e){}
+  }
+  notify('KILL SWITCH', 'All trading halted, subscriptions cleared');
+  setTimeout(()=>{ state.killed = false; }, 1500);
+});
+
+/* ---------------------------------------------------------------------
+   TRADE EXECUTION
+   proposal -> buy -> proposal_open_contract monitoring -> settlement
+   --------------------------------------------------------------------- */
+function currentContractParams(){
+  const stake = nextStakeValue();
+  const ticksDur = parseInt($('ticksInput').value)||1;
+  let contract_type, barrier;
+
+  if(state.tradeType==='parity'){
+    let side = parityTarget;
+    if($('swUseSignal').classList.contains('on') && lastPrediction){
+      side = (lastPrediction.digit % 2 === 0) ? 'EVEN' : 'ODD';
+    }
+    contract_type = side==='EVEN' ? 'DIGITEVEN' : 'DIGITODD';
+  } else if(state.tradeType==='digit'){
+    contract_type = $('digitDirSelect').value;
+    barrier = $('digitTargetInput').value;
+    if($('swUseSignal').classList.contains('on') && lastPrediction){
+      barrier = String(lastPrediction.digit);
+    }
+  } else {
+    contract_type = $('ouDirSelect').value;
+    barrier = $('ouTargetInput').value;
+  }
+  return {stake, ticksDur, contract_type, barrier};
+}
+
+async function executeTrade(){
+  const gate = riskGatePass();
+  if(!gate.ok){ toast('Risk gate blocked: '+gate.reason); return; }
+  state.tradeInFlight = true;
+  try{
+    const {stake, ticksDur, contract_type, barrier} = currentContractParams();
+    const proposalReq = {
+      proposal: 1, amount: stake, basis: 'stake', contract_type,
+      currency: state.selectedAccount.currency, duration: ticksDur, duration_unit: 't',
+      underlying_symbol: state.symbol
+    };
+    if(barrier !== undefined) proposalReq.barrier = barrier.startsWith?.('+') || barrier.startsWith?.('-') ? barrier : String(barrier);
+
+    const propRes = await tradeRequest(proposalReq);
+    if(!propRes.proposal){ throw new Error('No proposal returned'); }
+    const proposalId = propRes.proposal.id;
+    const askPrice = Number(propRes.proposal.ask_price);
+
+    const buyRes = await tradeRequest({buy: proposalId, price: askPrice});
+    if(!buyRes.buy){ throw new Error('Buy failed'); }
+    const contractId = buyRes.buy.contract_id;
+    const buyPrice = Number(buyRes.buy.buy_price);
+
+    logJournal(`OPEN ${contract_type} stake=$${stake} contract=${contractId}`);
+    monitorContract(contractId, buyPrice, stake);
+  }catch(err){
+    toast('Trade failed: '+err.message);
+    logJournal('ERROR '+err.message, 'loss');
+    state.tradeInFlight = false;
+  }
+}
+
+function monitorContract(contractId, buyPrice, stake){
+  const req = {proposal_open_contract:1, contract_id: contractId, subscribe:1};
+  const id = wsSend(state.tradeWs, req);
+  const handler = (ev)=>{
+    let data; try{ data = JSON.parse(ev.data); }catch(e){ return; }
+    if(data.msg_type!=='proposal_open_contract') return;
+    const c = data.proposal_open_contract;
+    if(!c || c.contract_id !== contractId) return;
+    if(c.is_sold){
+      state.tradeWs.removeEventListener('message', handler);
+      const profit = Number(c.profit);
+      settleTrade(profit, stake);
+      state.tradeInFlight = false;
+      wsSend(state.tradeWs, {forget_all:'proposal_open_contract'});
+    }
+  };
+  state.tradeWs.addEventListener('message', handler);
+}
+
+function settleTrade(profit, stake){
+  const win = profit > 0;
+  state.session.pl += profit;
+  state.session.trades++;
+  if(win){ state.session.wins++; state.session.streak = state.session.streak>=0 ? state.session.streak+1 : 1; state.martingaleStep = 0; }
+  else { state.session.losses++; state.session.streak = state.session.streak<=0 ? state.session.streak-1 : -1;
+    const martOn = $('swMartingale').classList.contains('on');
+    const maxSteps = parseInt($('martMaxInput').value)||6;
+    if(martOn && state.martingaleStep < maxSteps) state.martingaleStep++;
+    else state.martingaleStep = 0;
+  }
+  logJournal(`${win?'WIN':'LOSS'} $${profit.toFixed(2)} (stake $${stake.toFixed(2)})`, win?'win':'loss');
+  renderSession();
+  persist();
+  notify(win?'Trade won':'Trade lost', `${profit>=0?'+':''}${profit.toFixed(2)} USD`);
+  checkTpSl();
+}
+
+function checkTpSl(){
+  const tp = parseFloat($('tpInput').value)||0;
+  const sl = parseFloat($('slInput').value)||0;
+  if(tp>0 && state.session.pl>=tp){
+    notify('Take-profit hit', `Session +$${state.session.pl.toFixed(2)} — pausing new entries`);
+    disarm('take-profit reached');
+  } else if(sl>0 && state.session.pl<=-sl){
+    notify('Stop-loss hit', `Session $${state.session.pl.toFixed(2)} — pausing new entries`);
+    disarm('stop-loss reached');
+  }
+}
+
+function maybeAutoTrade(){
+  if(!state.autoTrade) return;
+  if(!state.armed || state.tradeInFlight) return;
+  if(!lastPrediction) return;
+  const gate = riskGatePass();
+  if(!gate.ok) return;
+  executeTrade();
+}
+
+$('btnManualTrade').addEventListener('click', executeTrade);
+
+/* ---------------------------------------------------------------------
+   SESSION / JOURNAL
+   --------------------------------------------------------------------- */
+function renderSession(){
+  const s = state.session;
+  const pl = s.pl;
+  $('statPL').textContent = (pl>=0?'+':'')+'$'+pl.toFixed(2);
+  $('statPL').className = 'v ' + (pl>0?'pos':(pl<0?'neg':''));
+  $('statWin').textContent = s.trades ? Math.round(s.wins/s.trades*100)+'%' : '0%';
+  $('statTrades').textContent = s.trades;
+  $('statStreak').textContent = (s.streak>0?'+':'')+s.streak;
+  $('statMartStep').textContent = state.martingaleStep;
+  $('statNextStake').textContent = '$'+nextStakeValue().toFixed(2);
+}
+$('btnResetSession').addEventListener('click', ()=>{
+  // two-phase race-safe reset: pause entries, wait for in-flight, then reset
+  const wasAuto = state.autoTrade;
+  state.autoTrade = false;
+  const doReset = ()=>{
+    state.session = {pl:0, wins:0, losses:0, trades:0, streak:0};
+    state.martingaleStep = 0;
+    renderSession(); persist();
+    toast('Session reset');
+    if(wasAuto && state.armed){ state.autoTrade = true; toggleSwitch($('swAutoTrade'), true); }
+  };
+  if(state.tradeInFlight){
+    toast('Waiting for open contract to settle before reset…');
+    const iv = setInterval(()=>{ if(!state.tradeInFlight){ clearInterval(iv); doReset(); } }, 400);
+  } else doReset();
+});
+
+function logJournal(text, cls){
+  const entry = {ts:new Date().toISOString(), text, cls: cls||''};
+  state.journal.push(entry);
+  if(state.journal.length>300) state.journal.shift();
+  renderJournal();
+}
+function renderJournal(){
+  const log = $('journalLog');
+  if(!state.journal.length){ log.innerHTML = '<div class="small">No trades yet this session.</div>'; return; }
+  log.innerHTML = state.journal.slice(-60).reverse().map(e=>
+    `<div class="${e.cls}">${new Date(e.ts).toLocaleTimeString()} · ${e.text}</div>`
+  ).join('');
+}
+$('btnExportCsv').addEventListener('click', ()=>{
+  const rows = ['timestamp,text'].concat(state.journal.map(e=>`"${e.ts}","${e.text.replace(/"/g,'""')}"`));
+  const blob = new Blob([rows.join('\n')], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'pulse9_journal.csv'; a.click();
+  URL.revokeObjectURL(url);
+});
+
+/* ---------------------------------------------------------------------
+   INIT
+   --------------------------------------------------------------------- */
+restore();
+renderPrediction(null);
+connectPublicSocketBootstrap();
+function connectPublicSocketBootstrap(){
+  // Public market feed can run pre-auth so predictions are visible immediately.
+  connectPublicSocket();
+}
+setInterval(persist, 15000);
+window.addEventListener('beforeunload', persist);
+
+})();
+</script>
+</body>
+</html>
