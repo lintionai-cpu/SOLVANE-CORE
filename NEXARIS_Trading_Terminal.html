@@ -226,7 +226,8 @@
         <input type="password" id="patToken" placeholder="Paste your PAT — never shared or logged">
         <div class="hint">Generate at developers.deriv.com → API Tokens, with scopes <code>trade</code> + <code>account_manage</code>. Token stays in this browser tab only (memory), never sent anywhere but api.derivws.com.</div>
       </div>
-      <button class="btn btn-primary" id="connectBtn">Connect Account</button>
+      <button class="btn btn-primary" id="connectBtn" disabled>Connect Account</button>
+      <button class="btn btn-ghost btn-sm" id="changeCredsBtn" style="display:none;margin-top:8px;">Change Credentials (disconnect first)</button>
       <div class="hint" id="connStatus" style="margin-top:8px;"></div>
     </div>
 
@@ -281,7 +282,7 @@
       <div class="strat-head" onclick="toggleStrat('risefall')">
         <div>
           <div class="strat-name">01 · Milagrosa Rise/Fall</div>
-          <div class="strat-meta">CALLE / PUTE · candle + 3-tick momentum confirm</div>
+          <div class="strat-meta">CALLE / PUTE · candle + 3-tick momentum confirm · <span id="cycles-risefall">0 cycles</span></div>
         </div>
         <div class="strat-badge idle" id="badge-risefall">IDLE</div>
       </div>
@@ -290,16 +291,22 @@
           <div class="field"><label>Symbol</label>
             <select id="rf-symbol"><option value="1HZ100V" selected>1HZ100V</option><option value="1HZ10V">1HZ10V</option><option value="R_100">R_100</option><option value="R_10">R_10</option></select>
           </div>
-          <div class="field"><label>Duration (ticks)</label><input type="number" id="rf-duration" value="1" min="1"></div>
-          <div class="field"><label>Initial Stake (USD)</label><input type="number" id="rf-stake" value="1" step="0.01" min="0.35"></div>
-          <div class="field"><label>Win Reset Amount</label><input type="number" id="rf-winamt" value="1" step="0.01" min="0.35"></div>
-          <div class="field"><label>Martingale Factor (loss)</label><input type="number" id="rf-mgfactor" value="0.5" step="0.05"></div>
-          <div class="field"><label>Take-Profit Target (USD)</label><input type="number" id="rf-target" value="2" step="0.1"></div>
+          <div class="field"><label>Duration (ticks)</label><input type="number" id="rf-duration" value="1" min="1" max="10" step="1"></div>
+          <div class="field"><label>Initial Stake (USD)</label><input type="number" id="rf-stake" value="1" step="0.01" min="0.35" max="2000"></div>
+          <div class="field"><label>Win Reset Amount</label><input type="number" id="rf-winamt" value="1" step="0.01" min="0.35" max="2000"></div>
+          <div class="field"><label>Martingale Factor (loss)</label><input type="number" id="rf-mgfactor" value="0.5" step="0.05" min="0" max="10"></div>
+          <div class="field"><label>Take-Profit Target (USD)</label><input type="number" id="rf-target" value="2" step="0.1" min="0.01" max="100000"></div>
+          <div class="field"><label>Stop-Loss (session USD)</label><input type="number" id="rf-sl" value="20" step="0.5" min="0.1" max="100000"></div>
+          <div class="field"><label>Max Auto-Restart Cycles (0 = unlimited)</label><input type="number" id="rf-maxcycles" value="0" step="1" min="0" max="9999"></div>
         </div>
-        <div class="hint">Entry: candle colour (open/close of current 60s candle) must agree with 3 consecutive same-direction ticks. Green + rising ticks → CALLE. Red + falling ticks → PUTE. On loss, stake grows by |stake|×factor; on win, stake resets. Trades again while total session profit &lt; target.</div>
+        <div class="toggle" style="margin-top:10px;">
+          <input type="checkbox" id="rf-autorestart" class="keep-live" checked><span class="switch"></span>
+          <span class="lbl">Auto-reset & restart cycle when Take-Profit or Stop-Loss is hit</span>
+        </div>
+        <div class="hint">Entry: candle colour (open/close of current 60s candle) must agree with 3 consecutive same-direction ticks. Green + rising ticks → CALLE. Red + falling ticks → PUTE. On loss, stake grows by |stake|×factor; on win, stake resets. When session P/L reaches Take-Profit or Stop-Loss, either auto-resets stake/session P/L and keeps trading (if Auto-Restart is on) or fully stops (if off).</div>
         <div class="row" style="margin-top:10px;">
-          <button class="btn btn-primary btn-sm" onclick="armStrategy('risefall')">Arm</button>
-          <button class="btn btn-danger btn-sm" onclick="disarmStrategy('risefall')">Stop</button>
+          <button class="btn btn-primary btn-sm" id="arm-risefall" onclick="armStrategy('risefall')">Arm</button>
+          <button class="btn btn-danger btn-sm" id="stop-risefall" onclick="disarmStrategy('risefall')" disabled>Stop</button>
         </div>
       </div>
     </div>
@@ -309,7 +316,7 @@
       <div class="strat-head" onclick="toggleStrat('candlemine')">
         <div>
           <div class="strat-name">02 · Candle Mine — Even/Odd</div>
-          <div class="strat-meta">DIGITEVEN · every-tick entry · capped martingale</div>
+          <div class="strat-meta">DIGITEVEN · every-tick entry · capped martingale · <span id="cycles-candlemine">0 cycles</span></div>
         </div>
         <div class="strat-badge idle" id="badge-candlemine">IDLE</div>
       </div>
@@ -321,16 +328,22 @@
           <div class="field"><label>Contract</label>
             <select id="cm-contract"><option value="DIGITEVEN" selected>Digit Even</option><option value="DIGITODD">Digit Odd</option></select>
           </div>
-          <div class="field"><label>Duration (ticks)</label><input type="number" id="cm-duration" value="1" min="1"></div>
-          <div class="field"><label>Initial Stake (USD)</label><input type="number" id="cm-stake" value="0.35" step="0.01" min="0.35"></div>
-          <div class="field"><label>Win Reset Amount</label><input type="number" id="cm-winamt" value="0.35" step="0.01" min="0.35"></div>
-          <div class="field"><label>Loss Cap (auto-reset above)</label><input type="number" id="cm-losscap" value="1000" step="1"></div>
-          <div class="field"><label>Take-Profit Target (USD)</label><input type="number" id="cm-target" value="0.02" step="0.01"></div>
+          <div class="field"><label>Duration (ticks)</label><input type="number" id="cm-duration" value="1" min="1" max="10" step="1"></div>
+          <div class="field"><label>Initial Stake (USD)</label><input type="number" id="cm-stake" value="0.35" step="0.01" min="0.35" max="2000"></div>
+          <div class="field"><label>Win Reset Amount</label><input type="number" id="cm-winamt" value="0.35" step="0.01" min="0.35" max="2000"></div>
+          <div class="field"><label>Loss Cap (auto-reset above)</label><input type="number" id="cm-losscap" value="1000" step="1" min="1" max="100000"></div>
+          <div class="field"><label>Take-Profit Target (USD)</label><input type="number" id="cm-target" value="0.02" step="0.01" min="0.01" max="100000"></div>
+          <div class="field"><label>Stop-Loss (session USD)</label><input type="number" id="cm-sl" value="10" step="0.5" min="0.1" max="100000"></div>
+          <div class="field"><label>Max Auto-Restart Cycles (0 = unlimited)</label><input type="number" id="cm-maxcycles" value="0" step="1" min="0" max="9999"></div>
         </div>
-        <div class="hint">No entry filter — buys every cycle. On loss, stake += |last loss|; if |last loss| ≥ Loss Cap, stake force-resets to Win Amount (runaway-martingale brake). On win, stake resets to Win Amount. Trades again while total profit &lt; target.</div>
+        <div class="toggle" style="margin-top:10px;">
+          <input type="checkbox" id="cm-autorestart" class="keep-live" checked><span class="switch"></span>
+          <span class="lbl">Auto-reset & restart cycle when Take-Profit or Stop-Loss is hit</span>
+        </div>
+        <div class="hint">No entry filter — buys every cycle. On loss, stake += |last loss|; if |last loss| ≥ Loss Cap, stake force-resets to Win Amount (runaway-martingale brake). On win, stake resets to Win Amount. When session P/L reaches Take-Profit or Stop-Loss, auto-resets and continues (if Auto-Restart is on) or fully stops.</div>
         <div class="row" style="margin-top:10px;">
-          <button class="btn btn-primary btn-sm" onclick="armStrategy('candlemine')">Arm</button>
-          <button class="btn btn-danger btn-sm" onclick="disarmStrategy('candlemine')">Stop</button>
+          <button class="btn btn-primary btn-sm" id="arm-candlemine" onclick="armStrategy('candlemine')">Arm</button>
+          <button class="btn btn-danger btn-sm" id="stop-candlemine" onclick="disarmStrategy('candlemine')" disabled>Stop</button>
         </div>
       </div>
     </div>
@@ -340,7 +353,7 @@
       <div class="strat-head" onclick="toggleStrat('differs')">
         <div>
           <div class="strat-name">03 · Differs Pro</div>
-          <div class="strat-meta">DIGITDIFF / DIGITOVER · direction + last-digit trigger</div>
+          <div class="strat-meta">DIGITDIFF / DIGITOVER · direction + last-digit trigger · <span id="cycles-differs">0 cycles</span></div>
         </div>
         <div class="strat-badge idle" id="badge-differs">IDLE</div>
       </div>
@@ -352,18 +365,25 @@
           <div class="field"><label>Contract Variant</label>
             <select id="df-contract"><option value="DIGITDIFF" selected>Differs (New Hope)</option><option value="DIGITOVER">Over (Pro v1)</option></select>
           </div>
-          <div class="field"><label>Prediction Digit</label><input type="number" id="df-prediction" value="0" min="0" max="9"></div>
-          <div class="field"><label>Duration (ticks)</label><input type="number" id="df-duration" value="1" min="1"></div>
-          <div class="field"><label>Initial Stake (USD)</label><input type="number" id="df-stake" value="1.1" step="0.01" min="0.35"></div>
-          <div class="field"><label>Win Reset Amount</label><input type="number" id="df-winamt" value="1.1" step="0.01" min="0.35"></div>
-          <div class="field"><label>Martingale Multiplier (loss)</label><input type="number" id="df-mgmult" value="11.5" step="0.1"></div>
-          <div class="field"><label>Trigger Digit — Fall</label><input type="number" id="df-falldigit" value="6" min="0" max="9"></div>
-          <div class="field"><label>Trigger Digit — Rise</label><input type="number" id="df-risedigit" value="5" min="0" max="9"></div>
+          <div class="field"><label>Prediction Digit</label><input type="number" id="df-prediction" value="0" min="0" max="9" step="1"></div>
+          <div class="field"><label>Duration (ticks)</label><input type="number" id="df-duration" value="1" min="1" max="10" step="1"></div>
+          <div class="field"><label>Initial Stake (USD)</label><input type="number" id="df-stake" value="1.1" step="0.01" min="0.35" max="2000"></div>
+          <div class="field"><label>Win Reset Amount</label><input type="number" id="df-winamt" value="1.1" step="0.01" min="0.35" max="2000"></div>
+          <div class="field"><label>Martingale Multiplier (loss)</label><input type="number" id="df-mgmult" value="11.5" step="0.1" min="1" max="50"></div>
+          <div class="field"><label>Trigger Digit — Fall</label><input type="number" id="df-falldigit" value="6" min="0" max="9" step="1"></div>
+          <div class="field"><label>Trigger Digit — Rise</label><input type="number" id="df-risedigit" value="5" min="0" max="9" step="1"></div>
+          <div class="field"><label>Take-Profit Target (USD)</label><input type="number" id="df-target" value="5" step="0.1" min="0.01" max="100000"></div>
+          <div class="field"><label>Stop-Loss (session USD)</label><input type="number" id="df-sl" value="15" step="0.5" min="0.1" max="100000"></div>
+          <div class="field"><label>Max Auto-Restart Cycles (0 = unlimited)</label><input type="number" id="df-maxcycles" value="0" step="1" min="0" max="9999"></div>
         </div>
-        <div class="hint">Entry: last tick direction = FALL and last digit == Fall Trigger → buy; direction = RISE and last digit == Rise Trigger → buy. On loss, stake = stake × multiplier (aggressive recovery — use with care). On win, stake resets. "Pro v1" variant trades DIGITOVER with prediction 1; "New Hope" trades DIGITDIFF with prediction 0.</div>
+        <div class="toggle" style="margin-top:10px;">
+          <input type="checkbox" id="df-autorestart" class="keep-live" checked><span class="switch"></span>
+          <span class="lbl">Auto-reset & restart cycle when Take-Profit or Stop-Loss is hit</span>
+        </div>
+        <div class="hint">Entry: last tick direction = FALL and last digit == Fall Trigger → buy; direction = RISE and last digit == Rise Trigger → buy. On loss, stake = stake × multiplier (aggressive recovery — use with care). On win, stake resets. "Pro v1" variant trades DIGITOVER with prediction 1; "New Hope" trades DIGITDIFF with prediction 0. Because the multiplier is aggressive, Take-Profit/Stop-Loss are enforced here even though the source XML had none — strongly recommended to keep Auto-Restart's Stop-Loss tight.</div>
         <div class="row" style="margin-top:10px;">
-          <button class="btn btn-primary btn-sm" onclick="armStrategy('differs')">Arm</button>
-          <button class="btn btn-danger btn-sm" onclick="disarmStrategy('differs')">Stop</button>
+          <button class="btn btn-primary btn-sm" id="arm-differs" onclick="armStrategy('differs')">Arm</button>
+          <button class="btn btn-danger btn-sm" id="stop-differs" onclick="disarmStrategy('differs')" disabled>Stop</button>
         </div>
       </div>
     </div>
@@ -373,7 +393,7 @@
       <div class="strat-head" onclick="toggleStrat('risemaster')">
         <div>
           <div class="strat-name">04 · Rise Master</div>
-          <div class="strat-meta">CALL · 5-tick fall-pattern reversal · SL/TP</div>
+          <div class="strat-meta">CALL · 5-tick fall-pattern reversal · SL/TP · <span id="cycles-risemaster">0 cycles</span></div>
         </div>
         <div class="strat-badge idle" id="badge-risemaster">IDLE</div>
       </div>
@@ -382,17 +402,22 @@
           <div class="field"><label>Symbol</label>
             <select id="rm-symbol"><option value="R_100" selected>R_100</option><option value="R_10">R_10</option><option value="1HZ100V">1HZ100V</option></select>
           </div>
-          <div class="field"><label>Duration (ticks)</label><input type="number" id="rm-duration" value="2" min="1"></div>
-          <div class="field"><label>Initial Stake (USD)</label><input type="number" id="rm-stake" value="0.5" step="0.01" min="0.35"></div>
-          <div class="field"><label>Win Reset Amount</label><input type="number" id="rm-winamt" value="0.5" step="0.01" min="0.35"></div>
-          <div class="field"><label>Martingale Factor (loss)</label><input type="number" id="rm-mgfactor" value="0.85" step="0.05"></div>
-          <div class="field"><label>Stop Loss (session USD)</label><input type="number" id="rm-sl" value="50" step="1"></div>
-          <div class="field"><label>Take Profit (session USD)</label><input type="number" id="rm-tp" value="2" step="0.1"></div>
+          <div class="field"><label>Duration (ticks)</label><input type="number" id="rm-duration" value="2" min="1" max="10" step="1"></div>
+          <div class="field"><label>Initial Stake (USD)</label><input type="number" id="rm-stake" value="0.5" step="0.01" min="0.35" max="2000"></div>
+          <div class="field"><label>Win Reset Amount</label><input type="number" id="rm-winamt" value="0.5" step="0.01" min="0.35" max="2000"></div>
+          <div class="field"><label>Martingale Factor (loss)</label><input type="number" id="rm-mgfactor" value="0.85" step="0.05" min="0" max="10"></div>
+          <div class="field"><label>Stop Loss (session USD)</label><input type="number" id="rm-sl" value="50" step="1" min="0.1" max="100000"></div>
+          <div class="field"><label>Take Profit (session USD)</label><input type="number" id="rm-tp" value="2" step="0.1" min="0.01" max="100000"></div>
+          <div class="field"><label>Max Auto-Restart Cycles (0 = unlimited)</label><input type="number" id="rm-maxcycles" value="0" step="1" min="0" max="9999"></div>
         </div>
-        <div class="hint">Tracks a rolling 5-tick "fall" flag buffer each tick. When ≥2 of the tracked flags in a matched pair are both TRUE, buys CALL (reversal-on-weakness logic — CALL only, despite "both" contract type in source XML). On loss, stake += |loss|×factor. Session halts at Stop Loss; auto-continues toward Take Profit.</div>
+        <div class="toggle" style="margin-top:10px;">
+          <input type="checkbox" id="rm-autorestart" class="keep-live" checked><span class="switch"></span>
+          <span class="lbl">Auto-reset & restart cycle when Take-Profit or Stop-Loss is hit</span>
+        </div>
+        <div class="hint">Tracks a rolling 5-tick "fall" flag buffer each tick. When ≥2 of the tracked flags in a matched pair are both TRUE, buys CALL (reversal-on-weakness logic — CALL only, despite "both" contract type in source XML). On loss, stake += |loss|×factor. When session P/L reaches Stop-Loss or Take-Profit, auto-resets stake/session P/L and continues (if Auto-Restart is on) or fully stops.</div>
         <div class="row" style="margin-top:10px;">
-          <button class="btn btn-primary btn-sm" onclick="armStrategy('risemaster')">Arm</button>
-          <button class="btn btn-danger btn-sm" onclick="disarmStrategy('risemaster')">Stop</button>
+          <button class="btn btn-primary btn-sm" id="arm-risemaster" onclick="armStrategy('risemaster')">Arm</button>
+          <button class="btn btn-danger btn-sm" id="stop-risemaster" onclick="disarmStrategy('risemaster')" disabled>Stop</button>
         </div>
       </div>
     </div>
@@ -409,9 +434,9 @@
         <input type="checkbox" id="riskEnabled" checked><span class="switch"></span>
         <span class="lbl">Risk gate active (final check before every buy)</span>
       </div>
-      <div class="field"><label>Max Concurrent Open Contracts</label><input type="number" id="maxOpen" value="1" min="1" max="5"></div>
-      <div class="field"><label>Global Daily Loss Limit (USD)</label><input type="number" id="dailyLossLimit" value="25" step="1"></div>
-      <div class="field"><label>Max Stake Per Trade (USD)</label><input type="number" id="maxStake" value="20" step="1"></div>
+      <div class="field"><label>Max Concurrent Open Contracts</label><input type="number" id="maxOpen" value="1" min="1" max="5" step="1"></div>
+      <div class="field"><label>Global Daily Loss Limit (USD)</label><input type="number" id="dailyLossLimit" value="25" step="1" min="0.5" max="100000"></div>
+      <div class="field"><label>Max Stake Per Trade (USD)</label><input type="number" id="maxStake" value="20" step="1" min="0.35" max="100000"></div>
       <div class="hint">Every strategy's buy() call passes through this gate. Breaching any limit disarms all strategies and halts trading immediately.</div>
     </div>
 
@@ -547,6 +572,17 @@ async function getOtpUrl(accountId){
 }
 
 /* ---------------- Connect (PAT) flow ---------------- */
+
+/** Strict enforcement: Connect stays disabled until both fields are actually
+    filled, so the button never fires an obviously-doomed request. */
+function refreshConnectAvailability(){
+  const appId = document.getElementById('appId').value.trim();
+  const pat = document.getElementById('patToken').value.trim();
+  document.getElementById('connectBtn').disabled = !(appId && pat);
+}
+document.getElementById('appId').addEventListener('input', refreshConnectAvailability);
+document.getElementById('patToken').addEventListener('input', refreshConnectAvailability);
+
 document.getElementById('connectBtn').addEventListener('click', async () => {
   const appId = document.getElementById('appId').value.trim();
   const pat = document.getElementById('patToken').value.trim();
@@ -569,12 +605,42 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
     statusEl.textContent = `Connected. ${accounts.length} account(s) found.`;
     statusEl.style.color = 'var(--green)';
     document.getElementById('createDemoBtn').style.display = 'block';
+    // Lock credential fields once a session is live — prevents a mid-session
+    // edit silently invalidating the PAT while requests are still in flight.
+    document.getElementById('appId').disabled = true;
+    document.getElementById('patToken').disabled = true;
+    document.getElementById('connectBtn').style.display = 'none';
+    document.getElementById('changeCredsBtn').style.display = 'block';
     log('REST connection established — accounts fetched.', 'sys');
   } catch(err){
     statusEl.textContent = `Connection failed: ${err.message}`;
     statusEl.style.color = 'var(--red)';
     log(`Auth error: ${err.message}`, 'err');
   }
+});
+
+document.getElementById('changeCredsBtn').addEventListener('click', () => {
+  if (APP.ws && APP.ws.readyState === 1){
+    log('Disconnect the trading WebSocket before changing credentials.', 'err');
+    return;
+  }
+  if (Object.values(APP.strategies).some(s => s.active)){
+    log('Disarm all strategies before changing credentials.', 'err');
+    return;
+  }
+  APP.patToken = null; APP.appId = null; APP.accounts = []; APP.selectedAccount = null;
+  document.getElementById('appId').disabled = false;
+  document.getElementById('patToken').disabled = false;
+  document.getElementById('patToken').value = '';
+  document.getElementById('connectBtn').style.display = 'block';
+  document.getElementById('changeCredsBtn').style.display = 'none';
+  document.getElementById('createDemoBtn').style.display = 'none';
+  document.getElementById('selAcctId').textContent = '—';
+  document.getElementById('selAcctBal').textContent = '—';
+  document.getElementById('wsConnectBtn').disabled = true;
+  renderAccounts();
+  refreshConnectAvailability();
+  log('Credentials cleared. Reconnect with a PAT to continue.', 'sys');
 });
 
 document.getElementById('refreshAcctsBtn').addEventListener('click', async () => {
@@ -688,6 +754,7 @@ async function connectTradingWs(isReconnect){
       document.getElementById('wsDisconnectBtn').style.display = 'block';
       setModePill(true);
       log(isReconnect ? 'Trading WebSocket reconnected.' : `Trading WebSocket connected (${APP.selectedAccount.account_type.toUpperCase()}).`, 'sys');
+      refreshArmAvailability();
       sendWs({ balance: 1, subscribe: 1 });
       sendWs({ portfolio: 1 });
       // Re-subscribe monitoring for any contracts still open across the reconnect
@@ -717,6 +784,7 @@ async function connectTradingWs(isReconnect){
       if (APP.manualWsClose || APP.killed){
         log('Trading WebSocket disconnected.', 'sys');
         document.getElementById('wsStatus').textContent = 'Disconnected';
+        refreshArmAvailability();
         return;
       }
       // Unexpected close — auto-reconnect with exponential backoff, per project spec.
@@ -724,6 +792,7 @@ async function connectTradingWs(isReconnect){
         log(`Trading WebSocket disconnected — max reconnect attempts (${APP.maxReconnectAttempts}) reached. Click "Open Trading WebSocket" to retry manually.`, 'err');
         document.getElementById('wsStatus').textContent = 'Disconnected — auto-reconnect gave up';
         disarmAllStrategies();
+        refreshArmAvailability();
         return;
       }
       APP.reconnectAttempts++;
@@ -749,6 +818,7 @@ async function connectTradingWs(isReconnect){
 document.getElementById('wsDisconnectBtn').addEventListener('click', () => {
   APP.manualWsClose = true;
   disarmAllStrategies();
+  refreshArmAvailability();
   if (APP.ws){
     sendWs({ forget_all: 'ticks' });
     sendWs({ forget_all: 'proposal' });
@@ -950,8 +1020,9 @@ document.getElementById('killBtn').addEventListener('click', () => {
   } else {
     btn.classList.remove('armed');
     btn.textContent = '⏻ KILL SWITCH';
-    log('Kill switch released. Trading may resume.', 'sys');
+    log('Kill switch released. Arm buttons re-enabled — trading may resume.', 'sys');
   }
+  refreshArmAvailability();
 });
 
 /* ---------------- Buy / Proposal pipeline ---------------- */
@@ -1082,6 +1153,53 @@ function setBadge(key, running){
   b.textContent = running ? 'RUNNING' : 'IDLE';
 }
 
+function setCycles(key, n){
+  const el = document.getElementById('cycles-' + key);
+  if (el) el.textContent = `${n} cycle${n===1?'':'s'}`;
+}
+
+/** Strictly locks every parameter field inside a strategy card while it is
+    running, so a live-armed strategy's closures can never drift out of sync
+    with what the UI displays. Fields tagged .keep-live (auto-restart toggle)
+    stay editable — they're read fresh on every check, not captured at arm time. */
+function setStrategyLocked(key, locked){
+  const body = document.getElementById('body-' + key);
+  if (!body) return;
+  body.querySelectorAll('input,select').forEach(el => {
+    if (el.classList.contains('keep-live')) return;
+    el.disabled = locked;
+  });
+  const armBtn = document.getElementById('arm-' + key);
+  const stopBtn = document.getElementById('stop-' + key);
+  if (armBtn) armBtn.disabled = locked || !canArm();
+  if (stopBtn) stopBtn.disabled = !locked;
+}
+
+/** Single source of truth for whether ANY strategy is allowed to be armed
+    right now — trading WebSocket must be open and the kill switch released. */
+function canArm(){
+  return !!(APP.ws && APP.ws.readyState === 1) && !APP.killed;
+}
+
+/** Re-evaluates every Arm button's enabled state. Called after every event
+    that changes connection or kill-switch status, so controls never show a
+    stale/incorrect affordance. */
+function refreshArmAvailability(){
+  Object.keys(STRATEGY_INIT).forEach(key => {
+    const running = !!(APP.strategies[key] && APP.strategies[key].active);
+    const armBtn = document.getElementById('arm-' + key);
+    if (armBtn) armBtn.disabled = running || !canArm();
+    // if trading was disconnected or killed, a "running" badge with no live
+    // connection is misleading — force it back to idle and unlock inputs.
+    if (running && !canArm()){
+      APP.strategies[key].active = false;
+      setBadge(key, false);
+      setStrategyLocked(key, false);
+      log(`[${key}] Strategy force-disarmed — connection lost or kill switch engaged.`, 'err');
+    }
+  });
+}
+
 function disarmAllStrategies(){
   Object.keys(APP.strategies).forEach(k => disarmStrategy(k));
 }
@@ -1089,16 +1207,18 @@ function disarmAllStrategies(){
 function disarmStrategy(key){
   if (APP.strategies[key]) APP.strategies[key].active = false;
   setBadge(key, false);
+  setStrategyLocked(key, false);
   log(`[${key}] Strategy disarmed.`, 'sys');
 }
 
 function armStrategy(key){
-  if (!APP.ws || APP.ws.readyState !== 1){
-    log('Open the trading WebSocket before arming a strategy.', 'err');
+  if (!canArm()){
+    if (!APP.ws || APP.ws.readyState !== 1) log('Open the trading WebSocket before arming a strategy.', 'err');
+    else log('Kill switch is engaged — release it before arming strategies.', 'err');
     return;
   }
-  if (APP.killed){
-    log('Kill switch is engaged — release it before arming strategies.', 'err');
+  if (APP.strategies[key] && APP.strategies[key].active){
+    log(`[${key}] Already armed.`, 'err');
     return;
   }
   const initFn = STRATEGY_INIT[key];
@@ -1106,23 +1226,73 @@ function armStrategy(key){
   const strat = initFn();
   strat.active = true;
   strat.inFlight = false;
+  strat.cycles = 0;
   APP.strategies[key] = strat;
   ensureTickFeed(strat.symbol);   // <- guarantees this strategy actually receives ticks
   setBadge(key, true);
+  setCycles(key, 0);
+  setStrategyLocked(key, true);
   log(`[${key}] Strategy armed on ${strat.symbol}. Waiting for entry conditions…`, 'sys');
 }
+
+/** Shared TP/SL-cycle handler used by every strategy. If the strategy's own
+    Auto-Restart checkbox is checked (and the per-cycle cap hasn't been hit),
+    the session P/L and stake are reset in place and trading continues on the
+    same connection/subscriptions. Otherwise the strategy is fully disarmed. */
+function handleCycleBoundary(key, strat, hitLabel, resetFn){
+  strat.cycles = (strat.cycles || 0) + 1;
+  setCycles(key, strat.cycles);
+  const autoRestart = document.getElementById(`${strategyPrefix(key)}-autorestart`)?.checked;
+  const maxCyclesEl = document.getElementById(`${strategyPrefix(key)}-maxcycles`);
+  const maxCycles = maxCyclesEl ? parseInt(maxCyclesEl.value) || 0 : 0;
+  const capReached = maxCycles > 0 && strat.cycles >= maxCycles;
+
+  if (autoRestart && !capReached){
+    resetFn();
+    log(`[${key}] ${hitLabel} — auto-reset & restarting cycle ${strat.cycles + 1}.`, 'sys');
+  } else {
+    log(`[${key}] ${hitLabel}${capReached ? ' — max cycle cap reached' : ''} — strategy disarmed.`, hitLabel.includes('Take-Profit') || hitLabel.includes('Take Profit') ? 'win' : 'err');
+    strat.active = false;
+    setBadge(key, false);
+    setStrategyLocked(key, false);
+  }
+}
+
+function strategyPrefix(key){
+  return { risefall:'rf', candlemine:'cm', differs:'df', risemaster:'rm' }[key];
+}
+
+/** Clamps every numeric input to its declared min/max on change, and
+    prevents non-numeric / empty submissions from silently becoming NaN
+    inside a running strategy's closures. */
+function enforceNumericInputs(){
+  document.querySelectorAll('input[type=number]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const min = inp.hasAttribute('min') ? parseFloat(inp.min) : -Infinity;
+      const max = inp.hasAttribute('max') ? parseFloat(inp.max) : Infinity;
+      let v = parseFloat(inp.value);
+      if (isNaN(v)) v = (min !== -Infinity ? min : 0);
+      if (v < min) v = min;
+      if (v > max) v = max;
+      inp.value = v;
+    });
+  });
+}
+enforceNumericInputs();
 
 /* ---- 01 Rise/Fall Momentum (Milagrosa) ---- */
 function initRiseFall(){
   const symbol = document.getElementById('rf-symbol').value;
   const duration = parseInt(document.getElementById('rf-duration').value);
+  const baseStake = parseFloat(document.getElementById('rf-stake').value);
   const winAmt = parseFloat(document.getElementById('rf-winamt').value);
   const mgFactor = parseFloat(document.getElementById('rf-mgfactor').value);
   const target = parseFloat(document.getElementById('rf-target').value);
-  let stake = parseFloat(document.getElementById('rf-stake').value);
+  const stopLoss = parseFloat(document.getElementById('rf-sl').value);
+  let stake = baseStake;
   let sessionProfit = 0;
 
-  return {
+  const strat = {
     active: false, inFlight: false, symbol,
     onTick(ticks){
       if (!this.active || this.inFlight || ticks.length < 4) return;
@@ -1142,12 +1312,14 @@ function initRiseFall(){
       sessionProfit += profit;
       stake = won ? winAmt : stake + Math.abs(stake * mgFactor);
       if (sessionProfit >= target){
-        log('[risefall] Target achieved — strategy auto-disarmed.', 'win');
-        this.active = false; setBadge('risefall', false);
+        handleCycleBoundary('risefall', this, 'Take-Profit target hit', () => { stake = baseStake; sessionProfit = 0; });
+      } else if (sessionProfit <= -stopLoss){
+        handleCycleBoundary('risefall', this, 'Stop-Loss hit', () => { stake = baseStake; sessionProfit = 0; });
       }
     },
     onError(){ this.inFlight = false; }
   };
+  return strat;
 }
 
 /* ---- 02 Candle Mine Even/Odd ---- */
@@ -1155,13 +1327,15 @@ function initCandleMine(){
   const symbol = document.getElementById('cm-symbol').value;
   const contract = document.getElementById('cm-contract').value;
   const duration = parseInt(document.getElementById('cm-duration').value);
+  const baseStake = parseFloat(document.getElementById('cm-stake').value);
   const winAmt = parseFloat(document.getElementById('cm-winamt').value);
   const lossCap = parseFloat(document.getElementById('cm-losscap').value);
   const target = parseFloat(document.getElementById('cm-target').value);
-  let stake = parseFloat(document.getElementById('cm-stake').value);
+  const stopLoss = parseFloat(document.getElementById('cm-sl').value);
+  let stake = baseStake;
   let sessionProfit = 0;
 
-  return {
+  const strat = {
     active: false, inFlight: false, symbol,
     onTick(ticks){
       if (!this.active || this.inFlight) return;
@@ -1178,12 +1352,14 @@ function initCandleMine(){
         if (Math.abs(profit) >= lossCap) stake = winAmt; // runaway brake
       }
       if (sessionProfit >= target){
-        log('[candlemine] Target achieved — strategy auto-disarmed.', 'win');
-        this.active = false; setBadge('candlemine', false);
+        handleCycleBoundary('candlemine', this, 'Take-Profit target hit', () => { stake = baseStake; sessionProfit = 0; });
+      } else if (sessionProfit <= -stopLoss){
+        handleCycleBoundary('candlemine', this, 'Stop-Loss hit', () => { stake = baseStake; sessionProfit = 0; });
       }
     },
     onError(){ this.inFlight = false; }
   };
+  return strat;
 }
 
 /* ---- 03 Differs Pro ---- */
@@ -1192,13 +1368,17 @@ function initDiffers(){
   const contract = document.getElementById('df-contract').value;
   const prediction = parseInt(document.getElementById('df-prediction').value);
   const duration = parseInt(document.getElementById('df-duration').value);
+  const baseStake = parseFloat(document.getElementById('df-stake').value);
   const winAmt = parseFloat(document.getElementById('df-winamt').value);
   const mgMult = parseFloat(document.getElementById('df-mgmult').value);
   const fallDigit = parseInt(document.getElementById('df-falldigit').value);
   const riseDigit = parseInt(document.getElementById('df-risedigit').value);
-  let stake = parseFloat(document.getElementById('df-stake').value);
+  const target = parseFloat(document.getElementById('df-target').value);
+  const stopLoss = parseFloat(document.getElementById('df-sl').value);
+  let stake = baseStake;
+  let sessionProfit = 0;
 
-  return {
+  const strat = {
     active: false, inFlight: false, symbol,
     onTick(ticks){
       if (!this.active || this.inFlight || ticks.length < 2) return;
@@ -1215,25 +1395,33 @@ function initDiffers(){
     },
     onResult(won, profit){
       this.inFlight = false;
+      sessionProfit += profit;
       stake = won ? winAmt : stake * mgMult;
+      if (sessionProfit >= target){
+        handleCycleBoundary('differs', this, 'Take-Profit target hit', () => { stake = baseStake; sessionProfit = 0; });
+      } else if (sessionProfit <= -stopLoss){
+        handleCycleBoundary('differs', this, 'Stop-Loss hit', () => { stake = baseStake; sessionProfit = 0; });
+      }
     },
     onError(){ this.inFlight = false; }
   };
+  return strat;
 }
 
 /* ---- 04 Rise Master ---- */
 function initRiseMaster(){
   const symbol = document.getElementById('rm-symbol').value;
   const duration = parseInt(document.getElementById('rm-duration').value);
+  const baseStake = parseFloat(document.getElementById('rm-stake').value);
   const winAmt = parseFloat(document.getElementById('rm-winamt').value);
   const mgFactor = parseFloat(document.getElementById('rm-mgfactor').value);
   const stopLoss = parseFloat(document.getElementById('rm-sl').value);
   const takeProfit = parseFloat(document.getElementById('rm-tp').value);
-  let stake = parseFloat(document.getElementById('rm-stake').value);
+  let stake = baseStake;
   let sessionProfit = 0;
   let fallFlags = [false, false, false, false, false]; // digit1..digit5, digit1 = most recent
 
-  return {
+  const strat = {
     active: false, inFlight: false, symbol,
     onTick(ticks){
       if (ticks.length < 2) return;
@@ -1255,17 +1443,14 @@ function initRiseMaster(){
       stake = won ? winAmt : stake + Math.abs(stake * mgFactor);
 
       if (sessionProfit <= -stopLoss){
-        log('[risemaster] Stop-loss hit — strategy auto-disarmed.', 'err');
-        this.active = false; setBadge('risemaster', false);
-        return;
-      }
-      if (sessionProfit >= takeProfit){
-        log('[risemaster] Take-profit hit — strategy auto-disarmed.', 'win');
-        this.active = false; setBadge('risemaster', false);
+        handleCycleBoundary('risemaster', this, 'Stop-Loss hit', () => { stake = baseStake; sessionProfit = 0; fallFlags = [false,false,false,false,false]; });
+      } else if (sessionProfit >= takeProfit){
+        handleCycleBoundary('risemaster', this, 'Take-Profit hit', () => { stake = baseStake; sessionProfit = 0; fallFlags = [false,false,false,false,false]; });
       }
     },
     onError(){ this.inFlight = false; }
   };
+  return strat;
 }
 
 const STRATEGY_INIT = {
