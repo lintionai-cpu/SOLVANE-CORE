@@ -1,0 +1,2769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f17">
+<title>TNT-APE · Touch/No Touch Engine</title>
+<style>
+:root{
+  /* design tokens */
+  --bg:#0b0f17;
+  --bg-elevated:#11161f;
+  --bg-card:#151b26;
+  --bg-card-hi:#1b2330;
+  --border:#232b3a;
+  --border-hi:#2e3a4f;
+  --text:#e7ecf3;
+  --text-dim:#8d98ab;
+  --text-faint:#5b6577;
+
+  --accent:#3da8ff;
+  --accent-dim:#2a3f57;
+
+  --touch:#22c55e;
+  --touch-dim:#16321f;
+  --notouch:#f59e0b;
+  --notouch-dim:#3a2c12;
+
+  --danger:#ef4444;
+  --danger-dim:#3a1c1c;
+  --warn:#f59e0b;
+
+  --mono:'SF Mono',ui-monospace,'Cascadia Code','Roboto Mono',Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Inter,sans-serif;
+
+  --radius-sm:8px;
+  --radius:14px;
+  --radius-lg:20px;
+
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+
+  --tabbar-h:64px;
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+body{
+  width:100%;
+  min-height:100vh;
+  overflow-x:hidden;
+  font-size:15px;
+  line-height:1.4;
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;}
+input,select,textarea{font-family:inherit;}
+::selection{background:var(--accent-dim);}
+
+#app{
+  max-width:480px;
+  margin:0 auto;
+  min-height:100vh;
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  background:var(--bg);
+}
+
+/* ---------- Top bar ---------- */
+.topbar{
+  position:sticky;
+  top:0;
+  z-index:40;
+  padding:calc(var(--safe-top) + 10px) 16px 10px;
+  background:linear-gradient(to bottom, rgba(11,15,23,0.97), rgba(11,15,23,0.88));
+  backdrop-filter:blur(10px);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  border-bottom:1px solid var(--border);
+}
+.topbar .brand{display:flex;align-items:center;gap:8px;}
+.topbar .brand-dot{width:9px;height:9px;border-radius:50%;background:var(--text-faint);transition:background .3s;}
+.topbar .brand-dot.live{background:var(--touch);box-shadow:0 0 0 0 rgba(34,197,94,.6);animation:pulse 2s infinite;}
+.topbar .brand-dot.connecting{background:var(--notouch);animation:pulse 1s infinite;}
+.topbar .brand-dot.error{background:var(--danger);}
+@keyframes pulse{
+  0%{box-shadow:0 0 0 0 rgba(34,197,94,.45);}
+  70%{box-shadow:0 0 0 6px rgba(34,197,94,0);}
+  100%{box-shadow:0 0 0 0 rgba(34,197,94,0);}
+}
+.topbar .title{font-weight:700;font-size:15px;letter-spacing:.2px;}
+.topbar .title small{display:block;font-size:10.5px;font-weight:500;color:var(--text-dim);letter-spacing:.4px;}
+.topbar .actions{display:flex;gap:8px;align-items:center;}
+.icon-btn{
+  width:36px;height:36px;border-radius:10px;border:1px solid var(--border);
+  background:var(--bg-card);color:var(--text-dim);display:flex;align-items:center;justify-content:center;
+  font-size:16px;cursor:pointer;
+}
+.icon-btn:active{background:var(--bg-card-hi);}
+
+/* account chip */
+.acct-chip{
+  display:flex;align-items:center;gap:6px;
+  padding:6px 10px;border-radius:20px;border:1px solid var(--border);background:var(--bg-card);
+  font-size:12px;color:var(--text-dim);font-family:var(--mono);
+  cursor:pointer;
+}
+.acct-chip b{color:var(--text);font-weight:600;}
+.acct-chip .demo-tag{background:var(--accent-dim);color:var(--accent);border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700;letter-spacing:.3px;}
+.acct-chip .real-tag{background:var(--touch-dim);color:var(--touch);border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700;letter-spacing:.3px;}
+
+/* ---------- Main scroll area ---------- */
+.screen{
+  flex:1;
+  padding:14px 16px calc(var(--tabbar-h) + var(--safe-bottom) + 24px);
+  display:none;
+  animation:fadein .18s ease;
+}
+.screen.active{display:block;}
+@keyframes fadein{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+.section-label{
+  font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--text-faint);
+  text-transform:uppercase;margin:18px 2px 8px;display:flex;align-items:center;justify-content:space-between;
+}
+.section-label .hint{font-weight:500;color:var(--text-faint);text-transform:none;letter-spacing:0;font-size:11px;}
+
+.card{
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:14px;
+  margin-bottom:10px;
+}
+.card-flat{padding:0;overflow:hidden;}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.row + .row{margin-top:8px;}
+.muted{color:var(--text-dim);}
+.faint{color:var(--text-faint);}
+.mono{font-family:var(--mono);}
+.tiny{font-size:11.5px;}
+.bold{font-weight:700;}
+
+/* buttons */
+.btn{
+  appearance:none;border:none;border-radius:var(--radius-sm);
+  padding:13px 16px;font-size:14.5px;font-weight:700;letter-spacing:.2px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  cursor:pointer;min-height:46px;
+  transition:transform .08s, opacity .15s;
+}
+.btn:active{transform:scale(.97);}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+.btn-primary{background:var(--accent);color:#06121f;}
+.btn-ghost{background:var(--bg-card-hi);color:var(--text);border:1px solid var(--border-hi);}
+.btn-danger{background:var(--danger-dim);color:#ffb4b4;border:1px solid #4a2222;}
+.btn-touch{background:var(--touch-dim);color:var(--touch);border:1px solid #1c4a2c;}
+.btn-notouch{background:var(--notouch-dim);color:var(--notouch);border:1px solid #5a4218;}
+.btn-block{width:100%;}
+.btn-sm{padding:8px 12px;font-size:12.5px;min-height:34px;border-radius:8px;}
+
+/* badges */
+.badge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:10.5px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;
+  padding:3px 8px;border-radius:6px;
+}
+.badge-touch{background:var(--touch-dim);color:var(--touch);}
+.badge-notouch{background:var(--notouch-dim);color:var(--notouch);}
+.badge-neutral{background:var(--bg-card-hi);color:var(--text-dim);}
+.badge-danger{background:var(--danger-dim);color:#ff9b9b;}
+.badge-warn{background:#3a2c12;color:#f5c542;}
+
+/* ---------- Bottom tab bar ---------- */
+.tabbar{
+  position:fixed;bottom:0;left:0;right:0;
+  max-width:480px;margin:0 auto;
+  height:calc(var(--tabbar-h) + var(--safe-bottom));
+  padding-bottom:var(--safe-bottom);
+  background:rgba(17,22,31,.97);
+  backdrop-filter:blur(14px);
+  border-top:1px solid var(--border);
+  display:flex;z-index:50;
+}
+.tab{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  color:var(--text-faint);font-size:10.5px;font-weight:600;letter-spacing:.2px;
+  background:none;border:none;cursor:pointer;padding:6px 0;
+}
+.tab .ic{font-size:19px;line-height:1;}
+.tab.active{color:var(--accent);}
+
+/* ---------- Toast / modal ---------- */
+.toast-stack{
+  position:fixed;top:calc(var(--safe-top) + 56px);left:0;right:0;
+  max-width:480px;margin:0 auto;z-index:200;
+  display:flex;flex-direction:column;gap:8px;padding:0 16px;pointer-events:none;
+}
+.toast{
+  background:var(--bg-card-hi);border:1px solid var(--border-hi);border-radius:12px;
+  padding:11px 14px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.4);
+  animation:toastin .25s ease;
+}
+@keyframes toastin{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
+.toast.warn{border-color:#5a4218;background:#241c0d;}
+.toast.danger{border-color:#4a2222;background:#241010;}
+.toast.success{border-color:#1c4a2c;background:#0f1f15;}
+
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;
+  display:none;align-items:flex-end;justify-content:center;
+}
+.modal-overlay.open{display:flex;}
+.modal-sheet{
+  width:100%;max-width:480px;background:var(--bg-elevated);
+  border-radius:20px 20px 0 0;padding:18px 16px calc(20px + var(--safe-bottom));
+  max-height:85vh;overflow-y:auto;
+  border-top:1px solid var(--border-hi);
+  animation:sheetup .22s ease;
+}
+@keyframes sheetup{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.modal-handle{width:36px;height:4px;background:var(--border-hi);border-radius:3px;margin:0 auto 14px;}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:4px;}
+
+/* empty / loading states */
+.empty-state{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:40px 20px;text-align:center;color:var(--text-faint);
+}
+.empty-state .ic{font-size:32px;margin-bottom:10px;opacity:.6;}
+.empty-state .t{font-size:13.5px;color:var(--text-dim);font-weight:600;}
+.empty-state .s{font-size:12px;margin-top:4px;}
+
+.skeleton{background:linear-gradient(90deg,var(--bg-card) 25%,var(--bg-card-hi) 37%,var(--bg-card) 63%);background-size:400% 100%;animation:shimmer 1.4s infinite;border-radius:8px;}
+@keyframes shimmer{0%{background-position:100% 50%}100%{background-position:0 50%}}
+
+.spinner{
+  width:16px;height:16px;border-radius:50%;border:2px solid var(--border-hi);border-top-color:var(--accent);
+  animation:spin .7s linear infinite;display:inline-block;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* form fields */
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--text-dim);margin-bottom:6px;}
+.field input,.field select{
+  width:100%;background:var(--bg-card-hi);border:1px solid var(--border-hi);border-radius:10px;
+  padding:11px 12px;color:var(--text);font-size:14px;
+}
+.field input:focus,.field select:focus{outline:none;border-color:var(--accent);}
+.field .hint{font-size:11px;color:var(--text-faint);margin-top:5px;}
+
+.switch{position:relative;width:44px;height:26px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.switch .track{position:absolute;inset:0;background:var(--bg-card-hi);border:1px solid var(--border-hi);border-radius:14px;transition:.2s;cursor:pointer;}
+.switch .thumb{position:absolute;top:2px;left:2px;width:20px;height:20px;background:var(--text-dim);border-radius:50%;transition:.2s;}
+.switch input:checked + .track{background:var(--accent-dim);border-color:var(--accent);}
+.switch input:checked + .track .thumb{transform:translateX(18px);background:var(--accent);}
+
+/* utility grid */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+
+/* probability meter bars */
+.meter{height:8px;border-radius:5px;background:var(--bg-card-hi);overflow:hidden;position:relative;}
+.meter-fill{height:100%;border-radius:5px;transition:width .4s ease;}
+.meter-fill.touch{background:linear-gradient(90deg,#16a34a,var(--touch));}
+.meter-fill.notouch{background:linear-gradient(90deg,#b45309,var(--notouch));}
+
+/* connection banner */
+.banner{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;font-size:12.5px;margin-bottom:10px;
+}
+.banner.warn{background:#241c0d;border:1px solid #5a4218;color:#f5c542;}
+.banner.danger{background:#241010;border:1px solid #4a2222;color:#ff9b9b;}
+.banner.info{background:#0f1a2b;border:1px solid #1f3a57;color:#7cc4ff;}
+
+a{color:var(--accent);text-decoration:none;}
+hr.sep{border:none;border-top:1px solid var(--border);margin:12px 0;}
+
+::-webkit-scrollbar{width:0;height:0;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="toast-stack" id="toastStack"></div>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="brand">
+      <span class="brand-dot" id="connDot"></span>
+      <div class="title">TNT-APE<small id="connLabel">Disconnected</small></div>
+    </div>
+    <div class="actions">
+      <div class="acct-chip" id="acctChip" onclick="UI.openAccountSheet()">
+        <span id="acctTag" class="demo-tag">DEMO</span>
+        <b id="acctBalance">—</b>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREENS MOUNT HERE -->
+  <div id="screens"></div>
+
+  <!-- TAB BAR -->
+  <div class="tabbar">
+    <button class="tab active" data-screen="dashboard" onclick="UI.switchScreen('dashboard')">
+      <span class="ic">◎</span>Dashboard
+    </button>
+    <button class="tab" data-screen="signals" onclick="UI.switchScreen('signals')">
+      <span class="ic">⚡</span>Signals
+    </button>
+    <button class="tab" data-screen="positions" onclick="UI.switchScreen('positions')">
+      <span class="ic">▤</span>Positions
+    </button>
+    <button class="tab" data-screen="history" onclick="UI.switchScreen('history')">
+      <span class="ic">≡</span>History
+    </button>
+    <button class="tab" data-screen="settings" onclick="UI.switchScreen('settings')">
+      <span class="ic">⚙</span>Settings
+    </button>
+  </div>
+
+  <div class="modal-overlay" id="modalOverlay"></div>
+</div>
+<script>
+/* ============================================================
+   MODULE 1 — TICK BUFFER ENGINE
+   Maintains rolling windows of live market memory.
+   ============================================================ */
+class TickBuffer {
+  constructor(maxLen = 200) {
+    this.maxLen = maxLen;
+    this.prices = [];
+    this.timestamps = [];
+    this.highs = [];
+    this.lows = [];
+  }
+
+  addTick(price, time) {
+    this.prices.push(price);
+    this.timestamps.push(time);
+    this.highs.push(price);
+    this.lows.push(price);
+    if (this.prices.length > this.maxLen) {
+      this.prices.shift();
+      this.timestamps.shift();
+      this.highs.shift();
+      this.lows.shift();
+    }
+  }
+
+  getWindow(n) {
+    const len = this.prices.length;
+    const start = Math.max(0, len - n);
+    return {
+      prices: this.prices.slice(start),
+      timestamps: this.timestamps.slice(start),
+      highs: this.highs.slice(start),
+      lows: this.lows.slice(start),
+    };
+  }
+
+  calculateRange(n) {
+    const w = this.getWindow(n);
+    if (w.prices.length === 0) return 0;
+    return Math.max(...w.highs) - Math.min(...w.lows);
+  }
+
+  get length() { return this.prices.length; }
+  get last() { return this.prices[this.prices.length - 1]; }
+  get prev() { return this.prices[this.prices.length - 2]; }
+  isReady(min = 20) { return this.prices.length >= min; }
+}
+
+/* ============================================================
+   MODULE 2 — FEATURE GENERATION ENGINE
+   Pure functions producing numeric features from tick windows.
+   All math is plain descriptive statistics — NOT a predictive
+   model. Treat outputs as inputs to a heuristic, not ground truth.
+   ============================================================ */
+const Features = {
+  delta(buf) {
+    if (buf.length < 2) return 0;
+    return buf.last - buf.prev;
+  },
+
+  velocity(buf) {
+    if (buf.length < 2) return 0;
+    const dt = (buf.timestamps[buf.timestamps.length - 1] - buf.timestamps[buf.timestamps.length - 2]) / 1000;
+    if (dt <= 0) return 0;
+    return Math.abs(buf.last - buf.prev) / dt;
+  },
+
+  acceleration(history) {
+    // history: array of recent velocity values, most recent last
+    if (history.length < 2) return 0;
+    return history[history.length - 1] - history[history.length - 2];
+  },
+
+  stdDev(arr) {
+    if (arr.length < 2) return 0;
+    const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+    const variance = arr.reduce((a, b) => a + (b - mean) ** 2, 0) / arr.length;
+    return Math.sqrt(variance);
+  },
+
+  volatility(buf, n = 20) {
+    const w = buf.getWindow(n);
+    return Features.stdDev(w.prices);
+  },
+
+  ema(arr, period) {
+    if (arr.length === 0) return 0;
+    const k = 2 / (period + 1);
+    let emaVal = arr[0];
+    for (let i = 1; i < arr.length; i++) {
+      emaVal = arr[i] * k + emaVal * (1 - k);
+    }
+    return emaVal;
+  },
+
+  trendStrength(buf) {
+    if (buf.length < 10) return 0;
+    const ema10 = Features.ema(buf.getWindow(10).prices, 10);
+    const ema50 = Features.ema(buf.getWindow(Math.min(50, buf.length)).prices, 50);
+    return ema10 - ema50;
+  },
+
+  rsi(buf, period = 14) {
+    const w = buf.getWindow(period + 1);
+    if (w.prices.length < 2) return 50;
+    let gains = 0, losses = 0;
+    for (let i = 1; i < w.prices.length; i++) {
+      const diff = w.prices[i] - w.prices[i - 1];
+      if (diff > 0) gains += diff; else losses -= diff;
+    }
+    const avgGain = gains / period, avgLoss = losses / period;
+    if (avgLoss === 0) return 100;
+    const rs = avgGain / avgLoss;
+    return 100 - (100 / (1 + rs));
+  },
+
+  atr(buf, period = 14) {
+    const w = buf.getWindow(period + 1);
+    if (w.prices.length < 2) return Features.stdDev(buf.getWindow(20).prices) || 1;
+    let trSum = 0;
+    for (let i = 1; i < w.highs.length; i++) {
+      const tr = Math.max(
+        w.highs[i] - w.lows[i],
+        Math.abs(w.highs[i] - w.prices[i - 1]),
+        Math.abs(w.lows[i] - w.prices[i - 1])
+      );
+      trSum += tr;
+    }
+    return trSum / (w.highs.length - 1) || 1;
+  },
+
+  barrierDistanceRatio(currentPrice, barrier, atrValue) {
+    if (!barrier || !atrValue) return null;
+    const distance = Math.abs(barrier - currentPrice);
+    const ratio = distance / atrValue;
+    let zone;
+    if (ratio < 0.5) zone = 'EXTREMELY_CLOSE';
+    else if (ratio < 1) zone = 'NEAR';
+    else if (ratio < 2) zone = 'MEDIUM';
+    else zone = 'FAR';
+    return { distance, ratio, zone };
+  },
+
+  bollinger(buf, period = 20, sd = 2) {
+    const w = buf.getWindow(period).prices;
+    if (w.length < 2) return { upper: 0, lower: 0, mid: 0, width: 0 };
+    const mean = w.reduce((a, b) => a + b, 0) / w.length;
+    const std = Features.stdDev(w);
+    return { upper: mean + sd * std, lower: mean - sd * std, mid: mean, width: (2 * sd * std) };
+  },
+
+  wickRatio(highs, lows, opens, closes) {
+    // simplistic candle wick estimate from tick highs/lows over a window
+    if (!highs.length) return { upper: 0, lower: 0, body: 0 };
+    const open = opens[0], close = closes[closes.length - 1];
+    const high = Math.max(...highs), low = Math.min(...lows);
+    const body = Math.abs(close - open);
+    return {
+      upper: high - Math.max(open, close),
+      lower: Math.min(open, close) - low,
+      body,
+    };
+  },
+};
+
+/* ============================================================
+   MODULE 3 — PATTERN DETECTION LAYER
+   ============================================================ */
+const PatternDetector = {
+  detect(buf, velocityHistory, volatilityHistory) {
+    if (!buf.isReady(50)) return { pattern: 'INSUFFICIENT_DATA', confidence: 0 };
+
+    const range20 = buf.calculateRange(20);
+    const range50 = buf.calculateRange(50);
+    const avgVelocity = velocityHistory.length
+      ? velocityHistory.reduce((a, b) => a + b, 0) / velocityHistory.length : 0;
+    const currentVelocity = velocityHistory[velocityHistory.length - 1] || 0;
+    const volIncreasing = volatilityHistory.length >= 2 &&
+      volatilityHistory[volatilityHistory.length - 1] > volatilityHistory[volatilityHistory.length - 2];
+    const accelHistory = velocityHistory.map((v, i, arr) => i === 0 ? 0 : v - arr[i - 1]);
+    const lastAccel = accelHistory[accelHistory.length - 1] || 0;
+    const fallingVelocity = velocityHistory.length >= 3 &&
+      velocityHistory[velocityHistory.length - 1] < velocityHistory[velocityHistory.length - 3];
+
+    // Compression
+    if (range20 < range50 * 0.5) {
+      return { pattern: 'MARKET_COMPRESSED', confidence: clamp01(1 - range20 / (range50 * 0.5 + 1e-9)) };
+    }
+    // Expansion
+    if (currentVelocity > avgVelocity * 1.15 && volIncreasing) {
+      return { pattern: 'MARKET_EXPANDING', confidence: clamp01(currentVelocity / (avgVelocity * 2 + 1e-9)) };
+    }
+    // Exhaustion
+    if (fallingVelocity && lastAccel < 0) {
+      return { pattern: 'MARKET_EXHAUSTED', confidence: clamp01(Math.abs(lastAccel) / (avgVelocity + 1e-9)) };
+    }
+    // Mean reversion fallback check
+    const ema10 = Features.ema(buf.getWindow(10).prices, 10);
+    const closeToEma = Math.abs(buf.last - ema10) < (range20 * 0.15 + 1e-9);
+    if (closeToEma) {
+      return { pattern: 'MARKET_REVERSAL', confidence: 0.5 };
+    }
+
+    return { pattern: 'MARKET_NEUTRAL', confidence: 0.3 };
+  },
+};
+
+function clamp01(v) { return Math.max(0, Math.min(1, v)); }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+
+/* ============================================================
+   MODULE 4 — MARKET STATE MACHINE
+   ============================================================ */
+class MarketStateMachine {
+  constructor() {
+    this.state = 'IDLE';
+    this.history = [];
+    this.enteredAt = Date.now();
+  }
+
+  transition(patternResult, features) {
+    const prev = this.state;
+    let next = this.state;
+
+    if (features.volatilityZone === 'EXTREME') {
+      next = 'HIGH_RISK';
+    } else {
+      switch (patternResult.pattern) {
+        case 'MARKET_COMPRESSED':
+          next = 'COMPRESSED';
+          break;
+        case 'MARKET_EXPANDING':
+          next = (prev === 'COMPRESSED') ? 'BREAKOUT' : 'TRENDING';
+          break;
+        case 'MARKET_EXHAUSTED':
+          next = 'EXHAUSTED';
+          break;
+        case 'MARKET_REVERSAL':
+          next = 'REVERSING';
+          break;
+        default:
+          if (prev === 'BREAKOUT' && features.acceleration > 0) next = 'TRENDING';
+          else if (prev === 'HIGH_RISK') next = 'IDLE';
+          else if (['BREAKOUT', 'TRENDING'].includes(prev) && features.acceleration < 0) next = 'EXHAUSTED';
+          break;
+      }
+    }
+
+    if (next !== prev) {
+      this.history.push({ from: prev, to: next, at: Date.now() });
+      if (this.history.length > 50) this.history.shift();
+      this.enteredAt = Date.now();
+    }
+    this.state = next;
+    return { state: this.state, changed: next !== prev, prev };
+  }
+
+  static behaviorFor(state) {
+    const map = {
+      IDLE: { entry: 'No active signal context.', allowEntries: false, evaluate: 'none' },
+      COMPRESSED: { entry: 'Range contracting — energy buildup.', allowEntries: false, evaluate: 'watch' },
+      BREAKOUT: { entry: 'Range broken, directional move starting.', allowEntries: true, evaluate: 'touch' },
+      TRENDING: { entry: 'Sustained directional movement.', allowEntries: true, evaluate: 'touch' },
+      EXHAUSTED: { entry: 'Momentum fading, large wicks.', allowEntries: true, evaluate: 'notouch' },
+      REVERSING: { entry: 'Price returning to mean repeatedly.', allowEntries: false, evaluate: 'none' },
+      HIGH_RISK: { entry: 'Extreme volatility / anomaly detected.', allowEntries: false, evaluate: 'none' },
+    };
+    return map[state] || map.IDLE;
+  }
+}
+
+/* ============================================================
+   MODULE 5 — HEURISTIC SCORING ENGINE
+   IMPORTANT: this produces a *confidence score*, 0-1, derived
+   from a fixed weighted sum of technical features. It is NOT a
+   calibrated statistical probability of touching a barrier.
+   Synthetic indices are designed random-walk instruments with a
+   house edge; no technical weighting here changes that. Treat
+   "touchScore" purely as a relative signal-strength heuristic.
+   ============================================================ */
+const ScoringEngine = {
+  weights: {
+    velocity: 15,
+    acceleration: 10,
+    volatility: 15,
+    highLowPattern: 15,
+    candleStrength: 10,
+    ema: 10,
+    rsi: 5,
+    atr: 10,
+    pattern: 10,
+  },
+
+  // normalize raw feature to 0-1 using a soft cap so outliers don't blow up the score
+  norm(value, softCap) {
+    if (softCap <= 0) return 0;
+    return clamp01(Math.abs(value) / softCap);
+  },
+
+  score(ctx) {
+    const w = this.weights;
+    const n = {
+      velocity: this.norm(ctx.velocity, ctx.velocityCap || 1),
+      acceleration: this.norm(ctx.acceleration, ctx.accelCap || 1),
+      volatility: this.norm(ctx.volatility, ctx.volCap || 1),
+      highLowPattern: ctx.breakStrengthNorm ?? 0,
+      candleStrength: ctx.candleStrengthNorm ?? 0,
+      ema: ctx.trendAlignment ?? 0, // 0..1, 1 = strongly aligned with trend direction
+      rsi: ctx.rsiExtremeNorm ?? 0, // 0..1, how far RSI is from neutral 50
+      atr: ctx.atrFavorability ?? 0, // 0..1, derived from distanceRatio fit to trade type
+      pattern: ctx.patternConfidence ?? 0,
+    };
+
+    const raw =
+      n.velocity * w.velocity +
+      n.acceleration * w.acceleration +
+      n.volatility * w.volatility +
+      n.highLowPattern * w.highLowPattern +
+      n.candleStrength * w.candleStrength +
+      n.ema * w.ema +
+      n.rsi * w.rsi +
+      n.atr * w.atr +
+      n.pattern * w.pattern;
+
+    const totalWeight = Object.values(w).reduce((a, b) => a + b, 0);
+    const normalizedScore = clamp01(raw / totalWeight);
+
+    return {
+      raw,
+      score: normalizedScore,
+      breakdown: n,
+    };
+  },
+
+  // Combine directional bias with raw score to get touch/no-touch split.
+  // bias: -1 (favors no-touch / exhaustion) .. +1 (favors touch / expansion)
+  toProbabilities(scoreResult, bias) {
+    const s = scoreResult.score;
+    // confidence = how strong/clean the signal is, independent of direction
+    const confidence = s;
+    // skew the split by bias, but keep it bounded — this is a heuristic blend, not a model
+    const touchLean = clamp01(0.5 + bias * 0.5 * s);
+    return {
+      touchScore: touchLean,
+      noTouchScore: 1 - touchLean,
+      confidence,
+    };
+  },
+
+  decisionBand(score) {
+    if (score < 0.40) return 'NO_TRADE';
+    if (score < 0.61) return 'WEAK';
+    if (score < 0.76) return 'MODERATE';
+    return 'STRONG';
+  },
+};
+
+/* ============================================================
+   MODULE 6 — TRADE VALIDATION LAYER
+   ============================================================ */
+const TradeValidator = {
+  evaluateTouch(ctx) {
+    const reasons = [];
+    const pass =
+      ctx.touchScore > 0.75 &&
+      ctx.distanceRatio != null && ctx.distanceRatio < 1 &&
+      ctx.marketState === 'TRENDING' &&
+      ctx.volatilityZone !== 'EXTREME';
+
+    if (ctx.touchScore <= 0.75) reasons.push(`touchScore ${fmtPct(ctx.touchScore)} ≤ 75%`);
+    if (ctx.distanceRatio == null || ctx.distanceRatio >= 1) reasons.push('distance ratio not <1');
+    if (ctx.marketState !== 'TRENDING') reasons.push(`state is ${ctx.marketState}, not TRENDING`);
+    if (ctx.volatilityZone === 'EXTREME') reasons.push('volatility EXTREME');
+
+    return { pass, signal: pass ? 'BUY_TOUCH' : null, reasons };
+  },
+
+  evaluateNoTouch(ctx) {
+    const reasons = [];
+    const pass =
+      ctx.noTouchScore > 0.75 &&
+      ctx.distanceRatio != null && ctx.distanceRatio > 2 &&
+      ctx.marketState === 'EXHAUSTED' &&
+      ctx.volatilityZone !== 'HIGH' && ctx.volatilityZone !== 'EXTREME';
+
+    if (ctx.noTouchScore <= 0.75) reasons.push(`noTouchScore ${fmtPct(ctx.noTouchScore)} ≤ 75%`);
+    if (ctx.distanceRatio == null || ctx.distanceRatio <= 2) reasons.push('distance ratio not >2');
+    if (ctx.marketState !== 'EXHAUSTED') reasons.push(`state is ${ctx.marketState}, not EXHAUSTED`);
+    if (ctx.volatilityZone === 'HIGH' || ctx.volatilityZone === 'EXTREME') reasons.push('volatility too high');
+
+    return { pass, signal: pass ? 'BUY_NOTOUCH' : null, reasons };
+  },
+
+  rejectionCheck(ctx) {
+    const rejects = [];
+    if (ctx.volatilityZone === 'EXTREME') rejects.push('Volatility EXTREME');
+    if (ctx.touchScore > 0.45 && ctx.touchScore < 0.60) rejects.push('Touch score ambiguous (45-60%)');
+    if (ctx.noTouchScore > 0.45 && ctx.noTouchScore < 0.60) rejects.push('No-touch score ambiguous (45-60%)');
+    if (ctx.emaCrossoverActive) rejects.push('EMA crossover in progress');
+    if (ctx.spikeDetected) rejects.push('Price spike detected');
+    return rejects;
+  },
+};
+
+function fmtPct(v) { return (v * 100).toFixed(1) + '%'; }
+
+/* ============================================================
+   MODULE 7 — RISK ENGINE
+   These limits are hard-enforced gate checks, not suggestions.
+   The executor MUST consult RiskEngine.canTrade() before every
+   auto-execution and respect its verdict unconditionally.
+   ============================================================ */
+class RiskEngine {
+  constructor(config = {}) {
+    this.config = Object.assign({
+      riskPerTradePct: 1.0,       // % of balance per trade
+      maxRiskPerTradePct: 2.0,    // hard ceiling, UI cannot exceed this
+      dailyDrawdownPct: 5.0,      // stop trading for the day past this loss
+      maxConsecutiveLosses: 3,
+      cooldownMinutesAfterTrigger: 30,
+      tradeCooldownTicks: 20,     // avoid re-entry for N ticks after a trade
+    }, config);
+
+    this.dayStartBalance = null;
+    this.currentBalance = null;
+    this.consecutiveLosses = 0;
+    this.pausedUntil = null;
+    this.pauseReason = null;
+    this.lastTradeTickIndex = -Infinity;
+    this.tradesToday = [];
+  }
+
+  setBalance(balance) {
+    if (this.dayStartBalance == null) this.dayStartBalance = balance;
+    this.currentBalance = balance;
+  }
+
+  resetDay(balance) {
+    this.dayStartBalance = balance;
+    this.currentBalance = balance;
+    this.consecutiveLosses = 0;
+    this.tradesToday = [];
+    this.pausedUntil = null;
+    this.pauseReason = null;
+  }
+
+  recordResult(result, profit) {
+    this.tradesToday.push({ result, profit, at: Date.now() });
+    if (result === 'loss') {
+      this.consecutiveLosses++;
+    } else if (result === 'win') {
+      this.consecutiveLosses = 0;
+    }
+    if (this.currentBalance != null) this.currentBalance += profit;
+    this._checkTriggers();
+  }
+
+  _checkTriggers() {
+    const ddPct = this.drawdownPct();
+    if (ddPct >= this.config.dailyDrawdownPct) {
+      this._pause(`Daily drawdown limit hit (${ddPct.toFixed(2)}% ≥ ${this.config.dailyDrawdownPct}%)`);
+    }
+    if (this.consecutiveLosses >= this.config.maxConsecutiveLosses) {
+      this._pause(`${this.consecutiveLosses} consecutive losses ≥ limit of ${this.config.maxConsecutiveLosses}`);
+    }
+  }
+
+  _pause(reason) {
+    this.pausedUntil = Date.now() + this.config.cooldownMinutesAfterTrigger * 60000;
+    this.pauseReason = reason;
+  }
+
+  drawdownPct() {
+    if (!this.dayStartBalance || this.currentBalance == null) return 0;
+    const loss = this.dayStartBalance - this.currentBalance;
+    return Math.max(0, (loss / this.dayStartBalance) * 100);
+  }
+
+  stakeSize() {
+    if (!this.currentBalance) return 0;
+    const pct = Math.min(this.config.riskPerTradePct, this.config.maxRiskPerTradePct);
+    return +(this.currentBalance * (pct / 100)).toFixed(2);
+  }
+
+  canTrade(currentTickIndex) {
+    const blockers = [];
+    if (this.pausedUntil && Date.now() < this.pausedUntil) {
+      blockers.push(`Paused: ${this.pauseReason} (resumes ${new Date(this.pausedUntil).toLocaleTimeString()})`);
+    } else if (this.pausedUntil && Date.now() >= this.pausedUntil) {
+      this.pausedUntil = null;
+      this.pauseReason = null;
+    }
+    if (this.drawdownPct() >= this.config.dailyDrawdownPct) {
+      blockers.push('Daily drawdown limit reached');
+    }
+    if (this.consecutiveLosses >= this.config.maxConsecutiveLosses) {
+      blockers.push('Consecutive loss limit reached');
+    }
+    if (currentTickIndex - this.lastTradeTickIndex < this.config.tradeCooldownTicks) {
+      blockers.push(`Trade cooldown active (${this.config.tradeCooldownTicks - (currentTickIndex - this.lastTradeTickIndex)} ticks remaining)`);
+    }
+    return { allowed: blockers.length === 0, blockers };
+  }
+
+  markTradeEntered(tickIndex) {
+    this.lastTradeTickIndex = tickIndex;
+  }
+}
+
+
+/* ============================================================
+   MODULE 8 — DERIV API SERVICE (NEW API, confirmed against
+   developers.deriv.com docs — June 2026)
+   ------------------------------------------------------------
+   API SELECTION RATIONALE (per new architecture):
+   - REST  -> app registration is done on developers.deriv.com
+             (new App IDs only — legacy App IDs are rejected by
+             this API). REST handles: OAuth2 code/PKCE exchange,
+             account listing/creation, and — critically — the
+             OTP endpoint that mints a short-lived, pre-
+             authenticated WebSocket URL.
+   - WS    -> everything live/streaming: ticks, proposals,
+             buy/sell, balance, portfolio, contract monitoring.
+             The socket carries NO `authorize` frame in the new
+             system — auth is baked into the OTP query param on
+             the URL you connect to.
+   Three WS endpoints exist: public (no auth), demo, real — the
+   OTP response URL already points at the correct one.
+   OTPs are short-lived: a fresh OTP must be requested on every
+   connect AND every reconnect, not reused from the first login.
+   ============================================================ */
+
+const DerivEndpoints = {
+  REST_BASE: 'https://api.derivws.com',
+  WS_PUBLIC: 'wss://api.derivws.com/trading/v1/options/ws/public',
+  OAUTH_AUTHORIZE: 'https://auth.deriv.com/oauth2/auth',
+  OAUTH_TOKEN: 'https://auth.deriv.com/oauth2/token',
+};
+
+class DerivAPIService extends EventTarget {
+  constructor({ appId, clientId } = {}) {
+    super();
+    this.appId = appId;                 // new-system App ID from developers.deriv.com
+    this.clientId = clientId || appId;  // OAuth client_id (same as App ID for first-party apps)
+    this.ws = null;
+    this.connected = false;
+    this.reqId = 1;
+    this.pending = new Map();
+    this.subscriptions = new Map();
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 8;
+    this.heartbeatTimer = null;
+
+    this.authToken = null;        // Bearer token: PAT or OAuth JWT
+    this.authMethod = null;       // 'oauth' | 'pat'
+    this.accountId = null;        // currently selected loginid/account id
+    this.wsEndpointType = null;   // 'public' | 'demo' | 'real'
+    this._manualClose = false;
+  }
+
+  // ---------------- AUTH: OAuth2 (Authorization Code + PKCE) ----------------
+  static async generateCodeVerifier() {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return btoa(String.fromCharCode(...array)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  static async generateCodeChallenge(verifier) {
+    const encoder = new TextEncoder();
+    const digest = await crypto.subtle.digest('SHA-256', encoder.encode(verifier));
+    return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  async buildOAuthUrl(redirectUri) {
+    const codeVerifier = await DerivAPIService.generateCodeVerifier();
+    const codeChallenge = await DerivAPIService.generateCodeChallenge(codeVerifier);
+    const state = crypto.randomUUID();
+
+    // PKCE verifier/state must survive the redirect. sessionStorage is fine here —
+    // this is a transient proof value for one login round-trip, not an access token.
+    sessionStorage.setItem('tnt_code_verifier', codeVerifier);
+    sessionStorage.setItem('tnt_oauth_state', state);
+
+    const url = new URL(DerivEndpoints.OAUTH_AUTHORIZE);
+    url.searchParams.set('response_type', 'code');
+    url.searchParams.set('client_id', this.clientId);
+    url.searchParams.set('redirect_uri', redirectUri);
+    url.searchParams.set('scope', 'trade account_manage');
+    url.searchParams.set('state', state);
+    url.searchParams.set('code_challenge', codeChallenge);
+    url.searchParams.set('code_challenge_method', 'S256');
+    return url.toString();
+  }
+
+  // Call on redirect return. Returns { accessToken, expiresIn } or throws.
+  async exchangeOAuthCode(redirectUri) {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const returnedState = params.get('state');
+    const savedState = sessionStorage.getItem('tnt_oauth_state');
+    const codeVerifier = sessionStorage.getItem('tnt_code_verifier');
+
+    if (!code) throw new Error('No authorization code in redirect URL');
+    if (returnedState !== savedState) throw new Error('OAuth state mismatch — possible CSRF, aborting');
+
+    const res = await fetch(DerivEndpoints.OAUTH_TOKEN, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: this.clientId,
+        code,
+        redirect_uri: redirectUri,
+        code_verifier: codeVerifier,
+      }),
+    });
+    if (!res.ok) throw new Error(`Token exchange failed: HTTP ${res.status}`);
+    const data = await res.json();
+
+    sessionStorage.removeItem('tnt_code_verifier');
+    sessionStorage.removeItem('tnt_oauth_state');
+
+    this.authToken = data.access_token;
+    this.authMethod = 'oauth';
+    this._oauthExpiresAt = Date.now() + (data.expires_in || 3600) * 1000;
+    this._oauthRefreshToken = data.refresh_token || null;
+    return { accessToken: data.access_token, expiresIn: data.expires_in };
+  }
+
+  // ---------------- AUTH: PAT ----------------
+  setPAT(token) {
+    this.authToken = token;
+    this.authMethod = 'pat';
+  }
+
+  _restHeaders(extra = {}) {
+    return Object.assign({
+      'Authorization': `Bearer ${this.authToken}`,
+      'Deriv-App-ID': this.appId,
+    }, extra);
+  }
+
+  // ---------------- REST: ACCOUNTS ----------------
+  async getAccounts() {
+    const res = await fetch(`${DerivEndpoints.REST_BASE}/trading/v1/options/accounts`, {
+      headers: this._restHeaders(),
+    });
+    if (!res.ok) throw await this._restError(res);
+    return res.json();
+  }
+
+  async createAccount({ currency = 'USD', group = 'row', accountType = 'demo' } = {}) {
+    const res = await fetch(`${DerivEndpoints.REST_BASE}/trading/v1/options/accounts`, {
+      method: 'POST',
+      headers: this._restHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ currency, group, account_type: accountType }),
+    });
+    if (!res.ok) throw await this._restError(res);
+    return res.json();
+  }
+
+  async resetDemoBalance(accountId) {
+    const res = await fetch(`${DerivEndpoints.REST_BASE}/trading/v1/options/accounts/${accountId}/reset-demo-balance`, {
+      method: 'POST',
+      headers: this._restHeaders(),
+    });
+    if (!res.ok) throw await this._restError(res);
+    return res.json();
+  }
+
+  async _restError(res) {
+    let body;
+    try { body = await res.json(); } catch (e) { body = null; }
+    const msg = body?.errors?.[0]?.message || `HTTP ${res.status}`;
+    const err = new Error(msg);
+    err.status = res.status;
+    err.body = body;
+    return err;
+  }
+
+  // ---------------- REST: OTP (the bridge to an authenticated WS) ----------------
+  // OTPs are short-lived — call this fresh for every connect AND every reconnect.
+  async _requestOtpUrl(accountId) {
+    const res = await fetch(`${DerivEndpoints.REST_BASE}/trading/v1/options/accounts/${accountId}/otp`, {
+      method: 'POST',
+      headers: this._restHeaders(),
+    });
+    if (!res.ok) throw await this._restError(res);
+    const { data } = await res.json();
+    return data.url; // wss://.../ws/{demo|real}?otp=...
+  }
+
+  // ---------------- CONNECTION ----------------
+  // mode: 'public' (no auth, market data only) or 'authenticated' (needs accountId)
+  async connect({ mode = 'authenticated', accountId = null } = {}) {
+    this._manualClose = false;
+    let url;
+
+    if (mode === 'public') {
+      url = DerivEndpoints.WS_PUBLIC;
+      this.wsEndpointType = 'public';
+    } else {
+      if (!accountId) throw new Error('accountId required to open an authenticated session');
+      if (!this.authToken) throw new Error('No auth token set — call setPAT() or complete OAuth first');
+      this.accountId = accountId;
+      url = await this._requestOtpUrl(accountId);
+      this.wsEndpointType = url.includes('/ws/real') ? 'real' : 'demo';
+    }
+
+    return new Promise((resolve, reject) => {
+      this.ws = new WebSocket(url);
+
+      this.ws.onopen = () => {
+        this.connected = true;
+        this.reconnectAttempts = 0;
+        this._startHeartbeat();
+        this._emit('connected', { endpointType: this.wsEndpointType });
+        resolve();
+      };
+      this.ws.onmessage = (msg) => this._handleMessage(msg);
+      this.ws.onerror = (err) => this._emit('error', { error: err });
+      this.ws.onclose = () => {
+        this.connected = false;
+        this._stopHeartbeat();
+        this._emit('disconnected');
+        if (!this._manualClose) this._scheduleReconnect();
+      };
+
+      setTimeout(() => { if (!this.connected) reject(new Error('WebSocket connection timeout')); }, 10000);
+    });
+  }
+
+  disconnect() {
+    this._manualClose = true;
+    this._stopHeartbeat();
+    if (this.ws) this.ws.close();
+  }
+
+  // ---------------- RECONNECTION LOGIC ----------------
+  // Socket disconnect -> retry count++ -> exponential backoff ->
+  // request a FRESH OTP (old one has expired) -> reconnect ->
+  // restore subscriptions -> restore state
+  async _scheduleReconnect() {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      this._emit('reconnect_failed');
+      return;
+    }
+    this.reconnectAttempts++;
+    const delay = Math.min(30000, 1000 * 2 ** this.reconnectAttempts);
+    this._emit('reconnecting', { attempt: this.reconnectAttempts, delay });
+
+    await new Promise(r => setTimeout(r, delay));
+    try {
+      await this.connect({
+        mode: this.wsEndpointType === 'public' ? 'public' : 'authenticated',
+        accountId: this.accountId,
+      });
+      await this._restoreSubscriptions();
+      this._emit('reconnected');
+    } catch (e) {
+      this._scheduleReconnect();
+    }
+  }
+
+  async _restoreSubscriptions() {
+    const subs = Array.from(this.subscriptions.values());
+    for (const sub of subs) {
+      try { await this.send(sub.request, true); } catch (e) { /* log + continue */ }
+    }
+  }
+
+  _startHeartbeat() {
+    this._stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => { this.send({ ping: 1 }).catch(() => {}); }, 20000);
+  }
+  _stopHeartbeat() { if (this.heartbeatTimer) clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
+
+  // ---------------- MESSAGE PLUMBING ----------------
+  send(payload, isResubscribe = false) {
+    return new Promise((resolve, reject) => {
+      if (!this.connected) return reject(new Error('Not connected'));
+      const req_id = this.reqId++;
+      const body = Object.assign({}, payload, { req_id });
+      this.pending.set(req_id, { resolve, reject });
+      try { this.ws.send(JSON.stringify(body)); }
+      catch (e) { this.pending.delete(req_id); reject(e); }
+      setTimeout(() => {
+        if (this.pending.has(req_id)) {
+          this.pending.delete(req_id);
+          if (!isResubscribe) reject(new Error('Request timed out'));
+        }
+      }, 15000);
+    });
+  }
+
+  _handleMessage(msg) {
+    let data;
+    try { data = JSON.parse(msg.data); } catch (e) { return; }
+
+    if (data.req_id && this.pending.has(data.req_id)) {
+      const { resolve, reject } = this.pending.get(data.req_id);
+      this.pending.delete(data.req_id);
+      if (data.error) reject(data.error); else resolve(data);
+    }
+    if (data.subscription && data.subscription.id) {
+      const sub = this.subscriptions.get(data.subscription.id);
+      if (sub) sub.callback(data);
+    }
+    this._emit('message', data);
+  }
+
+  _emit(type, detail = {}) { this.dispatchEvent(new CustomEvent(type, { detail })); }
+
+  // ---------------- ACCOUNT / BALANCE (WebSocket, post-OTP) ----------------
+  async getBalance() { return this.send({ balance: 1 }); }
+  subscribeBalance(callback) { return this._subscribe({ balance: 1, subscribe: 1 }, callback); }
+  async getPortfolio() { return this.send({ portfolio: 1 }); }
+  async getProfitTable(limit = 50) { return this.send({ profit_table: 1, limit, description: 1 }); }
+
+  // Switching accounts in the new system = requesting a new OTP/socket for
+  // the other accountId, not re-sending `authorize` on the same socket.
+  async switchAccount(accountId) {
+    this.disconnect();
+    await this.connect({ mode: 'authenticated', accountId });
+    return this.getBalance();
+  }
+
+  // ---------------- MARKET DATA ----------------
+  // New API: active_symbols no longer accepts product_type / landing_company_short /
+  // landing_company / loginid — sending them is what broke this call.
+  async getActiveSymbols() { return this.send({ active_symbols: 'brief' }); }
+  subscribeTicks(symbol, callback) { return this._subscribe({ ticks: symbol, subscribe: 1 }, callback); }
+  async getTickHistory(symbol, count = 200) {
+    return this.send({ ticks_history: symbol, count, end: 'latest', style: 'ticks' });
+  }
+
+  async _subscribe(request, callback) {
+    const res = await this.send(request);
+    if (res.subscription && res.subscription.id) {
+      this.subscriptions.set(res.subscription.id, { request, callback });
+    }
+    callback(res);
+    return res;
+  }
+
+  async unsubscribe(subscriptionId) {
+    this.subscriptions.delete(subscriptionId);
+    return this.send({ forget: subscriptionId });
+  }
+
+  async unsubscribeAll() {
+    const ids = Array.from(this.subscriptions.keys());
+    this.subscriptions.clear();
+    if (ids.length) return this.send({ forget_all: ['ticks', 'proposal_open_contract', 'balance'] });
+  }
+
+  // ---------------- TRADING FLOW ----------------
+  // proposal() -> buy() -> proposal_open_contract() -> monitor -> save
+  // New API: `symbol` request param renamed to `underlying_symbol`; `loginid` removed.
+  // contractType must be a real Deriv contract_type enum value: 'ONETOUCH' (not 'TOUCH')
+  // or 'NOTOUCH' for this app's use case.
+  // barrier must be sent as a signed string (e.g. "+0.50"), not a bare number —
+  // this is how every confirmed Deriv example formats relative barriers.
+  async requestProposal({ symbol, contractType, barrier, duration, durationUnit, stake, currency }) {
+    return this.send({
+      proposal: 1,
+      amount: stake,
+      basis: 'stake',
+      contract_type: contractType, // 'ONETOUCH' | 'NOTOUCH'
+      currency,
+      underlying_symbol: symbol,
+      barrier: DerivAPIService.formatBarrier(barrier),
+      duration,
+      duration_unit: durationUnit, // 't' | 's' | 'm'
+    });
+  }
+
+  static formatBarrier(value) {
+    if (value == null || value === '') return undefined;
+    const num = Number(value);
+    if (isNaN(num)) return String(value); // already a pre-formatted string, pass through
+    return (num >= 0 ? '+' : '') + num.toString();
+  }
+
+  async buyContract(proposalId, price) { return this.send({ buy: proposalId, price }); }
+  subscribeOpenContract(contractId, callback) {
+    return this._subscribe({ proposal_open_contract: 1, contract_id: contractId, subscribe: 1 }, callback);
+  }
+  async sellContract(contractId, price = 0) { return this.send({ sell: contractId, price }); }
+
+  // ---------------- AUTOMATION (new-system bot primitives) ----------------
+  async autoStart(strategyConfig) { return this.send({ auto_start: 1, ...strategyConfig }); }
+  async autoPause(strategyId) { return this.send({ auto_pause: strategyId }); }
+  async autoResume(strategyId) { return this.send({ auto_resume: strategyId }); }
+  async autoStop(strategyId) { return this.send({ auto_stop: strategyId }); }
+  async autoList() { return this.send({ auto_list: 1 }); }
+}
+
+
+/* ============================================================
+   MODULE 9 — STORAGE LAYER (IndexedDB)
+   Per project rules: never store tokens in localStorage.
+   Tokens live in memory only for this session; everything else
+   (settings, watchlists, trade history, weight-change proposals)
+   persists in IndexedDB.
+   ============================================================ */
+class Storage {
+  constructor(dbName = 'tnt_ape_db', version = 1) {
+    this.dbName = dbName;
+    this.version = version;
+    this.db = null;
+  }
+
+  open() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(this.dbName, this.version);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('trades')) {
+          const store = db.createObjectStore('trades', { keyPath: 'id' });
+          store.createIndex('timestamp', 'timestamp');
+        }
+        if (!db.objectStoreNames.contains('settings')) {
+          db.createObjectStore('settings', { keyPath: 'key' });
+        }
+        if (!db.objectStoreNames.contains('weightProposals')) {
+          db.createObjectStore('weightProposals', { keyPath: 'id', autoIncrement: true });
+        }
+        if (!db.objectStoreNames.contains('watchlist')) {
+          db.createObjectStore('watchlist', { keyPath: 'symbol' });
+        }
+      };
+      req.onsuccess = (e) => { this.db = e.target.result; resolve(this.db); };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  _tx(storeName, mode = 'readonly') {
+    return this.db.transaction(storeName, mode).objectStore(storeName);
+  }
+
+  put(storeName, value) {
+    return new Promise((resolve, reject) => {
+      const req = this._tx(storeName, 'readwrite').put(value);
+      req.onsuccess = () => resolve(value);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  get(storeName, key) {
+    return new Promise((resolve, reject) => {
+      const req = this._tx(storeName).get(key);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  getAll(storeName) {
+    return new Promise((resolve, reject) => {
+      const req = this._tx(storeName).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  delete(storeName, key) {
+    return new Promise((resolve, reject) => {
+      const req = this._tx(storeName, 'readwrite').delete(key);
+      req.onsuccess = () => resolve();
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+}
+
+/* ============================================================
+   MODULE 10 — TRADE EXECUTOR
+   Auto-execution is permitted ONLY when RiskEngine.canTrade()
+   returns allowed:true. This check is not optional and the
+   executor does not provide a path to bypass it.
+   ============================================================ */
+class TradeExecutor {
+  constructor({ api, risk, storage, logger }) {
+    this.api = api;
+    this.risk = risk;
+    this.storage = storage;
+    this.logger = logger || (() => {});
+    this.autoExecuteEnabled = false;
+    this.activeContracts = new Map();
+  }
+
+  setAutoExecute(enabled) {
+    this.autoExecuteEnabled = enabled;
+    this.logger(`Auto-execute ${enabled ? 'ENABLED' : 'disabled'}`, enabled ? 'warn' : 'info');
+  }
+
+  async tryExecute(signal, marketCtx, tickIndex) {
+    // Hard gate — cannot be skipped, regardless of caller.
+    const gate = this.risk.canTrade(tickIndex);
+    if (!gate.allowed) {
+      this.logger(`Signal ${signal.signal} blocked by risk engine: ${gate.blockers.join('; ')}`, 'danger');
+      return { executed: false, reason: gate.blockers.join('; ') };
+    }
+    if (!this.autoExecuteEnabled) {
+      this.logger(`Signal ${signal.signal} generated (auto-execute OFF — manual confirm required)`, 'info');
+      return { executed: false, reason: 'auto-execute disabled', requiresManualConfirm: true };
+    }
+    return this.execute(signal, marketCtx, tickIndex);
+  }
+
+  async execute(signal, marketCtx, tickIndex) {
+    const stake = this.risk.stakeSize();
+    if (!stake || stake <= 0) {
+      this.logger('Stake calculated as 0 — balance unknown or zero. Aborting.', 'danger');
+      return { executed: false, reason: 'invalid stake' };
+    }
+
+    // displayType is the internal label used everywhere in UI/storage/learning
+    // ('TOUCH'/'NOTOUCH'); wireContractType is what actually goes over the API.
+    // Deriv's contract_type enum uses 'ONETOUCH', not 'TOUCH' — sending 'TOUCH'
+    // silently fails to produce a valid proposal.
+    const displayType = signal.signal === 'BUY_TOUCH' ? 'TOUCH' : 'NOTOUCH';
+    const wireContractType = signal.signal === 'BUY_TOUCH' ? 'ONETOUCH' : 'NOTOUCH';
+
+    try {
+      const proposal = await this.api.requestProposal({
+        symbol: marketCtx.symbol,
+        contractType: wireContractType,
+        barrier: marketCtx.barrierOffset, // relative barrier offset string, e.g. "+10"
+        duration: marketCtx.duration,
+        durationUnit: marketCtx.durationUnit,
+        stake,
+        currency: marketCtx.currency,
+      });
+
+      // New API: only `id` is guaranteed on the proposal object — ask_price may be
+      // absent, and when present may be a string rather than a number.
+      if (!proposal || !proposal.proposal || !proposal.proposal.id) {
+        this.logger('Proposal request returned no usable offer — market may be closed.', 'warn');
+        return { executed: false, reason: 'no proposal' };
+      }
+      const askPrice = Number(proposal.proposal.ask_price);
+      if (!askPrice || isNaN(askPrice)) {
+        this.logger('Proposal missing a valid ask_price — aborting buy.', 'danger');
+        return { executed: false, reason: 'invalid ask_price' };
+      }
+
+      const bought = await this.api.buyContract(proposal.proposal.id, askPrice);
+      this.risk.markTradeEntered(tickIndex);
+
+      const record = {
+        id: `${bought.buy.contract_id}`,
+        market: marketCtx.symbol,
+        tradeType: displayType,
+        entryPrice: marketCtx.currentPrice,
+        barrier: marketCtx.barrierOffset,
+        duration: marketCtx.duration,
+        touchProbability: marketCtx.touchScore,
+        confidence: marketCtx.confidence,
+        marketState: marketCtx.marketState,
+        stake,
+        result: 'pending',
+        profit: 0,
+        timestamp: new Date().toISOString(),
+      };
+      await this.storage.put('trades', record);
+      this.activeContracts.set(bought.buy.contract_id, record);
+
+      this.api.subscribeOpenContract(bought.buy.contract_id, (update) => this._onContractUpdate(update));
+
+      this.logger(`Executed ${displayType} on ${marketCtx.symbol} — stake ${stake} ${marketCtx.currency}`, 'success');
+      return { executed: true, record, buy: bought.buy };
+    } catch (err) {
+      this.logger(`Execution failed: ${err.message || err.code || JSON.stringify(err)}`, 'danger');
+      return { executed: false, reason: err.message || 'api error' };
+    }
+  }
+
+  async _onContractUpdate(update) {
+    const poc = update.proposal_open_contract;
+    if (!poc) return;
+    const record = this.activeContracts.get(poc.contract_id);
+    if (!record) return;
+
+    if (poc.is_sold || poc.status !== 'open') {
+      const profit = poc.profit || 0;
+      const result = profit > 0 ? 'win' : 'loss';
+      record.result = result;
+      record.profit = profit;
+      await this.storage.put('trades', record);
+      this.risk.recordResult(result, profit);
+      this.activeContracts.delete(poc.contract_id);
+      this.logger(`Contract ${poc.contract_id} settled: ${result.toUpperCase()} (${profit >= 0 ? '+' : ''}${profit})`, result === 'win' ? 'success' : 'danger');
+      document.dispatchEvent(new CustomEvent('tnt:trade-settled', { detail: record }));
+    } else {
+      document.dispatchEvent(new CustomEvent('tnt:trade-update', { detail: { ...record, livePnl: poc.profit } }));
+    }
+  }
+}
+
+/* ============================================================
+   MODULE 11 — ADAPTIVE LEARNING LAYER (manual-review mode)
+   ------------------------------------------------------------
+   Per design decision: this layer NEVER silently mutates live
+   scoring weights. Every 100 trades it computes a *proposed*
+   weight/threshold adjustment from out-of-sample performance
+   and writes it to a review queue. A human must explicitly
+   approve a proposal before ScoringEngine.weights change.
+   This avoids overfitting to recent synthetic-market noise.
+   ============================================================ */
+class AdaptiveLearning {
+  constructor({ storage, logger }) {
+    this.storage = storage;
+    this.logger = logger || (() => {});
+    this.evalBatchSize = 100;
+  }
+
+  async maybeEvaluate() {
+    const trades = (await this.storage.getAll('trades')).filter(t => t.result !== 'pending');
+    if (trades.length === 0 || trades.length % this.evalBatchSize !== 0) return null;
+
+    const recent = trades.slice(-this.evalBatchSize);
+    const wins = recent.filter(t => t.result === 'win').length;
+    const winRate = wins / recent.length;
+    const avgWin = avg(recent.filter(t => t.result === 'win').map(t => t.profit)) || 0;
+    const avgLoss = Math.abs(avg(recent.filter(t => t.result === 'loss').map(t => t.profit)) || 0);
+    const ev = (winRate * avgWin) - ((1 - winRate) * avgLoss);
+
+    const byType = {
+      TOUCH: recent.filter(t => t.tradeType === 'TOUCH'),
+      NOTOUCH: recent.filter(t => t.tradeType === 'NOTOUCH'),
+    };
+    const touchAcc = byType.TOUCH.length ? byType.TOUCH.filter(t => t.result === 'win').length / byType.TOUCH.length : null;
+    const notouchAcc = byType.NOTOUCH.length ? byType.NOTOUCH.filter(t => t.result === 'win').length / byType.NOTOUCH.length : null;
+
+    const suggestion = { delta: {}, rationale: [] };
+    if (winRate < 0.55) {
+      suggestion.delta.velocity = +2;
+      suggestion.delta.pattern = +3;
+      suggestion.rationale.push(`Win rate ${fmtPct(winRate)} < 55% over last ${this.evalBatchSize} trades — proposing increased weight on velocity & pattern confirmation.`);
+    } else {
+      suggestion.rationale.push(`Win rate ${fmtPct(winRate)} acceptable — no weight change proposed.`);
+    }
+
+    const proposal = {
+      createdAt: new Date().toISOString(),
+      sampleSize: recent.length,
+      winRate, avgWin, avgLoss, ev, touchAcc, notouchAcc,
+      proposedDelta: suggestion.delta,
+      rationale: suggestion.rationale,
+      status: 'pending_review',
+    };
+
+    await this.storage.put('weightProposals', proposal);
+    this.logger(`New adaptive-learning proposal queued for review (sample=${recent.length}, winRate=${fmtPct(winRate)}, EV=${ev.toFixed(3)}). Manual approval required before any weights change.`, 'warn');
+    document.dispatchEvent(new CustomEvent('tnt:learning-proposal', { detail: proposal }));
+    return proposal;
+  }
+
+  async applyProposal(proposal) {
+    // Explicit human-approved application only — never called automatically.
+    Object.entries(proposal.proposedDelta).forEach(([k, v]) => {
+      if (ScoringEngine.weights[k] != null) ScoringEngine.weights[k] += v;
+    });
+    proposal.status = 'applied';
+    await this.storage.put('weightProposals', proposal);
+    this.logger('Weight proposal applied by user.', 'success');
+  }
+
+  async rejectProposal(proposal) {
+    proposal.status = 'rejected';
+    await this.storage.put('weightProposals', proposal);
+  }
+}
+
+function avg(arr) { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0; }
+
+
+/* ============================================================
+   ORCHESTRATOR — wires Deriv tick stream through the full
+   engine pipeline to a single onCycle callback per tick.
+   ============================================================ */
+class EngineOrchestrator {
+  constructor({ api, risk, executor, storage, logger }) {
+    this.api = api;
+    this.risk = risk;
+    this.executor = executor;
+    this.storage = storage;
+    this.logger = logger || (() => {});
+    this.learning = new AdaptiveLearning({ storage, logger });
+
+    this.buf = new TickBuffer(200);
+    this.velocityHistory = [];
+    this.volatilityHistory = [];
+    this.tickIndex = 0;
+    this.stateMachine = new MarketStateMachine();
+    this.symbol = null;
+    this.barrierOffset = null;
+    this.duration = 5;
+    this.durationUnit = 'm';
+    this.currency = 'USD';
+    this.tradeBias = 'auto'; // 'auto' | 'touch_only' | 'notouch_only'
+
+    this.onCycle = null; // UI hook: (snapshot) => {}
+    this._spikeBaseline = null;
+  }
+
+  async startSymbol(symbol) {
+    this.symbol = symbol;
+    this.buf = new TickBuffer(200);
+    this.velocityHistory = [];
+    this.volatilityHistory = [];
+    this.tickIndex = 0;
+
+    const hist = await this.api.getTickHistory(symbol, 200);
+    if (hist && hist.history) {
+      hist.history.prices.forEach((p, i) => this.buf.addTick(p, hist.history.times[i] * 1000));
+    }
+
+    await this.api.subscribeTicks(symbol, (msg) => this._onTick(msg));
+  }
+
+  async stopSymbol() {
+    // unsubscribe handled by caller via api.unsubscribeAll() to keep this simple
+  }
+
+  _onTick(msg) {
+    if (!msg.tick) return; // initial subscribe ack with no tick yet
+    const price = msg.tick.quote;
+    const time = msg.tick.epoch * 1000;
+    this.buf.addTick(price, time);
+    this.tickIndex++;
+
+    if (!this.buf.isReady(20)) return; // not enough data yet
+
+    const snapshot = this._runCycle();
+    if (this.onCycle) this.onCycle(snapshot);
+
+    // adaptive learning check (fire-and-forget, batches of 100 settled trades)
+    this.learning.maybeEvaluate();
+  }
+
+  _runCycle() {
+    const buf = this.buf;
+    const velocity = Features.velocity(buf);
+    this.velocityHistory.push(velocity);
+    if (this.velocityHistory.length > 50) this.velocityHistory.shift();
+
+    const acceleration = Features.acceleration(this.velocityHistory);
+    const volatility = Features.volatility(buf, 20);
+    this.volatilityHistory.push(volatility);
+    if (this.volatilityHistory.length > 50) this.volatilityHistory.shift();
+
+    const atrVal = Features.atr(buf, 14);
+    const rsiVal = Features.rsi(buf, 14);
+    const trend = Features.trendStrength(buf);
+    const boll = Features.bollinger(buf, 20, 2);
+
+    // volatility zone classification (relative to recent history)
+    const volSorted = [...this.volatilityHistory].sort((a, b) => a - b);
+    const volPct = volSorted.length ? volSorted.indexOf(volatility) / volSorted.length : 0;
+    let volatilityZone = 'LOW';
+    if (volPct > 0.9) volatilityZone = 'EXTREME';
+    else if (volPct > 0.7) volatilityZone = 'HIGH';
+    else if (volPct > 0.4) volatilityZone = 'MEDIUM';
+
+    const pattern = PatternDetector.detect(buf, this.velocityHistory, this.volatilityHistory);
+
+    const stateResult = this.stateMachine.transition(pattern, { volatilityZone, acceleration });
+    const behavior = MarketStateMachine.behaviorFor(stateResult.state);
+
+    const barrierAbs = this.barrierOffset != null ? buf.last + this.barrierOffset : null;
+    const dist = Features.barrierDistanceRatio(buf.last, barrierAbs, atrVal);
+
+    // spike detection: this tick's |delta| vastly exceeds recent average
+    const delta = Features.delta(buf);
+    const avgVel = avg(this.velocityHistory) || 1;
+    const spikeDetected = Math.abs(velocity) > avgVel * 4;
+
+    // EMA crossover flag (simple proxy using trend sign flip)
+    this._lastTrendSign = this._lastTrendSign ?? Math.sign(trend);
+    const emaCrossoverActive = Math.sign(trend) !== this._lastTrendSign && trend !== 0;
+    this._lastTrendSign = Math.sign(trend) || this._lastTrendSign;
+
+    // break strength from recent high/low
+    const range20 = buf.calculateRange(20);
+    const breakStrengthNorm = clamp01((Math.abs(delta) / (range20 / 20 + 1e-9)) / 3);
+
+    const trendAlignment = clamp01(Math.abs(trend) / (atrVal * 2 + 1e-9));
+    const rsiExtremeNorm = clamp01(Math.abs(rsiVal - 50) / 50);
+    const atrFavorability = dist ? clamp01(dist.ratio / 3) : 0;
+
+    const scoreCtx = {
+      velocity, velocityCap: avgVel * 2 || 1,
+      acceleration, accelCap: avgVel || 1,
+      volatility, volCap: Math.max(...this.volatilityHistory, 1e-9),
+      breakStrengthNorm, candleStrengthNorm: breakStrengthNorm,
+      trendAlignment, rsiExtremeNorm, atrFavorability,
+      patternConfidence: pattern.confidence,
+    };
+    const scoreResult = ScoringEngine.score(scoreCtx);
+
+    // bias: positive favors touch (expansion/trending), negative favors no-touch (exhaustion)
+    let bias = 0;
+    if (['BREAKOUT', 'TRENDING'].includes(stateResult.state)) bias = 0.7;
+    else if (stateResult.state === 'EXHAUSTED') bias = -0.7;
+    else if (stateResult.state === 'COMPRESSED') bias = 0.2;
+
+    const probs = ScoringEngine.toProbabilities(scoreResult, bias);
+    const band = ScoringEngine.decisionBand(scoreResult.score);
+
+    const validationCtx = {
+      touchScore: probs.touchScore,
+      noTouchScore: probs.noTouchScore,
+      distanceRatio: dist ? dist.ratio : null,
+      marketState: stateResult.state,
+      volatilityZone,
+      emaCrossoverActive,
+      spikeDetected,
+    };
+
+    const touchEval = TradeValidator.evaluateTouch(validationCtx);
+    const notouchEval = TradeValidator.evaluateNoTouch(validationCtx);
+    const rejections = TradeValidator.rejectionCheck(validationCtx);
+
+    let signal = null;
+    if (rejections.length === 0) {
+      if (touchEval.pass && this.tradeBias !== 'notouch_only') signal = touchEval;
+      else if (notouchEval.pass && this.tradeBias !== 'touch_only') signal = notouchEval;
+    }
+
+    const snapshot = {
+      tickIndex: this.tickIndex,
+      price: buf.last,
+      time: buf.timestamps[buf.timestamps.length - 1],
+      symbol: this.symbol,
+      features: { velocity, acceleration, volatility, atr: atrVal, rsi: rsiVal, trend, bollinger: boll, delta },
+      pattern,
+      marketState: stateResult.state,
+      stateChanged: stateResult.changed,
+      behavior,
+      volatilityZone,
+      distance: dist,
+      score: scoreResult,
+      probabilities: probs,
+      band,
+      validation: { touchEval, notouchEval, rejections },
+      signal,
+      barrierAbs,
+    };
+
+    if (signal) {
+      this._handleSignal(signal, snapshot);
+    }
+
+    return snapshot;
+  }
+
+  async _handleSignal(signal, snapshot) {
+    document.dispatchEvent(new CustomEvent('tnt:signal', { detail: snapshot }));
+    if (!this.executor) return;
+
+    const marketCtx = {
+      symbol: this.symbol,
+      barrierOffset: this.barrierOffset,
+      duration: this.duration,
+      durationUnit: this.durationUnit,
+      currency: this.currency,
+      currentPrice: snapshot.price,
+      touchScore: snapshot.probabilities.touchScore,
+      confidence: snapshot.probabilities.confidence,
+      marketState: snapshot.marketState,
+    };
+    const result = await this.executor.tryExecute(signal, marketCtx, this.tickIndex);
+    document.dispatchEvent(new CustomEvent('tnt:execution-result', { detail: { ...result, signal, snapshot } }));
+  }
+}
+
+
+/* ============================================================
+   SCREEN TEMPLATES (Part 1): Auth gate, Dashboard, Signals
+   ============================================================ */
+const Screens = {};
+
+Screens.authGate = () => `
+<div class="screen active" id="screen-auth" style="padding-top:40px;">
+  <div style="text-align:center;margin-bottom:28px;">
+    <div style="font-size:34px;margin-bottom:6px;">◎</div>
+    <div style="font-size:19px;font-weight:800;">TNT-APE</div>
+    <div class="muted tiny" style="margin-top:4px;">Touch / No Touch Probability Engine</div>
+  </div>
+
+  <div class="banner warn">
+    <span>⚠</span>
+    <span>This is a heuristic decision-support tool for a negative-expectancy synthetic instrument — not a profit guarantee. Trade only what you can afford to lose.</span>
+  </div>
+
+  <div class="banner info">
+    <span>ⓘ</span>
+    <span>Uses Deriv's current API system (developers.deriv.com). Legacy App IDs from app.deriv.com will not work here — register a new app first.</span>
+  </div>
+
+  <div class="card">
+    <div class="field">
+      <label>App ID</label>
+      <input id="inputAppId" type="text" inputmode="numeric" placeholder="e.g. 99001" autocomplete="off">
+      <div class="hint">From developers.deriv.com → Dashboard → your registered app.</div>
+    </div>
+    <div class="field" id="clientIdField" style="margin-bottom:0;">
+      <label>OAuth Client ID <span class="faint">(only needed for OAuth login)</span></label>
+      <input id="inputClientId" type="text" placeholder="Leave blank to reuse App ID" autocomplete="off">
+    </div>
+  </div>
+
+  <div class="section-label">Connect Account</div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="row" style="margin-bottom:10px;">
+      <div class="bold">OAuth2 Login</div>
+      <span class="badge badge-neutral">Recommended</span>
+    </div>
+    <div class="tiny muted" style="margin-bottom:10px;">Authorization Code + PKCE flow. Redirects to Deriv's sign-in page — no password or long-lived token touches this app.</div>
+    <button class="btn btn-primary btn-block" onclick="UI.startOAuth()">Continue with Deriv Login</button>
+  </div>
+
+  <div class="card">
+    <div class="bold" style="margin-bottom:10px;">Personal Access Token</div>
+    <div class="field" style="margin-bottom:8px;">
+      <input id="inputPAT" type="password" placeholder="Paste your PAT" autocomplete="off">
+      <div class="hint">Generate under your app's API tokens section (scopes: trade, account_manage). Held in memory only for this session — never written to localStorage.</div>
+    </div>
+    <button class="btn btn-ghost btn-block" onclick="UI.usePAT()">Connect with Token</button>
+  </div>
+
+  <div id="authStatus" class="tiny muted" style="text-align:center;margin-top:14px;"></div>
+</div>
+`;
+
+Screens.accountPicker = (accounts) => `
+<div class="modal-handle"></div>
+<div class="modal-title">Choose an Account</div>
+<div class="tiny muted" style="margin-top:4px;margin-bottom:12px;">Pick which Options trading account to open a live session against.</div>
+${accounts.map(a => `
+  <div class="card row" style="cursor:pointer;" onclick="UI.selectAccountAndConnect('${a.account_id || a.loginid}')">
+    <div>
+      <div class="bold tiny">${a.account_id || a.loginid}</div>
+      <div class="faint tiny">${a.currency || ''}</div>
+    </div>
+    <span class="badge ${a.account_type === 'demo' || a.is_virtual ? 'badge-neutral' : 'badge-touch'}">${(a.account_type === 'demo' || a.is_virtual) ? 'DEMO' : 'REAL'}</span>
+  </div>`).join('')}
+`;
+
+Screens.dashboard = () => `
+<div class="screen" id="screen-dashboard">
+
+  <div id="riskBanner"></div>
+
+  <div class="card">
+    <div class="row">
+      <div style="flex:1;">
+        <div class="row" style="margin-bottom:2px;">
+          <div class="tiny faint">Symbol</div>
+          <button class="icon-btn" style="width:24px;height:24px;font-size:12px;" onclick="UI.refreshMarkets()" title="Refresh markets">⟲</button>
+        </div>
+        <select id="symbolSelect" style="background:none;border:none;color:var(--text);font-size:17px;font-weight:800;padding:0;margin-top:2px;width:100%;">
+          <option value="">Select market…</option>
+        </select>
+      </div>
+      <div style="text-align:right;">
+        <div class="tiny faint">Last Price</div>
+        <div id="lastPrice" class="mono bold" style="font-size:17px;">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card" style="margin-bottom:10px;">
+      <div class="tiny faint">Market State</div>
+      <div id="marketStateBadge" style="margin-top:6px;"><span class="badge badge-neutral">IDLE</span></div>
+      <div id="stateBehavior" class="tiny muted" style="margin-top:6px;">No active symbol.</div>
+    </div>
+    <div class="card" style="margin-bottom:10px;">
+      <div class="tiny faint">Volatility</div>
+      <div id="volZoneBadge" style="margin-top:6px;"><span class="badge badge-neutral">—</span></div>
+      <div id="distanceInfo" class="tiny muted" style="margin-top:6px;">Set a barrier to see distance.</div>
+    </div>
+  </div>
+
+  <div class="section-label">Heuristic Confidence <span class="hint">not a calibrated probability</span></div>
+  <div class="card">
+    <div class="row" style="margin-bottom:6px;">
+      <span class="tiny bold" style="color:var(--touch);">TOUCH</span>
+      <span class="tiny mono" id="touchScoreLabel">—</span>
+    </div>
+    <div class="meter"><div class="meter-fill touch" id="touchMeter" style="width:0%;"></div></div>
+
+    <div class="row" style="margin-top:14px;margin-bottom:6px;">
+      <span class="tiny bold" style="color:var(--notouch);">NO TOUCH</span>
+      <span class="tiny mono" id="notouchScoreLabel">—</span>
+    </div>
+    <div class="meter"><div class="meter-fill notouch" id="notouchMeter" style="width:0%;"></div></div>
+
+    <hr class="sep">
+    <div class="row">
+      <span class="tiny muted">Decision band</span>
+      <span id="decisionBandBadge" class="badge badge-neutral">—</span>
+    </div>
+    <div class="row">
+      <span class="tiny muted">Pattern</span>
+      <span id="patternLabel" class="tiny mono">—</span>
+    </div>
+  </div>
+
+  <div class="section-label">Trade Configuration</div>
+  <div class="card">
+    <div class="grid-2">
+      <div class="field" style="margin-bottom:8px;">
+        <label>Barrier offset (±)</label>
+        <input id="barrierOffset" type="number" step="0.01" placeholder="e.g. 0.50">
+      </div>
+      <div class="field" style="margin-bottom:8px;">
+        <label>Duration</label>
+        <div style="display:flex;gap:6px;">
+          <input id="durationVal" type="number" value="5" style="flex:1;">
+          <select id="durationUnit" style="background:var(--bg-card-hi);border:1px solid var(--border-hi);border-radius:10px;color:var(--text);padding:0 8px;">
+            <option value="t">ticks</option>
+            <option value="s">sec</option>
+            <option value="m" selected>min</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-ghost btn-block btn-sm" onclick="UI.applyTradeConfig()">Apply Configuration</button>
+  </div>
+
+  <div class="section-label">Auto-Execution
+    <span class="hint" id="autoExecStatusLabel">OFF</span>
+  </div>
+  <div class="card">
+    <div class="row">
+      <div>
+        <div class="bold tiny">Auto-execute signals</div>
+        <div class="faint tiny" style="margin-top:2px;">Bot will fire trades automatically when risk engine allows</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="autoExecToggle" onchange="UI.toggleAutoExecute(this.checked)">
+        <span class="track"><span class="thumb"></span></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="section-label">Manual Trade</div>
+  <div class="card">
+    <div class="grid-2">
+      <button class="btn btn-touch" onclick="UI.manualTrade('BUY_TOUCH')">Buy Touch</button>
+      <button class="btn btn-notouch" onclick="UI.manualTrade('BUY_NOTOUCH')">Buy No Touch</button>
+    </div>
+    <div class="tiny faint" style="margin-top:8px;text-align:center;" id="stakePreview">Stake: —</div>
+  </div>
+
+</div>
+`;
+
+Screens.signals = () => `
+<div class="screen" id="screen-signals">
+  <div class="section-label">Live Signal Feed</div>
+  <div id="signalFeed">
+    <div class="empty-state">
+      <div class="ic">⚡</div>
+      <div class="t">No signals yet</div>
+      <div class="s">Signals appear here as the engine evaluates each tick.</div>
+    </div>
+  </div>
+
+  <div class="section-label">Engine Diagnostics</div>
+  <div class="card mono tiny" id="diagnosticsPanel" style="line-height:1.7;">
+    <div class="muted">Waiting for tick stream…</div>
+  </div>
+</div>
+`;
+
+
+/* ============================================================
+   SCREEN TEMPLATES (Part 2): Positions, History, Settings
+   ============================================================ */
+
+Screens.positions = () => `
+<div class="screen" id="screen-positions">
+  <div class="section-label">Open Positions</div>
+  <div id="positionsList">
+    <div class="empty-state">
+      <div class="ic">▤</div>
+      <div class="t">No open positions</div>
+      <div class="s">Active contracts will appear here with live P/L.</div>
+    </div>
+  </div>
+</div>
+`;
+
+Screens.history = () => `
+<div class="screen" id="screen-history">
+  <div class="section-label">Performance Summary</div>
+  <div class="grid-3">
+    <div class="card" style="text-align:center;padding:12px 8px;">
+      <div class="tiny faint">Win Rate</div>
+      <div id="statWinRate" class="bold mono" style="font-size:18px;margin-top:4px;">—</div>
+    </div>
+    <div class="card" style="text-align:center;padding:12px 8px;">
+      <div class="tiny faint">Profit Factor</div>
+      <div id="statProfitFactor" class="bold mono" style="font-size:18px;margin-top:4px;">—</div>
+    </div>
+    <div class="card" style="text-align:center;padding:12px 8px;">
+      <div class="tiny faint">Total P/L</div>
+      <div id="statTotalPnl" class="bold mono" style="font-size:18px;margin-top:4px;">—</div>
+    </div>
+  </div>
+
+  <div class="section-label">Trade Log</div>
+  <div id="tradeLog">
+    <div class="empty-state">
+      <div class="ic">≡</div>
+      <div class="t">No trades yet</div>
+      <div class="s">Settled trades will be logged here.</div>
+    </div>
+  </div>
+
+  <div class="section-label">Adaptive Learning Proposals
+    <span class="hint">manual approval required</span>
+  </div>
+  <div id="learningProposals">
+    <div class="empty-state">
+      <div class="ic">◈</div>
+      <div class="t">No proposals yet</div>
+      <div class="s">Generated every 100 settled trades from out-of-sample performance.</div>
+    </div>
+  </div>
+</div>
+`;
+
+Screens.settings = () => `
+<div class="screen" id="screen-settings">
+
+  <div class="section-label">Account</div>
+  <div class="card">
+    <div class="row">
+      <div class="tiny muted">Login ID</div>
+      <div id="settingsLoginId" class="mono tiny bold">—</div>
+    </div>
+    <div class="row">
+      <div class="tiny muted">Auth method</div>
+      <div id="settingsAuthMethod" class="mono tiny bold">—</div>
+    </div>
+    <div class="row">
+      <div class="tiny muted">Currency</div>
+      <div id="settingsCurrency" class="mono tiny bold">—</div>
+    </div>
+    <button class="btn btn-danger btn-block btn-sm" style="margin-top:12px;" onclick="UI.logout()">Disconnect & Log Out</button>
+  </div>
+
+  <div class="section-label">Risk Management <span class="hint">hard-enforced limits</span></div>
+  <div class="card">
+    <div class="field">
+      <label>Risk per trade (% of balance)</label>
+      <input id="riskPerTrade" type="number" step="0.1" min="0.1" max="2" value="1.0">
+      <div class="hint">Hard ceiling: 2.0% — cannot be exceeded regardless of input.</div>
+    </div>
+    <div class="field">
+      <label>Daily drawdown limit (%)</label>
+      <input id="riskDailyDD" type="number" step="0.5" min="1" value="5">
+    </div>
+    <div class="field">
+      <label>Max consecutive losses before pause</label>
+      <input id="riskMaxLosses" type="number" step="1" min="1" value="3">
+    </div>
+    <div class="field">
+      <label>Cooldown after trigger (minutes)</label>
+      <input id="riskCooldown" type="number" step="5" min="5" value="30">
+    </div>
+    <button class="btn btn-primary btn-block btn-sm" onclick="UI.saveRiskConfig()">Save Risk Settings</button>
+  </div>
+
+  <div class="section-label">Trade Bias</div>
+  <div class="card">
+    <select id="tradeBiasSelect" onchange="UI.setTradeBias(this.value)" style="width:100%;background:var(--bg-card-hi);border:1px solid var(--border-hi);border-radius:10px;padding:11px;color:var(--text);">
+      <option value="auto">Auto (Touch + No Touch)</option>
+      <option value="touch_only">Touch signals only</option>
+      <option value="notouch_only">No Touch signals only</option>
+    </select>
+  </div>
+
+  <div class="section-label">Connection</div>
+  <div class="card">
+    <div class="row">
+      <div class="tiny muted">Status</div>
+      <div id="settingsConnStatus" class="tiny bold">Disconnected</div>
+    </div>
+    <div class="row">
+      <div class="tiny muted">Endpoint</div>
+      <div id="settingsEndpointType" class="tiny bold mono">—</div>
+    </div>
+    <div class="row">
+      <div class="tiny muted">Reconnect attempts</div>
+      <div id="settingsReconnectCount" class="tiny mono">0</div>
+    </div>
+  </div>
+
+  <div class="section-label">About</div>
+  <div class="card tiny muted" style="line-height:1.6;">
+    TNT-APE scores Touch/No Touch setups using a fixed-weight heuristic over tick velocity, acceleration, volatility, pattern detection, and barrier distance. It is <b>not</b> a calibrated statistical model and synthetic indices carry a structural house edge. Use this as one input among many, size positions conservatively, and never trade funds you can't afford to lose.
+  </div>
+
+</div>
+`;
+
+Screens.accountSheet = () => `
+<div class="modal-handle"></div>
+<div class="modal-title">Accounts</div>
+<div id="accountSheetList" style="margin-top:10px;"></div>
+`;
+
+Screens.tradeConfirmSheet = (data) => `
+<div class="modal-handle"></div>
+<div class="modal-title">Confirm ${data.label}</div>
+<div class="card" style="margin-top:12px;">
+  <div class="row"><span class="tiny muted">Symbol</span><span class="mono tiny bold">${data.symbol}</span></div>
+  <div class="row"><span class="tiny muted">Stake</span><span class="mono tiny bold">${data.stake} ${data.currency}</span></div>
+  <div class="row"><span class="tiny muted">Duration</span><span class="mono tiny bold">${data.duration}${data.durationUnit}</span></div>
+  <div class="row"><span class="tiny muted">Barrier offset</span><span class="mono tiny bold">${data.barrier ?? '—'}</span></div>
+</div>
+<div class="banner warn" style="margin-top:10px;">
+  <span>⚠</span><span>This places a real order on your connected account.</span>
+</div>
+<div class="grid-2" style="margin-top:12px;">
+  <button class="btn btn-ghost" onclick="UI.closeModal()">Cancel</button>
+  <button class="btn btn-primary" onclick="UI.confirmManualTrade()">Confirm</button>
+</div>
+`;
+
+
+/* ============================================================
+   UI CONTROLLER
+   ============================================================ */
+const UI = {
+  state: {
+    screen: 'dashboard',
+    authenticated: false,
+    account: null,
+    accounts: [],
+    symbols: [],
+    pendingManualTrade: null,
+  },
+
+  api: null,
+  risk: null,
+  storage: null,
+  executor: null,
+  orchestrator: null,
+
+  async init() {
+    document.getElementById('screens').innerHTML = Screens.authGate();
+    this.storage = new Storage();
+    await this.storage.open();
+
+    const savedAppId = await this.storage.get('settings', 'appId');
+    if (savedAppId) document.getElementById('inputAppId').value = savedAppId.value;
+
+    // handle OAuth redirect return (new system uses ?code=&state=, not ?acct1=&token1=)
+    if (location.search.includes('code=')) {
+      await this._handleOAuthReturn();
+    }
+
+    this._wireGlobalEvents();
+  },
+
+  toast(message, type = 'info') {
+    const stack = document.getElementById('toastStack');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.textContent = message;
+    stack.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, 4000);
+  },
+
+  log(message, level = 'info') {
+    // mirrors to diagnostics panel + optionally toasts on warn/danger/success
+    const panel = document.getElementById('diagnosticsPanel');
+    if (panel) {
+      const time = new Date().toLocaleTimeString();
+      const colorMap = { info: 'var(--text-dim)', warn: 'var(--notouch)', danger: 'var(--danger)', success: 'var(--touch)' };
+      const line = document.createElement('div');
+      line.innerHTML = `<span style="color:var(--text-faint)">${time}</span> <span style="color:${colorMap[level] || colorMap.info}">${message}</span>`;
+      if (panel.querySelector('.muted')) panel.innerHTML = '';
+      panel.prepend(line);
+      while (panel.children.length > 60) panel.removeChild(panel.lastChild);
+    }
+    if (level === 'warn' || level === 'danger' || level === 'success') this.toast(message, level);
+    console.log(`[TNT-APE][${level}]`, message);
+  },
+
+  // ---------------- AUTH FLOW ----------------
+  async startOAuth() {
+    const appId = document.getElementById('inputAppId').value.trim();
+    const clientId = document.getElementById('inputClientId').value.trim() || appId;
+    if (!appId) return this.toast('Enter your Deriv App ID first', 'warn');
+    await this.storage.put('settings', { key: 'appId', value: appId });
+    await this.storage.put('settings', { key: 'clientId', value: clientId });
+
+    const redirectUri = location.origin + location.pathname;
+    const tempApi = new DerivAPIService({ appId, clientId });
+    const url = await tempApi.buildOAuthUrl(redirectUri);
+    document.getElementById('authStatus').textContent = 'Redirecting to Deriv…';
+    window.location.href = url;
+  },
+
+  async _handleOAuthReturn() {
+    if (!window.location.search.includes('code=')) return;
+    const savedAppId = (await this.storage.get('settings', 'appId'))?.value;
+    const savedClientId = (await this.storage.get('settings', 'clientId'))?.value || savedAppId;
+    if (!savedAppId) return; // nothing to resume — App ID was lost (e.g. storage cleared)
+
+    document.getElementById('authStatus').innerHTML = '<span class="spinner"></span> Completing sign-in…';
+    const redirectUri = location.origin + location.pathname;
+    const tempApi = new DerivAPIService({ appId: savedAppId, clientId: savedClientId });
+
+    try {
+      await tempApi.exchangeOAuthCode(redirectUri);
+      history.replaceState({}, '', location.pathname); // clean ?code=&state= from URL
+      await this._afterTokenObtained(tempApi, 'oauth');
+    } catch (err) {
+      document.getElementById('authStatus').innerHTML = `<span style="color:var(--danger)">OAuth exchange failed: ${err.message}</span>`;
+      this.log(`OAuth exchange failed: ${err.message}`, 'danger');
+    }
+  },
+
+  async usePAT() {
+    const appId = document.getElementById('inputAppId').value.trim();
+    const clientId = document.getElementById('inputClientId').value.trim() || appId;
+    const pat = document.getElementById('inputPAT').value.trim();
+    if (!appId) return this.toast('Enter your Deriv App ID first', 'warn');
+    if (!pat) return this.toast('Paste a Personal Access Token', 'warn');
+    await this.storage.put('settings', { key: 'appId', value: appId });
+    await this.storage.put('settings', { key: 'clientId', value: clientId });
+
+    const tempApi = new DerivAPIService({ appId, clientId });
+    tempApi.setPAT(pat);
+    await this._afterTokenObtained(tempApi, 'pat');
+  },
+
+  // Common path once we have a Bearer token (PAT or OAuth JWT), regardless of method:
+  // list accounts via REST, then let the user pick which one to open a session on.
+  async _afterTokenObtained(tempApi, method) {
+    document.getElementById('authStatus').innerHTML = '<span class="spinner"></span> Loading accounts…';
+    this._pendingApi = tempApi;
+    this._pendingAuthMethod = method;
+    try {
+      const res = await tempApi.getAccounts();
+      const accounts = res.data || res.accounts || [];
+      if (accounts.length === 0) {
+        document.getElementById('authStatus').innerHTML = '<span style="color:var(--danger)">No accounts found on this token.</span>';
+        return;
+      }
+      this.state.accounts = accounts;
+      if (accounts.length === 1) {
+        await this.selectAccountAndConnect(accounts[0].account_id || accounts[0].loginid);
+      } else {
+        const overlay = document.getElementById('modalOverlay');
+        overlay.innerHTML = `<div class="modal-sheet">${Screens.accountPicker(accounts)}</div>`;
+        overlay.classList.add('open');
+        document.getElementById('authStatus').textContent = 'Choose an account to continue.';
+      }
+    } catch (err) {
+      document.getElementById('authStatus').innerHTML = `<span style="color:var(--danger)">Failed to load accounts: ${err.message}</span>`;
+      this.log(`getAccounts failed: ${err.message}`, 'danger');
+    }
+  },
+
+  // Called from the account picker: requests an OTP for the chosen account and
+  // opens the actual trading WebSocket session against it.
+  async selectAccountAndConnect(accountId) {
+    this.closeModal();
+    document.getElementById('authStatus').innerHTML = '<span class="spinner"></span> Opening trading session…';
+
+    this.api = this._pendingApi;
+    this.risk = new RiskEngine();
+    this.executor = new TradeExecutor({ api: this.api, risk: this.risk, storage: this.storage, logger: (m, l) => this.log(m, l) });
+    this.orchestrator = new EngineOrchestrator({ api: this.api, risk: this.risk, executor: this.executor, storage: this.storage, logger: (m, l) => this.log(m, l) });
+    this._wireApiEvents();
+
+    try {
+      await this.api.connect({ mode: 'authenticated', accountId });
+      const balanceRes = await this.api.getBalance();
+      const acctMeta = this.state.accounts.find(a => (a.account_id || a.loginid) === accountId) || {};
+
+      this.state.account = {
+        loginid: accountId,
+        balance: balanceRes.balance?.balance ?? 0,
+        currency: balanceRes.balance?.currency ?? acctMeta.currency ?? 'USD',
+        is_virtual: this.api.wsEndpointType === 'demo',
+      };
+
+      this.risk.setBalance(this.state.account.balance);
+      await this._loadSymbols();
+      this._mountMainApp();
+      this.log(`Session opened on ${accountId} (${this.api.wsEndpointType.toUpperCase()}) via ${this.api.authMethod.toUpperCase()}`, 'success');
+    } catch (err) {
+      document.getElementById('authStatus').innerHTML = `<span style="color:var(--danger)">Connection failed: ${err.message}</span>`;
+      this.log(`Connect failed: ${err.message}`, 'danger');
+    }
+  },
+
+  // Known synthetic-index underlying_symbol prefixes — these codes are stable
+  // across both the legacy and new Deriv API (confirmed via 1HZ100V, R_50, R_100
+  // appearing unchanged in every current Deriv example). Used only to pick a
+  // sensible *default* group to highlight — never to hide anything.
+  _SYNTHETIC_PREFIXES: ['R_', '1HZ', 'BOOM', 'CRASH', 'JD', 'RDBULL', 'RDBEAR', 'STP', 'WLD'],
+
+  _looksLikeSyntheticIndex(s) {
+    const code = (s.underlying_symbol || '').toUpperCase();
+    const type = (s.underlying_symbol_type || s.market || '').toLowerCase();
+    if (type.includes('synthetic') || type.includes('continuous')) return true;
+    return this._SYNTHETIC_PREFIXES.some(p => code.startsWith(p));
+  },
+
+  // Renders a grouped, searchable symbol picker instead of a flat <select> —
+  // groups by whatever market/category value the API actually returns, so the
+  // UI never depends on guessing a single filter string correctly.
+  async _loadSymbols() {
+    const select = document.getElementById('symbolSelect');
+    try {
+      const res = await this.api.getActiveSymbols();
+      const all = res.active_symbols || [];
+
+      if (all.length === 0) {
+        this.log('active_symbols returned zero symbols — check account/landing company access', 'danger');
+        this.state.symbols = [];
+        if (select) select.innerHTML = '<option value="">No markets available</option>';
+        return;
+      }
+
+      this.state.symbols = all;
+      const synthetic = all.filter(s => this._looksLikeSyntheticIndex(s));
+      const groups = new Map(); // groupLabel -> symbols[]
+      if (synthetic.length > 0) groups.set('Volatility / Synthetic Indices', synthetic);
+
+      const rest = all.filter(s => !synthetic.includes(s));
+      rest.forEach(s => {
+        const label = s.market || s.underlying_symbol_type || 'Other';
+        if (!groups.has(label)) groups.set(label, []);
+        groups.get(label).push(s);
+      });
+
+      if (select) {
+        let html = '<option value="">Select market…</option>';
+        for (const [label, syms] of groups) {
+          html += `<optgroup label="${label} (${syms.length})">`;
+          html += syms.map(s => `<option value="${s.underlying_symbol}">${s.underlying_symbol_name || s.underlying_symbol}</option>`).join('');
+          html += '</optgroup>';
+        }
+        select.innerHTML = html;
+      }
+
+      if (synthetic.length === 0) {
+        const distinctTypes = [...new Set(all.map(s => s.underlying_symbol_type || s.market))];
+        this.log(`No symbols matched synthetic-index detection. Categories present: ${distinctTypes.join(', ')}. Showing all ${all.length} markets grouped below — pick a Volatility/Boom/Crash style symbol manually.`, 'warn');
+      } else {
+        this.log(`Loaded ${all.length} symbols (${synthetic.length} synthetic indices)`, 'success');
+      }
+    } catch (e) {
+      this.log(`Failed to load symbol list: ${e.message || JSON.stringify(e)}`, 'warn');
+      if (select) select.innerHTML = '<option value="">Failed to load — retry below</option>';
+    }
+  },
+
+  logout() {
+    if (this.api) this.api.disconnect();
+    this.state.authenticated = false;
+    this.state.account = null;
+    document.getElementById('screens').innerHTML = Screens.authGate();
+    this.toast('Disconnected', 'info');
+  },
+
+  // ---------------- MAIN APP MOUNT ----------------
+  _mountMainApp() {
+    document.getElementById('screens').innerHTML =
+      Screens.dashboard() + Screens.signals() + Screens.positions() + Screens.history() + Screens.settings();
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-dashboard').classList.add('active');
+
+    this._renderAccountChip();
+    this._renderSettingsAccount();
+    this._renderConnDot('live');
+    this._bindSymbolSelect();
+    this._refreshHistoryScreen();
+    this._subscribeBalanceStream();
+  },
+
+  switchScreen(name) {
+    this.state.screen = name;
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    const screenEl = document.getElementById(`screen-${name}`);
+    if (screenEl) screenEl.classList.add('active');
+    const tabEl = document.querySelector(`.tab[data-screen="${name}"]`);
+    if (tabEl) tabEl.classList.add('active');
+    if (name === 'history') this._refreshHistoryScreen();
+    if (name === 'positions') this._refreshPositionsScreen();
+  },
+
+  _renderConnDot(status) {
+    const dot = document.getElementById('connDot');
+    const label = document.getElementById('connLabel');
+    if (!dot) return;
+    dot.className = `brand-dot ${status}`;
+    const labels = { live: 'Connected', connecting: 'Reconnecting…', error: 'Connection error', '': 'Disconnected' };
+    label.textContent = labels[status] || 'Disconnected';
+    const settingsConn = document.getElementById('settingsConnStatus');
+    if (settingsConn) settingsConn.textContent = labels[status] || 'Disconnected';
+  },
+
+  _renderAccountChip() {
+    const acc = this.state.account;
+    if (!acc) return;
+    document.getElementById('acctTag').className = acc.is_virtual ? 'demo-tag' : 'real-tag';
+    document.getElementById('acctTag').textContent = acc.is_virtual ? 'DEMO' : 'REAL';
+    document.getElementById('acctBalance').textContent = `${acc.balance} ${acc.currency}`;
+  },
+
+  _renderSettingsAccount() {
+    const acc = this.state.account;
+    if (!acc) return;
+    document.getElementById('settingsLoginId').textContent = acc.loginid;
+    document.getElementById('settingsAuthMethod').textContent = this.api.authMethod?.toUpperCase() || '—';
+    document.getElementById('settingsCurrency').textContent = acc.currency;
+    const epEl = document.getElementById('settingsEndpointType');
+    if (epEl) epEl.textContent = this.api.wsEndpointType ? this.api.wsEndpointType.toUpperCase() : '—';
+  },
+};
+
+
+/* ============================================================
+   UI CONTROLLER (Part 2): dashboard rendering, trades, events
+   ============================================================ */
+Object.assign(UI, {
+
+  async refreshMarkets() {
+    this.toast('Refreshing markets…', 'info');
+    await this._loadSymbols();
+  },
+
+  _bindSymbolSelect() {
+    const select = document.getElementById('symbolSelect');
+    select.addEventListener('change', async (e) => {
+      const symbol = e.target.value;
+      if (!symbol) return;
+      try {
+        await this.api.unsubscribeAll();
+      } catch (err) { /* ignore */ }
+      await this.orchestrator.startSymbol(symbol);
+      this.orchestrator.onCycle = (snapshot) => this._renderDashboard(snapshot);
+      this.log(`Subscribed to ${symbol} tick stream`, 'info');
+    });
+  },
+
+  applyTradeConfig() {
+    const offset = parseFloat(document.getElementById('barrierOffset').value);
+    const duration = parseInt(document.getElementById('durationVal').value, 10);
+    const durationUnit = document.getElementById('durationUnit').value;
+    if (!this.orchestrator) return;
+    this.orchestrator.barrierOffset = isNaN(offset) ? null : offset;
+    this.orchestrator.duration = isNaN(duration) ? 5 : duration;
+    this.orchestrator.durationUnit = durationUnit;
+    this.orchestrator.currency = this.state.account?.currency || 'USD';
+    this.toast('Trade configuration applied', 'success');
+  },
+
+  toggleAutoExecute(enabled) {
+    if (!this.executor) return;
+    if (enabled) {
+      // require explicit secondary confirmation for auto-execution
+      this._confirmAutoExecute();
+    } else {
+      this.executor.setAutoExecute(false);
+      document.getElementById('autoExecStatusLabel').textContent = 'OFF';
+    }
+  },
+
+  _confirmAutoExecute() {
+    const overlay = document.getElementById('modalOverlay');
+    overlay.innerHTML = `
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <div class="modal-title">Enable Auto-Execution?</div>
+        <div class="tiny muted" style="margin-top:8px;line-height:1.5;">
+          The bot will place real trades automatically whenever a signal passes validation AND the risk engine allows it. Hard limits (drawdown, consecutive losses, max stake) stay enforced and cannot be bypassed from here.
+        </div>
+        <div class="grid-2" style="margin-top:16px;">
+          <button class="btn btn-ghost" onclick="UI._cancelAutoExecute()">Cancel</button>
+          <button class="btn btn-primary" onclick="UI._acceptAutoExecute()">Enable</button>
+        </div>
+      </div>`;
+    overlay.classList.add('open');
+  },
+
+  _cancelAutoExecute() {
+    document.getElementById('autoExecToggle').checked = false;
+    this.closeModal();
+  },
+
+  _acceptAutoExecute() {
+    this.executor.setAutoExecute(true);
+    document.getElementById('autoExecStatusLabel').textContent = 'ON';
+    this.closeModal();
+  },
+
+  manualTrade(signalType) {
+    if (!this.orchestrator || !this.orchestrator.symbol) return this.toast('Select a symbol first', 'warn');
+    const stake = this.risk.stakeSize();
+    this.state.pendingManualTrade = {
+      signal: signalType,
+      label: signalType === 'BUY_TOUCH' ? 'Touch Trade' : 'No Touch Trade',
+      symbol: this.orchestrator.symbol,
+      stake,
+      currency: this.orchestrator.currency,
+      duration: this.orchestrator.duration,
+      durationUnit: this.orchestrator.durationUnit,
+      barrier: this.orchestrator.barrierOffset,
+    };
+    const overlay = document.getElementById('modalOverlay');
+    overlay.innerHTML = `<div class="modal-sheet">${Screens.tradeConfirmSheet(this.state.pendingManualTrade)}</div>`;
+    overlay.classList.add('open');
+  },
+
+  async confirmManualTrade() {
+    const t = this.state.pendingManualTrade;
+    if (!t) return;
+    this.closeModal();
+    const marketCtx = {
+      symbol: t.symbol, barrierOffset: t.barrier, duration: t.duration,
+      durationUnit: t.durationUnit, currency: t.currency,
+      currentPrice: this.orchestrator.buf.last,
+      touchScore: null, confidence: null, marketState: this.orchestrator.stateMachine.state,
+    };
+    const gate = this.risk.canTrade(this.orchestrator.tickIndex);
+    if (!gate.allowed) {
+      return this.toast(`Blocked by risk engine: ${gate.blockers.join('; ')}`, 'danger');
+    }
+    const result = await this.executor.execute({ signal: t.signal }, marketCtx, this.orchestrator.tickIndex);
+    if (result.executed) this.toast('Trade placed', 'success');
+  },
+
+  closeModal() {
+    document.getElementById('modalOverlay').classList.remove('open');
+    document.getElementById('modalOverlay').innerHTML = '';
+  },
+
+  openAccountSheet() {
+    if (!this.state.accounts.length) return;
+    const overlay = document.getElementById('modalOverlay');
+    overlay.innerHTML = `<div class="modal-sheet">${Screens.accountSheet()}</div>`;
+    const list = overlay.querySelector('#accountSheetList');
+    list.innerHTML = this.state.accounts.map(a => {
+      const id = a.account_id || a.loginid;
+      const isDemo = a.account_type === 'demo' || a.is_virtual;
+      return `
+      <div class="card row" style="cursor:pointer;" onclick="UI.switchAccount('${id}')">
+        <div>
+          <div class="bold tiny">${id}</div>
+          <div class="faint tiny">${a.currency || ''}</div>
+        </div>
+        <span class="badge ${isDemo ? 'badge-neutral' : 'badge-touch'}">${isDemo ? 'DEMO' : 'REAL'}</span>
+      </div>`;
+    }).join('');
+    overlay.classList.add('open');
+  },
+
+  // Same Bearer token, different account: the new API just needs a fresh OTP
+  // for the target accountId — no separate per-account token to track.
+  async switchAccount(accountId) {
+    try {
+      const balanceRes = await this.api.switchAccount(accountId);
+      const acctMeta = this.state.accounts.find(a => (a.account_id || a.loginid) === accountId) || {};
+      this.state.account = {
+        loginid: accountId,
+        balance: balanceRes.balance?.balance ?? 0,
+        currency: balanceRes.balance?.currency ?? acctMeta.currency ?? 'USD',
+        is_virtual: this.api.wsEndpointType === 'demo',
+      };
+      this.risk.resetDay(this.state.account.balance);
+      this._renderAccountChip();
+      this._renderSettingsAccount();
+      this.closeModal();
+      this.toast(`Switched to ${accountId} (${this.api.wsEndpointType.toUpperCase()})`, 'success');
+    } catch (e) {
+      this.toast(`Failed to switch account: ${e.message}`, 'danger');
+    }
+  },
+
+  saveRiskConfig() {
+    if (!this.risk) return;
+    const risk = parseFloat(document.getElementById('riskPerTrade').value) || 1.0;
+    const dd = parseFloat(document.getElementById('riskDailyDD').value) || 5.0;
+    const losses = parseInt(document.getElementById('riskMaxLosses').value, 10) || 3;
+    const cooldown = parseInt(document.getElementById('riskCooldown').value, 10) || 30;
+    this.risk.config.riskPerTradePct = Math.min(risk, this.risk.config.maxRiskPerTradePct);
+    this.risk.config.dailyDrawdownPct = dd;
+    this.risk.config.maxConsecutiveLosses = losses;
+    this.risk.config.cooldownMinutesAfterTrigger = cooldown;
+    this.toast('Risk settings saved', 'success');
+  },
+
+  setTradeBias(value) {
+    if (this.orchestrator) this.orchestrator.tradeBias = value;
+  },
+
+  // ---------------- DASHBOARD RENDERING ----------------
+  _renderDashboard(snap) {
+    const priceEl = document.getElementById('lastPrice');
+    if (priceEl) priceEl.textContent = snap.price.toFixed(4);
+
+    const stateBadge = document.getElementById('marketStateBadge');
+    const stateColorMap = {
+      TRENDING: 'badge-touch', BREAKOUT: 'badge-touch', EXHAUSTED: 'badge-notouch',
+      HIGH_RISK: 'badge-danger', COMPRESSED: 'badge-warn', REVERSING: 'badge-neutral', IDLE: 'badge-neutral',
+    };
+    if (stateBadge) stateBadge.innerHTML = `<span class="badge ${stateColorMap[snap.marketState] || 'badge-neutral'}">${snap.marketState}</span>`;
+    const behaviorEl = document.getElementById('stateBehavior');
+    if (behaviorEl) behaviorEl.textContent = snap.behavior.entry;
+
+    const volBadge = document.getElementById('volZoneBadge');
+    const volColorMap = { LOW: 'badge-neutral', MEDIUM: 'badge-warn', HIGH: 'badge-notouch', EXTREME: 'badge-danger' };
+    if (volBadge) volBadge.innerHTML = `<span class="badge ${volColorMap[snap.volatilityZone]}">${snap.volatilityZone}</span>`;
+    const distEl = document.getElementById('distanceInfo');
+    if (distEl) distEl.textContent = snap.distance ? `Ratio ${snap.distance.ratio.toFixed(2)} · ${snap.distance.zone}` : 'Set a barrier offset to see distance.';
+
+    document.getElementById('touchMeter').style.width = `${(snap.probabilities.touchScore * 100).toFixed(0)}%`;
+    document.getElementById('touchScoreLabel').textContent = fmtPct(snap.probabilities.touchScore);
+    document.getElementById('notouchMeter').style.width = `${(snap.probabilities.noTouchScore * 100).toFixed(0)}%`;
+    document.getElementById('notouchScoreLabel').textContent = fmtPct(snap.probabilities.noTouchScore);
+
+    const bandColorMap = { NO_TRADE: 'badge-neutral', WEAK: 'badge-warn', MODERATE: 'badge-notouch', STRONG: 'badge-touch' };
+    document.getElementById('decisionBandBadge').className = `badge ${bandColorMap[snap.band]}`;
+    document.getElementById('decisionBandBadge').textContent = snap.band.replace('_', ' ');
+    document.getElementById('patternLabel').textContent = snap.pattern.pattern.replace('MARKET_', '');
+
+    document.getElementById('stakePreview').textContent = `Stake: ${this.risk.stakeSize()} ${this.state.account?.currency || ''}`;
+
+    this._renderRiskBanner();
+    this._renderDiagnostics(snap);
+
+    if (snap.signal) this._pushSignalFeed(snap);
+  },
+
+  _renderRiskBanner() {
+    const el = document.getElementById('riskBanner');
+    if (!el || !this.risk) return;
+    const gate = this.risk.canTrade(this.orchestrator?.tickIndex || 0);
+    if (!gate.allowed) {
+      el.innerHTML = `<div class="banner danger"><span>⛔</span><span>${gate.blockers.join(' · ')}</span></div>`;
+    } else if (this.risk.drawdownPct() > this.risk.config.dailyDrawdownPct * 0.6) {
+      el.innerHTML = `<div class="banner warn"><span>⚠</span><span>Drawdown at ${this.risk.drawdownPct().toFixed(1)}% — approaching daily limit of ${this.risk.config.dailyDrawdownPct}%</span></div>`;
+    } else {
+      el.innerHTML = '';
+    }
+  },
+
+  _renderDiagnostics(snap) {
+    // lightweight always-on diagnostics line at top, log() handles the scroll history
+    const panel = document.getElementById('diagnosticsPanel');
+    if (!panel) return;
+  },
+
+  _pushSignalFeed(snap) {
+    const feed = document.getElementById('signalFeed');
+    if (!feed) return;
+    if (feed.querySelector('.empty-state')) feed.innerHTML = '';
+    const isTouch = snap.signal.signal === 'BUY_TOUCH';
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="row">
+        <span class="badge ${isTouch ? 'badge-touch' : 'badge-notouch'}">${snap.signal.signal.replace('BUY_', '')}</span>
+        <span class="tiny faint">${new Date(snap.time).toLocaleTimeString()}</span>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <span class="tiny muted">Price</span><span class="mono tiny">${snap.price.toFixed(4)}</span>
+      </div>
+      <div class="row">
+        <span class="tiny muted">Score</span><span class="mono tiny">${fmtPct(isTouch ? snap.probabilities.touchScore : snap.probabilities.noTouchScore)}</span>
+      </div>
+      <div class="row">
+        <span class="tiny muted">State</span><span class="mono tiny">${snap.marketState}</span>
+      </div>`;
+    feed.prepend(card);
+    while (feed.children.length > 30) feed.removeChild(feed.lastChild);
+  },
+
+  // ---------------- POSITIONS / HISTORY ----------------
+  async _refreshPositionsScreen() {
+    const list = document.getElementById('positionsList');
+    if (!list || !this.executor) return;
+    const active = Array.from(this.executor.activeContracts.values());
+    if (active.length === 0) {
+      list.innerHTML = `<div class="empty-state"><div class="ic">▤</div><div class="t">No open positions</div><div class="s">Active contracts will appear here with live P/L.</div></div>`;
+      return;
+    }
+    list.innerHTML = active.map(p => `
+      <div class="card">
+        <div class="row">
+          <span class="badge ${p.tradeType === 'TOUCH' ? 'badge-touch' : 'badge-notouch'}">${p.tradeType}</span>
+          <span class="tiny faint">${p.market}</span>
+        </div>
+        <div class="row" style="margin-top:8px;"><span class="tiny muted">Stake</span><span class="mono tiny">${p.stake}</span></div>
+        <div class="row"><span class="tiny muted">Entry</span><span class="mono tiny">${p.entryPrice}</span></div>
+      </div>`).join('');
+  },
+
+  async _refreshHistoryScreen() {
+    if (!this.storage) return;
+    const trades = (await this.storage.getAll('trades')).filter(t => t.result !== 'pending').sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const wins = trades.filter(t => t.result === 'win');
+    const losses = trades.filter(t => t.result === 'loss');
+    const winRate = trades.length ? wins.length / trades.length : 0;
+    const grossWin = wins.reduce((a, t) => a + t.profit, 0);
+    const grossLoss = Math.abs(losses.reduce((a, t) => a + t.profit, 0));
+    const pf = grossLoss > 0 ? grossWin / grossLoss : (grossWin > 0 ? Infinity : 0);
+    const totalPnl = trades.reduce((a, t) => a + t.profit, 0);
+
+    const winRateEl = document.getElementById('statWinRate');
+    if (winRateEl) winRateEl.textContent = trades.length ? fmtPct(winRate) : '—';
+    const pfEl = document.getElementById('statProfitFactor');
+    if (pfEl) pfEl.textContent = trades.length ? (pf === Infinity ? '∞' : pf.toFixed(2)) : '—';
+    const pnlEl = document.getElementById('statTotalPnl');
+    if (pnlEl) { pnlEl.textContent = trades.length ? totalPnl.toFixed(2) : '—'; pnlEl.style.color = totalPnl >= 0 ? 'var(--touch)' : 'var(--danger)'; }
+
+    const logEl = document.getElementById('tradeLog');
+    if (logEl) {
+      if (trades.length === 0) {
+        logEl.innerHTML = `<div class="empty-state"><div class="ic">≡</div><div class="t">No trades yet</div><div class="s">Settled trades will be logged here.</div></div>`;
+      } else {
+        logEl.innerHTML = trades.slice(0, 40).map(t => `
+          <div class="card row">
+            <div>
+              <div class="tiny bold">${t.market} · ${t.tradeType}</div>
+              <div class="tiny faint">${new Date(t.timestamp).toLocaleString()}</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="badge ${t.result === 'win' ? 'badge-touch' : 'badge-danger'}">${t.result.toUpperCase()}</div>
+              <div class="mono tiny" style="margin-top:4px;">${t.profit >= 0 ? '+' : ''}${t.profit.toFixed(2)}</div>
+            </div>
+          </div>`).join('');
+      }
+    }
+
+    const proposals = (await this.storage.getAll('weightProposals')).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const propEl = document.getElementById('learningProposals');
+    if (propEl) {
+      if (proposals.length === 0) {
+        propEl.innerHTML = `<div class="empty-state"><div class="ic">◈</div><div class="t">No proposals yet</div><div class="s">Generated every 100 settled trades from out-of-sample performance.</div></div>`;
+      } else {
+        propEl.innerHTML = proposals.map(p => `
+          <div class="card">
+            <div class="row">
+              <span class="tiny bold">Sample: ${p.sampleSize} trades</span>
+              <span class="badge ${p.status === 'pending_review' ? 'badge-warn' : p.status === 'applied' ? 'badge-touch' : 'badge-neutral'}">${p.status.replace('_', ' ')}</span>
+            </div>
+            <div class="tiny muted" style="margin-top:6px;">Win rate ${fmtPct(p.winRate)} · EV ${p.ev.toFixed(3)}</div>
+            <div class="tiny faint" style="margin-top:4px;">${p.rationale.join(' ')}</div>
+            ${p.status === 'pending_review' ? `
+              <div class="grid-2" style="margin-top:10px;">
+                <button class="btn btn-ghost btn-sm" onclick="UI._rejectProposal(${p.id})">Reject</button>
+                <button class="btn btn-primary btn-sm" onclick="UI._applyProposal(${p.id})">Approve</button>
+              </div>` : ''}
+          </div>`).join('');
+      }
+    }
+  },
+
+  async _applyProposal(id) {
+    const p = await this.storage.get('weightProposals', id);
+    if (!p) return;
+    await this.orchestrator.learning.applyProposal(p);
+    this._refreshHistoryScreen();
+  },
+  async _rejectProposal(id) {
+    const p = await this.storage.get('weightProposals', id);
+    if (!p) return;
+    await this.orchestrator.learning.rejectProposal(p);
+    this._refreshHistoryScreen();
+  },
+
+  // ---------------- EVENT WIRING ----------------
+  _subscribeBalanceStream() {
+    this.api.subscribeBalance((msg) => {
+      if (msg.balance) {
+        this.state.account.balance = msg.balance.balance;
+        this.risk.setBalance(msg.balance.balance);
+        this._renderAccountChip();
+      }
+    });
+  },
+
+  _wireApiEvents() {
+    this.api.addEventListener('connected', () => this._renderConnDot('live'));
+    this.api.addEventListener('disconnected', () => this._renderConnDot(''));
+    this.api.addEventListener('reconnecting', (e) => {
+      this._renderConnDot('connecting');
+      const el = document.getElementById('settingsReconnectCount');
+      if (el) el.textContent = e.detail.attempt;
+      this.log(`Reconnecting (attempt ${e.detail.attempt})…`, 'warn');
+    });
+    this.api.addEventListener('reconnected', () => {
+      this._renderConnDot('live');
+      this.log('Reconnected — subscriptions restored', 'success');
+    });
+    this.api.addEventListener('reconnect_failed', () => {
+      this._renderConnDot('error');
+      this.log('Reconnection failed after max attempts. Reconnect manually.', 'danger');
+    });
+    this.api.addEventListener('error', () => this._renderConnDot('error'));
+  },
+
+  _wireGlobalEvents() {
+    document.addEventListener('tnt:trade-settled', () => {
+      this._refreshHistoryScreen();
+      this._refreshPositionsScreen();
+    });
+    document.addEventListener('tnt:execution-result', (e) => {
+      if (e.detail.requiresManualConfirm) {
+        // surfaced via signal feed already; no action needed
+      }
+    });
+  },
+});
+
+document.addEventListener('DOMContentLoaded', () => UI.init());
+
+</script>
+</body>
+</html>

@@ -1,0 +1,1734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>OCTASENSE — Matches Prediction Terminal</title>
+<style>
+:root{
+  --bg:#0a0d12;
+  --panel:#10151d;
+  --panel2:#141b25;
+  --line:#212b38;
+  --amber:#f5a623;
+  --amber-dim:#8a6420;
+  --cyan:#22d3ee;
+  --cyan-dim:#0e5c6b;
+  --green:#3ddc84;
+  --red:#ff5a5f;
+  --text:#e8edf4;
+  --sub:#7c8898;
+  --mono:'JetBrains Mono', monospace;
+}
+*{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter',sans-serif;
+  min-height:100vh;
+  padding-bottom:70px;
+  overflow-x:hidden;
+}
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+
+.topbar{
+  position:sticky; top:0; z-index:50;
+  background:linear-gradient(180deg,#0d1119 0%, #0a0d12 100%);
+  border-bottom:1px solid var(--line);
+  padding:10px 14px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.brand{display:flex; align-items:center; gap:8px;}
+.brand-mark{
+  width:30px;height:30px;border-radius:7px;
+  background:conic-gradient(from 180deg, var(--amber), var(--cyan), var(--amber));
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-weight:800;font-size:13px;color:#0a0d12;
+}
+.brand-text{font-family:var(--mono);font-weight:700;font-size:15px;letter-spacing:1px;}
+.brand-text span{color:var(--amber);}
+.conn-pill{
+  display:flex; align-items:center; gap:6px;
+  font-family:var(--mono); font-size:10px; padding:5px 9px;
+  border-radius:20px; border:1px solid var(--line); background:var(--panel);
+  cursor:pointer;
+}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--red);}
+.dot.live{background:var(--green); box-shadow:0 0 6px var(--green);}
+.dot.pending{background:var(--amber); box-shadow:0 0 6px var(--amber);}
+
+.ticker{
+  background:var(--panel2); border-bottom:1px solid var(--line);
+  padding:7px 14px; font-family:var(--mono); font-size:11px;
+  display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
+}
+.ticker .t-item{color:var(--sub);}
+.ticker .t-val{color:var(--text); font-weight:600;}
+.ticker .t-digit{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:22px;height:22px;border-radius:5px;background:var(--amber);
+  color:#0a0d12; font-weight:800; margin-left:4px;
+}
+
+.view{display:none; padding:12px; animation:fade .2s ease;}
+.view.active{display:block;}
+@keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+.card{
+  background:var(--panel); border:1px solid var(--line); border-radius:10px;
+  padding:12px; margin-bottom:12px;
+}
+.card-h{
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:10px;
+}
+.card-title{
+  font-family:var(--mono); font-size:11px; letter-spacing:1.5px;
+  color:var(--sub); text-transform:uppercase; font-weight:600;
+}
+.card-title b{color:var(--amber);}
+.reset-btn{
+  font-family:var(--mono); font-size:10px; color:var(--sub);
+  background:var(--panel2); border:1px solid var(--line); border-radius:6px;
+  padding:4px 8px; cursor:pointer;
+}
+.reset-btn:active{background:var(--red); color:#fff; border-color:var(--red);}
+
+.stat-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+.stat-grid.g2{grid-template-columns:repeat(2,1fr);}
+.stat-box{
+  background:var(--panel2); border:1px solid var(--line); border-radius:8px;
+  padding:9px 8px; text-align:center;
+}
+.stat-label{font-family:var(--mono); font-size:9px; color:var(--sub); letter-spacing:.5px; text-transform:uppercase;}
+.stat-val{font-family:var(--mono); font-size:16px; font-weight:700; margin-top:3px;}
+.stat-val.pos{color:var(--green);}
+.stat-val.neg{color:var(--red);}
+.stat-val.amber{color:var(--amber);}
+.stat-val.cyan{color:var(--cyan);}
+
+.pred-box{
+  display:flex; gap:8px; justify-content:center; flex-wrap:wrap; padding:14px 4px;
+}
+.pred-digit{
+  width:52px;height:62px; border-radius:10px;
+  background:linear-gradient(160deg,#1a2130,#12161f);
+  border:1px solid var(--line);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  position:relative;
+}
+.pred-digit .n{font-family:var(--mono); font-size:24px; font-weight:800; color:var(--amber);}
+.pred-digit .p{font-family:var(--mono); font-size:9px; color:var(--cyan); margin-top:2px;}
+.pred-digit.rank1{border-color:var(--amber); box-shadow:0 0 14px rgba(245,166,35,.25);}
+.pred-digit .rk{position:absolute; top:-6px; left:-6px; background:var(--cyan); color:#031014; font-family:var(--mono); font-size:9px; font-weight:800; width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+
+.conf-meter{margin-top:10px;}
+.conf-bar-track{height:8px; background:var(--panel2); border-radius:5px; overflow:hidden; border:1px solid var(--line);}
+.conf-bar-fill{height:100%; background:linear-gradient(90deg,var(--red),var(--amber),var(--green)); transition:width .3s;}
+.conf-label{display:flex; justify-content:space-between; font-family:var(--mono); font-size:10px; color:var(--sub); margin-top:5px;}
+
+.gate-row{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:7px 0; border-bottom:1px solid var(--line); font-family:var(--mono); font-size:11px;
+}
+.gate-row:last-child{border-bottom:none;}
+.gate-name{color:var(--sub);}
+.gate-val{font-weight:700;}
+.gate-badge{
+  font-size:9px; padding:2px 7px; border-radius:10px; font-weight:700;
+}
+.gate-badge.pass{background:rgba(61,220,132,.15); color:var(--green);}
+.gate-badge.fail{background:rgba(255,90,95,.15); color:var(--red);}
+
+.field{margin-bottom:12px;}
+.field label{
+  display:flex; justify-content:space-between; font-family:var(--mono); font-size:10px;
+  color:var(--sub); margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px;
+}
+.field label .fv{color:var(--amber); font-weight:700;}
+input[type=range]{
+  width:100%; -webkit-appearance:none; height:5px; border-radius:4px;
+  background:var(--line); outline:none;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:16px;height:16px;border-radius:50%;
+  background:var(--amber); cursor:pointer; border:2px solid #0a0d12;
+}
+input[type=number],input[type=text],select{
+  width:100%; background:var(--panel2); border:1px solid var(--line); color:var(--text);
+  font-family:var(--mono); font-size:13px; padding:9px 10px; border-radius:7px; outline:none;
+}
+select{appearance:none;}
+.row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;}
+.toggle-row{display:flex; align-items:center; justify-content:space-between; padding:8px 0;}
+.toggle-row .tlabel{font-family:var(--mono); font-size:11px; color:var(--text);}
+.switch{position:relative; width:42px; height:23px; display:inline-block;}
+.switch input{opacity:0; width:0; height:0;}
+.slider-tog{position:absolute; cursor:pointer; inset:0; background:var(--panel2); border:1px solid var(--line); border-radius:20px; transition:.2s;}
+.slider-tog:before{content:""; position:absolute; height:15px;width:15px;left:3px;bottom:3px;background:var(--sub);border-radius:50%;transition:.2s;}
+.switch input:checked + .slider-tog{background:var(--amber-dim); border-color:var(--amber);}
+.switch input:checked + .slider-tog:before{transform:translateX(19px); background:var(--amber);}
+
+.btn{
+  font-family:var(--mono); font-weight:700; font-size:12px; letter-spacing:.5px;
+  padding:12px; border-radius:8px; border:1px solid var(--line); cursor:pointer;
+  text-transform:uppercase; width:100%; text-align:center;
+}
+.btn-primary{background:var(--amber); color:#0a0d12; border-color:var(--amber);}
+.btn-cyan{background:var(--cyan); color:#031014; border-color:var(--cyan);}
+.btn-ghost{background:var(--panel2); color:var(--text);}
+.btn-danger{background:transparent; color:var(--red); border-color:var(--red);}
+.btn-sm{padding:8px; font-size:10px;}
+.btn:disabled{opacity:.4;}
+.btn-row{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+
+.tbl{width:100%; border-collapse:collapse; font-family:var(--mono); font-size:10.5px;}
+.tbl th{text-align:left; color:var(--sub); padding:6px 5px; border-bottom:1px solid var(--line); font-weight:600; text-transform:uppercase; font-size:9px;}
+.tbl td{padding:6px 5px; border-bottom:1px solid #182029;}
+.tbl tr:last-child td{border-bottom:none;}
+.badge-win{color:var(--green); font-weight:700;}
+.badge-loss{color:var(--red); font-weight:700;}
+
+.log-line{font-family:var(--mono); font-size:10.5px; padding:5px 0; border-bottom:1px solid #182029; display:flex; gap:8px;}
+.log-time{color:var(--sub); flex-shrink:0;}
+.log-tag{flex-shrink:0; font-weight:700;}
+.log-tag.INFO{color:var(--cyan);}
+.log-tag.TRADE{color:var(--amber);}
+.log-tag.WARN{color:#ffb454;}
+.log-tag.ERROR{color:var(--red);}
+.log-tag.WIN{color:var(--green);}
+.log-msg{color:var(--text); word-break:break-word;}
+.log-box{max-height:340px; overflow-y:auto;}
+
+.bottomnav{
+  position:fixed; bottom:0; left:0; right:0; z-index:60;
+  background:#0c0f16; border-top:1px solid var(--line);
+  display:flex; padding:6px 2px calc(6px + env(safe-area-inset-bottom));
+}
+.nav-btn{
+  flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+  background:none; border:none; color:var(--sub); font-family:var(--mono); font-size:9px;
+  padding:6px 2px; cursor:pointer;
+}
+.nav-btn.active{color:var(--amber);}
+.nav-ico{font-size:16px;}
+
+.badge-status{
+  display:inline-block; padding:2px 8px; border-radius:10px; font-size:9px; font-family:var(--mono); font-weight:700;
+}
+.badge-status.demo{background:rgba(34,211,238,.15); color:var(--cyan);}
+.badge-status.real{background:rgba(255,90,95,.15); color:var(--red);}
+
+.note{font-family:var(--mono); font-size:10px; color:var(--sub); line-height:1.5; margin-top:6px;}
+.divider{height:1px; background:var(--line); margin:12px 0;}
+.mutex-banner{
+  display:flex; align-items:center; gap:8px; padding:9px 10px; border-radius:8px;
+  background:rgba(245,166,35,.08); border:1px solid var(--amber-dim); font-family:var(--mono); font-size:10.5px; color:var(--amber);
+  margin-bottom:10px;
+}
+.pat-input-wrap{display:flex; gap:8px;}
+.pat-input-wrap input{flex:1;}
+h2.section-title{font-family:var(--mono); font-size:13px; color:var(--amber); margin-bottom:10px; letter-spacing:.5px;}
+.symbol-chip{
+  display:inline-block; padding:6px 10px; border-radius:7px; background:var(--panel2); border:1px solid var(--line);
+  font-family:var(--mono); font-size:11px; margin:3px; cursor:pointer; color:var(--sub);
+}
+.symbol-chip.active{background:var(--amber); color:#0a0d12; border-color:var(--amber); font-weight:700;}
+.modal-overlay{position:fixed; inset:0; background:rgba(5,7,10,.75); z-index:100; display:none; align-items:flex-end; justify-content:center;}
+.modal-overlay.active{display:flex;}
+.modal-sheet{background:var(--panel); border:1px solid var(--line); border-radius:16px 16px 0 0; padding:18px; width:100%; max-width:480px;}
+.modal-sheet h3{font-family:var(--mono); color:var(--red); font-size:14px; margin-bottom:10px;}
+.modal-sheet p{font-family:var(--mono); font-size:11px; color:var(--sub); line-height:1.6; margin-bottom:16px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark">OS</div>
+    <div class="brand-text">OCTA<span>SENSE</span></div>
+  </div>
+  <div class="conn-pill" id="connPill" onclick="UI.showView('connect')">
+    <div class="dot" id="connDot"></div>
+    <span id="connLabel">OFFLINE</span>
+  </div>
+</div>
+
+<div class="ticker">
+  <div class="t-item">SYMBOL <span class="t-val" id="tkSymbol">—</span></div>
+  <div class="t-item">QUOTE <span class="t-val" id="tkQuote">—</span></div>
+  <div class="t-item">LAST DIGIT <span class="t-digit" id="tkDigit">—</span></div>
+  <div class="t-item">TICKS <span class="t-val" id="tkCount">0</span></div>
+</div>
+
+<!-- ================= DASHBOARD ================= -->
+<div class="view active" id="view-dashboard">
+
+  <div class="mutex-banner" id="mutexBanner" style="display:none;">⏳ Trade in progress — engine locked (mutex)</div>
+
+  <div class="card">
+    <div class="card-h">
+      <div class="card-title">Session PnL Stats</div>
+      <button class="reset-btn" onclick="Reset.confirm('pnl')">RESET</button>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="stat-label">Net P/L</div><div class="stat-val" id="stNetPnl">0.00</div></div>
+      <div class="stat-box"><div class="stat-label">Win Rate</div><div class="stat-val amber" id="stWinRate">0%</div></div>
+      <div class="stat-box"><div class="stat-label">Trades</div><div class="stat-val cyan" id="stTradeCount">0</div></div>
+      <div class="stat-box"><div class="stat-label">Wins</div><div class="stat-val pos" id="stWins">0</div></div>
+      <div class="stat-box"><div class="stat-label">Losses</div><div class="stat-val neg" id="stLosses">0</div></div>
+      <div class="stat-box"><div class="stat-label">Streak</div><div class="stat-val" id="stStreak">0</div></div>
+      <div class="stat-box"><div class="stat-label">Best Trade</div><div class="stat-val pos" id="stBest">0.00</div></div>
+      <div class="stat-box"><div class="stat-label">Worst Trade</div><div class="stat-val neg" id="stWorst">0.00</div></div>
+      <div class="stat-box"><div class="stat-label">Avg P/L</div><div class="stat-val" id="stAvg">0.00</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h">
+      <div class="card-title">Account Stats</div>
+      <button class="reset-btn" onclick="Account.refresh()">SYNC</button>
+    </div>
+    <div class="stat-grid g2">
+      <div class="stat-box"><div class="stat-label">Balance</div><div class="stat-val amber" id="acBalance">—</div></div>
+      <div class="stat-box"><div class="stat-label">Currency</div><div class="stat-val" id="acCurrency">—</div></div>
+      <div class="stat-box"><div class="stat-label">Account ID</div><div class="stat-val" id="acId" style="font-size:12px;">—</div></div>
+      <div class="stat-box"><div class="stat-label">Type</div><div class="stat-val" id="acType">—</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h">
+      <div class="card-title">Prediction Digit Box <b id="dbConfBadge"></b></div>
+    </div>
+    <div class="pred-box" id="predBoxRender"></div>
+    <div class="conf-meter">
+      <div class="conf-bar-track"><div class="conf-bar-fill" id="confFill" style="width:0%"></div></div>
+      <div class="conf-label"><span>Confidence</span><span id="confPct">0%</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h">
+      <div class="card-title">Execution Gates</div>
+    </div>
+    <div id="gatesRender"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Live Engine Status</div></div>
+    <div class="row3">
+      <div class="stat-box"><div class="stat-label">Direction</div><div class="stat-val" id="engDirection" style="font-size:11px;">—</div></div>
+      <div class="stat-box"><div class="stat-label">Pattern</div><div class="stat-val" id="engPattern" style="font-size:11px;">—</div></div>
+      <div class="stat-box"><div class="stat-label">Learning</div><div class="stat-val" id="engLearning" style="font-size:11px;">v1</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= TRADE (execution + digit stats) ================= -->
+<div class="view" id="view-trade">
+  <div class="card">
+    <div class="card-h"><div class="card-title">Symbol Selection</div></div>
+    <div id="symbolChips"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Digit Frequency (rolling window)</div>
+      <select id="winSelect" style="width:auto; font-size:10px; padding:5px 7px;" onchange="Dashboard.renderDigitTable()">
+        <option value="100">Last 100</option>
+        <option value="250">Last 250</option>
+        <option value="500" selected>Last 500</option>
+        <option value="1000">Last 1000</option>
+      </select>
+    </div>
+    <table class="tbl">
+      <thead><tr><th>Digit</th><th>Count</th><th>Prob%</th><th>Streak</th><th>Gap</th></tr></thead>
+      <tbody id="digitTableBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-h">
+      <div class="card-title">Engine Master Switch</div>
+      <label class="switch"><input type="checkbox" id="engineOn" onchange="Engine.toggle(this.checked)"><span class="slider-tog"></span></label>
+    </div>
+    <div class="note">When enabled, the Trade Execution Engine fires DIGITMATCH/DIGITDIFF trades automatically once every gate below is satisfied. Disable anytime to halt new entries — any open contract still completes.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-h">
+      <div class="card-title">Trade Parameters</div>
+      <button class="reset-btn" onclick="Reset.confirm('tradeparams')">RESET</button>
+    </div>
+    <div class="field">
+      <label>Contract Type</label>
+      <select id="pContractType">
+        <option value="DIGITMATCH">DIGITMATCH (Matches)</option>
+        <option value="DIGITDIFF">DIGITDIFF (Differs)</option>
+      </select>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Duration (ticks) <span class="fv" id="pDurationV">5</span></label>
+        <input type="range" id="pDuration" min="1" max="10" value="5" oninput="Params.syncLabel('pDuration','pDurationV')"></div>
+      <div class="field"><label>Base Stake</label>
+        <input type="number" id="pStake" value="1.00" step="0.10" min="0.35"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Prediction Box Size <span class="fv" id="pBoxSizeV">5</span></label>
+        <input type="range" id="pBoxSize" min="5" max="8" value="5" oninput="Params.syncLabel('pBoxSize','pBoxSizeV')"></div>
+      <div class="field"><label>Digit Select Rule</label>
+        <select id="pDigitRule">
+          <option value="top1">Top-ranked digit</option>
+          <option value="random_box">Random from box</option>
+        </select></div>
+    </div>
+    <div class="field"><label>Min Confidence Threshold <span class="fv" id="pConfThreshV">85%</span></label>
+      <input type="range" id="pConfThresh" min="50" max="99" value="85" oninput="Params.syncLabel('pConfThresh','pConfThreshV','%')"></div>
+    <div class="field"><label>Box Stability (consecutive stable updates) <span class="fv" id="pStabilityV">3</span></label>
+      <input type="range" id="pStability" min="1" max="10" value="3" oninput="Params.syncLabel('pStability','pStabilityV')"></div>
+    <div class="field"><label>Cooldown After Trade (sec) <span class="fv" id="pCooldownV">5</span></label>
+      <input type="range" id="pCooldown" min="5" max="60" value="5" oninput="Params.syncLabel('pCooldown','pCooldownV')"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Manual Fire (bypass gates — testing)</div></div>
+    <button class="btn btn-cyan" onclick="Engine.manualFire()">SEND TEST TRADE</button>
+  </div>
+</div>
+
+<!-- ================= MARTINGALE ================= -->
+<div class="view" id="view-martingale">
+  <div class="card">
+    <div class="card-h">
+      <div class="card-title">Smart Martingale Control</div>
+      <label class="switch"><input type="checkbox" id="mgEnabled"><span class="slider-tog"></span></label>
+    </div>
+    <div class="field"><label>Multiplier <span class="fv" id="mgMultV">2.0x</span></label>
+      <input type="range" id="mgMult" min="1.2" max="4" step="0.1" value="2.0" oninput="Params.syncLabel('mgMult','mgMultV','x')"></div>
+    <div class="field"><label>Max Martingale Steps <span class="fv" id="mgStepsV">4</span></label>
+      <input type="range" id="mgSteps" min="1" max="10" value="4" oninput="Params.syncLabel('mgSteps','mgStepsV')"></div>
+    <div class="row2">
+      <div class="field"><label>Reset On</label>
+        <select id="mgResetOn">
+          <option value="win">Any Win</option>
+          <option value="target">Session Target Hit</option>
+        </select></div>
+      <div class="field"><label>Step Recovery Mode</label>
+        <select id="mgMode">
+          <option value="classic">Classic (stake × mult)</option>
+          <option value="dalembert">D'Alembert (+1 unit)</option>
+          <option value="soft">Soft Recovery (mult × 0.7 taper)</option>
+        </select></div>
+    </div>
+    <div class="field"><label>Max Stake Cap</label><input type="number" id="mgCap" value="50" step="1"></div>
+    <div class="divider"></div>
+    <div class="stat-grid g2">
+      <div class="stat-box"><div class="stat-label">Current Step</div><div class="stat-val amber" id="mgCurStep">0</div></div>
+      <div class="stat-box"><div class="stat-label">Next Stake</div><div class="stat-val cyan" id="mgNextStake">1.00</div></div>
+    </div>
+    <button class="reset-btn" style="margin-top:10px;width:100%;padding:9px;" onclick="Reset.confirm('martingale')">RESET MARTINGALE STATE</button>
+  </div>
+</div>
+
+<!-- ================= RISK / P&L PARAMS ================= -->
+<div class="view" id="view-risk">
+  <div class="card">
+    <div class="card-h">
+      <div class="card-title">Per-Trade P/L Control</div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Take Profit / Trade ($)</label><input type="number" id="rTpTrade" value="0" step="0.5" placeholder="0 = off"></div>
+      <div class="field"><label>Stop Loss / Trade ($)</label><input type="number" id="rSlTrade" value="0" step="0.5" placeholder="0 = off"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Session P/L Control</div></div>
+    <div class="row2">
+      <div class="field"><label>Session Profit Target ($)</label><input type="number" id="rTpSession" value="20" step="1"></div>
+      <div class="field"><label>Session Loss Limit ($)</label><input type="number" id="rSlSession" value="20" step="1"></div>
+    </div>
+    <div class="toggle-row"><span class="tlabel">Auto-halt engine when hit</span>
+      <label class="switch"><input type="checkbox" id="rAutoHalt" checked><span class="slider-tog"></span></label></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Risk Parameters</div>
+      <button class="reset-btn" onclick="Reset.confirm('risk')">RESET</button>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Max Concurrent Trades</label><input type="number" id="rMaxConcurrent" value="1" min="1" max="1" disabled></div>
+      <div class="field"><label>Max Trades / Session</label><input type="number" id="rMaxTrades" value="30" step="1"></div>
+    </div>
+    <div class="field"><label>Min Cooldown After Error (sec)</label><input type="number" id="rErrCooldown" value="5" step="1" disabled></div>
+    <div class="toggle-row"><span class="tlabel">Require real-account confirmation gate</span>
+      <label class="switch"><input type="checkbox" id="rRealGate" checked disabled><span class="slider-tog"></span></label></div>
+    <div class="note">Real-account confirmation gate cannot be bypassed. Exactly one open contract at a time is enforced globally by the trade mutex, with a minimum 5-second cooldown after any error.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Session Status</div></div>
+    <div class="stat-grid g2">
+      <div class="stat-box"><div class="stat-label">Session P/L</div><div class="stat-val" id="rSessPnl">0.00</div></div>
+      <div class="stat-box"><div class="stat-label">Halted</div><div class="stat-val" id="rHalted">NO</div></div>
+    </div>
+    <button class="btn btn-ghost" style="margin-top:10px;" onclick="Risk.resumeEngine()">RESUME ENGINE</button>
+  </div>
+</div>
+
+<!-- ================= LOGS ================= -->
+<div class="view" id="view-logs">
+  <div class="card">
+    <div class="card-h">
+      <div class="card-title">Trade Log</div>
+      <button class="reset-btn" onclick="Reset.confirm('tradelog')">RESET</button>
+    </div>
+    <table class="tbl">
+      <thead><tr><th>Time</th><th>Sym</th><th>Type</th><th>Digit</th><th>Stake</th><th>Result</th><th>P/L</th></tr></thead>
+      <tbody id="tradeLogBody"></tbody>
+    </table>
+  </div>
+  <div class="card">
+    <div class="card-h">
+      <div class="card-title">System Log</div>
+      <button class="reset-btn" onclick="Reset.confirm('systemlog')">RESET</button>
+    </div>
+    <div class="log-box" id="systemLogBody"></div>
+  </div>
+  <div class="card">
+    <div class="card-h"><div class="card-title">Full Reset</div></div>
+    <button class="btn btn-danger" onclick="Reset.confirm('all')">RESET ALL SYSTEMS</button>
+    <div class="note">Resets PnL stats, trade log, system log, martingale state, and adaptive learning weights. Connection and parameter settings are preserved.</div>
+  </div>
+</div>
+
+<!-- ================= CONNECT / ACCOUNT ================= -->
+<div class="view" id="view-connect">
+  <div class="card">
+    <div class="card-h"><div class="card-title">Deriv Connection</div></div>
+    <div class="field"><label>App ID</label><input type="text" id="cfgAppId" placeholder="Your Deriv-App-ID"></div>
+    <div class="field"><label>Personal Access Token (PAT)</label>
+      <div class="pat-input-wrap">
+        <input type="text" id="cfgPat" placeholder="Paste PAT token">
+      </div>
+    </div>
+    <div class="field"><label>Account Type</label>
+      <select id="cfgAccType">
+        <option value="demo">Demo</option>
+        <option value="real">Real</option>
+      </select>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="Connection.connect()">CONNECT</button>
+      <button class="btn btn-ghost" onclick="Connection.disconnect()">DISCONNECT</button>
+    </div>
+    <div class="note" id="connNote">Not connected. Enter your App ID and PAT, then Connect. Real-account trading requires an additional confirmation step and cannot be bypassed.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Account</div></div>
+    <div class="stat-grid g2">
+      <div class="stat-box"><div class="stat-label">Status</div><div class="stat-val" id="cAccStatus" style="font-size:12px;">Offline</div></div>
+      <div class="stat-box"><div class="stat-label">Mode</div><div id="cAccMode" class="badge-status demo" style="margin-top:6px;">DEMO</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Symbol / Instrument</div></div>
+    <div class="field"><label>Active Symbol</label>
+      <select id="cfgSymbol">
+        <option value="R_10">Volatility 10 Index</option>
+        <option value="R_25">Volatility 25 Index</option>
+        <option value="R_50">Volatility 50 Index</option>
+        <option value="R_100">Volatility 100 Index</option>
+        <option value="1HZ10V">Volatility 10 (1s) Index</option>
+        <option value="1HZ30V" selected>Volatility 30 (1s) Index</option>
+        <option value="1HZ75V">Volatility 75 (1s) Index</option>
+        <option value="1HZ100V">Volatility 100 (1s) Index</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div class="bottomnav">
+  <button class="nav-btn active" onclick="UI.showView('dashboard')" data-nav="dashboard"><span class="nav-ico">▣</span>Dash</button>
+  <button class="nav-btn" onclick="UI.showView('trade')" data-nav="trade"><span class="nav-ico">◈</span>Trade</button>
+  <button class="nav-btn" onclick="UI.showView('martingale')" data-nav="martingale"><span class="nav-ico">∑</span>Martin</button>
+  <button class="nav-btn" onclick="UI.showView('risk')" data-nav="risk"><span class="nav-ico">⚠</span>Risk</button>
+  <button class="nav-btn" onclick="UI.showView('logs')" data-nav="logs"><span class="nav-ico">☰</span>Logs</button>
+  <button class="nav-btn" onclick="UI.showView('connect')" data-nav="connect"><span class="nav-ico">⏻</span>Connect</button>
+</div>
+
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal-sheet">
+    <h3 id="modalTitle">Confirm Action</h3>
+    <p id="modalBody">Are you sure?</p>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="Modal.cancel()">Cancel</button>
+      <button class="btn btn-danger" id="modalConfirmBtn" onclick="Modal.confirmYes()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   OCTASENSE — Matches Prediction Terminal
+   Class-based architecture: EventBus, Logger, StateStore, Connection, Engines
+   ========================================================================= */
+
+const Utils = {
+  fmt(n, d=2){ n = Number(n)||0; return n.toFixed(d); },
+  now(){ return new Date(); },
+  timeStr(){ const d=new Date(); return d.toTimeString().slice(0,8); },
+  clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+};
+
+class EventBus {
+  constructor(){ this.h = {}; }
+  on(ev, fn){ (this.h[ev] = this.h[ev]||[]).push(fn); }
+  emit(ev, data){ (this.h[ev]||[]).forEach(fn=>{ try{ fn(data); }catch(e){ console.error(e); } }); }
+}
+const Bus = new EventBus();
+
+const Logger = {
+  systemLog: [],
+  tradeLog: [],
+  MAX: 300,
+  sys(tag, msg){
+    this.systemLog.unshift({ t: Utils.timeStr(), tag, msg });
+    if(this.systemLog.length > this.MAX) this.systemLog.pop();
+    this.renderSystem();
+  },
+  trade(entry){
+    this.tradeLog.unshift(entry);
+    if(this.tradeLog.length > this.MAX) this.tradeLog.pop();
+    this.renderTrade();
+  },
+  renderSystem(){
+    const el = document.getElementById('systemLogBody');
+    if(!el) return;
+    el.innerHTML = this.systemLog.map(l=>
+      `<div class="log-line"><span class="log-time">${l.t}</span><span class="log-tag ${l.tag}">${l.tag}</span><span class="log-msg">${l.msg}</span></div>`
+    ).join('') || '<div class="note">No system events yet.</div>';
+  },
+  renderTrade(){
+    const el = document.getElementById('tradeLogBody');
+    if(!el) return;
+    el.innerHTML = this.tradeLog.map(e=>
+      `<tr><td>${e.time}</td><td>${e.symbol}</td><td>${e.type}</td><td>${e.digit}</td><td>${Utils.fmt(e.stake)}</td>
+       <td class="${e.result==='WIN'?'badge-win':'badge-loss'}">${e.result}</td>
+       <td class="${e.pnl>=0?'badge-win':'badge-loss'}">${e.pnl>=0?'+':''}${Utils.fmt(e.pnl)}</td></tr>`
+    ).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--sub);">No trades yet.</td></tr>';
+  },
+  resetSystem(){ this.systemLog = []; this.renderSystem(); this.sys('INFO','System log cleared.'); },
+  resetTrade(){ this.tradeLog = []; this.renderTrade(); this.sys('INFO','Trade log cleared.'); }
+};
+const Logs = {
+  resetSystemLog(){ Logger.resetSystem(); },
+  resetTradeLog(){ Logger.resetTrade(); }
+};
+
+const UI = {
+  showView(name){
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    document.getElementById('view-'+name).classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.nav===name));
+  }
+};
+
+const Modal = {
+  _cb: null,
+  open(title, body, cb){
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalBody').textContent = body;
+    this._cb = cb;
+    document.getElementById('confirmModal').classList.add('active');
+  },
+  cancel(){ document.getElementById('confirmModal').classList.remove('active'); this._cb=null; },
+  confirmYes(){
+    const cb = this._cb;
+    document.getElementById('confirmModal').classList.remove('active');
+    this._cb = null;
+    if(cb) cb();
+  }
+};
+
+const Params = {
+  syncLabel(inputId, labelId, suffix=''){
+    const v = document.getElementById(inputId).value;
+    document.getElementById(labelId).textContent = v + suffix;
+  },
+  get(id){ return document.getElementById(id).value; },
+  num(id){ return Number(document.getElementById(id).value)||0; },
+  bool(id){ return document.getElementById(id).checked; },
+  resetTrade(){
+    document.getElementById('pContractType').value='DIGITMATCH';
+    document.getElementById('pDuration').value=5; this.syncLabel('pDuration','pDurationV');
+    document.getElementById('pStake').value='1.00';
+    document.getElementById('pBoxSize').value=5; this.syncLabel('pBoxSize','pBoxSizeV');
+    document.getElementById('pDigitRule').value='top1';
+    document.getElementById('pConfThresh').value=85; this.syncLabel('pConfThresh','pConfThreshV','%');
+    document.getElementById('pStability').value=3; this.syncLabel('pStability','pStabilityV');
+    document.getElementById('pCooldown').value=5; this.syncLabel('pCooldown','pCooldownV');
+    Logger.sys('INFO','Trade parameters reset to defaults.');
+  },
+  resetRisk(){
+    document.getElementById('rTpTrade').value=0;
+    document.getElementById('rSlTrade').value=0;
+    document.getElementById('rTpSession').value=20;
+    document.getElementById('rSlSession').value=20;
+    document.getElementById('rAutoHalt').checked=true;
+    document.getElementById('rMaxTrades').value=30;
+    Logger.sys('INFO','Risk parameters reset to defaults.');
+  }
+};
+</script>
+<script>
+/* ---------------- Global App State ---------------- */
+const AppState = {
+  connected:false, connecting:false,
+  appId:'', pat:'', accountType:'demo',
+  account:null, // {account_id, balance, currency, group, status, account_type}
+  wsUrl:null,
+  ws:null,
+  symbol:'1HZ30V',
+  reconnectAttempts:0,
+  maxReconnect:5,
+  keepaliveTimer:null,
+  reqSeq:0,
+  pendingReq:new Map(),
+  realConfirmed:false
+};
+
+const REST_BASE = 'https://api.derivws.com';
+
+function nextReqId(){ return ++AppState.reqSeq; }
+
+const Connection = {
+  async connect(){
+    const appId = document.getElementById('cfgAppId').value.trim();
+    const pat = document.getElementById('cfgPat').value.trim();
+    const accType = document.getElementById('cfgAccType').value;
+    const symbol = document.getElementById('cfgSymbol').value;
+    if(!appId || !pat){
+      Logger.sys('ERROR','App ID and PAT token are required to connect.');
+      document.getElementById('connNote').textContent = 'Missing App ID or PAT — both are required.';
+      return;
+    }
+    if(accType === 'real' && !AppState.realConfirmed){
+      Modal.open('Confirm Real-Money Trading',
+        'You are about to connect a REAL account. Trades will use real funds. This confirmation cannot be bypassed. Continue?',
+        ()=>{ AppState.realConfirmed = true; Connection._doConnect(appId, pat, accType, symbol); });
+      return;
+    }
+    this._doConnect(appId, pat, accType, symbol);
+  },
+
+  async _doConnect(appId, pat, accType, symbol){
+    AppState.appId = appId; AppState.pat = pat; AppState.accountType = accType; AppState.symbol = symbol;
+    AppState.connecting = true;
+    ConnUI.setPending();
+    Logger.sys('INFO', `Connecting (${accType})…`);
+    try{
+      const headers = { 'Authorization': `Bearer ${pat}`, 'Deriv-App-ID': appId };
+      // 1. Get accounts
+      let res = await fetch(`${REST_BASE}/trading/v1/options/accounts`, { headers });
+      let json = await res.json();
+      if(!res.ok){ throw new Error(json?.errors?.[0]?.message || `Accounts fetch failed (${res.status})`); }
+      let accounts = json.data || [];
+      let account = accounts.find(a=>a.account_type===accType && a.status==='active');
+
+      // 2. Create if missing
+      if(!account){
+        Logger.sys('INFO', `No active ${accType} account found — creating one.`);
+        const cRes = await fetch(`${REST_BASE}/trading/v1/options/accounts`, {
+          method:'POST', headers:{...headers,'Content-Type':'application/json'},
+          body: JSON.stringify({ currency:'USD', group:'row', account_type: accType })
+        });
+        const cJson = await cRes.json();
+        if(!cRes.ok){ throw new Error(cJson?.errors?.[0]?.message || `Account creation failed (${cRes.status})`); }
+        account = Array.isArray(cJson.data) ? cJson.data[0] : cJson.data;
+      }
+      AppState.account = account;
+      Account.render();
+      Logger.sys('INFO', `Account ready: ${account.account_id} (${account.account_type})`);
+
+      // 3. Get OTP WS url — must connect immediately
+      const otpRes = await fetch(`${REST_BASE}/trading/v1/options/accounts/${account.account_id}/otp`, { method:'POST', headers });
+      const otpJson = await otpRes.json();
+      if(!otpRes.ok){ throw new Error(otpJson?.errors?.[0]?.message || `OTP request failed (${otpRes.status})`); }
+      AppState.wsUrl = otpJson.data.url;
+
+      // 4. Connect WebSocket
+      this._openSocket();
+    }catch(err){
+      AppState.connecting = false;
+      ConnUI.setOffline();
+      Logger.sys('ERROR', `Connect failed: ${err.message}`);
+      document.getElementById('connNote').textContent = `Connection failed: ${err.message}`;
+    }
+  },
+
+  _openSocket(){
+    try{ AppState.ws && AppState.ws.close(); }catch(e){}
+    const ws = new WebSocket(AppState.wsUrl);
+    AppState.ws = ws;
+
+    ws.onopen = ()=>{
+      AppState.connected = true; AppState.connecting = false; AppState.reconnectAttempts = 0;
+      ConnUI.setLive();
+      Logger.sys('INFO','WebSocket connected.');
+      document.getElementById('connNote').textContent = 'Connected. Streaming live ticks.';
+      // Subscribe balance
+      WS.send({ balance:1, subscribe:1 });
+      // Subscribe ticks for chosen symbol
+      TickEngine.subscribe(AppState.symbol);
+      // Keepalive: safe one-shot balance call every 30s
+      clearInterval(AppState.keepaliveTimer);
+      AppState.keepaliveTimer = setInterval(()=>{
+        if(AppState.connected) WS.send({ balance:1 });
+      }, 30000);
+    };
+
+    ws.onmessage = (event)=>{
+      let data;
+      try{ data = JSON.parse(event.data); }catch(e){ return; }
+      WS.route(data);
+    };
+
+    ws.onerror = (e)=>{
+      Logger.sys('ERROR','WebSocket error.');
+    };
+
+    ws.onclose = ()=>{
+      AppState.connected = false;
+      ConnUI.setOffline();
+      clearInterval(AppState.keepaliveTimer);
+      Logger.sys('WARN','WebSocket disconnected.');
+      Connection._scheduleReconnect();
+    };
+  },
+
+  _scheduleReconnect(){
+    if(!AppState.appId || !AppState.pat) return; // never connected
+    if(AppState.reconnectAttempts >= AppState.maxReconnect){
+      Logger.sys('ERROR','Max reconnect attempts reached. Manual reconnect required.');
+      return;
+    }
+    const delay = Math.min(1000 * Math.pow(2, AppState.reconnectAttempts), 30000);
+    AppState.reconnectAttempts++;
+    Logger.sys('WARN', `Reconnecting in ${Math.round(delay/1000)}s (attempt ${AppState.reconnectAttempts})…`);
+    setTimeout(async ()=>{
+      // fresh OTP required before every reconnect
+      try{
+        const headers = { 'Authorization': `Bearer ${AppState.pat}`, 'Deriv-App-ID': AppState.appId };
+        const otpRes = await fetch(`${REST_BASE}/trading/v1/options/accounts/${AppState.account.account_id}/otp`, { method:'POST', headers });
+        const otpJson = await otpRes.json();
+        if(!otpRes.ok) throw new Error(otpJson?.errors?.[0]?.message || 'OTP refresh failed');
+        AppState.wsUrl = otpJson.data.url;
+        Connection._openSocket();
+      }catch(err){
+        Logger.sys('ERROR', `Reconnect OTP failed: ${err.message}`);
+        Connection._scheduleReconnect();
+      }
+    }, delay);
+  },
+
+  disconnect(){
+    AppState.maxReconnect = 0;
+    clearInterval(AppState.keepaliveTimer);
+    try{ AppState.ws && AppState.ws.close(); }catch(e){}
+    AppState.connected = false;
+    ConnUI.setOffline();
+    // BUGFIX: real-account confirmation must not silently persist across sessions —
+    // require the explicit confirmation modal again on the next connect attempt.
+    AppState.realConfirmed = false;
+    // BUGFIX: a disconnect mid-trade would otherwise leave the mutex permanently locked
+    // (no further WS messages can ever arrive to release it). Force-release it here.
+    if(typeof Engine !== 'undefined'){
+      Engine.activeTrade = null; Engine.activeProposalId = null; Engine.activeContractId = null; Engine.activeContractSubId = null;
+      Engine._unlock();
+    }
+    Logger.sys('INFO','Disconnected by user.');
+    AppState.maxReconnect = 5;
+  }
+};
+
+const ConnUI = {
+  setLive(){
+    document.getElementById('connDot').className='dot live';
+    document.getElementById('connLabel').textContent='LIVE';
+    document.getElementById('cAccStatus').textContent='Connected';
+    const mode = document.getElementById('cAccMode');
+    mode.textContent = AppState.accountType.toUpperCase();
+    mode.className = 'badge-status ' + (AppState.accountType==='real'?'real':'demo');
+  },
+  setPending(){
+    document.getElementById('connDot').className='dot pending';
+    document.getElementById('connLabel').textContent='CONNECTING';
+  },
+  setOffline(){
+    document.getElementById('connDot').className='dot';
+    document.getElementById('connLabel').textContent='OFFLINE';
+    document.getElementById('cAccStatus').textContent='Offline';
+  }
+};
+
+/* ---------------- WS command layer ---------------- */
+const WS = {
+  send(cmd){
+    if(!AppState.ws || AppState.ws.readyState !== 1){ return null; }
+    const req_id = nextReqId();
+    const msg = Object.assign({}, cmd, { req_id });
+    AppState.ws.send(JSON.stringify(msg));
+    return req_id;
+  },
+  route(data){
+    if(data.error){
+      Logger.sys('ERROR', `[${data.error.code}] ${data.error.message}`);
+      Engine.onApiError();
+      return;
+    }
+    switch(data.msg_type){
+      case 'balance': Account.onBalance(data.balance); break;
+      case 'tick': TickEngine.onTick(data.tick); break;
+      case 'proposal': Engine.onProposal(data.proposal); break;
+      case 'buy': Engine.onBuy(data.buy); break;
+      case 'proposal_open_contract': Engine.onContractUpdate(data.proposal_open_contract); break;
+      case 'active_symbols': break;
+      default: break;
+    }
+  }
+};
+
+const Account = {
+  refresh(){
+    if(AppState.connected) WS.send({ balance:1 });
+    else Logger.sys('WARN','Not connected — cannot sync account.');
+  },
+  onBalance(bal){
+    if(!bal) return;
+    document.getElementById('acBalance').textContent = Utils.fmt(bal.balance);
+    document.getElementById('acCurrency').textContent = bal.currency || '—';
+    if(AppState.account){ AppState.account.balance = bal.balance; }
+  },
+  render(){
+    const a = AppState.account;
+    if(!a) return;
+    document.getElementById('acBalance').textContent = Utils.fmt(a.balance);
+    document.getElementById('acCurrency').textContent = a.currency;
+    document.getElementById('acId').textContent = a.account_id;
+    document.getElementById('acType').textContent = a.account_type.toUpperCase();
+  }
+};
+</script>
+<script>
+/* =========================================================================
+   ANALYTICS ENGINE STACK (per Livera spec)
+   Tick Collection -> Digit Stats -> Occurrence -> Direction -> Probability
+   -> Tick Timing Ratio -> Pattern Recognition -> Confidence -> Prediction Box
+   ========================================================================= */
+
+const TickEngine = {
+  history: [], // {epoch, price, digit}
+  MAXLEN: 1000,
+  subId: null,
+  currentSymbol: null,
+
+  subscribe(symbol){
+    this.history = [];
+    this.currentSymbol = symbol;
+    document.getElementById('tkSymbol').textContent = symbol;
+    document.getElementById('tkCount').textContent = '0';
+    WS.send({ forget_all: 'ticks' });
+    WS.send({ ticks: symbol, subscribe: 1 });
+    Logger.sys('INFO', `Subscribed to tick stream: ${symbol}`);
+
+    // BUGFIX: previously, switching symbols left Analytics.latestState / lastBox / stableCount
+    // pointing at the OLD symbol's prediction. Gate evaluation (and even a live trade) could
+    // then fire against the wrong instrument using stale digit statistics. Reset everything
+    // and force the mutex closed to new entries until fresh data for the new symbol accumulates.
+    Analytics.lastBox = null;
+    Analytics.stableCount = 0;
+    Analytics.latestState = null;
+    Dashboard.renderInsufficient();
+    if(typeof Engine !== 'undefined' && !Engine.mutexLocked){
+      Engine.cooldownUntil = Date.now() + 3000; // brief safety cooldown after instrument switch
+    }
+  },
+
+  onTick(tick){
+    if(!tick) return;
+    // Guard against a late in-flight tick for the previously subscribed symbol arriving
+    // just after a switch (forget_all is not guaranteed to be instantaneous).
+    if(tick.symbol && this.currentSymbol && tick.symbol !== this.currentSymbol) return;
+    const priceStr = String(tick.quote);
+    const lastChar = priceStr.replace('.', '').slice(-1);
+    const digit = Number(lastChar);
+    const rec = { epoch: tick.epoch, price: tick.quote, digit, symbol: tick.symbol };
+    this.history.push(rec);
+    if(this.history.length > this.MAXLEN) this.history.shift();
+
+    document.getElementById('tkQuote').textContent = tick.quote;
+    document.getElementById('tkDigit').textContent = digit;
+    document.getElementById('tkCount').textContent = this.history.length;
+
+    Analytics.onNewTick();
+  },
+
+  window(n){
+    return this.history.slice(Math.max(0, this.history.length - n));
+  }
+};
+
+/* ---------------- Digit Statistics Engine ---------------- */
+const DigitStats = {
+  compute(windowArr){
+    const counts = new Array(10).fill(0);
+    const lastSeenIdx = new Array(10).fill(-1);
+    const streaks = new Array(10).fill(0);
+    const longest = new Array(10).fill(0);
+    const gaps = new Array(10).fill(0); // ticks since last occurrence (from end)
+    const spacingSum = new Array(10).fill(0);
+    const spacingCount = new Array(10).fill(0);
+
+    windowArr.forEach((rec, i)=>{
+      const d = rec.digit;
+      counts[d]++;
+      if(lastSeenIdx[d] >= 0){
+        const gap = i - lastSeenIdx[d];
+        spacingSum[d] += gap; spacingCount[d]++;
+      }
+      lastSeenIdx[d] = i;
+    });
+
+    // current streak = consecutive same digit at the tail
+    for(let d=0; d<10; d++){
+      let s = 0;
+      for(let i=windowArr.length-1; i>=0; i--){
+        if(windowArr[i].digit === d) s++; else break;
+      }
+      streaks[d] = s;
+    }
+    // longest streak per digit
+    for(let d=0; d<10; d++){
+      let cur=0, max=0;
+      windowArr.forEach(rec=>{
+        if(rec.digit===d){ cur++; max=Math.max(max,cur); } else cur=0;
+      });
+      longest[d]=max;
+    }
+    // gap since last occurrence (from tail)
+    for(let d=0; d<10; d++){
+      let g = windowArr.length; // not seen
+      for(let i=windowArr.length-1; i>=0; i--){
+        if(windowArr[i].digit===d){ g = windowArr.length-1-i; break; }
+      }
+      gaps[d]=g;
+    }
+
+    const total = windowArr.length || 1;
+    const stats = [];
+    for(let d=0; d<10; d++){
+      stats.push({
+        digit:d, count:counts[d], prob: counts[d]/total*100,
+        streak:streaks[d], longest:longest[d], gap:gaps[d],
+        avgSpacing: spacingCount[d] ? spacingSum[d]/spacingCount[d] : total,
+        missCount: total-counts[d], hitCount: counts[d]
+      });
+    }
+    return stats;
+  }
+};
+
+/* ---------------- Occurrence Engine ---------------- */
+const OccurrenceEngine = {
+  compute(windowArr, digitStats){
+    return digitStats.map(s=>{
+      const deviation = s.gap - s.avgSpacing;
+      let cyclic = Math.abs(deviation) < s.avgSpacing*0.3;
+      return Object.assign({}, s, { deviation, cyclic });
+    });
+  }
+};
+
+/* ---------------- Direction Engine (digit movement) ---------------- */
+const DirectionEngine = {
+  compute(windowArr){
+    const tail = windowArr.slice(-8).map(r=>r.digit);
+    if(tail.length < 3) return { type:'insufficient', confidence:0 };
+    let asc=0, desc=0, alt=0, osc=0, clus=0;
+    for(let i=1;i<tail.length;i++){
+      if(tail[i] > tail[i-1]) asc++;
+      else if(tail[i] < tail[i-1]) desc++;
+    }
+    for(let i=2;i<tail.length;i++){
+      if(tail[i] === tail[i-2] && tail[i] !== tail[i-1]) alt++;
+    }
+    const uniq = new Set(tail).size;
+    if(uniq <= 2) clus = tail.length;
+    const n = tail.length-1;
+    let type='chaotic', conf=0.3;
+    if(asc/n > 0.7){ type='ascending'; conf = asc/n; }
+    else if(desc/n > 0.7){ type='descending'; conf = desc/n; }
+    else if(alt/(tail.length-2||1) > 0.6){ type='alternating'; conf = alt/(tail.length-2||1); }
+    else if(clus >= tail.length*0.6){ type='clustered'; conf = clus/tail.length; }
+    else if(asc>0 && desc>0 && Math.abs(asc-desc)<=1){ type='oscillating'; conf=0.5; }
+    return { type, confidence: Utils.clamp(conf,0,1) };
+  }
+};
+
+/* ---------------- Probability Engine ---------------- */
+const ProbabilityEngine = {
+  // combine frequency + recency weighting + gap-overdue + transition matrix
+  compute(windowArr, digitStats){
+    const recW = Adaptive.recencyWeight; // adjustable by adaptive learning engine
+    const N = windowArr.length || 1;
+
+    // recency-weighted frequency (exponential decay favoring recent ticks)
+    const recentScore = new Array(10).fill(0);
+    let wsum=0;
+    windowArr.forEach((rec, i)=>{
+      const age = windowArr.length - 1 - i;
+      const w = Math.exp(-age/ (40/recW));
+      recentScore[rec.digit]+=w; wsum+=w;
+    });
+
+    // transition matrix P(next=d | current=lastDigit)
+    const trans = Array.from({length:10}, ()=>new Array(10).fill(0));
+    for(let i=1;i<windowArr.length;i++){
+      trans[windowArr[i-1].digit][windowArr[i].digit]++;
+    }
+    const lastDigit = windowArr.length ? windowArr[windowArr.length-1].digit : 0;
+    const transRow = trans[lastDigit];
+    const transTotal = transRow.reduce((a,b)=>a+b,0) || 1;
+
+    const scores = digitStats.map(s=>{
+      const freqScore = s.prob/100;
+      const recScore = wsum ? recentScore[s.digit]/wsum : 0;
+      const gapScore = Utils.clamp(s.gap / (s.avgSpacing||1) - 1, -1, 2) * 0.25 + 0.25; // overdue digits score higher
+      const transScore = transRow[s.digit]/transTotal;
+      const combined = (freqScore*0.30) + (recScore*0.30) + (gapScore*0.20) + (transScore*0.20);
+      return Object.assign({}, s, { combined, freqScore, recScore, gapScore, transScore });
+    });
+    return scores.sort((a,b)=>b.combined-a.combined);
+  }
+};
+
+/* ---------------- Tick Timing Ratio Engine ---------------- */
+const TickTimingEngine = {
+  compute(scoredDigits, duration){
+    const withTiming = scoredDigits.map(s=>{
+      const avgGap = s.avgSpacing || 10;
+      const pPerTick = avgGap>0 ? 1/avgGap : 0.1;
+      const pWithin = 1 - Math.pow(1-pPerTick, duration);
+      return Object.assign({}, s, { pWithinDuration: pWithin });
+    });
+    // BUGFIX: pWithinDuration was previously computed and attached but never actually used
+    // anywhere — it had zero effect on ranking, the prediction box, or confidence, despite
+    // being one of the documented decision engines. Blend it into the combined score
+    // (15% weight) and re-sort so contract duration genuinely affects which digits rank
+    // highest, then re-normalize the remaining engine weights.
+    const rescored = withTiming.map(s=>{
+      const combined = (s.combined*0.85) + (s.pWithinDuration*0.15);
+      return Object.assign({}, s, { combined });
+    });
+    return rescored.sort((a,b)=>b.combined-a.combined);
+  }
+};
+
+/* ---------------- Pattern Recognition Engine ---------------- */
+const PatternEngine = {
+  compute(windowArr){
+    const tail = windowArr.slice(-6).map(r=>r.digit);
+    if(tail.length < 5) return { mode:'insufficient', reliability:0.3 };
+    let seqAsc = true, seqDesc = true;
+    for(let i=1;i<tail.length;i++){
+      if(tail[i] !== (tail[i-1]+1)%10) seqAsc=false;
+      if(tail[i] !== (tail[i-1]+9)%10) seqDesc=false;
+    }
+    if(seqAsc || seqDesc) return { mode:'sequential', reliability:0.9 };
+    const uniq = new Set(tail).size;
+    if(uniq === tail.length) return { mode:'asymmetrical', reliability:0.55 };
+    if(uniq <= 3) return { mode:'data-based', reliability:0.65 };
+    return { mode:'hybrid', reliability:0.5 };
+  }
+};
+
+/* ---------------- Confidence Engine ---------------- */
+const ConfidenceEngine = {
+  // freqScore/recScore/transScore are proportions over a 10-outcome digit space, so their
+  // random baseline is 1/10 = 0.10 — a raw "combined" score can never realistically approach
+  // 1.0 the way a true probability would. STRONG_EDGE_COMBINED (~3.5x baseline) marks the
+  // point at which a signal is already a very strong statistical edge for a 10-way pick.
+  RANDOM_BASELINE: 0.10,
+  STRONG_EDGE_COMBINED: 0.32,
+
+  compute(topScores, direction, pattern, sampleSize){
+    if(!topScores.length) return 0;
+    const top3 = topScores.slice(0,3);
+    const avgCombined = top3.reduce((a,b)=>a+b.combined,0)/Math.min(3,topScores.length);
+
+    // BUGFIX: previously avgCombined/avgTiming were fed directly into the formula as if they
+    // were 0-1 probabilities, weighted at 50% of the total. Because they're actually bounded
+    // proportions with a baseline near 0.10 (rarely exceeding ~0.3-0.4 even under a strong
+    // real edge), that 50% weight could never be more than ~15-20 points in practice — while
+    // the remaining terms (sample size, pattern, direction) contributed a near-constant
+    // ~40-50 point floor regardless of whether the data showed any real edge at all. Net
+    // effect: confidence sat in a narrow band (~35-55%) almost no matter what the ticks
+    // actually looked like, and could never realistically reach the 85% trading threshold.
+    // Fix: express combined/timing as an "edge over random" (0 = no better than guessing,
+    // 1 = a strong edge), and make sample size / pattern / direction MODULATE that edge
+    // (multiplicatively) instead of adding independent flat credit on top of it.
+    const combinedEdge = Utils.clamp((avgCombined - this.RANDOM_BASELINE) / (this.STRONG_EDGE_COMBINED - this.RANDOM_BASELINE), 0, 1);
+
+    // Timing edge is measured against the FIELD AVERAGE across all 10 digits at the current
+    // duration (not an absolute constant) — pWithinDuration's magnitude is driven mostly by
+    // duration/avgGap and is nearly identical for every digit under near-random conditions,
+    // so only a top pick that meaningfully beats the field average counts as real edge.
+    const fieldAvgTiming = topScores.reduce((a,b)=>a+(b.pWithinDuration||0),0)/topScores.length;
+    const avgTiming = top3.reduce((a,b)=>a+(b.pWithinDuration||0),0)/Math.min(3,topScores.length);
+    const timingEdge = fieldAvgTiming>0 ? Utils.clamp((avgTiming - fieldAvgTiming) / (fieldAvgTiming*0.6), 0, 1) : 0;
+
+    // Core statistical signal: probability-engine edge dominant, timing edge secondary.
+    const signal = Utils.clamp(0.75*combinedEdge + 0.25*timingEdge, 0, 1);
+
+    // Reliability: how much to trust that signal given sample size — thin data discounts it.
+    const reliability = Utils.clamp(sampleSize/300, 0.25, 1);
+
+    // Context: pattern/direction don't manufacture confidence on their own — they modestly
+    // scale a signal that already exists (±30%), rather than adding flat points regardless
+    // of whether any real edge was detected.
+    const context = Utils.clamp(0.70 + 0.35*pattern.reliability + 0.20*direction.confidence, 0.70, 1.25);
+
+    const conf = 100 * signal * reliability * context;
+    return Utils.clamp(conf, 0, 99);
+  }
+};
+
+/* ---------------- Adaptive Learning Engine ---------------- */
+const Adaptive = {
+  recencyWeight: 1.0,   // multiplier on recency decay
+  patternReliabilityBias: 0,
+  confidenceCalibration: 0,
+  recentOutcomes: [], // recent win/loss booleans
+  version: 1,
+
+  recordOutcome(win, confAtEntry){
+    this.recentOutcomes.push(win);
+    if(this.recentOutcomes.length > 20) this.recentOutcomes.shift();
+    const winRate = this.recentOutcomes.filter(x=>x).length / this.recentOutcomes.length;
+    // adapt recency weighting: if winrate low, favor more recent data (raise weight)
+    if(this.recentOutcomes.length >= 5){
+      if(winRate < 0.4) this.recencyWeight = Utils.clamp(this.recencyWeight + 0.05, 0.5, 2.5);
+      else if(winRate > 0.65) this.recencyWeight = Utils.clamp(this.recencyWeight - 0.03, 0.5, 2.5);
+    }
+    this.version++;
+    document.getElementById('engLearning').textContent = `v${this.version} (${Math.round(winRate*100)}% recent)`;
+    Logger.sys('INFO', `Adaptive learning updated — recencyWeight=${this.recencyWeight.toFixed(2)}, recent winrate=${Math.round(winRate*100)}%`);
+  },
+
+  reset(){
+    this.recencyWeight = 1.0; this.patternReliabilityBias = 0; this.confidenceCalibration = 0;
+    this.recentOutcomes = []; this.version = 1;
+    document.getElementById('engLearning').textContent = 'v1';
+  }
+};
+
+/* ---------------- Analytics Orchestrator + Prediction Box ---------------- */
+const Analytics = {
+  lastBox: null,
+  stableCount: 0,
+  latestState: null,
+
+  onNewTick(){
+    const winSel = Number(document.getElementById('winSelect')?.value || 500);
+    const boxSize = Number(document.getElementById('pBoxSize')?.value || 5);
+    const duration = Number(document.getElementById('pDuration')?.value || 5);
+
+    const full = TickEngine.history;
+    if(full.length < 10){
+      Dashboard.renderInsufficient();
+      return;
+    }
+    const winArr = TickEngine.window(winSel);
+    const stats = DigitStats.compute(winArr);
+    const occ = OccurrenceEngine.compute(winArr, stats);
+    const direction = DirectionEngine.compute(winArr);
+    const scored = ProbabilityEngine.compute(winArr, occ);
+    const timed = TickTimingEngine.compute(scored, duration);
+    const pattern = PatternEngine.compute(winArr);
+    const box = timed.slice(0, boxSize);
+    const confidence = ConfidenceEngine.compute(timed, direction, pattern, winArr.length);
+
+    // stability check: same set of top digits as previous update?
+    const boxDigits = box.map(b=>b.digit).sort().join(',');
+    if(this.lastBox === boxDigits) this.stableCount++;
+    else { this.stableCount = 1; this.lastBox = boxDigits; }
+
+    this.latestState = { stats, occ, direction, scored, timed, pattern, box, confidence, duration, winArr, stableCount:this.stableCount };
+
+    Dashboard.render(this.latestState);
+    Engine.evaluateGates(this.latestState);
+  }
+};
+</script>
+<script>
+/* ---------------- Dashboard Rendering ---------------- */
+const Dashboard = {
+  renderInsufficient(){
+    document.getElementById('predBoxRender').innerHTML = '<div class="note">Collecting ticks… need at least 10 to begin prediction.</div>';
+    document.getElementById('confPct').textContent = '0%';
+    document.getElementById('confFill').style.width = '0%';
+  },
+
+  render(state){
+    // Prediction box
+    const el = document.getElementById('predBoxRender');
+    el.innerHTML = state.box.map((b,i)=>`
+      <div class="pred-digit ${i===0?'rank1':''}">
+        <div class="rk">${i+1}</div>
+        <div class="n">${b.digit}</div>
+        <div class="p">${(b.combined*100).toFixed(1)}%</div>
+      </div>`).join('');
+
+    document.getElementById('confPct').textContent = state.confidence.toFixed(1)+'%';
+    document.getElementById('confFill').style.width = state.confidence.toFixed(1)+'%';
+    document.getElementById('dbConfBadge').textContent = state.confidence>=85 ? '● HIGH' : (state.confidence>=60?'● MED':'● LOW');
+
+    document.getElementById('engDirection').textContent = `${state.direction.type} (${Math.round(state.direction.confidence*100)}%)`;
+    document.getElementById('engPattern').textContent = `${state.pattern.mode} (${Math.round(state.pattern.reliability*100)}%)`;
+
+    this.renderDigitTable();
+  },
+
+  renderDigitTable(){
+    const state = Analytics.latestState;
+    const body = document.getElementById('digitTableBody');
+    if(!body) return;
+    if(!state){ body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--sub);">No data yet.</td></tr>'; return; }
+    const winSel = Number(document.getElementById('winSelect').value);
+    const winArr = TickEngine.window(winSel);
+    const stats = DigitStats.compute(winArr).sort((a,b)=>a.digit-b.digit);
+    body.innerHTML = stats.map(s=>`
+      <tr><td style="color:var(--amber);font-weight:700;">${s.digit}</td><td>${s.count}</td><td>${s.prob.toFixed(1)}%</td><td>${s.streak}</td><td>${s.gap}</td></tr>
+    `).join('');
+  }
+};
+
+/* ---------------- Symbol Chips ---------------- */
+const SYMBOLS = [
+  {code:'R_10', name:'V10'}, {code:'R_25', name:'V25'}, {code:'R_50', name:'V50'}, {code:'R_100', name:'V100'},
+  {code:'1HZ10V', name:'V10(1s)'}, {code:'1HZ30V', name:'V30(1s)'}, {code:'1HZ75V', name:'V75(1s)'}, {code:'1HZ100V', name:'V100(1s)'}
+];
+function renderSymbolChips(){
+  const el = document.getElementById('symbolChips');
+  if(!el) return;
+  el.innerHTML = SYMBOLS.map(s=>`<span class="symbol-chip ${AppState.symbol===s.code?'active':''}" onclick="selectSymbol('${s.code}')">${s.name}</span>`).join('');
+}
+function selectSymbol(code){
+  AppState.symbol = code;
+  document.getElementById('cfgSymbol').value = code;
+  renderSymbolChips();
+  if(AppState.connected){ TickEngine.subscribe(code); }
+}
+document.getElementById('cfgSymbol').addEventListener('change', (e)=>{ selectSymbol(e.target.value); });
+</script>
+<script>
+/* =========================================================================
+   TRADE EXECUTION ENGINE — mutex-guarded, gate-checked Matches trading
+   ========================================================================= */
+const Martingale = {
+  step: 0,
+  baseStake(){ return Number(document.getElementById('pStake').value)||1; },
+  nextStake(){
+    if(!document.getElementById('mgEnabled').checked || this.step===0) return this.baseStake();
+    const mult = Number(document.getElementById('mgMult').value)||2;
+    const mode = document.getElementById('mgMode').value;
+    const cap = Number(document.getElementById('mgCap').value)||9999;
+    let stake;
+    const base = this.baseStake();
+    if(mode==='classic') stake = base * Math.pow(mult, this.step);
+    else if(mode==='dalembert') stake = base + (base*0.5*this.step);
+    else stake = base * Math.pow(mult*0.7, this.step); // soft taper
+    return Math.min(stake, cap);
+  },
+  onResult(win){
+    if(!document.getElementById('mgEnabled').checked) return;
+    const maxSteps = Number(document.getElementById('mgSteps').value)||4;
+    const resetOn = document.getElementById('mgResetOn').value;
+    if(win){
+      // BUGFIX: the "Reset On" selector offered "Session Target Hit" as an option but the
+      // martingale step was always reset on any win regardless of the selection, making the
+      // control decorative/non-functional. Now 'target' mode only resets the recovery ladder
+      // once the session profit target has actually been reached; 'win' resets on any win.
+      if(resetOn === 'target'){
+        const tp = Number(document.getElementById('rTpSession').value)||0;
+        if(tp>0 && Stats.session.netPnl >= tp) this.step = 0;
+        // otherwise keep climbing/holding the ladder even after a win, per selected mode
+      } else {
+        this.step = 0;
+      }
+    } else {
+      this.step = Math.min(this.step+1, maxSteps);
+    }
+    this.render();
+  },
+  reset(){
+    this.step = 0; this.render();
+    Logger.sys('INFO','Martingale state reset.');
+  },
+  render(){
+    document.getElementById('mgCurStep').textContent = this.step;
+    document.getElementById('mgNextStake').textContent = Utils.fmt(this.nextStake());
+  }
+};
+
+const Risk = {
+  halted:false,
+  resumeEngine(){
+    this.halted = false;
+    document.getElementById('rHalted').textContent = 'NO';
+    Logger.sys('INFO','Engine resumed by user.');
+  },
+  checkSessionLimits(){
+    const tp = Number(document.getElementById('rTpSession').value)||0;
+    const sl = Number(document.getElementById('rSlSession').value)||0;
+    const autoHalt = document.getElementById('rAutoHalt').checked;
+    const pnl = Stats.session.netPnl;
+    document.getElementById('rSessPnl').textContent = Utils.fmt(pnl);
+    document.getElementById('rSessPnl').className = 'stat-val ' + (pnl>=0?'pos':'neg');
+    if(!autoHalt) return true;
+    if(tp>0 && pnl >= tp){
+      if(!this.halted){ this.halted=true; Logger.sys('WARN', `Session profit target (${tp}) reached — engine halted.`); }
+    }
+    if(sl>0 && pnl <= -sl){
+      if(!this.halted){ this.halted=true; Logger.sys('WARN', `Session loss limit (${sl}) reached — engine halted.`); }
+    }
+    document.getElementById('rHalted').textContent = this.halted ? 'YES' : 'NO';
+    return !this.halted;
+  },
+  checkMaxTrades(){
+    const max = Number(document.getElementById('rMaxTrades').value)||9999;
+    return Stats.session.tradeCount < max;
+  }
+};
+
+const Stats = {
+  session: { netPnl:0, wins:0, losses:0, tradeCount:0, best:0, worst:0, streak:0, streakType:null },
+
+  onTradeResult(entry){
+    const s = this.session;
+    s.tradeCount++;
+    s.netPnl += entry.pnl;
+    if(entry.result==='WIN'){ s.wins++; s.best = Math.max(s.best, entry.pnl);
+      s.streakType==='W' ? s.streak++ : (s.streak=1, s.streakType='W');
+    } else { s.losses++; s.worst = Math.min(s.worst, entry.pnl);
+      s.streakType==='L' ? s.streak++ : (s.streak=1, s.streakType='L');
+    }
+    this.render();
+    Risk.checkSessionLimits();
+  },
+
+  render(){
+    const s = this.session;
+    document.getElementById('stNetPnl').textContent = Utils.fmt(s.netPnl);
+    document.getElementById('stNetPnl').className = 'stat-val ' + (s.netPnl>=0?'pos':'neg');
+    document.getElementById('stWinRate').textContent = s.tradeCount ? Math.round(s.wins/s.tradeCount*100)+'%' : '0%';
+    document.getElementById('stTradeCount').textContent = s.tradeCount;
+    document.getElementById('stWins').textContent = s.wins;
+    document.getElementById('stLosses').textContent = s.losses;
+    document.getElementById('stStreak').textContent = (s.streakType||'')+ (s.streak||0);
+    document.getElementById('stBest').textContent = Utils.fmt(s.best);
+    document.getElementById('stWorst').textContent = Utils.fmt(s.worst);
+    document.getElementById('stAvg').textContent = Utils.fmt(s.tradeCount ? s.netPnl/s.tradeCount : 0);
+  },
+
+  reset(){
+    this.session = { netPnl:0, wins:0, losses:0, tradeCount:0, best:0, worst:0, streak:0, streakType:null };
+    this.render();
+    Logger.sys('INFO','PnL stats reset.');
+  }
+};
+
+const MIN_STAKE = 0.35;
+const WATCHDOG_MS = 20000; // max time a mutex may stay locked awaiting a proposal/buy/settlement round-trip
+
+const Engine = {
+  enabled:false,
+  mutexLocked:false,
+  cooldownUntil:0,
+  activeProposalId:null,
+  activeContractId:null,
+  activeContractSubId:null,
+  activeTrade:null,
+  lastErrorAt:0,
+  watchdogTimer:null,
+  tradeToken:0, // monotonically increasing id — guards against stale/late async responses
+
+  toggle(on){
+    this.enabled = on;
+    Logger.sys('INFO', `Trade Execution Engine ${on?'ENABLED':'DISABLED'}.`);
+  },
+
+  onApiError(){
+    this.lastErrorAt = Date.now();
+    this.cooldownUntil = Date.now() + 5000; // min 5s cooldown after any error
+    this.activeTrade = null; this.activeProposalId = null; this.activeContractId = null; this.activeContractSubId = null;
+    this._unlock();
+  },
+
+  _lock(){
+    this.mutexLocked = true;
+    document.getElementById('mutexBanner').style.display='flex';
+    // Watchdog: if no settlement/error arrives within WATCHDOG_MS, force-unlock to prevent a permanent deadlock.
+    const myToken = this.tradeToken;
+    clearTimeout(this.watchdogTimer);
+    this.watchdogTimer = setTimeout(()=>{
+      if(this.mutexLocked && this.tradeToken === myToken){
+        Logger.sys('ERROR', `Watchdog: no response within ${WATCHDOG_MS/1000}s — force-unlocking trade mutex.`);
+        this.activeTrade = null; this.activeProposalId = null; this.activeContractId = null; this.activeContractSubId = null;
+        this.cooldownUntil = Date.now() + 5000;
+        this._unlock();
+      }
+    }, WATCHDOG_MS);
+  },
+  _unlock(){
+    this.mutexLocked = false;
+    clearTimeout(this.watchdogTimer);
+    document.getElementById('mutexBanner').style.display='none';
+  },
+
+  evaluateGates(state){
+    const gates = [];
+    const enabledGate = this.enabled;
+    gates.push({ name:'Engine Enabled', pass: enabledGate, val: enabledGate?'ON':'OFF' });
+
+    const mutexFree = !this.mutexLocked;
+    gates.push({ name:'Trade Mutex Free', pass: mutexFree, val: mutexFree?'FREE':'LOCKED' });
+
+    const cooldownDone = Date.now() >= this.cooldownUntil;
+    gates.push({ name:'Cooldown Elapsed', pass: cooldownDone, val: cooldownDone?'READY':'WAITING' });
+
+    const threshold = Number(document.getElementById('pConfThresh').value)||85;
+    const confPass = state.confidence >= threshold;
+    gates.push({ name:`Confidence ≥ ${threshold}%`, pass: confPass, val: state.confidence.toFixed(1)+'%' });
+
+    const stabilityNeeded = Number(document.getElementById('pStability').value)||3;
+    const stabilityPass = state.stableCount >= stabilityNeeded;
+    gates.push({ name:`Box Stable ≥ ${stabilityNeeded}`, pass: stabilityPass, val: state.stableCount });
+
+    const maxTradesPass = Risk.checkMaxTrades();
+    gates.push({ name:'Max Trades / Session', pass: maxTradesPass, val: Stats.session.tradeCount+'/'+(document.getElementById('rMaxTrades').value) });
+
+    const riskPass = Risk.checkSessionLimits();
+    gates.push({ name:'Session P/L Limits', pass: riskPass, val: riskPass?'OK':'HIT' });
+
+    const connPass = AppState.connected;
+    gates.push({ name:'WebSocket Connected', pass: connPass, val: connPass?'YES':'NO' });
+
+    const realGatePass = AppState.accountType!=='real' || AppState.realConfirmed;
+    gates.push({ name:'Real Account Confirmed', pass: realGatePass, val: realGatePass?'YES':'PENDING' });
+
+    this.renderGates(gates);
+
+    const allPass = gates.every(g=>g.pass);
+    if(allPass){ this.fire(state); }
+  },
+
+  renderGates(gates){
+    const el = document.getElementById('gatesRender');
+    el.innerHTML = gates.map(g=>`
+      <div class="gate-row"><span class="gate-name">${g.name}</span>
+        <span style="display:flex;align-items:center;gap:8px;">
+          <span class="gate-val">${g.val}</span>
+          <span class="gate-badge ${g.pass?'pass':'fail'}">${g.pass?'PASS':'FAIL'}</span>
+        </span>
+      </div>`).join('');
+  },
+
+  // BUGFIX: DIGITMATCH wins when the actual digit MATCHES the barrier — so the barrier
+  // should be the MOST likely digit (top of the prediction box).
+  // DIGITDIFF wins when the actual digit DIFFERS from the barrier — so the barrier should
+  // be the LEAST likely digit (bottom of the full ranking), otherwise the bot would be
+  // systematically betting against its own prediction. Previously both contract types
+  // reused the same top-ranked box, which inverted the edge for DIGITDIFF trades.
+  pickDigit(state){
+    const rule = document.getElementById('pDigitRule').value;
+    const contractType = document.getElementById('pContractType').value;
+
+    if(contractType === 'DIGITDIFF'){
+      const boxSize = state.box.length;
+      const leastLikely = state.timed.slice(-boxSize).slice().reverse(); // lowest combined score first
+      const pool = leastLikely.length ? leastLikely : state.timed.slice().reverse();
+      if(rule==='top1') return pool[0].digit;
+      const idx = Math.floor(Math.random()*pool.length);
+      return pool[idx].digit;
+    }
+
+    // DIGITMATCH (default): use the top-ranked prediction box
+    if(rule==='top1') return state.box[0].digit;
+    const idx = Math.floor(Math.random()*state.box.length);
+    return state.box[idx].digit;
+  },
+
+  fire(state){
+    if(this.mutexLocked) return;
+    if(!AppState.connected){ Logger.sys('WARN','Cannot fire — not connected.'); return; }
+
+    const digit = this.pickDigit(state);
+    const contractType = document.getElementById('pContractType').value;
+    const duration = Number(document.getElementById('pDuration').value)||5;
+
+    // Stake safety clamp — never send NaN, negative, zero, or sub-minimum stakes.
+    let stake = Number(Martingale.nextStake());
+    if(!Number.isFinite(stake) || stake < MIN_STAKE) stake = MIN_STAKE;
+    stake = Number(stake.toFixed(2));
+
+    this._lock();
+    this.tradeToken++;
+    const myToken = this.tradeToken;
+
+    this.activeTrade = { symbol: AppState.symbol, contractType, digit, duration, stake, confidence: state.confidence, token: myToken };
+
+    const proposalReq = {
+      proposal: 1,
+      amount: stake,
+      basis: 'stake',
+      contract_type: contractType,
+      currency: AppState.account ? AppState.account.currency : 'USD',
+      duration: duration,
+      duration_unit: 't',
+      barrier: String(digit),
+      underlying_symbol: AppState.symbol
+    };
+    Logger.sys('TRADE', `Requesting proposal — ${contractType} digit ${digit}, stake ${stake}, duration ${duration}t.`);
+    const reqId = WS.send(proposalReq);
+    if(reqId === null){
+      // BUGFIX: previously a failed send (e.g. socket closed mid-fire) left the mutex
+      // locked forever with no recovery path. Now we unlock immediately and cooldown.
+      Logger.sys('ERROR','Proposal send failed — socket not open. Trade aborted, mutex released.');
+      this.activeTrade = null;
+      this.cooldownUntil = Date.now() + 5000;
+      this._unlock();
+    }
+  },
+
+  onProposal(proposal){
+    if(!proposal || !this.activeTrade) { return; }
+    if(this.activeTrade.token !== this.tradeToken) return; // stale response for a superseded trade
+    this.activeProposalId = proposal.id;
+    Logger.sys('TRADE', `Proposal received — ask price ${proposal.ask_price}. Buying…`);
+    const reqId = WS.send({ buy: proposal.id, price: proposal.ask_price });
+    if(reqId === null){
+      Logger.sys('ERROR','Buy send failed — socket not open. Trade aborted, mutex released.');
+      this.activeTrade = null; this.activeProposalId = null;
+      this.cooldownUntil = Date.now() + 5000;
+      this._unlock();
+    }
+  },
+
+  onBuy(buy){
+    if(!buy || !this.activeTrade){ this._unlock(); return; }
+    if(this.activeTrade.token !== this.tradeToken) return; // stale response
+    this.activeContractId = buy.contract_id;
+    Logger.sys('TRADE', `Contract purchased — ID ${buy.contract_id}, price ${buy.buy_price}.`);
+    this.activeContractSubId = WS.send({ proposal_open_contract:1, contract_id: buy.contract_id, subscribe:1 });
+  },
+
+  onContractUpdate(c){
+    if(!c || !this.activeTrade) return;
+    // BUGFIX: verify this update actually belongs to the trade currently tracked by the
+    // engine. Without this check, a late/duplicate update for a previous contract could be
+    // misattributed to the trade in progress and corrupt stats/martingale/learning state.
+    if(this.activeContractId != null && c.contract_id != null && c.contract_id !== this.activeContractId) return;
+    if(!c.is_sold) return; // wait until settled
+    const buyPrice = Number(c.buy_price)||this.activeTrade.stake;
+    const sellPrice = Number(c.sell_price)||0;
+    const pnl = sellPrice - buyPrice;
+    const win = pnl > 0;
+    const entry = {
+      time: Utils.timeStr(), symbol: this.activeTrade.symbol, type: this.activeTrade.contractType,
+      digit: this.activeTrade.digit, stake: this.activeTrade.stake, result: win?'WIN':'LOSS', pnl
+    };
+    Logger.trade(entry);
+    Logger.sys(win?'WIN':'ERROR', `Contract settled — ${entry.result} ${pnl>=0?'+':''}${Utils.fmt(pnl)}.`);
+    Stats.onTradeResult(entry);
+    Martingale.onResult(win);
+    Adaptive.recordOutcome(win, this.activeTrade.confidence);
+    if(this.activeContractSubId != null){ WS.send({ forget: this.activeContractSubId }); }
+
+    const cooldownSec = Number(document.getElementById('pCooldown').value)||5;
+    this.cooldownUntil = Date.now() + cooldownSec*1000;
+    this.activeTrade = null; this.activeProposalId=null; this.activeContractId=null; this.activeContractSubId=null;
+    this._unlock();
+  },
+
+  manualFire(){
+    if(!AppState.connected){ Logger.sys('WARN','Connect first before firing a test trade.'); return; }
+    if(this.mutexLocked){ Logger.sys('WARN','Mutex locked — a trade is already in progress.'); return; }
+    if(!Analytics.latestState){ Logger.sys('WARN','No prediction data yet — wait for ticks.'); return; }
+    Logger.sys('INFO','Manual test trade — bypassing gates.');
+    this.fire(Analytics.latestState);
+  }
+};
+</script>
+<script>
+/* =========================================================================
+   RESET SUBSYSTEM — individual + full reset, all confirmation-gated
+   ========================================================================= */
+const Reset = {
+  registry: {
+    pnl:        { label:'PnL Stats',        fn: ()=>Stats.reset() },
+    tradeparams:{ label:'Trade Parameters', fn: ()=>Params.resetTrade() },
+    martingale: { label:'Martingale State', fn: ()=>Martingale.reset() },
+    risk:       { label:'Risk Parameters',  fn: ()=>Params.resetRisk() },
+    tradelog:   { label:'Trade Log',        fn: ()=>Logs.resetTradeLog() },
+    systemlog:  { label:'System Log',       fn: ()=>Logs.resetSystemLog() },
+    learning:   { label:'Adaptive Learning',fn: ()=>Adaptive.reset() },
+    all:        { label:'ALL SYSTEMS',      fn: ()=>Reset.doAll() }
+  },
+  confirm(key){
+    const item = this.registry[key];
+    if(!item) return;
+    Modal.open(`Reset ${item.label}?`,
+      `This will permanently clear ${item.label.toLowerCase()}. This action cannot be undone.`,
+      ()=>{ item.fn(); });
+  },
+  doAll(){
+    Stats.reset();
+    Logs.resetTradeLog();
+    Logs.resetSystemLog();
+    Martingale.reset();
+    Adaptive.reset();
+    Risk.halted = false;
+    document.getElementById('rHalted').textContent='NO';
+    Logger.sys('WARN','FULL SYSTEM RESET performed — all stats, logs, martingale, and learning state cleared.');
+  }
+};
+
+/* =========================================================================
+   APP INIT
+   ========================================================================= */
+function initApp(){
+  renderSymbolChips();
+  Stats.render();
+  Martingale.render();
+  Logger.renderSystem();
+  Logger.renderTrade();
+  Dashboard.renderDigitTable();
+  ConnUI.setOffline();
+  Logger.sys('INFO','OCTASENSE terminal initialized. Awaiting connection.');
+  // periodic UI refresh for cooldown/mutex/gates even without new ticks
+  setInterval(()=>{
+    if(Analytics.latestState) Engine.evaluateGates(Analytics.latestState);
+    Martingale.render();
+  }, 2000);
+}
+window.addEventListener('DOMContentLoaded', initApp);
+</script>
+</body>
+</html>

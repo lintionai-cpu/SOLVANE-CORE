@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OV2UN7 Nexus — Touch/No Touch Signal Intelligence</title>
+<style>
+  :root{
+    --bg:#0a0e14;
+    --panel:#0f141d;
+    --panel-2:#121826;
+    --line:#1c2433;
+    --line-soft:#161d2b;
+    --text:#dbe3ee;
+    --text-dim:#7c8aa3;
+    --text-faint:#4a5468;
+    --accent:#ff6a3d;
+    --accent-dim:#7a3320;
+    --touch:#3ddc97;
+    --touch-dim:#163f30;
+    --notouch:#5a8dee;
+    --notouch-dim:#16243f;
+    --warn:#e8b339;
+    --warn-dim:#3f3416;
+    --danger:#ef4a5e;
+    --danger-dim:#3f1620;
+    --mono: 'JetBrains Mono','SF Mono',ui-monospace,Menlo,Consolas,monospace;
+    --sans: -apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{
+    background:var(--bg); color:var(--text);
+    font-family:var(--sans); font-size:14px;
+    height:100%; overflow-x:hidden;
+  }
+  ::selection{ background:var(--accent-dim); color:#fff; }
+  ::-webkit-scrollbar{ width:8px; height:8px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
+  ::-webkit-scrollbar-thumb:hover{ background:var(--text-faint); }
+
+  .mono{ font-family:var(--mono); font-variant-numeric:tabular-nums; }
+
+  /* ============ TOP BAR ============ */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 18px; border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, #0c111a, #0a0e14);
+    position:sticky; top:0; z-index:50;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand-mark{
+    width:30px; height:30px; border-radius:7px;
+    background:linear-gradient(135deg, var(--accent), #ff9466);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--mono); font-weight:700; font-size:13px; color:#1a0d06;
+    flex-shrink:0;
+  }
+  .brand-text{ display:flex; flex-direction:column; line-height:1.15; }
+  .brand-title{ font-weight:700; font-size:14.5px; letter-spacing:0.2px; }
+  .brand-sub{ font-size:10.5px; color:var(--text-dim); font-family:var(--mono); letter-spacing:0.4px; }
+
+  .topbar-right{ display:flex; align-items:center; gap:10px; }
+  .conn-pill{
+    display:flex; align-items:center; gap:7px;
+    padding:6px 12px; border-radius:20px;
+    background:var(--panel-2); border:1px solid var(--line);
+    font-family:var(--mono); font-size:11.5px; color:var(--text-dim);
+  }
+  .dot{ width:7px; height:7px; border-radius:50%; background:var(--text-faint); flex-shrink:0; }
+  .dot.live{ background:var(--touch); box-shadow:0 0 8px var(--touch); animation:pulse 2s infinite; }
+  .dot.connecting{ background:var(--warn); animation:pulse 1s infinite; }
+  .dot.off{ background:var(--danger); }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.4;} }
+
+  .symbol-select{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    font-family:var(--mono); font-size:12px; padding:7px 10px; border-radius:8px;
+    cursor:pointer; outline:none;
+  }
+  .symbol-select:hover{ border-color:var(--text-faint); }
+
+  .mode-banner{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:0.5px;
+    color:var(--warn); background:var(--warn-dim);
+    border:1px solid #4a3d1e; padding:5px 10px; border-radius:6px;
+  }
+
+  /* ============ LAYOUT ============ */
+  .app{
+    display:grid;
+    grid-template-columns: 1fr 320px;
+    grid-template-rows: auto auto;
+    gap:14px;
+    padding:14px 18px 28px;
+    max-width:1500px; margin:0 auto;
+  }
+  @media (max-width: 980px){
+    .app{ grid-template-columns: 1fr; }
+  }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:12px;
+    overflow:hidden;
+  }
+  .panel-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:11px 15px; border-bottom:1px solid var(--line-soft);
+  }
+  .panel-title{
+    font-size:11px; letter-spacing:1px; text-transform:uppercase;
+    color:var(--text-dim); font-weight:600;
+  }
+  .panel-body{ padding:15px; }
+
+  /* ============ CHART PANEL ============ */
+  .chart-panel{ grid-column:1; grid-row:1; min-height:340px; }
+  .chart-meta{ display:flex; gap:16px; align-items:center; }
+  .chart-price{
+    font-family:var(--mono); font-size:20px; font-weight:600; color:var(--text);
+  }
+  .chart-price.up{ color:var(--touch); }
+  .chart-price.down{ color:var(--danger); }
+  #tickCanvas{ width:100%; height:280px; display:block; }
+
+  /* ============ RIGHT COLUMN: STATE + RISK ============ */
+  .side-col{ grid-column:2; grid-row:1 / span 2; display:flex; flex-direction:column; gap:14px; }
+  @media (max-width: 980px){ .side-col{ grid-column:1; grid-row:auto; } }
+
+  .state-badge{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:9px 14px; border-radius:9px;
+    font-family:var(--mono); font-size:13px; font-weight:700; letter-spacing:0.5px;
+    width:100%; justify-content:center;
+  }
+  .state-IDLE{ background:#161b26; color:var(--text-dim); border:1px solid var(--line); }
+  .state-COMPRESSED{ background:var(--warn-dim); color:var(--warn); border:1px solid #4a3d1e; }
+  .state-BREAKOUT{ background:#1f1a3f; color:#a78bfa; border:1px solid #3a2f6e; }
+  .state-TRENDING{ background:var(--touch-dim); color:var(--touch); border:1px solid #1f5c44; }
+  .state-EXHAUSTED{ background:var(--notouch-dim); color:var(--notouch); border:1px solid #1f3a64; }
+  .state-REVERSING{ background:#3f1e3a; color:#e879c4; border:1px solid #6e2f63; }
+  .state-HIGH_RISK{ background:var(--danger-dim); color:var(--danger); border:1px solid #5c1f29; }
+
+  .prob-meter{ margin-top:14px; }
+  .prob-row{ margin-bottom:13px; }
+  .prob-label{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-size:11.5px; color:var(--text-dim); margin-bottom:5px;
+    font-family:var(--mono);
+  }
+  .prob-label .val{ font-size:15px; font-weight:700; }
+  .prob-track{ height:7px; border-radius:4px; background:var(--line-soft); overflow:hidden; }
+  .prob-fill{ height:100%; border-radius:4px; transition:width 0.4s ease; }
+  .prob-fill.touch{ background:linear-gradient(90deg, #1f5c44, var(--touch)); }
+  .prob-fill.notouch{ background:linear-gradient(90deg, #1f3a64, var(--notouch)); }
+  .prob-label .val.touch-c{ color:var(--touch); }
+  .prob-label .val.notouch-c{ color:var(--notouch); }
+
+  .confidence-row{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-top:12px; padding-top:12px; border-top:1px solid var(--line-soft);
+    font-family:var(--mono); font-size:11.5px; color:var(--text-dim);
+  }
+  .confidence-row .val{ font-size:14px; font-weight:700; color:var(--text); }
+
+  /* metrics grid */
+  .metrics-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:4px;
+  }
+  .metric-cell{
+    background:var(--panel-2); border:1px solid var(--line-soft); border-radius:8px;
+    padding:9px 10px;
+  }
+  .metric-label{ font-size:9.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.5px; font-family:var(--mono); }
+  .metric-val{ font-family:var(--mono); font-size:14px; font-weight:600; margin-top:3px; }
+  .metric-val.pos{ color:var(--touch); }
+  .metric-val.neg{ color:var(--danger); }
+
+  /* ============ PATTERN + DISTANCE ROW ============ */
+  .row-panels{
+    grid-column:1; grid-row:2;
+    display:grid; grid-template-columns:1fr 1fr; gap:14px;
+  }
+  @media (max-width:700px){ .row-panels{ grid-template-columns:1fr; } }
+
+  .pattern-tags{ display:flex; flex-wrap:wrap; gap:7px; }
+  .ptag{
+    font-family:var(--mono); font-size:11px; padding:6px 10px; border-radius:7px;
+    background:var(--panel-2); border:1px solid var(--line-soft); color:var(--text-faint);
+  }
+  .ptag.active{ background:var(--accent-dim); color:var(--accent); border-color:#5c2a18; }
+
+  .barrier-row{ display:flex; flex-direction:column; gap:10px; }
+  .barrier-input-group{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .barrier-input-group label{ font-size:11px; color:var(--text-dim); font-family:var(--mono); }
+  .barrier-input-group input[type="number"]{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    font-family:var(--mono); font-size:12.5px; padding:7px 9px; border-radius:7px;
+    width:110px; outline:none;
+  }
+  .barrier-input-group input:focus{ border-color:var(--accent); }
+  .duration-group select{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    font-family:var(--mono); font-size:12px; padding:7px 9px; border-radius:7px;
+  }
+  .distance-readout{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:10px 12px; background:var(--panel-2); border-radius:8px; border:1px solid var(--line-soft);
+    margin-top:4px;
+  }
+  .distance-readout .ratio{ font-family:var(--mono); font-size:17px; font-weight:700; }
+  .distance-zone{ font-family:var(--mono); font-size:10.5px; padding:4px 8px; border-radius:5px; text-transform:uppercase; letter-spacing:0.4px; }
+  .zone-veryNear{ background:var(--danger-dim); color:var(--danger); }
+  .zone-near{ background:var(--warn-dim); color:var(--warn); }
+  .zone-medium{ background:#161b26; color:var(--text-dim); }
+  .zone-far{ background:var(--notouch-dim); color:var(--notouch); }
+
+  /* ============ SIGNAL FEED ============ */
+  .signal-feed{ grid-column:1 / span 2; grid-row:3; }
+  @media (max-width:980px){ .signal-feed{ grid-column:1; } }
+  .feed-list{ display:flex; flex-direction:column; gap:8px; max-height:360px; overflow-y:auto; }
+  .signal-card{
+    display:flex; align-items:center; gap:12px;
+    padding:11px 13px; border-radius:9px;
+    background:var(--panel-2); border:1px solid var(--line-soft);
+    animation:slideIn 0.3s ease;
+  }
+  @keyframes slideIn{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:translateY(0); } }
+  .signal-card.touch{ border-left:3px solid var(--touch); }
+  .signal-card.notouch{ border-left:3px solid var(--notouch); }
+  .signal-badge{
+    font-family:var(--mono); font-size:10.5px; font-weight:700; padding:5px 9px; border-radius:6px;
+    letter-spacing:0.4px; flex-shrink:0;
+  }
+  .signal-badge.touch{ background:var(--touch-dim); color:var(--touch); }
+  .signal-badge.notouch{ background:var(--notouch-dim); color:var(--notouch); }
+  .signal-detail{ flex:1; min-width:0; }
+  .signal-symbol{ font-family:var(--mono); font-size:12.5px; font-weight:600; }
+  .signal-sub{ font-size:11px; color:var(--text-dim); margin-top:2px; }
+  .signal-conf{ font-family:var(--mono); font-size:13px; font-weight:700; flex-shrink:0; }
+  .signal-time{ font-family:var(--mono); font-size:10px; color:var(--text-faint); flex-shrink:0; width:52px; text-align:right; }
+
+  .empty-state{
+    text-align:center; padding:30px 10px; color:var(--text-faint); font-size:12.5px;
+    font-family:var(--mono);
+  }
+
+  /* ============ LOG PANEL ============ */
+  .log-panel{ grid-column:1 / span 2; grid-row:4; }
+  @media (max-width:980px){ .log-panel{ grid-column:1; } }
+  .log-body{
+    font-family:var(--mono); font-size:11px; color:var(--text-dim);
+    max-height:160px; overflow-y:auto; line-height:1.7;
+    background:#070a10; padding:11px 13px; border-radius:8px;
+  }
+  .log-line{ white-space:pre-wrap; word-break:break-word; }
+  .log-line.err{ color:var(--danger); }
+  .log-line.warn{ color:var(--warn); }
+  .log-line.ok{ color:var(--touch); }
+
+  /* ============ MISC ============ */
+  .btn{
+    font-family:var(--mono); font-size:11.5px; font-weight:600;
+    padding:8px 14px; border-radius:7px; cursor:pointer;
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    transition:all 0.15s ease;
+  }
+  .btn:hover{ border-color:var(--text-faint); }
+  .btn.primary{ background:var(--accent-dim); border-color:#5c2a18; color:var(--accent); }
+  .btn.primary:hover{ background:#5c2a18; }
+  .btn:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  .footer-note{
+    text-align:center; font-size:10.5px; color:var(--text-faint);
+    font-family:var(--mono); padding:18px 0 4px; max-width:1500px; margin:0 auto;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark">N7</div>
+    <div class="brand-text">
+      <div class="brand-title">OV2UN7 Nexus</div>
+      <div class="brand-sub">TOUCH / NO-TOUCH SIGNAL INTELLIGENCE</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="mode-banner">SIGNAL-ONLY · NO EXECUTION</div>
+    <select class="symbol-select" id="symbolSelect">
+      <option value="1HZ100V">Volatility 100 (1s)</option>
+      <option value="1HZ75V">Volatility 75 (1s)</option>
+      <option value="1HZ50V">Volatility 50 (1s)</option>
+      <option value="1HZ25V">Volatility 25 (1s)</option>
+      <option value="1HZ10V">Volatility 10 (1s)</option>
+      <option value="R_100">Volatility 100</option>
+      <option value="R_75">Volatility 75</option>
+      <option value="R_50">Volatility 50</option>
+      <option value="R_25">Volatility 25</option>
+      <option value="R_10">Volatility 10</option>
+    </select>
+    <div class="conn-pill" id="connPill">
+      <div class="dot off" id="connDot"></div>
+      <span id="connText">disconnected</span>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+
+  <!-- CHART -->
+  <div class="panel chart-panel">
+    <div class="panel-head">
+      <div class="panel-title">Live Tick Stream</div>
+      <div class="chart-meta">
+        <span class="mono chart-price" id="livePrice">—</span>
+      </div>
+    </div>
+    <div class="panel-body">
+      <canvas id="tickCanvas"></canvas>
+    </div>
+  </div>
+
+  <!-- SIDE: STATE + PROBABILITY -->
+  <div class="side-col">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Market State</div></div>
+      <div class="panel-body">
+        <div class="state-badge state-IDLE" id="stateBadge">IDLE</div>
+
+        <div class="prob-meter">
+          <div class="prob-row">
+            <div class="prob-label"><span>Touch Probability</span><span class="val touch-c" id="touchProbVal">—</span></div>
+            <div class="prob-track"><div class="prob-fill touch" id="touchProbFill" style="width:0%"></div></div>
+          </div>
+          <div class="prob-row">
+            <div class="prob-label"><span>No-Touch Probability</span><span class="val notouch-c" id="notouchProbVal">—</span></div>
+            <div class="prob-track"><div class="prob-fill notouch" id="notouchProbFill" style="width:0%"></div></div>
+          </div>
+        </div>
+
+        <div class="confidence-row">
+          <span>CONFIDENCE</span>
+          <span class="val" id="confVal">—</span>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-cell">
+            <div class="metric-label">Velocity</div>
+            <div class="metric-val mono" id="mVelocity">—</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-label">Acceleration</div>
+            <div class="metric-val mono" id="mAccel">—</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-label">Volatility</div>
+            <div class="metric-val mono" id="mVol">—</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-label">Trend (EMA10-50)</div>
+            <div class="metric-val mono" id="mTrend">—</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-label">RSI(14)</div>
+            <div class="metric-val mono" id="mRsi">—</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-label">ATR</div>
+            <div class="metric-val mono" id="mAtr">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Barrier Setup</div></div>
+      <div class="panel-body barrier-row">
+        <div class="barrier-input-group">
+          <label>Offset (±)</label>
+          <input type="number" id="barrierOffset" value="2.0" step="0.1" />
+        </div>
+        <div class="barrier-input-group duration-group">
+          <label>Duration</label>
+          <select id="durationSelect">
+            <option value="5t">5 ticks</option>
+            <option value="10t" selected>10 ticks</option>
+            <option value="20t">20 ticks</option>
+            <option value="30t">30 ticks</option>
+            <option value="60s">60 sec</option>
+            <option value="120s">120 sec</option>
+          </select>
+        </div>
+        <div class="distance-readout">
+          <div>
+            <div class="metric-label">Distance Ratio</div>
+            <div class="ratio mono" id="distRatioVal">—</div>
+          </div>
+          <div class="distance-zone zone-medium" id="distZone">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PATTERN + Risk row -->
+  <div class="row-panels">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Pattern Detection</div></div>
+      <div class="panel-body">
+        <div class="pattern-tags" id="patternTags">
+          <span class="ptag" data-pattern="MARKET_COMPRESSED">COMPRESSED</span>
+          <span class="ptag" data-pattern="MARKET_EXPANDING">EXPANDING</span>
+          <span class="ptag" data-pattern="MARKET_EXHAUSTED">EXHAUSTED</span>
+          <span class="ptag" data-pattern="MARKET_REVERSAL">REVERSAL</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Session Stats</div>
+      </div>
+      <div class="panel-body">
+        <div class="metrics-grid">
+          <div class="metric-cell">
+            <div class="metric-label">Signals Today</div>
+            <div class="metric-val mono" id="statSignals">0</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-label">Touch Signals</div>
+            <div class="metric-val mono" id="statTouch">0</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-label">No-Touch Signals</div>
+            <div class="metric-val mono" id="statNoTouch">0</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-label">Ticks Processed</div>
+            <div class="metric-val mono" id="statTicks">0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIGNAL FEED -->
+  <div class="panel signal-feed">
+    <div class="panel-head">
+      <div class="panel-title">Signal Feed</div>
+      <button class="btn" id="clearFeedBtn">Clear</button>
+    </div>
+    <div class="panel-body">
+      <div class="feed-list" id="feedList">
+        <div class="empty-state">Awaiting qualified signals — connect to a market to begin analysis</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div class="panel log-panel">
+    <div class="panel-head">
+      <div class="panel-title">System Log</div>
+      <button class="btn" id="clearLogBtn">Clear</button>
+    </div>
+    <div class="panel-body">
+      <div class="log-body" id="logBody"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer-note">OV2UN7 NEXUS · PUBLIC MARKET DATA ONLY · NO ACCOUNT CONNECTION · NO ORDER EXECUTION · SIGNALS ARE NOT FINANCIAL ADVICE</div>
+
+<script>
+'use strict';
+
+/* ============================================================
+   OV2UN7 NEXUS — Touch / No-Touch Signal Intelligence Engine
+   Signal-only. Public WebSocket. No authentication. No execution.
+   Endpoint: wss://api.derivws.com/trading/v1/options/ws/public
+   ============================================================ */
+
+// ---------- Logging ----------
+const Log = (() => {
+  const body = document.getElementById('logBody');
+  function line(msg, cls) {
+    const el = document.createElement('div');
+    el.className = 'log-line' + (cls ? ' ' + cls : '');
+    const t = new Date().toLocaleTimeString('en-GB', { hour12: false });
+    el.textContent = `[${t}] ${msg}`;
+    body.appendChild(el);
+    body.scrollTop = body.scrollHeight;
+    while (body.children.length > 300) body.removeChild(body.firstChild);
+  }
+  return {
+    info: (m) => line(m, ''),
+    ok: (m) => line(m, 'ok'),
+    warn: (m) => line(m, 'warn'),
+    err: (m) => line(m, 'err'),
+  };
+})();
+
+document.getElementById('clearLogBtn').addEventListener('click', () => {
+  document.getElementById('logBody').innerHTML = '';
+});
+
+// ============================================================
+// MODULE 1 — TICK BUFFER ENGINE
+// ============================================================
+class TickBuffer {
+  constructor(maxLen = 200) {
+    this.maxLen = maxLen;
+    this.prices = [];
+    this.timestamps = [];
+    this.highs = [];
+    this.lows = [];
+  }
+  addTick(price, time) {
+    this.prices.push(price);
+    this.timestamps.push(time);
+    this.highs.push(price);
+    this.lows.push(price);
+    if (this.prices.length > this.maxLen) {
+      this.prices.shift();
+      this.timestamps.shift();
+      this.highs.shift();
+      this.lows.shift();
+    }
+  }
+  getWindow(n) {
+    return this.prices.slice(Math.max(0, this.prices.length - n));
+  }
+  getTimeWindow(n) {
+    return this.timestamps.slice(Math.max(0, this.timestamps.length - n));
+  }
+  calculateRange(n) {
+    const w = this.getWindow(n);
+    if (w.length === 0) return 0;
+    return Math.max(...w) - Math.min(...w);
+  }
+  get length() { return this.prices.length; }
+  get last() { return this.prices[this.prices.length - 1]; }
+  get prev() { return this.prices[this.prices.length - 2]; }
+}
+
+// ============================================================
+// MODULE 2 — FEATURE GENERATION ENGINE
+// ============================================================
+const FeatureEngine = {
+  delta(buf) {
+    if (buf.length < 2) return 0;
+    return buf.last - buf.prev;
+  },
+
+  velocity(buf) {
+    if (buf.length < 2) return 0;
+    const t1 = buf.timestamps[buf.timestamps.length - 1];
+    const t0 = buf.timestamps[buf.timestamps.length - 2];
+    const dt = Math.max((t1 - t0) / 1000, 0.001); // seconds
+    return Math.abs(buf.last - buf.prev) / dt;
+  },
+
+  acceleration(buf, prevVelocity) {
+    const v = this.velocity(buf);
+    return v - (prevVelocity || 0);
+  },
+
+  stdDev(arr) {
+    if (arr.length < 2) return 0;
+    const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+    const variance = arr.reduce((a, b) => a + (b - mean) ** 2, 0) / arr.length;
+    return Math.sqrt(variance);
+  },
+
+  volatility(buf, n = 20) {
+    return this.stdDev(buf.getWindow(n));
+  },
+
+  ema(arr, period) {
+    if (arr.length === 0) return 0;
+    const k = 2 / (period + 1);
+    let emaVal = arr[0];
+    for (let i = 1; i < arr.length; i++) {
+      emaVal = arr[i] * k + emaVal * (1 - k);
+    }
+    return emaVal;
+  },
+
+  trendStrength(buf) {
+    const w = buf.getWindow(50);
+    if (w.length < 10) return 0;
+    const ema10 = this.ema(buf.getWindow(10), 10);
+    const ema50 = this.ema(w, 50);
+    return ema10 - ema50;
+  },
+
+  rsi(buf, period = 14) {
+    const w = buf.getWindow(period + 1);
+    if (w.length < period + 1) return 50;
+    let gains = 0, losses = 0;
+    for (let i = 1; i < w.length; i++) {
+      const diff = w[i] - w[i - 1];
+      if (diff > 0) gains += diff;
+      else losses += Math.abs(diff);
+    }
+    const avgGain = gains / period;
+    const avgLoss = losses / period;
+    if (avgLoss === 0) return 100;
+    const rs = avgGain / avgLoss;
+    return 100 - (100 / (1 + rs));
+  },
+
+  atr(buf, period = 14) {
+    // Synthetic indices: treat each tick as a 1-tick "candle" range = |delta|
+    const w = buf.getWindow(period + 1);
+    if (w.length < 2) return 0.0001;
+    const ranges = [];
+    for (let i = 1; i < w.length; i++) {
+      ranges.push(Math.abs(w[i] - w[i - 1]));
+    }
+    const avg = ranges.reduce((a, b) => a + b, 0) / ranges.length;
+    return avg || 0.0001;
+  },
+
+  barrierDistanceRatio(currentPrice, barrier, atrVal) {
+    const distance = Math.abs(barrier - currentPrice);
+    const safeAtr = atrVal > 0 ? atrVal : 0.0001;
+    return distance / safeAtr;
+  },
+
+  distanceZone(ratio) {
+    if (ratio < 0.5) return { zone: 'veryNear', label: 'VERY NEAR' };
+    if (ratio < 1) return { zone: 'near', label: 'NEAR' };
+    if (ratio < 2) return { zone: 'medium', label: 'MEDIUM' };
+    return { zone: 'far', label: 'FAR' };
+  },
+
+  momentum(buf, n = 10) {
+    const w = buf.getWindow(n);
+    if (w.length < 2) return 0;
+    return w[w.length - 1] - w[0];
+  },
+};
+
+// ============================================================
+// MODULE 3 — PATTERN DETECTION LAYER
+// ============================================================
+const PatternDetector = {
+  detect(buf, state) {
+    const patterns = [];
+    const range20 = buf.calculateRange(20);
+    const range50 = buf.calculateRange(50);
+
+    // Compression: short-term range much smaller than medium-term range
+    if (buf.length >= 50 && range50 > 0 && range20 < range50 * 0.5) {
+      patterns.push('MARKET_COMPRESSED');
+    }
+
+    // Expansion: velocity above recent average AND volatility increasing
+    const vNow = FeatureEngine.velocity(buf);
+    const volNow = FeatureEngine.volatility(buf, 20);
+    const volPrev = FeatureEngine.volatility(buf, 50);
+    const velWindow = [];
+    for (let i = Math.max(1, buf.length - 20); i < buf.length; i++) {
+      const dt = Math.max((buf.timestamps[i] - buf.timestamps[i - 1]) / 1000, 0.001);
+      velWindow.push(Math.abs(buf.prices[i] - buf.prices[i - 1]) / dt);
+    }
+    const velAvg = velWindow.length ? velWindow.reduce((a, b) => a + b, 0) / velWindow.length : 0;
+    if (vNow > velAvg * 1.15 && volNow > volPrev * 0.9 && buf.length >= 20) {
+      patterns.push('MARKET_EXPANDING');
+    }
+
+    // Exhaustion: velocity falling, negative acceleration, large wicks (proxied by reversal in last few ticks)
+    if (state.prevVelocity !== undefined) {
+      const accel = vNow - state.prevVelocity;
+      const last5 = buf.getWindow(5);
+      let wickLike = false;
+      if (last5.length === 5) {
+        const dir1 = Math.sign(last5[2] - last5[0]);
+        const dir2 = Math.sign(last5[4] - last5[2]);
+        wickLike = dir1 !== 0 && dir2 !== 0 && dir1 !== dir2;
+      }
+      if (vNow < velAvg * 0.85 && accel < 0 && wickLike) {
+        patterns.push('MARKET_EXHAUSTED');
+      }
+    }
+
+    // Mean reversion: price repeatedly crosses its EMA20
+    const w30 = buf.getWindow(30);
+    if (w30.length >= 15) {
+      const emaSeries = FeatureEngine.ema(w30, 20);
+      let crosses = 0;
+      let lastSide = null;
+      for (const p of w30) {
+        const side = p > emaSeries ? 1 : -1;
+        if (lastSide !== null && side !== lastSide) crosses++;
+        lastSide = side;
+      }
+      if (crosses >= 6) patterns.push('MARKET_REVERSAL');
+    }
+
+    return patterns;
+  },
+};
+
+// ============================================================
+// MODULE 4 — MARKET STATE MACHINE
+// ============================================================
+class MarketStateMachine {
+  constructor() {
+    this.state = 'IDLE';
+    this.prevVelocity = undefined;
+    this.history = [];
+  }
+
+  transition(patterns, features) {
+    const prev = this.state;
+    let next = this.state;
+
+    const volExtreme = features.volZScore !== undefined && features.volZScore > 2.5;
+
+    if (volExtreme) {
+      next = 'HIGH_RISK';
+    } else if (patterns.includes('MARKET_REVERSAL')) {
+      next = 'REVERSING';
+    } else if (patterns.includes('MARKET_EXHAUSTED')) {
+      next = 'EXHAUSTED';
+    } else if (patterns.includes('MARKET_COMPRESSED')) {
+      next = 'COMPRESSED';
+    } else if (patterns.includes('MARKET_EXPANDING') && (prev === 'COMPRESSED' || prev === 'BREAKOUT')) {
+      next = 'BREAKOUT';
+    } else if (features.acceleration > 0 && (prev === 'BREAKOUT' || patterns.includes('MARKET_EXPANDING'))) {
+      next = 'TRENDING';
+    } else if (prev === 'TRENDING' && features.acceleration < 0) {
+      next = 'EXHAUSTED';
+    } else if (!patterns.length && (prev === 'EXHAUSTED' || prev === 'REVERSING' || prev === 'HIGH_RISK')) {
+      next = 'IDLE';
+    }
+
+    this.state = next;
+    return { prev, next, changed: prev !== next };
+  }
+}
+
+// ============================================================
+// MODULE 5 — PROBABILITY SCORING ENGINE
+// ============================================================
+const ProbabilityEngine = {
+  weights: {
+    velocity: 15,
+    acceleration: 10,
+    volatility: 15,
+    highLowPattern: 15,
+    candleStrength: 10,
+    ema: 10,
+    rsi: 5,
+    atr: 10,
+    pattern: 10,
+  },
+
+  // Normalize raw feature into 0..1 "touch-favoring" score
+  normalize(features, patterns, marketState) {
+    const n = {};
+
+    // Velocity: higher velocity -> favors touch
+    n.velocity = clamp01(features.velocity / (features.velocityRef || 1) / 2);
+
+    // Acceleration: positive accel favors touch, negative favors no-touch
+    n.acceleration = clamp01(0.5 + (features.acceleration / (Math.abs(features.accelerationRef) || 1)) * 0.5);
+
+    // Volatility: moderate-high volatility favors touch, but extreme caps it
+    const volRatio = features.volatility / (features.volRef || 1);
+    n.volatility = clamp01(volRatio / 2);
+
+    // High/Low pattern: breakout/expansion favors touch
+    n.highLowPattern = (patterns.includes('MARKET_EXPANDING') || marketState === 'BREAKOUT') ? 0.85
+      : (patterns.includes('MARKET_COMPRESSED') ? 0.55 : 0.4);
+
+    // Candle strength proxied via |delta| relative to ATR
+    n.candleStrength = clamp01(Math.abs(features.delta) / (features.atr || 0.0001) / 2);
+
+    // EMA trend: positive trendStrength favors touch (directional continuation)
+    n.ema = clamp01(0.5 + Math.sign(features.trendStrength) * Math.min(Math.abs(features.trendStrength) / (features.atr || 0.0001), 1) * 0.5);
+
+    // RSI: extremes (overbought/oversold) favor no-touch (exhaustion), neutral favors touch
+    const rsiDistFromMid = Math.abs(features.rsi - 50);
+    n.rsi = clamp01(1 - rsiDistFromMid / 50);
+
+    // ATR: higher ATR relative to barrier distance favors touch
+    n.atr = clamp01((features.atr || 0) / (features.atrRef || 0.0001) / 2);
+
+    // Pattern composite
+    if (patterns.includes('MARKET_EXPANDING')) n.pattern = 0.85;
+    else if (patterns.includes('MARKET_COMPRESSED')) n.pattern = 0.6;
+    else if (patterns.includes('MARKET_EXHAUSTED')) n.pattern = 0.2;
+    else if (patterns.includes('MARKET_REVERSAL')) n.pattern = 0.25;
+    else n.pattern = 0.45;
+
+    return n;
+  },
+
+  score(features, patterns, marketState) {
+    const n = this.normalize(features, patterns, marketState);
+    const w = this.weights;
+    const raw =
+      n.velocity * w.velocity +
+      n.acceleration * w.acceleration +
+      n.volatility * w.volatility +
+      n.highLowPattern * w.highLowPattern +
+      n.candleStrength * w.candleStrength +
+      n.ema * w.ema +
+      n.rsi * w.rsi +
+      n.atr * w.atr +
+      n.pattern * w.pattern;
+
+    const totalWeight = Object.values(w).reduce((a, b) => a + b, 0);
+    const touchProbability = clamp01(raw / totalWeight);
+    const noTouchProbability = 1 - touchProbability;
+
+    // Confidence: how far the score is from the ambiguous 45-60 band, plus data sufficiency
+    const distFromAmbiguous = touchScoreDistanceFromAmbiguous(touchProbability * 100);
+    const dataSufficiency = clamp01(features.bufferLength / 60);
+    const confidence = clamp01(distFromAmbiguous * 0.7 + dataSufficiency * 0.3);
+
+    return { touchProbability, noTouchProbability, confidence, components: n };
+  },
+};
+
+function touchScoreDistanceFromAmbiguous(score100) {
+  if (score100 >= 45 && score100 <= 60) return 0.15;
+  const distLow = Math.abs(score100 - 45);
+  const distHigh = Math.abs(score100 - 60);
+  const d = Math.min(distLow, distHigh);
+  return clamp01(0.15 + d / 50);
+}
+
+function clamp01(x) { return Math.max(0, Math.min(1, isFinite(x) ? x : 0)); }
+
+// ============================================================
+// MODULE 6 — TRADE VALIDATION / SIGNAL QUALIFICATION LAYER
+// (Signal-only: produces alerts, never places trades)
+// ============================================================
+const SignalValidator = {
+  evaluate(prob, distanceRatio, marketState, volatilityLevel) {
+    const signals = [];
+
+    if (
+      prob.touchProbability > 0.75 &&
+      distanceRatio < 1 &&
+      marketState === 'TRENDING' &&
+      volatilityLevel !== 'EXTREME'
+    ) {
+      signals.push({ type: 'TOUCH', strength: prob.touchProbability });
+    }
+
+    if (
+      prob.noTouchProbability > 0.75 &&
+      distanceRatio > 2 &&
+      marketState === 'EXHAUSTED' &&
+      volatilityLevel !== 'HIGH' &&
+      volatilityLevel !== 'EXTREME'
+    ) {
+      signals.push({ type: 'NOTOUCH', strength: prob.noTouchProbability });
+    }
+
+    // Rejection: ambiguous score band
+    const score100 = prob.touchProbability * 100;
+    if (score100 >= 45 && score100 <= 60) return [];
+
+    return signals;
+  },
+
+  volatilityLevel(volNow, volRef) {
+    const ratio = volNow / (volRef || 1);
+    if (ratio > 2.5) return 'EXTREME';
+    if (ratio > 1.6) return 'HIGH';
+    if (ratio > 0.8) return 'MEDIUM';
+    return 'LOW';
+  },
+};
+
+// ============================================================
+// CHART RENDERER (lightweight canvas line chart)
+// ============================================================
+class TickChart {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this._resize();
+    window.addEventListener('resize', () => this._resize());
+  }
+  _resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = this.canvas.getBoundingClientRect();
+    this.canvas.width = rect.width * dpr;
+    this.canvas.height = rect.height * dpr;
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.w = rect.width;
+    this.h = rect.height;
+  }
+  draw(prices, barrierUpper, barrierLower) {
+    const { ctx, w, h } = this;
+    ctx.clearRect(0, 0, w, h);
+    if (prices.length < 2) return;
+
+    const allVals = [...prices];
+    if (barrierUpper !== null) allVals.push(barrierUpper);
+    if (barrierLower !== null) allVals.push(barrierLower);
+    const min = Math.min(...allVals);
+    const max = Math.max(...allVals);
+    const pad = (max - min) * 0.12 || 1;
+    const yMin = min - pad, yMax = max + pad;
+
+    const toX = (i) => (i / (prices.length - 1)) * (w - 10) + 5;
+    const toY = (v) => h - ((v - yMin) / (yMax - yMin)) * (h - 10) - 5;
+
+    // grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i < 4; i++) {
+      const y = (h / 4) * i;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+
+    // barrier lines
+    if (barrierUpper !== null) {
+      ctx.strokeStyle = 'rgba(61,220,151,0.5)';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(0, toY(barrierUpper)); ctx.lineTo(w, toY(barrierUpper)); ctx.stroke();
+    }
+    if (barrierLower !== null) {
+      ctx.strokeStyle = 'rgba(90,141,238,0.5)';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(0, toY(barrierLower)); ctx.lineTo(w, toY(barrierLower)); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // price line with gradient fill
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'rgba(255,106,61,0.25)');
+    grad.addColorStop(1, 'rgba(255,106,61,0)');
+
+    ctx.beginPath();
+    ctx.moveTo(toX(0), toY(prices[0]));
+    for (let i = 1; i < prices.length; i++) ctx.lineTo(toX(i), toY(prices[i]));
+    ctx.lineTo(toX(prices.length - 1), h);
+    ctx.lineTo(toX(0), h);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(toX(0), toY(prices[0]));
+    for (let i = 1; i < prices.length; i++) ctx.lineTo(toX(i), toY(prices[i]));
+    ctx.strokeStyle = '#ff6a3d';
+    ctx.lineWidth = 1.8;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    // last point dot
+    const lastX = toX(prices.length - 1), lastY = toY(prices[prices.length - 1]);
+    ctx.beginPath();
+    ctx.arc(lastX, lastY, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff6a3d';
+    ctx.fill();
+  }
+}
+
+// ============================================================
+// WEBSOCKET SERVICE — PUBLIC MARKET DATA ONLY
+// ============================================================
+class DerivPublicFeed {
+  constructor(onTick, onStatus) {
+    this.url = 'wss://api.derivws.com/trading/v1/options/ws/public';
+    this.ws = null;
+    this.symbol = '1HZ100V';
+    this.reqId = 0;
+    this.onTick = onTick;
+    this.onStatus = onStatus;
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 8;
+    this._intentionalClose = false;
+  }
+
+  connect(symbol) {
+    this.symbol = symbol || this.symbol;
+    this._intentionalClose = false;
+    this.onStatus('connecting');
+    Log.info(`Connecting to public feed for ${this.symbol}...`);
+
+    try {
+      this.ws = new WebSocket(this.url);
+    } catch (e) {
+      Log.err(`WebSocket construction failed: ${e.message}`);
+      this.onStatus('off');
+      return;
+    }
+
+    this.ws.onopen = () => {
+      this.reconnectAttempts = 0;
+      this.onStatus('live');
+      Log.ok(`Connected. Subscribing to ${this.symbol} ticks.`);
+      this._subscribeTicks(this.symbol);
+    };
+
+    this.ws.onmessage = (event) => {
+      let data;
+      try { data = JSON.parse(event.data); } catch (e) { return; }
+
+      if (data.error) {
+        Log.err(`API error [${data.error.code}]: ${data.error.message}`);
+        return;
+      }
+      if (data.msg_type === 'tick' && data.tick) {
+        this.onTick(data.tick.quote, data.tick.epoch * 1000);
+      }
+    };
+
+    this.ws.onerror = () => {
+      Log.err('WebSocket error.');
+    };
+
+    this.ws.onclose = () => {
+      this.onStatus('off');
+      if (!this._intentionalClose) {
+        Log.warn('Connection closed unexpectedly. Reconnecting...');
+        this._scheduleReconnect();
+      } else {
+        Log.info('Connection closed.');
+      }
+    };
+  }
+
+  _subscribeTicks(symbol) {
+    this._send({ ticks: symbol, subscribe: 1 });
+  }
+
+  switchSymbol(symbol) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this._send({ forget_all: 'ticks' });
+      this.symbol = symbol;
+      this._subscribeTicks(symbol);
+      Log.info(`Switched subscription to ${symbol}`);
+    } else {
+      this.connect(symbol);
+    }
+  }
+
+  _send(cmd) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    this.reqId++;
+    this.ws.send(JSON.stringify({ ...cmd, req_id: this.reqId }));
+  }
+
+  _scheduleReconnect() {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      Log.err('Max reconnect attempts reached. Click a symbol to retry manually.');
+      return;
+    }
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+    this.reconnectAttempts++;
+    this.onStatus('connecting');
+    setTimeout(() => this.connect(this.symbol), delay);
+  }
+
+  disconnect() {
+    this._intentionalClose = true;
+    if (this.ws) this.ws.close();
+  }
+}
+
+// ============================================================
+// APP CONTROLLER — wires engine to UI
+// ============================================================
+const App = (() => {
+  const buf = new TickBuffer(200);
+  const stateMachine = new MarketStateMachine();
+  const chart = new TickChart(document.getElementById('tickCanvas'));
+
+  let prevVelocity = undefined;
+  let lastPrice = null;
+  let tickCount = 0;
+  let signalCount = 0, touchCount = 0, notouchCount = 0;
+  let lastSignalAt = 0;
+  const SIGNAL_COOLDOWN_MS = 8000; // avoid spam; mirrors "avoid re-entry for N ticks" guidance
+
+  // volatility reference (rolling baseline) for z-score / level classification
+  let volBaseline = [];
+
+  const els = {
+    connDot: document.getElementById('connDot'),
+    connText: document.getElementById('connText'),
+    livePrice: document.getElementById('livePrice'),
+    stateBadge: document.getElementById('stateBadge'),
+    touchProbVal: document.getElementById('touchProbVal'),
+    notouchProbVal: document.getElementById('notouchProbVal'),
+    touchProbFill: document.getElementById('touchProbFill'),
+    notouchProbFill: document.getElementById('notouchProbFill'),
+    confVal: document.getElementById('confVal'),
+    mVelocity: document.getElementById('mVelocity'),
+    mAccel: document.getElementById('mAccel'),
+    mVol: document.getElementById('mVol'),
+    mTrend: document.getElementById('mTrend'),
+    mRsi: document.getElementById('mRsi'),
+    mAtr: document.getElementById('mAtr'),
+    barrierOffset: document.getElementById('barrierOffset'),
+    durationSelect: document.getElementById('durationSelect'),
+    distRatioVal: document.getElementById('distRatioVal'),
+    distZone: document.getElementById('distZone'),
+    patternTags: document.getElementById('patternTags'),
+    feedList: document.getElementById('feedList'),
+    statSignals: document.getElementById('statSignals'),
+    statTouch: document.getElementById('statTouch'),
+    statNoTouch: document.getElementById('statNoTouch'),
+    statTicks: document.getElementById('statTicks'),
+    symbolSelect: document.getElementById('symbolSelect'),
+  };
+
+  function setConnStatus(status) {
+    els.connDot.className = 'dot ' + (status === 'live' ? 'live' : status === 'connecting' ? 'connecting' : 'off');
+    els.connText.textContent = status === 'live' ? 'live' : status === 'connecting' ? 'connecting…' : 'disconnected';
+  }
+
+  const feed = new DerivPublicFeed(handleTick, setConnStatus);
+
+  function handleTick(price, epochMs) {
+    tickCount++;
+    els.statTicks.textContent = tickCount.toLocaleString();
+
+    const priceEl = els.livePrice;
+    if (lastPrice !== null) {
+      priceEl.classList.toggle('up', price > lastPrice);
+      priceEl.classList.toggle('down', price < lastPrice);
+    }
+    lastPrice = price;
+    priceEl.textContent = price.toFixed(4);
+
+    buf.addTick(price, epochMs);
+    if (buf.length < 5) return; // need minimum data
+
+    // ---- Features ----
+    const delta = FeatureEngine.delta(buf);
+    const velocity = FeatureEngine.velocity(buf);
+    const acceleration = FeatureEngine.acceleration(buf, prevVelocity);
+    const volatility = FeatureEngine.volatility(buf, 20);
+    const volatilityLong = FeatureEngine.volatility(buf, Math.min(50, buf.length));
+    const trendStrength = FeatureEngine.trendStrength(buf);
+    const rsi = FeatureEngine.rsi(buf, 14);
+    const atr = FeatureEngine.atr(buf, 14);
+
+    volBaseline.push(volatility);
+    if (volBaseline.length > 100) volBaseline.shift();
+    const volRef = volBaseline.length ? volBaseline.reduce((a, b) => a + b, 0) / volBaseline.length : volatility || 0.0001;
+    const volZScore = (volatility - volRef) / (FeatureEngine.stdDev(volBaseline) || 0.0001);
+
+    // ---- Pattern detection ----
+    const patterns = PatternDetector.detect(buf, { prevVelocity });
+
+    // ---- State machine ----
+    const transition = stateMachine.transition(patterns, { acceleration, volZScore });
+    if (transition.changed) {
+      Log.info(`Market state: ${transition.prev} → ${transition.next}`);
+    }
+
+    // ---- Barrier + distance ----
+    const offset = parseFloat(els.barrierOffset.value) || 1;
+    const barrierUpper = price + offset;
+    const barrierLower = price - offset;
+    const nearestBarrier = price; // current price is reference; ratio computed vs offset directly
+    const distanceRatio = FeatureEngine.barrierDistanceRatio(price, price + offset, atr);
+    const zone = FeatureEngine.distanceZone(distanceRatio);
+
+    // ---- Probability scoring ----
+    const features = {
+      velocity, velocityRef: estimateRef(velocity, 'v'),
+      acceleration, accelerationRef: estimateRef(Math.abs(acceleration) || 0.001, 'a'),
+      volatility, volRef,
+      delta, atr, atrRef: estimateRef(atr, 'atr'),
+      trendStrength, rsi,
+      bufferLength: buf.length,
+    };
+    const prob = ProbabilityEngine.score(features, patterns, stateMachine.state);
+    const volLevel = SignalValidator.volatilityLevel(volatility, volRef);
+
+    // ---- Signal validation ----
+    const signals = SignalValidator.evaluate(prob, distanceRatio, stateMachine.state, volLevel);
+    const now = Date.now();
+    if (signals.length && now - lastSignalAt > SIGNAL_COOLDOWN_MS) {
+      signals.forEach(sig => emitSignal(sig, price, offset, distanceRatio, prob));
+      lastSignalAt = now;
+    }
+
+    prevVelocity = velocity;
+
+    // ---- Render ----
+    renderState(stateMachine.state);
+    renderProb(prob);
+    renderMetrics({ velocity, acceleration, volatility, trendStrength, rsi, atr });
+    renderDistance(distanceRatio, zone);
+    renderPatterns(patterns);
+    chart.draw(buf.prices, barrierUpper, barrierLower);
+  }
+
+  // crude self-calibrating reference: exponential running average, seeded by first observations
+  const refStore = {};
+  function estimateRef(val, key) {
+    if (!isFinite(val)) val = 0;
+    if (refStore[key] === undefined) refStore[key] = val || 1;
+    else refStore[key] = refStore[key] * 0.98 + val * 0.02;
+    return refStore[key] || 1;
+  }
+
+  function renderState(state) {
+    els.stateBadge.textContent = state;
+    els.stateBadge.className = 'state-badge state-' + state;
+  }
+
+  function renderProb(prob) {
+    const tp = (prob.touchProbability * 100).toFixed(1);
+    const ntp = (prob.noTouchProbability * 100).toFixed(1);
+    els.touchProbVal.textContent = tp + '%';
+    els.notouchProbVal.textContent = ntp + '%';
+    els.touchProbFill.style.width = tp + '%';
+    els.notouchProbFill.style.width = ntp + '%';
+    els.confVal.textContent = (prob.confidence * 100).toFixed(0) + '%';
+  }
+
+  function renderMetrics(f) {
+    els.mVelocity.textContent = f.velocity.toFixed(3);
+    els.mAccel.textContent = (f.acceleration >= 0 ? '+' : '') + f.acceleration.toFixed(3);
+    els.mAccel.className = 'metric-val mono ' + (f.acceleration > 0 ? 'pos' : f.acceleration < 0 ? 'neg' : '');
+    els.mVol.textContent = f.volatility.toFixed(4);
+    els.mTrend.textContent = (f.trendStrength >= 0 ? '+' : '') + f.trendStrength.toFixed(4);
+    els.mTrend.className = 'metric-val mono ' + (f.trendStrength > 0 ? 'pos' : f.trendStrength < 0 ? 'neg' : '');
+    els.mRsi.textContent = f.rsi.toFixed(1);
+    els.mAtr.textContent = f.atr.toFixed(4);
+  }
+
+  function renderDistance(ratio, zone) {
+    els.distRatioVal.textContent = ratio.toFixed(2);
+    els.distZone.textContent = zone.label;
+    els.distZone.className = 'distance-zone zone-' + zone.zone;
+  }
+
+  function renderPatterns(patterns) {
+    const tags = els.patternTags.querySelectorAll('.ptag');
+    tags.forEach(tag => {
+      tag.classList.toggle('active', patterns.includes(tag.dataset.pattern));
+    });
+  }
+
+  function emitSignal(sig, price, offset, distanceRatio, prob) {
+    signalCount++;
+    if (sig.type === 'TOUCH') touchCount++; else notouchCount++;
+    els.statSignals.textContent = signalCount;
+    els.statTouch.textContent = touchCount;
+    els.statNoTouch.textContent = notouchCount;
+
+    const symbol = els.symbolSelect.value;
+    const time = new Date().toLocaleTimeString('en-GB', { hour12: false });
+    const barrierVal = sig.type === 'TOUCH' ? (price + offset).toFixed(4) : (price + offset * 2).toFixed(4);
+
+    const card = document.createElement('div');
+    card.className = 'signal-card ' + (sig.type === 'TOUCH' ? 'touch' : 'notouch');
+    card.innerHTML = `
+      <div class="signal-badge ${sig.type === 'TOUCH' ? 'touch' : 'notouch'}">${sig.type === 'TOUCH' ? 'BUY TOUCH' : 'BUY NO-TOUCH'}</div>
+      <div class="signal-detail">
+        <div class="signal-symbol mono">${symbol} @ ${price.toFixed(4)}</div>
+        <div class="signal-sub">barrier ${barrierVal} · dist ratio ${distanceRatio.toFixed(2)} · state ${stateMachine.state}</div>
+      </div>
+      <div class="signal-conf mono" style="color:${sig.type === 'TOUCH' ? 'var(--touch)' : 'var(--notouch)'}">${(sig.strength * 100).toFixed(0)}%</div>
+      <div class="signal-time mono">${time}</div>
+    `;
+
+    if (els.feedList.querySelector('.empty-state')) els.feedList.innerHTML = '';
+    els.feedList.insertBefore(card, els.feedList.firstChild);
+    while (els.feedList.children.length > 50) els.feedList.removeChild(els.feedList.lastChild);
+
+    Log.ok(`SIGNAL: ${sig.type} on ${symbol} @ ${price.toFixed(4)} — confidence ${(prob.confidence * 100).toFixed(0)}%`);
+  }
+
+  function init() {
+    feed.connect(els.symbolSelect.value);
+
+    els.symbolSelect.addEventListener('change', () => {
+      buf.prices = []; buf.timestamps = []; buf.highs = []; buf.lows = [];
+      lastPrice = null;
+      stateMachine.state = 'IDLE';
+      feed.switchSymbol(els.symbolSelect.value);
+      els.feedList.innerHTML = '<div class="empty-state">Awaiting qualified signals — connect to a market to begin analysis</div>';
+    });
+
+    document.getElementById('clearFeedBtn').addEventListener('click', () => {
+      els.feedList.innerHTML = '<div class="empty-state">Awaiting qualified signals — connect to a market to begin analysis</div>';
+    });
+
+    window.addEventListener('beforeunload', () => feed.disconnect());
+  }
+
+  return { init };
+})();
+
+App.init();
+
+</script>
+</body>
+</html>

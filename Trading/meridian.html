@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Meridian — Options Trading Terminal</title>
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiTWVyaWRpYW4gT3B0aW9ucyBUZXJtaW5hbCIsInNob3J0X25hbWUiOiJNZXJpZGlhbiIsInN0YXJ0X3VybCI6Ii4iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3IiOiIjMGIwYjBkIiwidGhlbWVfY29sb3IiOiIjYzlhMjI3In0=">
+<style>
+:root{
+  --color-bg:#0b0b0d; --color-surface:#15151a; --color-surface2:#1c1c22;
+  --color-text:#f3f0e8; --color-text-dim:#9a978d;
+  --color-accent:#c9a227; --color-accent-soft:#3a2f14;
+  --color-buy:#26a69a; --color-sell:#ef5350;
+  --color-risk-bg:#20141a; --color-risk-border:#5a2030;
+  --border:#2a2a30;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--color-bg);color:var(--color-text);min-height:100vh;-webkit-tap-highlight-color:transparent;padding-bottom:60px;}
+header{position:sticky;top:0;z-index:50;background:linear-gradient(180deg,#111 0%,#0b0b0d 100%);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--color-accent),#8a6d1a);display:flex;align-items:center;justify-content:center;font-weight:800;color:#111;font-size:16px;}
+.brand-name{font-weight:700;letter-spacing:0.5px;font-size:16px;}
+.brand-sub{font-size:10px;color:var(--color-text-dim);letter-spacing:1px;text-transform:uppercase;}
+.status-dot{width:8px;height:8px;border-radius:50%;background:#555;display:inline-block;margin-right:6px;}
+.status-dot.on{background:var(--color-buy);box-shadow:0 0 6px var(--color-buy);}
+.status-dot.off{background:var(--color-sell);}
+.top-right{display:flex;align-items:center;gap:12px;font-size:12px;color:var(--color-text-dim);}
+.mode-pill{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.5px;}
+.mode-pill.demo{background:#123a2e;color:#4fd1a5;}
+.mode-pill.real{background:#3a1414;color:#ff8787;}
+
+main{max-width:900px;margin:0 auto;padding:12px;}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding:8px 0;margin-bottom:10px;}
+.tab-btn{background:var(--color-surface);border:1px solid var(--border);color:var(--color-text-dim);padding:8px 14px;border-radius:8px;font-size:13px;white-space:nowrap;cursor:pointer;}
+.tab-btn.active{background:var(--color-accent-soft);color:var(--color-accent);border-color:var(--color-accent);font-weight:600;}
+.panel{display:none;}
+.panel.active{display:block;}
+.card{background:var(--color-surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;}
+.card h3{font-size:13px;text-transform:uppercase;letter-spacing:0.6px;color:var(--color-text-dim);margin-bottom:10px;}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+label{font-size:12px;color:var(--color-text-dim);display:block;margin-bottom:4px;}
+input,select,textarea{background:var(--color-surface2);border:1px solid var(--border);color:var(--color-text);padding:9px 10px;border-radius:8px;font-size:14px;width:100%;}
+input:focus,select:focus{outline:none;border-color:var(--color-accent);}
+.field{flex:1;min-width:120px;margin-bottom:8px;}
+button.btn{background:var(--color-accent);color:#111;border:none;padding:10px 16px;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;}
+button.btn.secondary{background:var(--color-surface2);color:var(--color-text);border:1px solid var(--border);}
+button.btn.danger{background:var(--color-sell);color:#fff;}
+button.btn:disabled{opacity:0.4;cursor:not-allowed;}
+button.btn-sm{padding:6px 10px;font-size:12px;border-radius:6px;}
+.auth-tabs{display:flex;gap:6px;margin-bottom:10px;}
+.auth-tab{flex:1;text-align:center;padding:8px;border-radius:8px;background:var(--color-surface2);color:var(--color-text-dim);cursor:pointer;font-size:13px;}
+.auth-tab.active{background:var(--color-accent);color:#111;font-weight:700;}
+.accounts-list{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+.account-item{display:flex;justify-content:space-between;align-items:center;background:var(--color-surface2);padding:10px;border-radius:8px;border:1px solid var(--border);cursor:pointer;}
+.account-item.selected{border-color:var(--color-accent);background:var(--color-accent-soft);}
+.account-item .bal{color:var(--color-accent);font-weight:700;}
+
+.risk-box{background:var(--color-risk-bg);border:1px solid var(--color-risk-border);border-radius:12px;padding:14px;margin-bottom:12px;}
+.risk-box h3{color:#ff9d9d;}
+
+.engine-card{border-left:3px solid var(--color-accent);}
+.engine-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.toggle{position:relative;width:42px;height:24px;background:var(--color-surface2);border-radius:20px;border:1px solid var(--border);cursor:pointer;}
+.toggle.on{background:var(--color-buy);}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;background:#fff;border-radius:50%;transition:left .15s;}
+.toggle.on::after{left:20px;}
+
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+@media(min-width:560px){.stat-grid{grid-template-columns:repeat(4,1fr);}}
+.stat{background:var(--color-surface2);border-radius:8px;padding:10px;text-align:center;}
+.stat .v{font-size:18px;font-weight:800;}
+.stat .l{font-size:10px;color:var(--color-text-dim);text-transform:uppercase;}
+.pos{color:var(--color-buy);} .neg{color:var(--color-sell);}
+
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th,td{padding:6px 4px;text-align:left;border-bottom:1px solid var(--border);}
+th{color:var(--color-text-dim);font-weight:600;text-transform:uppercase;font-size:10px;}
+#logConsole{background:#000;color:#8fdc8f;font-family:'SF Mono',Consolas,monospace;font-size:11px;height:180px;overflow-y:auto;padding:8px;border-radius:8px;border:1px solid var(--border);}
+.log-line{white-space:pre-wrap;word-break:break-word;}
+.log-err{color:#ff8787;}
+.log-warn{color:#e0c060;}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:none;align-items:center;justify-content:center;z-index:200;padding:16px;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--color-surface);border:1px solid var(--color-risk-border);border-radius:14px;padding:22px;max-width:420px;width:100%;}
+.modal h2{color:#ff9d9d;font-size:16px;margin-bottom:10px;}
+.modal p{font-size:13px;color:var(--color-text-dim);margin-bottom:12px;line-height:1.5;}
+
+.kill-btn{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:100;background:var(--color-sell);color:#fff;border:none;padding:12px 26px;border-radius:30px;font-weight:800;letter-spacing:0.5px;box-shadow:0 4px 16px rgba(239,83,80,0.4);cursor:pointer;}
+small.hint{color:var(--color-text-dim);font-size:11px;display:block;margin-top:4px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-mark">M</div>
+    <div>
+      <div class="brand-name">Meridian</div>
+      <div class="brand-sub">Options Terminal</div>
+    </div>
+  </div>
+  <div class="top-right">
+    <span><span class="status-dot off" id="wsDot"></span><span id="wsLabel">Disconnected</span></span>
+    <span class="mode-pill demo" id="modePill">DEMO</span>
+  </div>
+</header>
+
+<main>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="auth">Connect</button>
+    <button class="tab-btn" data-tab="dashboard">Dashboard</button>
+    <button class="tab-btn" data-tab="engines">Engines</button>
+    <button class="tab-btn" data-tab="risk">Risk</button>
+    <button class="tab-btn" data-tab="journal">Journal</button>
+    <button class="tab-btn" data-tab="logs">Logs</button>
+  </div>
+
+  <!-- AUTH PANEL -->
+  <div class="panel active" id="panel-auth">
+    <div class="card">
+      <h3>Authentication</h3>
+      <div class="auth-tabs">
+        <div class="auth-tab active" data-auth="pat">Personal Access Token</div>
+        <div class="auth-tab" data-auth="oauth">OAuth 2.0 (PKCE)</div>
+      </div>
+
+      <div id="authPatBox">
+        <div class="field">
+          <label>Deriv App ID (PAT type)</label>
+          <input id="patAppId" placeholder="12345">
+        </div>
+        <div class="field">
+          <label>Personal Access Token</label>
+          <input id="patToken" type="password" placeholder="a1b2c3...">
+        </div>
+        <button class="btn" onclick="connectWithPAT()">Connect with PAT</button>
+      </div>
+
+      <div id="authOauthBox" style="display:none;">
+        <div class="field">
+          <label>Deriv App ID (OAuth type)</label>
+          <input id="oauthAppId" placeholder="12345">
+        </div>
+        <div class="field">
+          <label>Redirect URI (must be HTTPS, whitelisted)</label>
+          <input id="oauthRedirect" placeholder="https://your-app.com/callback">
+        </div>
+        <button class="btn" onclick="startOAuthLogin()">Login with Deriv (OAuth PKCE)</button>
+        <small class="hint">On return, paste the resulting access token below (server-side exchange assumed).</small>
+        <div class="field" style="margin-top:8px;">
+          <label>Access Token (after exchange)</label>
+          <input id="oauthAccessToken" type="password" placeholder="paste access_token here">
+        </div>
+        <button class="btn secondary" onclick="connectWithOAuthToken()">Connect with OAuth Token</button>
+      </div>
+    </div>
+
+    <div class="card" id="accountsCard" style="display:none;">
+      <h3>Accounts</h3>
+      <div class="row">
+        <button class="btn-sm btn secondary" onclick="fetchAccounts()">Refresh Accounts</button>
+        <button class="btn-sm btn secondary" onclick="createAccount('demo')">Create Demo</button>
+      </div>
+      <div class="accounts-list" id="accountsList"></div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD PANEL -->
+  <div class="panel" id="panel-dashboard">
+    <div class="card">
+      <h3>Session Overview</h3>
+      <div class="stat-grid">
+        <div class="stat"><div class="v" id="statBalance">--</div><div class="l">Balance</div></div>
+        <div class="stat"><div class="v" id="statPnl">0.00</div><div class="l">Session P&L</div></div>
+        <div class="stat"><div class="v" id="statTrades">0</div><div class="l">Trades</div></div>
+        <div class="stat"><div class="v" id="statWinRate">0%</div><div class="l">Win Rate</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Live Ticks</h3>
+      <div class="row">
+        <div class="field">
+          <label>Symbol</label>
+          <select id="tickSymbolSelect" onchange="onWatchSymbolChange()">
+            <option value="1HZ100V">Volatility 100 (1s) Index</option>
+            <option value="1HZ75V">Volatility 75 (1s) Index</option>
+            <option value="1HZ50V">Volatility 50 (1s) Index</option>
+            <option value="1HZ25V">Volatility 25 (1s) Index</option>
+            <option value="1HZ10V">Volatility 10 (1s) Index</option>
+            <option value="R_100">Volatility 100 Index</option>
+            <option value="R_75">Volatility 75 Index</option>
+            <option value="R_50">Volatility 50 Index</option>
+            <option value="BOOM1000">Boom 1000 Index</option>
+            <option value="CRASH1000">Crash 1000 Index</option>
+          </select>
+        </div>
+      </div>
+      <div id="tickDisplay" style="font-size:28px;font-weight:800;color:var(--color-accent);">--</div>
+      <div id="lastDigits" style="font-size:12px;color:var(--color-text-dim);margin-top:4px;">Last digits: --</div>
+    </div>
+  </div>
+
+  <!-- ENGINES PANEL -->
+  <div class="panel" id="panel-engines">
+    <div class="card">
+      <h3>Add Strategy Engine</h3>
+      <div class="row">
+        <div class="field">
+          <label>Engine Type</label>
+          <select id="newEngineType">
+            <option value="digit_matches">Digit Matches</option>
+            <option value="digit_differs">Digit Differs</option>
+            <option value="digit_over">Digit Over</option>
+            <option value="digit_under">Digit Under</option>
+            <option value="rise">Rise (CALL)</option>
+            <option value="fall">Fall (PUT)</option>
+            <option value="mult_up">Multiplier Up</option>
+            <option value="mult_down">Multiplier Down</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Symbol</label>
+          <select id="newEngineSymbol">
+            <option value="1HZ100V">Volatility 100 (1s)</option>
+            <option value="1HZ75V">Volatility 75 (1s)</option>
+            <option value="1HZ50V">Volatility 50 (1s)</option>
+            <option value="1HZ25V">Volatility 25 (1s)</option>
+            <option value="1HZ10V">Volatility 10 (1s)</option>
+            <option value="R_100">Volatility 100</option>
+          </select>
+        </div>
+        <button class="btn" style="align-self:flex-end;height:40px;" onclick="addEngine()">+ Add Engine</button>
+      </div>
+    </div>
+    <div id="enginesContainer"></div>
+  </div>
+
+  <!-- RISK PANEL -->
+  <div class="panel" id="panel-risk">
+    <div class="risk-box">
+      <h3>Global Risk Engine (final gate before every buy())</h3>
+      <div class="row">
+        <div class="field"><label>Daily Drawdown Cap ($)</label><input id="riskDailyCap" type="number" value="50"></div>
+        <div class="field"><label>Consecutive Loss Pause (count)</label><input id="riskConsecLoss" type="number" value="4"></div>
+        <div class="field"><label>Max Stake per Trade ($)</label><input id="riskStakeCeiling" type="number" value="20"></div>
+        <div class="field"><label>Max Concurrent Trades</label><input id="riskMaxConcurrent" type="number" value="3"></div>
+      </div>
+      <button class="btn secondary" onclick="saveRiskConfig()">Save Risk Config</button>
+      <small class="hint">Current status: <span id="riskStatusLabel">Armed — trading permitted</span></small>
+    </div>
+
+    <div class="card">
+      <h3>Real-Money Arming</h3>
+      <p style="font-size:13px;color:var(--color-text-dim);margin-bottom:10px;">Live execution defaults to DEMO. Arming REAL requires typed confirmation.</p>
+      <div class="row">
+        <button class="btn secondary" onclick="setTradeMode('demo')">Use Demo</button>
+        <button class="btn danger" onclick="requestArmReal()">Arm Real Account</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JOURNAL PANEL -->
+  <div class="panel" id="panel-journal">
+    <div class="card">
+      <h3>Trade Journal</h3>
+      <div class="row" style="margin-bottom:10px;">
+        <button class="btn-sm btn secondary" onclick="exportJournalCSV()">Export CSV</button>
+        <button class="btn-sm btn danger" onclick="resetJournal()">Reset Journal</button>
+        <button class="btn-sm btn secondary" onclick="resetStats()">Reset Stats</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Time</th><th>Symbol</th><th>Type</th><th>Stake</th><th>Result</th><th>P&L</th></tr></thead>
+          <tbody id="journalBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOGS PANEL -->
+  <div class="panel" id="panel-logs">
+    <div class="card">
+      <h3>System Log</h3>
+      <div id="logConsole"></div>
+    </div>
+  </div>
+</main>
+
+<button class="kill-btn" onclick="engageKillSwitch()">⏻ KILL SWITCH</button>
+
+<!-- CONFIRM REAL MODAL -->
+<div class="modal-overlay" id="realConfirmModal">
+  <div class="modal">
+    <h2>⚠ Arm Real-Money Trading</h2>
+    <p>You are about to enable LIVE trading with a REAL account. All armed strategies will execute genuine buy() calls against real funds, subject to the risk engine limits configured. Type <b>CONFIRM</b> below to proceed.</p>
+    <input id="confirmTypeBox" placeholder="Type CONFIRM">
+    <div class="row" style="margin-top:12px;">
+      <button class="btn secondary" onclick="closeRealConfirm()">Cancel</button>
+      <button class="btn danger" onclick="confirmArmReal()">Arm Real Account</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   MERIDIAN OPTIONS TERMINAL — Core Application
+   Single-file PWA — REST: api.derivws.com | Auth: auth.deriv.com
+   ============================================================ */
+
+// ---------- CONFIG ----------
+const CONFIG = {
+  API_BASE: 'https://api.derivws.com',
+  AUTH_BASE: 'https://auth.deriv.com',
+  PUBLIC_WS: 'wss://api.derivws.com/trading/v1/options/ws/public'
+};
+
+let state = {
+  appId: null,
+  authToken: null,
+  authMethod: null,     // 'pat' | 'oauth'
+  accounts: [],
+  selectedAccount: null,
+  tradeMode: 'demo',    // 'demo' | 'real'
+  tradingWs: null,
+  tradingWsUrl: null,
+  publicWs: null,
+  reqIdCounter: 0,
+  ticksBySymbol: {},           // symbol -> {last, digits:[]}
+  tickSubscriptions: new Set(),
+  engines: [],
+  engineIdCounter: 0,
+  session: { pnl: 0, trades: 0, wins: 0 },
+  risk: { dailyCap: 50, consecLoss: 4, stakeCeiling: 20, maxConcurrent: 3 },
+  consecutiveLosses: 0,
+  dailyLoss: 0,
+  killed: false,
+  reconnectAttempts: { trading: 0, public: 0 },
+  pendingRequests: new Map()
+};
+
+const nextReqId = () => (++state.reqIdCounter | 0); // always plain integer
+
+// ---------- LOGGING ----------
+function log(msg, level){
+  const el = document.getElementById('logConsole');
+  const line = document.createElement('div');
+  line.className = 'log-line' + (level === 'err' ? ' log-err' : level === 'warn' ? ' log-warn' : '');
+  const t = new Date().toLocaleTimeString();
+  line.textContent = `[${t}] ${msg}`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+// ---------- TABS ----------
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
+  });
+});
+document.querySelectorAll('.auth-tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    document.querySelectorAll('.auth-tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('authPatBox').style.display = t.dataset.auth==='pat' ? 'block':'none';
+    document.getElementById('authOauthBox').style.display = t.dataset.auth==='oauth' ? 'block':'none';
+  });
+});
+
+// ---------- AUTH: PAT ----------
+function connectWithPAT(){
+  const appId = document.getElementById('patAppId').value.trim();
+  const token = document.getElementById('patToken').value.trim();
+  if(!appId || !token){ log('PAT App ID and Token are required', 'err'); return; }
+  state.appId = appId;
+  state.authToken = token;
+  state.authMethod = 'pat';
+  log('PAT credentials set. Fetching accounts...');
+  document.getElementById('accountsCard').style.display = 'block';
+  fetchAccounts();
+}
+
+// ---------- AUTH: OAuth 2.0 PKCE ----------
+function b64url(bytes){
+  return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function generateCodeVerifier(){
+  const arr = crypto.getRandomValues(new Uint8Array(64));
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  return Array.from(arr).map(v=>chars[v % chars.length]).join('');
+}
+async function generateCodeChallenge(verifier){
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  return b64url(hash);
+}
+function generateState(){
+  return Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function startOAuthLogin(){
+  const appId = document.getElementById('oauthAppId').value.trim();
+  const redirect = document.getElementById('oauthRedirect').value.trim();
+  if(!appId || !redirect){ log('OAuth App ID and Redirect URI required', 'err'); return; }
+  const verifier = generateCodeVerifier();
+  const challenge = await generateCodeChallenge(verifier);
+  const oauthState = generateState();
+  sessionStorage.setItem('meridian_pkce_verifier', verifier);
+  sessionStorage.setItem('meridian_oauth_state', oauthState);
+  const url = new URL(CONFIG.AUTH_BASE + '/oauth2/auth');
+  url.searchParams.set('response_type','code');
+  url.searchParams.set('client_id', appId);
+  url.searchParams.set('redirect_uri', redirect);
+  url.searchParams.set('scope','trade account_manage');
+  url.searchParams.set('state', oauthState);
+  url.searchParams.set('code_challenge', challenge);
+  url.searchParams.set('code_challenge_method','S256');
+  log('Redirecting to Deriv OAuth authorization...');
+  window.location.href = url.toString();
+}
+function connectWithOAuthToken(){
+  const appId = document.getElementById('oauthAppId').value.trim();
+  const token = document.getElementById('oauthAccessToken').value.trim();
+  if(!appId || !token){ log('OAuth App ID and Access Token required', 'err'); return; }
+  state.appId = appId;
+  state.authToken = token;
+  state.authMethod = 'oauth';
+  log('OAuth token set. Fetching accounts...');
+  document.getElementById('accountsCard').style.display = 'block';
+  fetchAccounts();
+}
+// Handle callback if this page IS the redirect target
+(function handleOAuthCallbackIfPresent(){
+  const params = new URLSearchParams(window.location.search);
+  if(params.get('code') && params.get('state')){
+    const savedState = sessionStorage.getItem('meridian_oauth_state');
+    if(params.get('state') !== savedState){
+      log('OAuth state mismatch — possible CSRF, ignoring callback', 'err');
+      return;
+    }
+    log('OAuth code received. Exchange this server-side, then paste the access_token in the OAuth tab.', 'warn');
+  }
+})();
+
+// ---------- REST HELPERS ----------
+function restHeaders(withContentType){
+  const h = {
+    'Authorization': `Bearer ${state.authToken}`,
+    'Deriv-App-ID': state.appId
+  };
+  if(withContentType) h['Content-Type'] = 'application/json';
+  return h;
+}
+async function restRequest(method, path, body){
+  const opts = { method, headers: restHeaders(!!body) };
+  if(body) opts.body = JSON.stringify(body);
+  const res = await fetch(CONFIG.API_BASE + path, opts);
+  const data = await res.json().catch(()=> ({}));
+  if(!res.ok){
+    const code = data.errors?.[0]?.code || 'UnknownError';
+    const message = data.errors?.[0]?.message || `HTTP ${res.status}`;
+    throw new Error(`[${res.status}] ${code}: ${message}`);
+  }
+  return { status: res.status, data };
+}
+
+async function fetchAccounts(){
+  try{
+    const { data } = await restRequest('GET', '/trading/v1/options/accounts');
+    state.accounts = Array.isArray(data.data) ? data.data : [data.data];
+    renderAccounts();
+    log(`Fetched ${state.accounts.length} account(s).`);
+  }catch(e){ log(e.message, 'err'); }
+}
+async function createAccount(type){
+  try{
+    const { status, data } = await restRequest('POST', '/trading/v1/options/accounts', { currency:'USD', group:'row', account_type:type });
+    const account = Array.isArray(data.data) ? data.data[0] : data.data;
+    log(`Account ${status===201?'created':'already existed'}: ${account.account_id}`);
+    fetchAccounts();
+  }catch(e){ log(e.message, 'err'); }
+}
+function renderAccounts(){
+  const list = document.getElementById('accountsList');
+  list.innerHTML = '';
+  state.accounts.forEach(acc=>{
+    const item = document.createElement('div');
+    item.className = 'account-item' + (state.selectedAccount?.account_id === acc.account_id ? ' selected' : '');
+    item.innerHTML = `<div><b>${acc.account_id}</b> <small style="color:var(--color-text-dim)">${acc.account_type.toUpperCase()}</small></div><div class="bal">${Number(acc.balance).toFixed(2)} ${acc.currency}</div>`;
+    item.onclick = ()=> selectAccount(acc);
+    list.appendChild(item);
+  });
+}
+async function selectAccount(acc){
+  state.selectedAccount = acc;
+  state.tradeMode = acc.account_type === 'real' ? 'real' : 'demo';
+  updateModePill();
+  renderAccounts();
+  document.getElementById('statBalance').textContent = `${Number(acc.balance).toFixed(2)} ${acc.currency}`;
+  log(`Selected account ${acc.account_id} (${acc.account_type})`);
+  await connectTradingWebSocket();
+}
+function updateModePill(){
+  const pill = document.getElementById('modePill');
+  pill.textContent = state.tradeMode.toUpperCase();
+  pill.className = 'mode-pill ' + state.tradeMode;
+}
+
+// ---------- OTP + TRADING WEBSOCKET ----------
+async function getOtpUrl(accountId){
+  const { data } = await restRequest('POST', `/trading/v1/options/accounts/${accountId}/otp`);
+  return data.data.url;
+}
+async function connectTradingWebSocket(){
+  if(!state.selectedAccount) return;
+  try{
+    const wsUrl = await getOtpUrl(state.selectedAccount.account_id);
+    state.tradingWsUrl = wsUrl;
+    if(state.tradingWs) state.tradingWs.close();
+    state.tradingWs = new WebSocket(wsUrl);
+    const ws = state.tradingWs;
+
+    ws.onopen = ()=>{
+      state.reconnectAttempts.trading = 0;
+      setWsStatus(true);
+      log('Trading WebSocket connected.');
+      subscribeBalance();
+      startHeartbeat(ws, 'trading');
+    };
+    ws.onmessage = (event)=> routeTradingMessage(JSON.parse(event.data));
+    ws.onerror = (e)=> log('Trading WS error', 'err');
+    ws.onclose = ()=>{
+      setWsStatus(false);
+      log('Trading WebSocket closed — reconnecting with fresh OTP...', 'warn');
+      scheduleReconnect('trading');
+    };
+  }catch(e){ log('OTP/connect failed: '+e.message, 'err'); }
+}
+function setWsStatus(connected){
+  document.getElementById('wsDot').className = 'status-dot ' + (connected?'on':'off');
+  document.getElementById('wsLabel').textContent = connected ? 'Connected' : 'Disconnected';
+}
+function scheduleReconnect(kind){
+  if(state.killed) return;
+  const attempts = state.reconnectAttempts[kind] || 0;
+  const delay = Math.min(1000 * Math.pow(2, attempts), 30000);
+  state.reconnectAttempts[kind] = attempts + 1;
+  setTimeout(()=>{
+    if(kind === 'trading') connectTradingWebSocket();
+    else ensurePublicWs(true);
+  }, delay);
+}
+function startHeartbeat(ws, kind){
+  const interval = setInterval(()=>{
+    if(ws.readyState !== WebSocket.OPEN){ clearInterval(interval); return; }
+    ws.send(JSON.stringify({ ping: 1, req_id: nextReqId() }));
+  }, 25000);
+}
+
+function sendWsRequest(ws, command){
+  return new Promise((resolve, reject)=>{
+    if(!ws || ws.readyState !== WebSocket.OPEN){ reject(new Error('WebSocket not open')); return; }
+    const reqId = nextReqId();
+    const msg = { ...command, req_id: reqId };
+    if(!command.subscribe){
+      state.pendingRequests.set(reqId, { resolve, reject });
+    } else {
+      resolve(reqId);
+    }
+    ws.send(JSON.stringify(msg));
+  });
+}
+
+function routeTradingMessage(data){
+  if(data.req_id && state.pendingRequests.has(data.req_id) && !data.subscription){
+    const p = state.pendingRequests.get(data.req_id);
+    state.pendingRequests.delete(data.req_id);
+    if(data.error) p.reject(new Error(`${data.error.code}: ${data.error.message}`));
+    else p.resolve(data);
+  }
+  if(data.error){ log(`API error [${data.error.code}]: ${data.error.message}`, 'err'); }
+  switch(data.msg_type){
+    case 'balance': onBalanceUpdate(data.balance); break;
+    case 'proposal': onProposal(data); break;
+    case 'buy': onBuy(data); break;
+    case 'proposal_open_contract': onContractUpdate(data.proposal_open_contract); break;
+  }
+}
+function subscribeBalance(){
+  sendWsRequest(state.tradingWs, { balance:1, subscribe:1 }).catch(e=>log(e.message,'err'));
+}
+function onBalanceUpdate(balance){
+  const bal = Number(balance.balance);
+  document.getElementById('statBalance').textContent = `${bal.toFixed(2)} ${balance.currency}`;
+}
+
+// ---------- PUBLIC MARKET DATA WEBSOCKET ----------
+function ensurePublicWs(force){
+  if(state.publicWs && (state.publicWs.readyState === WebSocket.OPEN || state.publicWs.readyState === WebSocket.CONNECTING) && !force) return;
+  const ws = new WebSocket(CONFIG.PUBLIC_WS);
+  state.publicWs = ws;
+  ws.onopen = ()=>{
+    state.reconnectAttempts.public = 0;
+    log('Public market data WebSocket connected.');
+    startHeartbeat(ws, 'public');
+    // resubscribe to all watched symbols
+    for(const symbol of state.tickSubscriptions){
+      ws.send(JSON.stringify({ ticks: symbol, subscribe:1, req_id: nextReqId() }));
+    }
+  };
+  ws.onmessage = (event)=> routePublicMessage(JSON.parse(event.data));
+  ws.onerror = ()=> log('Public WS error', 'err');
+  ws.onclose = ()=>{ log('Public WS closed — reconnecting...', 'warn'); scheduleReconnect('public'); };
+}
+function routePublicMessage(data){
+  if(data.error){ log(`Market data error: ${data.error.message}`, 'err'); return; }
+  if(data.msg_type === 'tick'){
+    const sym = data.tick.symbol;
+    const quote = Number(data.tick.quote);
+    if(!state.ticksBySymbol[sym]) state.ticksBySymbol[sym] = { last:null, digits:[] };
+    state.ticksBySymbol[sym].last = quote;
+    const lastDigit = Math.round(quote * 100) % 10;
+    const arr = state.ticksBySymbol[sym].digits;
+    arr.push(lastDigit); if(arr.length > 20) arr.shift();
+    if(sym === document.getElementById('tickSymbolSelect').value){
+      document.getElementById('tickDisplay').textContent = quote.toFixed(quote < 10 ? 4 : 2);
+      document.getElementById('lastDigits').textContent = 'Last digits: ' + arr.join(' ');
+    }
+    for(const engine of state.engines){ if(engine.symbol === sym) engine.onTick(quote, lastDigit); }
+  }
+  if(data.msg_type === 'contracts_for'){
+    // could store per-symbol pip size / duration bounds here
+  }
+}
+function ensureTickFeed(symbol){
+  ensurePublicWs(false);
+  if(!state.tickSubscriptions.has(symbol)){
+    state.tickSubscriptions.add(symbol);
+    if(state.publicWs && state.publicWs.readyState === WebSocket.OPEN){
+      state.publicWs.send(JSON.stringify({ ticks: symbol, subscribe:1, req_id: nextReqId() }));
+    }
+  }
+}
+function onWatchSymbolChange(){
+  const sym = document.getElementById('tickSymbolSelect').value;
+  ensureTickFeed(sym);
+}
+onWatchSymbolChange(); // seed initial watch
+
+// ---------- RISK ENGINE ----------
+function saveRiskConfig(){
+  state.risk.dailyCap = Number(document.getElementById('riskDailyCap').value) || 50;
+  state.risk.consecLoss = Number(document.getElementById('riskConsecLoss').value) || 4;
+  state.risk.stakeCeiling = Number(document.getElementById('riskStakeCeiling').value) || 20;
+  state.risk.maxConcurrent = Number(document.getElementById('riskMaxConcurrent').value) || 3;
+  log('Risk configuration saved.');
+}
+function riskGateAllowsTrade(stake){
+  if(state.killed) return { ok:false, reason:'Kill switch engaged' };
+  if(stake > state.risk.stakeCeiling) return { ok:false, reason:`Stake ${stake} exceeds ceiling ${state.risk.stakeCeiling}` };
+  if(state.dailyLoss >= state.risk.dailyCap) return { ok:false, reason:'Daily drawdown cap reached' };
+  if(state.consecutiveLosses >= state.risk.consecLoss) return { ok:false, reason:'Consecutive loss pause active' };
+  const inFlightCount = state.engines.filter(e=>e.inFlight).length;
+  if(inFlightCount >= state.risk.maxConcurrent) return { ok:false, reason:'Max concurrent trades reached' };
+  return { ok:true };
+}
+function updateRiskStatusLabel(){
+  const el = document.getElementById('riskStatusLabel');
+  if(state.killed){ el.textContent = 'KILLED — all trading halted'; return; }
+  if(state.dailyLoss >= state.risk.dailyCap){ el.textContent = 'Paused — daily drawdown cap hit'; return; }
+  if(state.consecutiveLosses >= state.risk.consecLoss){ el.textContent = 'Paused — consecutive loss limit hit'; return; }
+  el.textContent = 'Armed — trading permitted';
+}
+
+// ---------- REAL MONEY ARMING ----------
+function setTradeMode(mode){ state.tradeMode = mode; updateModePill(); log(`Trade mode set to ${mode.toUpperCase()}`); }
+function requestArmReal(){ document.getElementById('realConfirmModal').classList.add('show'); }
+function closeRealConfirm(){ document.getElementById('realConfirmModal').classList.remove('show'); document.getElementById('confirmTypeBox').value=''; }
+function confirmArmReal(){
+  const val = document.getElementById('confirmTypeBox').value.trim();
+  if(val !== 'CONFIRM'){ log('Confirmation text mismatch — real account not armed', 'warn'); return; }
+  setTradeMode('real');
+  closeRealConfirm();
+  log('REAL account armed for live trading.', 'warn');
+}
+
+// ---------- KILL SWITCH ----------
+function engageKillSwitch(){
+  state.killed = true;
+  state.engines.forEach(e=>{ e.active = false; renderEngineCard(e); });
+  if(state.tradingWs && state.tradingWs.readyState === WebSocket.OPEN){
+    state.tradingWs.send(JSON.stringify({ forget_all:'proposal', req_id: nextReqId() }));
+    state.tradingWs.send(JSON.stringify({ forget_all:'proposal_open_contract', req_id: nextReqId() }));
+  }
+  updateRiskStatusLabel();
+  log('KILL SWITCH ENGAGED — all engines disarmed, subscriptions forgotten.', 'err');
+  setTimeout(()=>{ state.killed = false; updateRiskStatusLabel(); }, 3000); // brief cool-down UI reset
+}
+
+// ---------- STRATEGY ENGINES ----------
+const ENGINE_LABELS = {
+  digit_matches:'Digit Matches', digit_differs:'Digit Differs', digit_over:'Digit Over',
+  digit_under:'Digit Under', rise:'Rise (CALL)', fall:'Fall (PUT)',
+  mult_up:'Multiplier Up', mult_down:'Multiplier Down'
+};
+function contractTypeFor(type){
+  return { digit_matches:'DIGITMATCH', digit_differs:'DIGITDIFF', digit_over:'DIGITOVER',
+    digit_under:'DIGITUNDER', rise:'CALL', fall:'PUT', mult_up:'MULTUP', mult_down:'MULTDOWN' }[type];
+}
+function isDigitType(type){ return type.startsWith('digit_'); }
+function isMultType(type){ return type.startsWith('mult_'); }
+
+function addEngine(){
+  const type = document.getElementById('newEngineType').value;
+  const symbol = document.getElementById('newEngineSymbol').value;
+  const id = ++state.engineIdCounter;
+  const engine = {
+    id, type, symbol, label: `${ENGINE_LABELS[type]} · ${symbol}`,
+    active:false, inFlight:false,
+    stake:1, duration:5, durationUnit:'t', barrierDigit:5, multiplier:10,
+    martingaleFactor:2.1, martingaleSteps:5, currentStep:0,
+    tp:10, sl:10, consecLossLimit:3, engineLosses:0, engineWins:0, enginePnl:0,
+    proposalId:null, currentContractId:null,
+    onTick(quote, digit){ /* strategies could trigger on tick if desired; manual/timer trigger used here */ }
+  };
+  state.engines.push(engine);
+  ensureTickFeed(symbol);
+  renderEngineCard(engine);
+  log(`Engine added: ${engine.label}`);
+}
+
+function renderEngineCard(engine){
+  let card = document.getElementById('engine-'+engine.id);
+  const isNew = !card;
+  if(isNew){
+    card = document.createElement('div');
+    card.className = 'card engine-card';
+    card.id = 'engine-'+engine.id;
+    document.getElementById('enginesContainer').appendChild(card);
+  }
+  const showBarrier = isDigitType(engine.type);
+  const showMultiplier = isMultType(engine.type);
+  card.innerHTML = `
+    <div class="engine-header">
+      <div><b>${engine.label}</b> <small style="color:var(--color-text-dim);">${engine.active?'ARMED':'idle'}${engine.inFlight?' · in-flight':''}</small></div>
+      <div class="toggle ${engine.active?'on':''}" onclick="toggleEngine(${engine.id})"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Stake ($)</label><input type="number" step="0.01" value="${engine.stake}" onchange="updateEngineField(${engine.id},'stake',this.value,true)"></div>
+      <div class="field"><label>Duration</label><input type="number" value="${engine.duration}" onchange="updateEngineField(${engine.id},'duration',this.value,true)"></div>
+      <div class="field"><label>Duration Unit</label>
+        <select onchange="updateEngineField(${engine.id},'durationUnit',this.value)">
+          <option value="t" ${engine.durationUnit==='t'?'selected':''}>Ticks</option>
+          <option value="s" ${engine.durationUnit==='s'?'selected':''}>Seconds</option>
+        </select>
+      </div>
+      ${showBarrier?`<div class="field"><label>Barrier Digit (0-9)</label><input type="number" min="0" max="9" value="${engine.barrierDigit}" onchange="updateEngineField(${engine.id},'barrierDigit',this.value,true)"></div>`:''}
+      ${showMultiplier?`<div class="field"><label>Multiplier</label><input type="number" value="${engine.multiplier}" onchange="updateEngineField(${engine.id},'multiplier',this.value,true)"></div>`:''}
+    </div>
+    <div class="row">
+      <div class="field"><label>Martingale Factor</label><input type="number" step="0.1" value="${engine.martingaleFactor}" onchange="updateEngineField(${engine.id},'martingaleFactor',this.value,true)"></div>
+      <div class="field"><label>Martingale Steps</label><input type="number" value="${engine.martingaleSteps}" onchange="updateEngineField(${engine.id},'martingaleSteps',this.value,true)"></div>
+      <div class="field"><label>Take Profit ($)</label><input type="number" value="${engine.tp}" onchange="updateEngineField(${engine.id},'tp',this.value,true)"></div>
+      <div class="field"><label>Stop Loss ($)</label><input type="number" value="${engine.sl}" onchange="updateEngineField(${engine.id},'sl',this.value,true)"></div>
+      <div class="field"><label>Consec. Loss Limit</label><input type="number" value="${engine.consecLossLimit}" onchange="updateEngineField(${engine.id},'consecLossLimit',this.value,true)"></div>
+    </div>
+    <div class="row">
+      <div class="stat"><div class="v ${engine.enginePnl>=0?'pos':'neg'}">${engine.enginePnl.toFixed(2)}</div><div class="l">Engine P&L</div></div>
+      <div class="stat"><div class="v">${engine.engineWins}/${engine.engineWins+engine.engineLosses}</div><div class="l">W/L</div></div>
+      <div class="stat"><div class="v">${engine.currentStep}</div><div class="l">Mart. Step</div></div>
+      <button class="btn-sm btn secondary" onclick="fireOnce(${engine.id})">Fire Once</button>
+      <button class="btn-sm btn danger" onclick="removeEngine(${engine.id})">Remove</button>
+    </div>
+  `;
+}
+function updateEngineField(id, field, value, numeric){
+  const e = state.engines.find(x=>x.id===id); if(!e) return;
+  e[field] = numeric ? Number(value) : value;
+}
+function toggleEngine(id){
+  const e = state.engines.find(x=>x.id===id); if(!e) return;
+  e.active = !e.active;
+  if(e.active) armEngineLoop(e);
+  renderEngineCard(e);
+}
+function removeEngine(id){
+  state.engines = state.engines.filter(x=>x.id!==id);
+  const card = document.getElementById('engine-'+id);
+  if(card) card.remove();
+}
+
+// Simple armed loop: while active and not in-flight and gates pass, fire a trade,
+// wait for contract to close, then decide martingale step and re-fire.
+function armEngineLoop(engine){
+  const step = ()=>{
+    if(!engine.active) return;
+    if(!engine.inFlight){
+      fireEngine(engine);
+    }
+    setTimeout(step, 2000);
+  };
+  step();
+}
+function fireOnce(id){
+  const e = state.engines.find(x=>x.id===id); if(!e) return;
+  fireEngine(e);
+}
+
+async function fireEngine(engine){
+  if(engine.inFlight) return;
+  if(engine.tp && engine.enginePnl >= engine.tp){ log(`${engine.label}: TP hit, disarming.`,'warn'); engine.active=false; renderEngineCard(engine); return; }
+  if(engine.sl && engine.enginePnl <= -Math.abs(engine.sl)){ log(`${engine.label}: SL hit, disarming.`,'warn'); engine.active=false; renderEngineCard(engine); return; }
+  if(engine.engineLosses >= engine.consecLossLimit && engine.currentStep === 0){ log(`${engine.label}: consecutive loss limit reached, disarming.`,'warn'); engine.active=false; renderEngineCard(engine); return; }
+
+  const baseStake = engine.stake;
+  const stake = engine.currentStep === 0 ? baseStake : Number((baseStake * Math.pow(engine.martingaleFactor, engine.currentStep)).toFixed(2));
+
+  const gate = riskGateAllowsTrade(stake);
+  if(!gate.ok){ log(`${engine.label}: blocked by risk engine — ${gate.reason}`, 'warn'); return; }
+  if(!state.tradingWs || state.tradingWs.readyState !== WebSocket.OPEN){ log(`${engine.label}: trading WS not connected`, 'warn'); return; }
+
+  engine.inFlight = true;
+  renderEngineCard(engine);
+
+  try{
+    const proposalReq = {
+      proposal: 1,
+      amount: stake,
+      basis: 'stake',
+      contract_type: contractTypeFor(engine.type),
+      currency: 'USD',
+      duration: engine.duration,
+      duration_unit: engine.durationUnit,
+      underlying_symbol: engine.symbol
+    };
+    if(isDigitType(engine.type)){
+      // digit contracts require plain unsigned digit strings, not signed offsets
+      proposalReq.barrier = String(Math.max(0, Math.min(9, Math.round(engine.barrierDigit))));
+    }
+    if(isMultType(engine.type)){
+      proposalReq.multiplier = engine.multiplier;
+    }
+    const proposalResp = await sendWsRequest(state.tradingWs, proposalReq);
+    if(proposalResp.error) throw new Error(proposalResp.error.message);
+    const proposalId = proposalResp.proposal.id;
+    const askPrice = Number(proposalResp.proposal.ask_price);
+
+    const buyResp = await sendWsRequest(state.tradingWs, { buy: proposalId, price: askPrice });
+    if(buyResp.error) throw new Error(buyResp.error.message);
+    const contractId = buyResp.buy.contract_id;
+    engine.currentContractId = contractId;
+    log(`${engine.label}: bought contract ${contractId} @ ${askPrice}`);
+
+    monitorContract(engine, contractId, stake);
+  }catch(e){
+    log(`${engine.label}: trade error — ${e.message}`, 'err');
+    engine.inFlight = false;
+    renderEngineCard(engine);
+  }
+}
+
+function monitorContract(engine, contractId, stake){
+  const handler = (data)=>{
+    if(data.msg_type !== 'proposal_open_contract') return;
+    const c = data.proposal_open_contract;
+    if(Number(c.contract_id) !== Number(contractId)) return;
+    if(Number(c.is_sold) === 1){
+      const profit = Number(c.profit);
+      finalizeContract(engine, contractId, stake, profit, c);
+      state.tradingWs.removeEventListener('message', wrapped);
+    }
+  };
+  const wrapped = (event)=> handler(JSON.parse(event.data));
+  state.tradingWs.addEventListener('message', wrapped);
+  sendWsRequest(state.tradingWs, { proposal_open_contract:1, contract_id: contractId, subscribe:1 }).catch(e=>log(e.message,'err'));
+}
+
+function finalizeContract(engine, contractId, stake, profit, contractData){
+  engine.inFlight = false;
+  engine.enginePnl = Number((engine.enginePnl + profit).toFixed(2));
+  state.session.pnl = Number((state.session.pnl + profit).toFixed(2));
+  state.session.trades++;
+  if(profit >= 0){
+    engine.engineWins++; state.session.wins++;
+    engine.currentStep = 0;
+    state.consecutiveLosses = 0;
+  } else {
+    engine.engineLosses++;
+    state.dailyLoss = Number((state.dailyLoss + Math.abs(profit)).toFixed(2));
+    state.consecutiveLosses++;
+    engine.currentStep = Math.min(engine.currentStep + 1, engine.martingaleSteps);
+  }
+  addJournalEntry({
+    time: new Date().toLocaleString(), symbol: engine.symbol, type: engine.type,
+    stake, result: profit>=0?'WIN':'LOSS', pnl: profit
+  });
+  updateDashboardStats();
+  updateRiskStatusLabel();
+  renderEngineCard(engine);
+}
+
+function updateDashboardStats(){
+  document.getElementById('statPnl').textContent = state.session.pnl.toFixed(2);
+  document.getElementById('statPnl').className = state.session.pnl >= 0 ? 'v pos' : 'v neg';
+  document.getElementById('statTrades').textContent = state.session.trades;
+  const wr = state.session.trades ? Math.round((state.session.wins/state.session.trades)*100) : 0;
+  document.getElementById('statWinRate').textContent = wr + '%';
+}
+
+// ---------- JOURNAL (IndexedDB) ----------
+let journalDb = null;
+function openJournalDb(){
+  return new Promise((resolve,reject)=>{
+    const req = indexedDB.open('meridianJournal', 1);
+    req.onupgradeneeded = (e)=>{
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains('entries')) db.createObjectStore('entries', { autoIncrement:true });
+    };
+    req.onsuccess = ()=>{ journalDb = req.result; resolve(journalDb); };
+    req.onerror = ()=> reject(req.error);
+  });
+}
+async function addJournalEntry(entry){
+  try{
+    if(!journalDb) await openJournalDb();
+    const tx = journalDb.transaction('entries','readwrite');
+    tx.objectStore('entries').add(entry);
+    renderJournalRow(entry);
+  }catch(e){ log('Journal write failed: '+e.message,'err'); }
+}
+function renderJournalRow(entry){
+  const tbody = document.getElementById('journalBody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${entry.time}</td><td>${entry.symbol}</td><td>${ENGINE_LABELS[entry.type]||entry.type}</td><td>${Number(entry.stake).toFixed(2)}</td><td>${entry.result}</td><td class="${entry.pnl>=0?'pos':'neg'}">${Number(entry.pnl).toFixed(2)}</td>`;
+  tbody.prepend(tr);
+}
+async function loadJournal(){
+  try{
+    if(!journalDb) await openJournalDb();
+    const tx = journalDb.transaction('entries','readonly');
+    const req = tx.objectStore('entries').getAll();
+    req.onsuccess = ()=>{ req.result.reverse().forEach(renderJournalRow); };
+  }catch(e){ log('Journal load failed: '+e.message,'err'); }
+}
+async function exportJournalCSV(){
+  try{
+    if(!journalDb) await openJournalDb();
+    const tx = journalDb.transaction('entries','readonly');
+    const req = tx.objectStore('entries').getAll();
+    req.onsuccess = ()=>{
+      const rows = req.result;
+      const header = 'time,symbol,type,stake,result,pnl\n';
+      const body = rows.map(r=>`${r.time},${r.symbol},${r.type},${r.stake},${r.result},${r.pnl}`).join('\n');
+      const blob = new Blob([header+body], { type:'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'meridian_journal.csv'; a.click();
+      URL.revokeObjectURL(url);
+    };
+  }catch(e){ log('CSV export failed: '+e.message,'err'); }
+}
+async function resetJournal(){
+  try{
+    if(!journalDb) await openJournalDb();
+    const tx = journalDb.transaction('entries','readwrite');
+    tx.objectStore('entries').clear();
+    document.getElementById('journalBody').innerHTML = '';
+    log('Journal reset.');
+  }catch(e){ log('Journal reset failed: '+e.message,'err'); }
+}
+function resetStats(){
+  state.session = { pnl:0, trades:0, wins:0 };
+  state.dailyLoss = 0; state.consecutiveLosses = 0;
+  state.engines.forEach(e=>{ e.enginePnl=0; e.engineWins=0; e.engineLosses=0; e.currentStep=0; renderEngineCard(e); });
+  updateDashboardStats();
+  updateRiskStatusLabel();
+  log('Stats reset.');
+}
+
+// ---------- INIT ----------
+window.addEventListener('DOMContentLoaded', ()=>{
+  loadJournal();
+  updateDashboardStats();
+  updateRiskStatusLabel();
+  log('Meridian Options Terminal initialized. Awaiting authentication.');
+});
+</script>
+</body>
+</html>

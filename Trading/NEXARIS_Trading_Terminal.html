@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXARIS — Quad-Strategy Options Terminal</title>
+<style>
+  :root{
+    --bg-0:#0b0d12;
+    --bg-1:#12151d;
+    --bg-2:#181c27;
+    --bg-3:#1f2432;
+    --line:#2a3040;
+    --line-soft:#20242f;
+    --copper:#c8763a;
+    --copper-bright:#e89257;
+    --cyan:#3ac6c6;
+    --cyan-soft:#245c5c;
+    --green:#3fbf7f;
+    --red:#e0555a;
+    --amber:#e0a83f;
+    --text-0:#eef0f4;
+    --text-1:#a7adbb;
+    --text-2:#6d7383;
+    --mono: 'Roboto Mono','SF Mono',Consolas,monospace;
+    --sans: 'Inter','Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg-0);color:var(--text-0);font-family:var(--sans);}
+  body{min-height:100vh;}
+  ::selection{background:var(--copper);color:#000;}
+  ::-webkit-scrollbar{width:9px;height:9px;}
+  ::-webkit-scrollbar-track{background:var(--bg-1);}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:5px;}
+
+  /* ===== Top bar ===== */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 20px;background:var(--bg-1);border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:50;
+  }
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand-mark{
+    width:34px;height:34px;border-radius:8px;
+    background:conic-gradient(from 220deg,var(--copper),var(--amber),var(--copper-bright),var(--copper));
+    display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;color:#1a0f05;font-size:13px;
+    box-shadow:0 0 18px rgba(200,118,58,.35);
+  }
+  .brand-text .name{font-family:var(--mono);font-weight:700;letter-spacing:.14em;font-size:15px;color:var(--text-0);}
+  .brand-text .sub{font-size:10.5px;color:var(--text-2);letter-spacing:.05em;margin-top:1px;}
+  .top-right{display:flex;align-items:center;gap:10px;}
+  .mode-pill{
+    font-family:var(--mono);font-size:11px;letter-spacing:.08em;padding:6px 12px;border-radius:20px;
+    border:1px solid var(--line);background:var(--bg-2);display:flex;align-items:center;gap:7px;
+  }
+  .mode-pill.demo{color:var(--cyan);border-color:var(--cyan-soft);}
+  .mode-pill.real{color:var(--red);border-color:#5a2527;background:#20141a;}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--text-2);}
+  .dot.live{background:var(--green);box-shadow:0 0 6px var(--green);}
+  .dot.off{background:var(--text-2);}
+  .dot.err{background:var(--red);box-shadow:0 0 6px var(--red);}
+
+  .kill-btn{
+    font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;font-weight:700;
+    background:#3a1216;color:#ff8a8f;border:1px solid #6b2229;padding:8px 16px;border-radius:8px;cursor:pointer;
+    transition:.15s;
+  }
+  .kill-btn:hover{background:#4a151a;box-shadow:0 0 14px rgba(224,85,90,.35);}
+  .kill-btn:active{transform:scale(.97);}
+  .kill-btn.armed{animation:pulse-kill 1.4s infinite;}
+  @keyframes pulse-kill{0%,100%{box-shadow:0 0 0 rgba(224,85,90,0);}50%{box-shadow:0 0 16px rgba(224,85,90,.55);}}
+
+  /* ===== Layout ===== */
+  .shell{display:grid;grid-template-columns:300px 1fr 320px;gap:1px;background:var(--line);min-height:calc(100vh - 56px);}
+  .panel{background:var(--bg-1);padding:16px;overflow-y:auto;}
+  .panel h2{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--text-2);text-transform:uppercase;margin:0 0 12px;display:flex;align-items:center;justify-content:space-between;}
+  .card{background:var(--bg-2);border:1px solid var(--line-soft);border-radius:10px;padding:14px;margin-bottom:14px;}
+  .card + .card{margin-top:14px;}
+  label{display:block;font-size:11px;color:var(--text-2);margin-bottom:5px;font-family:var(--mono);letter-spacing:.03em;}
+  input[type=text],input[type=password],input[type=number],select{
+    width:100%;background:var(--bg-0);border:1px solid var(--line);color:var(--text-0);
+    padding:8px 10px;border-radius:7px;font-family:var(--mono);font-size:12.5px;outline:none;transition:.15s;
+  }
+  input:focus,select:focus{border-color:var(--copper);box-shadow:0 0 0 2px rgba(200,118,58,.15);}
+  .row{display:flex;gap:8px;}
+  .row > *{flex:1;}
+  .field{margin-bottom:10px;}
+  .btn{
+    font-family:var(--sans);font-weight:600;font-size:13px;padding:9px 14px;border-radius:8px;border:1px solid var(--line);
+    background:var(--bg-3);color:var(--text-0);cursor:pointer;transition:.15s;width:100%;
+  }
+  .btn:hover{border-color:var(--copper);color:var(--copper-bright);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-primary{background:linear-gradient(135deg,var(--copper),#a85f2a);border:none;color:#170d05;font-weight:700;}
+  .btn-primary:hover{color:#170d05;filter:brightness(1.1);box-shadow:0 0 16px rgba(200,118,58,.35);}
+  .btn-cyan{background:linear-gradient(135deg,var(--cyan),#227b7b);border:none;color:#04211f;font-weight:700;}
+  .btn-cyan:hover{color:#04211f;filter:brightness(1.12);}
+  .btn-ghost{background:transparent;}
+  .btn-danger{background:transparent;border:1px solid #5a2529;color:#ff9297;}
+  .btn-danger:hover{background:#2a1417;color:#ffb0b3;}
+  .btn-sm{padding:6px 10px;font-size:11.5px;width:auto;}
+  .hint{font-size:10.5px;color:var(--text-2);margin-top:5px;line-height:1.5;}
+  .stack{display:flex;flex-direction:column;gap:8px;}
+
+  .toggle{display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none;}
+  .toggle input{display:none;}
+  .switch{width:38px;height:21px;background:var(--bg-0);border:1px solid var(--line);border-radius:20px;position:relative;transition:.2s;flex-shrink:0;}
+  .switch::after{content:'';position:absolute;top:1px;left:1px;width:17px;height:17px;border-radius:50%;background:var(--text-2);transition:.2s;}
+  .toggle input:checked + .switch{background:rgba(200,118,58,.25);border-color:var(--copper);}
+  .toggle input:checked + .switch::after{transform:translateX(17px);background:var(--copper-bright);}
+  .toggle .lbl{font-size:12px;color:var(--text-1);}
+
+  /* accounts */
+  .acct-item{
+    display:flex;align-items:center;justify-content:space-between;padding:9px 10px;border-radius:8px;
+    border:1px solid var(--line-soft);background:var(--bg-0);cursor:pointer;margin-bottom:7px;transition:.15s;
+  }
+  .acct-item:hover{border-color:var(--line);}
+  .acct-item.selected{border-color:var(--copper);background:rgba(200,118,58,.06);}
+  .acct-item .id{font-family:var(--mono);font-size:12px;color:var(--text-0);}
+  .acct-item .bal{font-family:var(--mono);font-size:12px;color:var(--green);}
+  .acct-item .type-tag{font-size:9.5px;padding:2px 6px;border-radius:4px;letter-spacing:.05em;font-family:var(--mono);}
+  .type-tag.demo{background:var(--cyan-soft);color:var(--cyan);}
+  .type-tag.real{background:#4a1f22;color:#ff9297;}
+
+  /* strategies */
+  .strat-card{border:1px solid var(--line-soft);border-radius:10px;background:var(--bg-2);margin-bottom:12px;overflow:hidden;}
+  .strat-head{padding:12px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
+  .strat-head:hover{background:var(--bg-3);}
+  .strat-name{font-weight:700;font-size:13.5px;}
+  .strat-meta{font-size:10.5px;color:var(--text-2);font-family:var(--mono);margin-top:2px;}
+  .strat-badge{font-family:var(--mono);font-size:9.5px;padding:3px 8px;border-radius:5px;letter-spacing:.06em;}
+  .strat-badge.idle{background:var(--bg-0);color:var(--text-2);border:1px solid var(--line);}
+  .strat-badge.running{background:rgba(63,191,127,.12);color:var(--green);border:1px solid rgba(63,191,127,.35);}
+  .strat-body{padding:0 14px 14px;display:none;border-top:1px solid var(--line-soft);}
+  .strat-body.open{display:block;padding-top:12px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+
+  /* market / ticker */
+  .price-big{font-family:var(--mono);font-size:34px;font-weight:700;color:var(--text-0);letter-spacing:-.01em;}
+  .price-big.up{color:var(--green);}
+  .price-big.down{color:var(--red);}
+  .ticker-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;}
+  .digit-strip{display:flex;gap:4px;margin-top:10px;flex-wrap:wrap;}
+  .digit-chip{
+    width:26px;height:26px;border-radius:6px;background:var(--bg-0);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;color:var(--text-1);
+  }
+  .digit-chip.last{border-color:var(--copper);color:var(--copper-bright);font-weight:700;}
+
+  /* log */
+  .log{font-family:var(--mono);font-size:11.5px;line-height:1.6;max-height:220px;overflow-y:auto;background:var(--bg-0);border:1px solid var(--line-soft);border-radius:8px;padding:10px;}
+  .log .l{padding:2px 0;border-bottom:1px dashed var(--line-soft);}
+  .log .l:last-child{border-bottom:none;}
+  .log .t{color:var(--text-2);margin-right:6px;}
+  .log .win{color:var(--green);}
+  .log .loss{color:var(--red);}
+  .log .info{color:var(--text-1);}
+  .log .sys{color:var(--cyan);}
+  .log .err{color:var(--red);}
+
+  /* stat tiles */
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .stat-tile{background:var(--bg-0);border:1px solid var(--line-soft);border-radius:8px;padding:10px;}
+  .stat-tile .v{font-family:var(--mono);font-size:17px;font-weight:700;}
+  .stat-tile .k{font-size:10px;color:var(--text-2);letter-spacing:.05em;margin-top:2px;}
+  .v.pos{color:var(--green);} .v.neg{color:var(--red);}
+
+  /* contracts list */
+  .contract{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg-0);border:1px solid var(--line-soft);border-radius:7px;margin-bottom:6px;}
+  .contract .l{font-family:var(--mono);font-size:11px;}
+  .contract .p{font-family:var(--mono);font-size:12px;font-weight:700;}
+
+  /* modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(4,5,8,.78);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:200;}
+  .modal-overlay.show{display:flex;}
+  .modal{width:420px;background:var(--bg-2);border:1px solid #5a2529;border-radius:14px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.6);}
+  .modal h3{margin:0 0 6px;color:#ff9297;font-size:16px;display:flex;align-items:center;gap:8px;}
+  .modal p{color:var(--text-1);font-size:13px;line-height:1.6;}
+  .modal input{margin-top:10px;}
+  .modal .btns{display:flex;gap:10px;margin-top:16px;}
+
+  .banner{
+    font-family:var(--mono);font-size:11px;letter-spacing:.03em;padding:9px 20px;text-align:center;color:#ffcf9e;
+    background:linear-gradient(90deg,#3a2410,#241608,#3a2410);border-bottom:1px solid #4a3218;
+  }
+  .footer-note{font-size:10px;color:var(--text-2);text-align:center;padding:10px;}
+  a{color:var(--copper-bright);}
+  code{font-family:var(--mono);background:var(--bg-0);padding:1px 5px;border-radius:4px;font-size:11px;}
+
+  @media (max-width:1100px){
+    .shell{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark">NX</div>
+    <div class="brand-text">
+      <div class="name">NEXARIS</div>
+      <div class="sub">QUAD-STRATEGY OPTIONS TERMINAL</div>
+    </div>
+  </div>
+  <div class="top-right">
+    <div class="mode-pill demo" id="modePill"><span class="dot off" id="connDot"></span><span id="modeLabel">DISCONNECTED</span></div>
+    <button class="kill-btn" id="killBtn">⏻ KILL SWITCH</button>
+  </div>
+</div>
+
+<div class="banner">⚠ NEXARIS executes real trades when a REAL account is armed. Demo mode is the default on every launch. Always verify stake, contract type, and symbol before enabling a strategy.</div>
+
+<div class="shell">
+
+  <!-- ============ LEFT: CONNECTION / ACCOUNTS ============ -->
+  <div class="panel">
+    <h2>Connection</h2>
+    <div class="card">
+      <div class="field">
+        <label>Deriv App ID</label>
+        <input type="text" id="appId" placeholder="e.g. 68848">
+      </div>
+      <div class="field">
+        <label>Personal Access Token (PAT)</label>
+        <input type="password" id="patToken" placeholder="Paste your PAT — never shared or logged">
+        <div class="hint">Generate at developers.deriv.com → API Tokens, with scopes <code>trade</code> + <code>account_manage</code>. Token stays in this browser tab only (memory), never sent anywhere but api.derivws.com.</div>
+      </div>
+      <button class="btn btn-primary" id="connectBtn" disabled>Connect Account</button>
+      <button class="btn btn-ghost btn-sm" id="changeCredsBtn" style="display:none;margin-top:8px;">Change Credentials (disconnect first)</button>
+      <div class="hint" id="connStatus" style="margin-top:8px;"></div>
+    </div>
+
+    <h2>Accounts <span id="acctCount" style="color:var(--text-2);"></span></h2>
+    <div class="card" id="acctCard">
+      <div class="hint">Connect with a PAT to list your Options accounts.</div>
+    </div>
+    <button class="btn btn-ghost btn-sm" id="createDemoBtn" style="display:none;margin-bottom:10px;">+ Create Demo Account</button>
+
+    <h2>Active Session</h2>
+    <div class="card">
+      <div class="stat-grid">
+        <div class="stat-tile"><div class="v" id="selAcctId">—</div><div class="k">SELECTED ACCOUNT</div></div>
+        <div class="stat-tile"><div class="v" id="selAcctBal">—</div><div class="k">BALANCE (USD)</div></div>
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label>WebSocket Status</label>
+        <div class="hint" id="wsStatus">Not connected</div>
+      </div>
+      <button class="btn btn-cyan" id="wsConnectBtn" disabled>Open Trading WebSocket</button>
+      <button class="btn btn-danger" id="wsDisconnectBtn" style="margin-top:8px;display:none;">Disconnect WebSocket</button>
+    </div>
+  </div>
+
+  <!-- ============ CENTER: MARKET + STRATEGIES ============ -->
+  <div class="panel">
+    <h2>Market — <span id="mktSymbolLabel">1HZ100V</span></h2>
+    <div class="card">
+      <div class="ticker-row">
+        <div class="price-big" id="lastPrice">—</div>
+        <div>
+          <label style="margin:0;">Symbol</label>
+          <select id="watchSymbol" style="width:160px;">
+            <option value="1HZ100V">Volatility 100 (1s)</option>
+            <option value="1HZ10V">Volatility 10 (1s)</option>
+            <option value="R_100">Volatility 100</option>
+            <option value="R_10">Volatility 10</option>
+            <option value="R_25">Volatility 25</option>
+            <option value="R_50">Volatility 50</option>
+            <option value="R_75">Volatility 75</option>
+          </select>
+        </div>
+      </div>
+      <div class="hint">Live tick stream via public WebSocket (no auth required for quotes).</div>
+      <div class="digit-strip" id="digitStrip"></div>
+    </div>
+
+    <h2>Strategies (from your DBot XML files)</h2>
+
+    <!-- Strategy 1: Rise/Fall Momentum -->
+    <div class="strat-card" data-strat="risefall">
+      <div class="strat-head" onclick="toggleStrat('risefall')">
+        <div>
+          <div class="strat-name">01 · Milagrosa Rise/Fall</div>
+          <div class="strat-meta">CALLE / PUTE · candle + 3-tick momentum confirm · <span id="cycles-risefall">0 cycles</span></div>
+        </div>
+        <div class="strat-badge idle" id="badge-risefall">IDLE</div>
+      </div>
+      <div class="strat-body" id="body-risefall">
+        <div class="grid2">
+          <div class="field"><label>Symbol</label>
+            <select id="rf-symbol"><option value="1HZ100V" selected>1HZ100V</option><option value="1HZ10V">1HZ10V</option><option value="R_100">R_100</option><option value="R_10">R_10</option></select>
+          </div>
+          <div class="field"><label>Duration (ticks)</label><input type="number" id="rf-duration" value="1" min="1" max="10" step="1"></div>
+          <div class="field"><label>Initial Stake (USD)</label><input type="number" id="rf-stake" value="1" step="0.01" min="0.35" max="2000"></div>
+          <div class="field"><label>Win Reset Amount</label><input type="number" id="rf-winamt" value="1" step="0.01" min="0.35" max="2000"></div>
+          <div class="field"><label>Martingale Factor (loss)</label><input type="number" id="rf-mgfactor" value="0.5" step="0.05" min="0" max="10"></div>
+          <div class="field"><label>Take-Profit Target (USD)</label><input type="number" id="rf-target" value="2" step="0.1" min="0.01" max="100000"></div>
+          <div class="field"><label>Stop-Loss (session USD)</label><input type="number" id="rf-sl" value="20" step="0.5" min="0.1" max="100000"></div>
+          <div class="field"><label>Max Auto-Restart Cycles (0 = unlimited)</label><input type="number" id="rf-maxcycles" value="0" step="1" min="0" max="9999"></div>
+        </div>
+        <div class="toggle" style="margin-top:10px;">
+          <input type="checkbox" id="rf-autorestart" class="keep-live" checked><span class="switch"></span>
+          <span class="lbl">Auto-reset & restart cycle when Take-Profit or Stop-Loss is hit</span>
+        </div>
+        <div class="hint">Entry: candle colour (open/close of current 60s candle) must agree with 3 consecutive same-direction ticks. Green + rising ticks → CALLE. Red + falling ticks → PUTE. On loss, stake grows by |stake|×factor; on win, stake resets. When session P/L reaches Take-Profit or Stop-Loss, either auto-resets stake/session P/L and keeps trading (if Auto-Restart is on) or fully stops (if off).</div>
+        <div class="row" style="margin-top:10px;">
+          <button class="btn btn-primary btn-sm" id="arm-risefall" onclick="armStrategy('risefall')">Arm</button>
+          <button class="btn btn-danger btn-sm" id="stop-risefall" onclick="disarmStrategy('risefall')" disabled>Stop</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Strategy 2: Candle Mine Even/Odd -->
+    <div class="strat-card" data-strat="candlemine">
+      <div class="strat-head" onclick="toggleStrat('candlemine')">
+        <div>
+          <div class="strat-name">02 · Candle Mine — Even/Odd</div>
+          <div class="strat-meta">DIGITEVEN · every-tick entry · capped martingale · <span id="cycles-candlemine">0 cycles</span></div>
+        </div>
+        <div class="strat-badge idle" id="badge-candlemine">IDLE</div>
+      </div>
+      <div class="strat-body" id="body-candlemine">
+        <div class="grid2">
+          <div class="field"><label>Symbol</label>
+            <select id="cm-symbol"><option value="R_100" selected>R_100</option><option value="R_10">R_10</option><option value="1HZ100V">1HZ100V</option></select>
+          </div>
+          <div class="field"><label>Contract</label>
+            <select id="cm-contract"><option value="DIGITEVEN" selected>Digit Even</option><option value="DIGITODD">Digit Odd</option></select>
+          </div>
+          <div class="field"><label>Duration (ticks)</label><input type="number" id="cm-duration" value="1" min="1" max="10" step="1"></div>
+          <div class="field"><label>Initial Stake (USD)</label><input type="number" id="cm-stake" value="0.35" step="0.01" min="0.35" max="2000"></div>
+          <div class="field"><label>Win Reset Amount</label><input type="number" id="cm-winamt" value="0.35" step="0.01" min="0.35" max="2000"></div>
+          <div class="field"><label>Loss Cap (auto-reset above)</label><input type="number" id="cm-losscap" value="1000" step="1" min="1" max="100000"></div>
+          <div class="field"><label>Take-Profit Target (USD)</label><input type="number" id="cm-target" value="0.02" step="0.01" min="0.01" max="100000"></div>
+          <div class="field"><label>Stop-Loss (session USD)</label><input type="number" id="cm-sl" value="10" step="0.5" min="0.1" max="100000"></div>
+          <div class="field"><label>Max Auto-Restart Cycles (0 = unlimited)</label><input type="number" id="cm-maxcycles" value="0" step="1" min="0" max="9999"></div>
+        </div>
+        <div class="toggle" style="margin-top:10px;">
+          <input type="checkbox" id="cm-autorestart" class="keep-live" checked><span class="switch"></span>
+          <span class="lbl">Auto-reset & restart cycle when Take-Profit or Stop-Loss is hit</span>
+        </div>
+        <div class="hint">No entry filter — buys every cycle. On loss, stake += |last loss|; if |last loss| ≥ Loss Cap, stake force-resets to Win Amount (runaway-martingale brake). On win, stake resets to Win Amount. When session P/L reaches Take-Profit or Stop-Loss, auto-resets and continues (if Auto-Restart is on) or fully stops.</div>
+        <div class="row" style="margin-top:10px;">
+          <button class="btn btn-primary btn-sm" id="arm-candlemine" onclick="armStrategy('candlemine')">Arm</button>
+          <button class="btn btn-danger btn-sm" id="stop-candlemine" onclick="disarmStrategy('candlemine')" disabled>Stop</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Strategy 3: Differs Pro -->
+    <div class="strat-card" data-strat="differs">
+      <div class="strat-head" onclick="toggleStrat('differs')">
+        <div>
+          <div class="strat-name">03 · Differs Pro</div>
+          <div class="strat-meta">DIGITDIFF / DIGITOVER · direction + last-digit trigger · <span id="cycles-differs">0 cycles</span></div>
+        </div>
+        <div class="strat-badge idle" id="badge-differs">IDLE</div>
+      </div>
+      <div class="strat-body" id="body-differs">
+        <div class="grid2">
+          <div class="field"><label>Symbol</label>
+            <select id="df-symbol"><option value="1HZ10V" selected>1HZ10V</option><option value="R_10">R_10</option><option value="1HZ100V">1HZ100V</option></select>
+          </div>
+          <div class="field"><label>Contract Variant</label>
+            <select id="df-contract"><option value="DIGITDIFF" selected>Differs (New Hope)</option><option value="DIGITOVER">Over (Pro v1)</option></select>
+          </div>
+          <div class="field"><label>Prediction Digit</label><input type="number" id="df-prediction" value="0" min="0" max="9" step="1"></div>
+          <div class="field"><label>Duration (ticks)</label><input type="number" id="df-duration" value="1" min="1" max="10" step="1"></div>
+          <div class="field"><label>Initial Stake (USD)</label><input type="number" id="df-stake" value="1.1" step="0.01" min="0.35" max="2000"></div>
+          <div class="field"><label>Win Reset Amount</label><input type="number" id="df-winamt" value="1.1" step="0.01" min="0.35" max="2000"></div>
+          <div class="field"><label>Martingale Multiplier (loss)</label><input type="number" id="df-mgmult" value="11.5" step="0.1" min="1" max="50"></div>
+          <div class="field"><label>Trigger Digit — Fall</label><input type="number" id="df-falldigit" value="6" min="0" max="9" step="1"></div>
+          <div class="field"><label>Trigger Digit — Rise</label><input type="number" id="df-risedigit" value="5" min="0" max="9" step="1"></div>
+          <div class="field"><label>Take-Profit Target (USD)</label><input type="number" id="df-target" value="5" step="0.1" min="0.01" max="100000"></div>
+          <div class="field"><label>Stop-Loss (session USD)</label><input type="number" id="df-sl" value="15" step="0.5" min="0.1" max="100000"></div>
+          <div class="field"><label>Max Auto-Restart Cycles (0 = unlimited)</label><input type="number" id="df-maxcycles" value="0" step="1" min="0" max="9999"></div>
+        </div>
+        <div class="toggle" style="margin-top:10px;">
+          <input type="checkbox" id="df-autorestart" class="keep-live" checked><span class="switch"></span>
+          <span class="lbl">Auto-reset & restart cycle when Take-Profit or Stop-Loss is hit</span>
+        </div>
+        <div class="hint">Entry: last tick direction = FALL and last digit == Fall Trigger → buy; direction = RISE and last digit == Rise Trigger → buy. On loss, stake = stake × multiplier (aggressive recovery — use with care). On win, stake resets. "Pro v1" variant trades DIGITOVER with prediction 1; "New Hope" trades DIGITDIFF with prediction 0. Because the multiplier is aggressive, Take-Profit/Stop-Loss are enforced here even though the source XML had none — strongly recommended to keep Auto-Restart's Stop-Loss tight.</div>
+        <div class="row" style="margin-top:10px;">
+          <button class="btn btn-primary btn-sm" id="arm-differs" onclick="armStrategy('differs')">Arm</button>
+          <button class="btn btn-danger btn-sm" id="stop-differs" onclick="disarmStrategy('differs')" disabled>Stop</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Strategy 4: Rise Master -->
+    <div class="strat-card" data-strat="risemaster">
+      <div class="strat-head" onclick="toggleStrat('risemaster')">
+        <div>
+          <div class="strat-name">04 · Rise Master</div>
+          <div class="strat-meta">CALL · 5-tick fall-pattern reversal · SL/TP · <span id="cycles-risemaster">0 cycles</span></div>
+        </div>
+        <div class="strat-badge idle" id="badge-risemaster">IDLE</div>
+      </div>
+      <div class="strat-body" id="body-risemaster">
+        <div class="grid2">
+          <div class="field"><label>Symbol</label>
+            <select id="rm-symbol"><option value="R_100" selected>R_100</option><option value="R_10">R_10</option><option value="1HZ100V">1HZ100V</option></select>
+          </div>
+          <div class="field"><label>Duration (ticks)</label><input type="number" id="rm-duration" value="2" min="1" max="10" step="1"></div>
+          <div class="field"><label>Initial Stake (USD)</label><input type="number" id="rm-stake" value="0.5" step="0.01" min="0.35" max="2000"></div>
+          <div class="field"><label>Win Reset Amount</label><input type="number" id="rm-winamt" value="0.5" step="0.01" min="0.35" max="2000"></div>
+          <div class="field"><label>Martingale Factor (loss)</label><input type="number" id="rm-mgfactor" value="0.85" step="0.05" min="0" max="10"></div>
+          <div class="field"><label>Stop Loss (session USD)</label><input type="number" id="rm-sl" value="50" step="1" min="0.1" max="100000"></div>
+          <div class="field"><label>Take Profit (session USD)</label><input type="number" id="rm-tp" value="2" step="0.1" min="0.01" max="100000"></div>
+          <div class="field"><label>Max Auto-Restart Cycles (0 = unlimited)</label><input type="number" id="rm-maxcycles" value="0" step="1" min="0" max="9999"></div>
+        </div>
+        <div class="toggle" style="margin-top:10px;">
+          <input type="checkbox" id="rm-autorestart" class="keep-live" checked><span class="switch"></span>
+          <span class="lbl">Auto-reset & restart cycle when Take-Profit or Stop-Loss is hit</span>
+        </div>
+        <div class="hint">Tracks a rolling 5-tick "fall" flag buffer each tick. When ≥2 of the tracked flags in a matched pair are both TRUE, buys CALL (reversal-on-weakness logic — CALL only, despite "both" contract type in source XML). On loss, stake += |loss|×factor. When session P/L reaches Stop-Loss or Take-Profit, auto-resets stake/session P/L and continues (if Auto-Restart is on) or fully stops.</div>
+        <div class="row" style="margin-top:10px;">
+          <button class="btn btn-primary btn-sm" id="arm-risemaster" onclick="armStrategy('risemaster')">Arm</button>
+          <button class="btn btn-danger btn-sm" id="stop-risemaster" onclick="disarmStrategy('risemaster')" disabled>Stop</button>
+        </div>
+      </div>
+    </div>
+
+    <h2>Activity Log</h2>
+    <div class="log" id="activityLog"></div>
+  </div>
+
+  <!-- ============ RIGHT: RISK / POSITIONS ============ -->
+  <div class="panel">
+    <h2>Risk Engine</h2>
+    <div class="card">
+      <div class="toggle" style="margin-bottom:10px;">
+        <input type="checkbox" id="riskEnabled" checked><span class="switch"></span>
+        <span class="lbl">Risk gate active (final check before every buy)</span>
+      </div>
+      <div class="field"><label>Max Concurrent Open Contracts</label><input type="number" id="maxOpen" value="1" min="1" max="5" step="1"></div>
+      <div class="field"><label>Global Daily Loss Limit (USD)</label><input type="number" id="dailyLossLimit" value="25" step="1" min="0.5" max="100000"></div>
+      <div class="field"><label>Max Stake Per Trade (USD)</label><input type="number" id="maxStake" value="20" step="1" min="0.35" max="100000"></div>
+      <div class="hint">Every strategy's buy() call passes through this gate. Breaching any limit disarms all strategies and halts trading immediately.</div>
+    </div>
+
+    <h2>Session P/L</h2>
+    <div class="card">
+      <div class="stat-grid">
+        <div class="stat-tile"><div class="v" id="statPL">$0.00</div><div class="k">TOTAL P/L</div></div>
+        <div class="stat-tile"><div class="v" id="statTrades">0</div><div class="k">TRADES</div></div>
+        <div class="stat-tile"><div class="v" id="statWins">0</div><div class="k">WINS</div></div>
+        <div class="stat-tile"><div class="v" id="statLosses">0</div><div class="k">LOSSES</div></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="resetSession()">Reset Session Stats</button>
+    </div>
+
+    <h2>Open Contracts</h2>
+    <div class="card" id="openContracts">
+      <div class="hint">No open contracts.</div>
+    </div>
+
+    <h2>Account Actions</h2>
+    <div class="card stack">
+      <button class="btn btn-ghost btn-sm" id="resetDemoBtn">Reset Demo Balance</button>
+      <button class="btn btn-ghost btn-sm" id="refreshAcctsBtn">Refresh Accounts</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer-note">NEXARIS · api.derivws.com REST + WebSocket (OTP auth) · Demo-first · Not affiliated with Deriv. Trading involves risk of loss.</div>
+
+<!-- REAL ACCOUNT CONFIRMATION MODAL -->
+<div class="modal-overlay" id="realConfirmOverlay">
+  <div class="modal">
+    <h3>⚠ Arming a REAL money account</h3>
+    <p>You are about to open a live trading WebSocket against account <b id="realAcctIdLabel">—</b> using real funds. Strategies armed after this point will place actual trades with real money.</p>
+    <p>Type <code>CONFIRM</code> below to proceed.</p>
+    <input type="text" id="realConfirmInput" placeholder="Type CONFIRM">
+    <div class="btns">
+      <button class="btn btn-ghost" onclick="closeRealConfirm()" style="flex:1;">Cancel</button>
+      <button class="btn btn-danger" id="realConfirmGo" style="flex:1;">Proceed to Real Account</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   NEXARIS — Quad-Strategy Options Terminal
+   Deriv API: api.derivws.com (REST) + OTP-based WebSocket auth
+   ============================================================ */
+
+const APP = {
+  appId: null,
+  patToken: null,
+  accounts: [],
+  selectedAccount: null,      // full account object
+  ws: null,                   // authenticated trading WS
+  publicWs: null,             // public market-data WS
+  reqId: 0,
+  pendingRequests: new Map(),
+  subscriptions: new Map(),
+  isRealAccount: false,
+  killed: false,
+  manualWsClose: false,       // true only when the user explicitly disconnects
+  reconnectAttempts: 0,
+  maxReconnectAttempts: 8,
+  ticksBySymbol: new Map(),   // symbol -> array of recent quotes
+  tickSubs: new Set(),        // symbols currently subscribed on the public feed
+  session: { pl: 0, trades: 0, wins: 0, losses: 0, dailyLossAccum: 0 },
+  openContracts: new Map(),   // contract_id -> {symbol, buy_price, strategy}
+  strategies: {}               // populated below per-strategy runtime state
+};
+
+/* ---------------- logging ---------------- */
+function log(msg, cls){
+  const el = document.getElementById('activityLog');
+  const t = new Date().toLocaleTimeString();
+  const div = document.createElement('div');
+  div.className = 'l';
+  div.innerHTML = `<span class="t">${t}</span><span class="${cls||'info'}">${msg}</span>`;
+  el.prepend(div);
+  while(el.children.length > 200) el.removeChild(el.lastChild);
+}
+
+/* ---------------- REST helpers ---------------- */
+const API_BASE = 'https://api.derivws.com';
+
+function headers(withContentType){
+  const h = {
+    'Authorization': `Bearer ${APP.patToken}`,
+    'Deriv-App-ID': APP.appId
+  };
+  if (withContentType) h['Content-Type'] = 'application/json';
+  return h;
+}
+
+async function restCall(method, path, body){
+  const opts = { method, headers: headers(!!body) };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(`${API_BASE}${path}`, opts);
+  let data;
+  try { data = await res.json(); } catch(e){ data = {}; }
+  if (!res.ok){
+    const code = data.errors?.[0]?.code || 'UnknownError';
+    const message = data.errors?.[0]?.message || `HTTP ${res.status}`;
+    const err = new Error(`${code}: ${message}`);
+    err.status = res.status; err.code = code;
+    throw err;
+  }
+  return { status: res.status, data };
+}
+
+async function getAccounts(){
+  const { data } = await restCall('GET', '/trading/v1/options/accounts');
+  return data.data || [];
+}
+
+async function createAccount(accountType){
+  const { status, data } = await restCall('POST', '/trading/v1/options/accounts', {
+    currency: 'USD', group: 'row', account_type: accountType
+  });
+  // 200 => object (existed), 201 => array (created)
+  return Array.isArray(data.data) ? data.data[0] : data.data;
+}
+
+async function resetDemoBalance(accountId){
+  const { data } = await restCall('POST', `/trading/v1/options/accounts/${accountId}/reset-demo-balance`);
+  return data.data;
+}
+
+async function getOtpUrl(accountId){
+  const { data } = await restCall('POST', `/trading/v1/options/accounts/${accountId}/otp`);
+  return data.data.url;
+}
+
+/* ---------------- Connect (PAT) flow ---------------- */
+
+/** Strict enforcement: Connect stays disabled until both fields are actually
+    filled, so the button never fires an obviously-doomed request. */
+function refreshConnectAvailability(){
+  const appId = document.getElementById('appId').value.trim();
+  const pat = document.getElementById('patToken').value.trim();
+  document.getElementById('connectBtn').disabled = !(appId && pat);
+}
+document.getElementById('appId').addEventListener('input', refreshConnectAvailability);
+document.getElementById('patToken').addEventListener('input', refreshConnectAvailability);
+
+document.getElementById('connectBtn').addEventListener('click', async () => {
+  const appId = document.getElementById('appId').value.trim();
+  const pat = document.getElementById('patToken').value.trim();
+  const statusEl = document.getElementById('connStatus');
+
+  if (!appId || !pat){
+    statusEl.textContent = 'App ID and PAT are both required.';
+    statusEl.style.color = 'var(--red)';
+    return;
+  }
+  APP.appId = appId;
+  APP.patToken = pat;
+  statusEl.textContent = 'Connecting…';
+  statusEl.style.color = 'var(--text-2)';
+
+  try {
+    const accounts = await getAccounts();
+    APP.accounts = accounts;
+    renderAccounts();
+    statusEl.textContent = `Connected. ${accounts.length} account(s) found.`;
+    statusEl.style.color = 'var(--green)';
+    document.getElementById('createDemoBtn').style.display = 'block';
+    // Lock credential fields once a session is live — prevents a mid-session
+    // edit silently invalidating the PAT while requests are still in flight.
+    document.getElementById('appId').disabled = true;
+    document.getElementById('patToken').disabled = true;
+    document.getElementById('connectBtn').style.display = 'none';
+    document.getElementById('changeCredsBtn').style.display = 'block';
+    log('REST connection established — accounts fetched.', 'sys');
+  } catch(err){
+    statusEl.textContent = `Connection failed: ${err.message}`;
+    statusEl.style.color = 'var(--red)';
+    log(`Auth error: ${err.message}`, 'err');
+  }
+});
+
+document.getElementById('changeCredsBtn').addEventListener('click', () => {
+  if (APP.ws && APP.ws.readyState === 1){
+    log('Disconnect the trading WebSocket before changing credentials.', 'err');
+    return;
+  }
+  if (Object.values(APP.strategies).some(s => s.active)){
+    log('Disarm all strategies before changing credentials.', 'err');
+    return;
+  }
+  APP.patToken = null; APP.appId = null; APP.accounts = []; APP.selectedAccount = null;
+  document.getElementById('appId').disabled = false;
+  document.getElementById('patToken').disabled = false;
+  document.getElementById('patToken').value = '';
+  document.getElementById('connectBtn').style.display = 'block';
+  document.getElementById('changeCredsBtn').style.display = 'none';
+  document.getElementById('createDemoBtn').style.display = 'none';
+  document.getElementById('selAcctId').textContent = '—';
+  document.getElementById('selAcctBal').textContent = '—';
+  document.getElementById('wsConnectBtn').disabled = true;
+  renderAccounts();
+  refreshConnectAvailability();
+  log('Credentials cleared. Reconnect with a PAT to continue.', 'sys');
+});
+
+document.getElementById('refreshAcctsBtn').addEventListener('click', async () => {
+  if (!APP.patToken) return log('Connect with a PAT first.', 'err');
+  try {
+    APP.accounts = await getAccounts();
+    renderAccounts();
+    log('Accounts refreshed.', 'sys');
+  } catch(err){ log(`Refresh failed: ${err.message}`, 'err'); }
+});
+
+document.getElementById('createDemoBtn').addEventListener('click', async () => {
+  try {
+    const acct = await createAccount('demo');
+    log(`Demo account ready: ${acct.account_id}`, 'sys');
+    APP.accounts = await getAccounts();
+    renderAccounts();
+  } catch(err){ log(`Create account failed: ${err.message}`, 'err'); }
+});
+
+document.getElementById('resetDemoBtn').addEventListener('click', async () => {
+  if (!APP.selectedAccount){ return log('Select an account first.', 'err'); }
+  if (APP.selectedAccount.account_type !== 'demo'){ return log('Only demo accounts can be reset.', 'err'); }
+  try {
+    const acct = await resetDemoBalance(APP.selectedAccount.account_id);
+    log(`Demo balance reset → ${acct.balance} ${acct.currency}`, 'sys');
+    APP.accounts = await getAccounts();
+    renderAccounts();
+    selectAccount(APP.selectedAccount.account_id);
+  } catch(err){ log(`Reset failed: ${err.message}`, 'err'); }
+});
+
+function renderAccounts(){
+  const card = document.getElementById('acctCard');
+  document.getElementById('acctCount').textContent = `(${APP.accounts.length})`;
+  if (!APP.accounts.length){
+    card.innerHTML = '<div class="hint">No accounts yet — create a demo account to begin.</div>';
+    return;
+  }
+  card.innerHTML = '';
+  APP.accounts.forEach(acct => {
+    const div = document.createElement('div');
+    div.className = 'acct-item' + (APP.selectedAccount?.account_id === acct.account_id ? ' selected' : '');
+    div.innerHTML = `
+      <div>
+        <div class="id">${acct.account_id}</div>
+        <span class="type-tag ${acct.account_type}">${acct.account_type.toUpperCase()}</span>
+      </div>
+      <div class="bal">${Number(acct.balance).toFixed(2)} ${acct.currency}</div>
+    `;
+    div.onclick = () => selectAccount(acct.account_id);
+    card.appendChild(div);
+  });
+}
+
+function selectAccount(accountId){
+  const acct = APP.accounts.find(a => a.account_id === accountId);
+  if (!acct) return;
+  APP.selectedAccount = acct;
+  APP.isRealAccount = acct.account_type === 'real';
+  document.getElementById('selAcctId').textContent = acct.account_id;
+  document.getElementById('selAcctBal').textContent = `${Number(acct.balance).toFixed(2)}`;
+  document.getElementById('wsConnectBtn').disabled = false;
+  renderAccounts();
+  log(`Selected account ${acct.account_id} (${acct.account_type}).`, 'info');
+}
+
+/* ---------------- WebSocket (OTP auth) ---------------- */
+document.getElementById('wsConnectBtn').addEventListener('click', async () => {
+  if (!APP.selectedAccount) return log('Select an account first.', 'err');
+  if (APP.selectedAccount.account_type === 'real'){
+    openRealConfirm();
+    return;
+  }
+  await connectTradingWs();
+});
+
+function openRealConfirm(){
+  document.getElementById('realAcctIdLabel').textContent = APP.selectedAccount.account_id;
+  document.getElementById('realConfirmInput').value = '';
+  document.getElementById('realConfirmOverlay').classList.add('show');
+}
+function closeRealConfirm(){
+  document.getElementById('realConfirmOverlay').classList.remove('show');
+}
+document.getElementById('realConfirmGo').addEventListener('click', async () => {
+  const val = document.getElementById('realConfirmInput').value.trim();
+  if (val !== 'CONFIRM'){
+    log('Real-account confirmation text did not match. Aborted.', 'err');
+    return;
+  }
+  closeRealConfirm();
+  await connectTradingWs();
+});
+
+async function connectTradingWs(isReconnect){
+  try {
+    APP.manualWsClose = false;
+    document.getElementById('wsStatus').textContent = isReconnect ? `Reconnecting (attempt ${APP.reconnectAttempts})…` : 'Requesting OTP…';
+    // OTPs are short-lived — always fetch a fresh one right before connecting,
+    // including on every reconnect attempt (a stale OTP will just 401/close again).
+    const wsUrl = await getOtpUrl(APP.selectedAccount.account_id);
+    document.getElementById('wsStatus').textContent = 'Connecting…';
+    const ws = new WebSocket(wsUrl);
+    APP.ws = ws;
+
+    ws.onopen = () => {
+      APP.reconnectAttempts = 0;
+      document.getElementById('wsStatus').textContent = `Connected · ${APP.selectedAccount.account_id}`;
+      document.getElementById('wsConnectBtn').style.display = 'none';
+      document.getElementById('wsDisconnectBtn').style.display = 'block';
+      setModePill(true);
+      log(isReconnect ? 'Trading WebSocket reconnected.' : `Trading WebSocket connected (${APP.selectedAccount.account_type.toUpperCase()}).`, 'sys');
+      refreshArmAvailability();
+      sendWs({ balance: 1, subscribe: 1 });
+      sendWs({ portfolio: 1 });
+      // Re-subscribe monitoring for any contracts still open across the reconnect
+      APP.openContracts.forEach((c, contractId) => {
+        const monId = sendWs({ proposal_open_contract: 1, contract_id: contractId, subscribe: 1 });
+        if (monId) APP.pendingRequests.set(monId, { strategyKey: c.strategyKey, monitor:true, contractId });
+      });
+    };
+
+    ws.onmessage = (event) => {
+      let data;
+      try { data = JSON.parse(event.data); } catch(e){ return; }
+      routeWsMessage(data);
+    };
+
+    ws.onerror = () => {
+      log('Trading WebSocket error.', 'err');
+      setModePill(false, true);
+    };
+
+    ws.onclose = () => {
+      APP.ws = null;
+      document.getElementById('wsConnectBtn').style.display = 'block';
+      document.getElementById('wsDisconnectBtn').style.display = 'none';
+      setModePill(false);
+
+      if (APP.manualWsClose || APP.killed){
+        log('Trading WebSocket disconnected.', 'sys');
+        document.getElementById('wsStatus').textContent = 'Disconnected';
+        refreshArmAvailability();
+        return;
+      }
+      // Unexpected close — auto-reconnect with exponential backoff, per project spec.
+      if (APP.reconnectAttempts >= APP.maxReconnectAttempts){
+        log(`Trading WebSocket disconnected — max reconnect attempts (${APP.maxReconnectAttempts}) reached. Click "Open Trading WebSocket" to retry manually.`, 'err');
+        document.getElementById('wsStatus').textContent = 'Disconnected — auto-reconnect gave up';
+        disarmAllStrategies();
+        refreshArmAvailability();
+        return;
+      }
+      APP.reconnectAttempts++;
+      const delay = Math.min(1000 * Math.pow(2, APP.reconnectAttempts - 1), 30000);
+      log(`Trading WebSocket dropped unexpectedly — reconnecting in ${Math.round(delay/1000)}s (attempt ${APP.reconnectAttempts}/${APP.maxReconnectAttempts}).`, 'err');
+      document.getElementById('wsStatus').textContent = `Disconnected — retrying in ${Math.round(delay/1000)}s…`;
+      setTimeout(() => {
+        if (!APP.manualWsClose && !APP.killed) connectTradingWs(true);
+      }, delay);
+    };
+  } catch(err){
+    log(`WebSocket setup failed: ${err.message}`, 'err');
+    document.getElementById('wsStatus').textContent = `Failed: ${err.message}`;
+    // Still retry on setup failure (e.g. transient OTP fetch error) unless manually stopped.
+    if (!APP.manualWsClose && !APP.killed && APP.reconnectAttempts < APP.maxReconnectAttempts){
+      APP.reconnectAttempts++;
+      const delay = Math.min(1000 * Math.pow(2, APP.reconnectAttempts - 1), 30000);
+      setTimeout(() => connectTradingWs(true), delay);
+    }
+  }
+}
+
+document.getElementById('wsDisconnectBtn').addEventListener('click', () => {
+  APP.manualWsClose = true;
+  disarmAllStrategies();
+  refreshArmAvailability();
+  if (APP.ws){
+    sendWs({ forget_all: 'ticks' });
+    sendWs({ forget_all: 'proposal' });
+    sendWs({ forget_all: 'balance' });
+    sendWs({ forget_all: 'proposal_open_contract' });
+    APP.ws.close();
+  }
+});
+
+function setModePill(connected, error){
+  const pill = document.getElementById('modePill');
+  const dot = document.getElementById('connDot');
+  const label = document.getElementById('modeLabel');
+  pill.classList.remove('demo','real');
+  if (error){
+    dot.className = 'dot err';
+    label.textContent = 'CONNECTION ERROR';
+    return;
+  }
+  if (!connected){
+    dot.className = 'dot off';
+    label.textContent = 'DISCONNECTED';
+    return;
+  }
+  dot.className = 'dot live';
+  if (APP.isRealAccount){
+    pill.classList.add('real');
+    label.textContent = `REAL · ${APP.selectedAccount.account_id}`;
+  } else {
+    pill.classList.add('demo');
+    label.textContent = `DEMO · ${APP.selectedAccount.account_id}`;
+  }
+}
+
+function sendWs(command){
+  if (!APP.ws || APP.ws.readyState !== 1){ log('WebSocket not open — command dropped.', 'err'); return null; }
+  APP.reqId++;
+  const msg = { ...command, req_id: APP.reqId };
+  APP.ws.send(JSON.stringify(msg));
+  return APP.reqId;
+}
+
+function routeWsMessage(data){
+  if (data.error){
+    log(`API error [${data.error.code}]: ${data.error.message}`, 'err');
+    if (data.req_id && APP.pendingRequests.has(data.req_id)){
+      const meta = APP.pendingRequests.get(data.req_id);
+      APP.pendingRequests.delete(data.req_id);
+      if (meta && meta.strategyKey && APP.strategies[meta.strategyKey]?.onError){
+        APP.strategies[meta.strategyKey].onError();
+        log(`[${meta.strategyKey}] Trade lock released after error — will retry on next matching signal.`, 'sys');
+      }
+    }
+    return;
+  }
+  switch(data.msg_type){
+    case 'balance':
+      if (data.balance){
+        document.getElementById('selAcctBal').textContent = Number(data.balance.balance).toFixed(2);
+      }
+      break;
+    case 'proposal':
+      handleProposal(data);
+      break;
+    case 'buy':
+      handleBuy(data);
+      break;
+    case 'proposal_open_contract':
+      handleOpenContract(data);
+      break;
+    case 'portfolio':
+      break;
+    default:
+      break;
+  }
+}
+
+/* ---------------- Public market-data WebSocket (ticks) ----------------
+   One persistent public connection, multiple symbol subscriptions live on it
+   at once — the watched "Market" symbol AND every armed strategy's own
+   symbol, independently. This is what makes strategies actually receive
+   ticks regardless of what's shown in the Market panel dropdown. */
+let publicWsReqSeq = 100;
+let publicReconnectAttempts = 0;
+
+function ensurePublicWs(){
+  if (APP.publicWs && (APP.publicWs.readyState === 0 || APP.publicWs.readyState === 1)) return;
+  const ws = new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');
+  APP.publicWs = ws;
+  ws.onopen = () => {
+    publicReconnectAttempts = 0;
+    log('Public market feed connected.', 'sys');
+    APP.tickSubs.forEach(sym => subscribeSymbol(sym));
+  };
+  ws.onmessage = (event) => {
+    let data; try { data = JSON.parse(event.data); } catch(e){ return; }
+    if (data.error) return;
+    if (data.msg_type === 'history' && data.history){
+      const sym = data.echo_req?.ticks_history;
+      if (sym) APP.ticksBySymbol.set(sym, data.history.prices.map(Number));
+      if (sym === document.getElementById('watchSymbol').value) renderTicker();
+    }
+    if (data.msg_type === 'tick' && data.tick){
+      const sym = data.tick.symbol;
+      const arr = APP.ticksBySymbol.get(sym) || [];
+      arr.push(Number(data.tick.quote));
+      if (arr.length > 30) arr.shift();
+      APP.ticksBySymbol.set(sym, arr);
+      if (sym === document.getElementById('watchSymbol').value) renderTicker();
+      onNewTick(sym);
+    }
+  };
+  ws.onclose = () => {
+    APP.publicWs = null;
+    if (!APP.tickSubs.size) return;
+    publicReconnectAttempts++;
+    const delay = Math.min(1000 * Math.pow(2, publicReconnectAttempts - 1), 30000);
+    log(`Public market feed dropped — reconnecting in ${Math.round(delay/1000)}s.`, 'err');
+    setTimeout(ensurePublicWs, delay);
+  };
+}
+
+function subscribeSymbol(symbol){
+  if (!APP.publicWs || APP.publicWs.readyState !== 1) return;
+  APP.publicWs.send(JSON.stringify({ ticks: symbol, subscribe: 1, req_id: ++publicWsReqSeq }));
+  APP.publicWs.send(JSON.stringify({ ticks_history: symbol, count: 20, end: 'latest', style: 'ticks', req_id: ++publicWsReqSeq }));
+}
+
+/** Make sure ticks are flowing for `symbol` — called for the watched market
+    symbol and whenever a strategy is armed with a different symbol. */
+function ensureTickFeed(symbol){
+  ensurePublicWs();
+  if (APP.tickSubs.has(symbol)) return;
+  APP.tickSubs.add(symbol);
+  if (APP.publicWs && APP.publicWs.readyState === 1){
+    subscribeSymbol(symbol);
+  } else {
+    APP.publicWs.addEventListener('open', () => subscribeSymbol(symbol), { once:true });
+  }
+}
+
+function renderTicker(){
+  const ticks = APP.ticksBySymbol.get(document.getElementById('watchSymbol').value) || [];
+  if (!ticks.length) return;
+  const last = ticks[ticks.length - 1];
+  const prev = ticks.length > 1 ? ticks[ticks.length - 2] : last;
+  const priceEl = document.getElementById('lastPrice');
+  priceEl.textContent = last.toFixed( symbolDecimals(document.getElementById('watchSymbol').value) );
+  priceEl.className = 'price-big ' + (last > prev ? 'up' : last < prev ? 'down' : '');
+
+  const strip = document.getElementById('digitStrip');
+  strip.innerHTML = '';
+  ticks.slice(-15).forEach((t, i, arr) => {
+    const d = lastDigitOf(t);
+    const chip = document.createElement('div');
+    chip.className = 'digit-chip' + (i === arr.length - 1 ? ' last' : '');
+    chip.textContent = d;
+    strip.appendChild(chip);
+  });
+}
+
+function symbolDecimals(sym){
+  return sym.startsWith('1HZ') ? 2 : 2;
+}
+function lastDigitOf(price){
+  const str = price.toFixed(4);
+  return str[str.length - 1];
+}
+
+document.getElementById('watchSymbol').addEventListener('change', (e) => {
+  document.getElementById('mktSymbolLabel').textContent = e.target.value;
+  ensureTickFeed(e.target.value);
+  renderTicker();
+});
+
+/* ---------------- Risk Engine ---------------- */
+function riskGate(stake){
+  if (APP.killed) return { ok:false, reason:'Kill switch is engaged.' };
+  if (!document.getElementById('riskEnabled').checked) return { ok:true };
+  const maxStake = parseFloat(document.getElementById('maxStake').value) || Infinity;
+  const maxOpen = parseInt(document.getElementById('maxOpen').value) || 1;
+  const dailyLimit = parseFloat(document.getElementById('dailyLossLimit').value) || Infinity;
+
+  if (stake > maxStake) return { ok:false, reason:`Stake ${stake} exceeds max stake ${maxStake}.` };
+  if (APP.openContracts.size >= maxOpen) return { ok:false, reason:`Max concurrent open contracts (${maxOpen}) reached.` };
+  if (APP.session.dailyLossAccum >= dailyLimit) return { ok:false, reason:`Daily loss limit (${dailyLimit}) reached.` };
+  return { ok:true };
+}
+
+/* ---------------- Kill switch ---------------- */
+document.getElementById('killBtn').addEventListener('click', () => {
+  APP.killed = !APP.killed;
+  const btn = document.getElementById('killBtn');
+  if (APP.killed){
+    btn.classList.add('armed');
+    btn.textContent = '⏻ KILLED — CLICK TO RESUME';
+    disarmAllStrategies();
+    log('KILL SWITCH ENGAGED — all strategies disarmed, trading halted.', 'err');
+  } else {
+    btn.classList.remove('armed');
+    btn.textContent = '⏻ KILL SWITCH';
+    log('Kill switch released. Arm buttons re-enabled — trading may resume.', 'sys');
+  }
+  refreshArmAvailability();
+});
+
+/* ---------------- Buy / Proposal pipeline ---------------- */
+let contractSeq = 0;
+function requestProposal(params, strategyKey){
+  const gate = riskGate(params.amount);
+  if (!gate.ok){
+    log(`[${strategyKey}] Blocked by risk engine: ${gate.reason}`, 'err');
+    return;
+  }
+  const reqId = sendWs({
+    proposal: 1,
+    amount: params.amount,
+    basis: 'stake',
+    contract_type: params.contract_type,
+    currency: 'USD',
+    duration: params.duration,
+    duration_unit: 't',
+    underlying_symbol: params.symbol,
+    ...(params.barrier !== undefined ? { barrier: String(params.barrier) } : {}),
+    subscribe: 1
+  });
+  if (reqId) APP.pendingRequests.set(reqId, { strategyKey, params });
+}
+
+function handleProposal(data){
+  const meta = APP.pendingRequests.get(data.req_id);
+  if (!data.proposal) return;
+  const proposalId = data.proposal.id;
+  const askPrice = data.proposal.ask_price;
+  if (meta){
+    APP.pendingRequests.delete(data.req_id);
+    const buyReqId = sendWs({ buy: proposalId, price: askPrice });
+    if (buyReqId) APP.pendingRequests.set(buyReqId, { strategyKey: meta.strategyKey, buy:true });
+  }
+}
+
+function handleBuy(data){
+  const meta = APP.pendingRequests.get(data.req_id);
+  if (!data.buy) return;
+  const contractId = data.buy.contract_id;
+  const strategyKey = meta ? meta.strategyKey : 'unknown';
+  APP.pendingRequests.delete(data.req_id);
+  APP.openContracts.set(contractId, { strategyKey, buyPrice: data.buy.buy_price, symbol: '—' });
+  log(`[${strategyKey}] Bought contract ${contractId} @ ${data.buy.buy_price}`, 'info');
+  renderOpenContracts();
+  const monId = sendWs({ proposal_open_contract: 1, contract_id: contractId, subscribe: 1 });
+  if (monId) APP.pendingRequests.set(monId, { strategyKey, monitor:true, contractId });
+}
+
+function handleOpenContract(data){
+  const c = data.proposal_open_contract;
+  if (!c) return;
+  const meta = APP.openContracts.get(c.contract_id);
+  const strategyKey = meta ? meta.strategyKey : findStrategyForContract(data.req_id);
+
+  if (c.is_sold){
+    const profit = Number(c.profit);
+    APP.session.pl += profit;
+    APP.session.trades++;
+    if (profit >= 0){ APP.session.wins++; log(`[${strategyKey}] WIN +${profit.toFixed(2)} USD`, 'win'); }
+    else { APP.session.losses++; APP.session.dailyLossAccum += Math.abs(profit); log(`[${strategyKey}] LOSS ${profit.toFixed(2)} USD`, 'loss'); }
+    APP.openContracts.delete(c.contract_id);
+    renderOpenContracts();
+    renderStats();
+    if (strategyKey && APP.strategies[strategyKey]){
+      APP.strategies[strategyKey].onResult(profit >= 0, profit);
+    }
+    sendWs({ forget: c.subscription?.id || c.id });
+  } else {
+    if (APP.openContracts.has(c.contract_id)){
+      const entry = APP.openContracts.get(c.contract_id);
+      entry.currentProfit = Number(c.profit);
+      renderOpenContracts();
+    }
+  }
+}
+
+function findStrategyForContract(reqId){
+  const meta = APP.pendingRequests.get(reqId);
+  return meta ? meta.strategyKey : null;
+}
+
+function renderOpenContracts(){
+  const box = document.getElementById('openContracts');
+  if (!APP.openContracts.size){
+    box.innerHTML = '<div class="hint">No open contracts.</div>';
+    return;
+  }
+  box.innerHTML = '';
+  APP.openContracts.forEach((c, id) => {
+    const div = document.createElement('div');
+    div.className = 'contract';
+    const pl = c.currentProfit !== undefined ? c.currentProfit : 0;
+    div.innerHTML = `<span class="l">${id} · ${c.strategyKey}</span><span class="p" style="color:${pl>=0?'var(--green)':'var(--red)'}">${pl.toFixed(2)}</span>`;
+    box.appendChild(div);
+  });
+}
+
+function renderStats(){
+  const pl = APP.session.pl;
+  const plEl = document.getElementById('statPL');
+  plEl.textContent = `$${pl.toFixed(2)}`;
+  plEl.className = 'v ' + (pl > 0 ? 'pos' : pl < 0 ? 'neg' : '');
+  document.getElementById('statTrades').textContent = APP.session.trades;
+  document.getElementById('statWins').textContent = APP.session.wins;
+  document.getElementById('statLosses').textContent = APP.session.losses;
+}
+
+function resetSession(){
+  APP.session = { pl: 0, trades: 0, wins: 0, losses: 0, dailyLossAccum: 0 };
+  renderStats();
+  log('Session stats reset.', 'sys');
+}
+
+/* ============================================================
+   STRATEGY ENGINES — ported from uploaded DBot XML files
+   ============================================================ */
+
+function toggleStrat(key){
+  const body = document.getElementById('body-' + key);
+  body.classList.toggle('open');
+}
+
+function setBadge(key, running){
+  const b = document.getElementById('badge-' + key);
+  b.className = 'strat-badge ' + (running ? 'running' : 'idle');
+  b.textContent = running ? 'RUNNING' : 'IDLE';
+}
+
+function setCycles(key, n){
+  const el = document.getElementById('cycles-' + key);
+  if (el) el.textContent = `${n} cycle${n===1?'':'s'}`;
+}
+
+/** Strictly locks every parameter field inside a strategy card while it is
+    running, so a live-armed strategy's closures can never drift out of sync
+    with what the UI displays. Fields tagged .keep-live (auto-restart toggle)
+    stay editable — they're read fresh on every check, not captured at arm time. */
+function setStrategyLocked(key, locked){
+  const body = document.getElementById('body-' + key);
+  if (!body) return;
+  body.querySelectorAll('input,select').forEach(el => {
+    if (el.classList.contains('keep-live')) return;
+    el.disabled = locked;
+  });
+  const armBtn = document.getElementById('arm-' + key);
+  const stopBtn = document.getElementById('stop-' + key);
+  if (armBtn) armBtn.disabled = locked || !canArm();
+  if (stopBtn) stopBtn.disabled = !locked;
+}
+
+/** Single source of truth for whether ANY strategy is allowed to be armed
+    right now — trading WebSocket must be open and the kill switch released. */
+function canArm(){
+  return !!(APP.ws && APP.ws.readyState === 1) && !APP.killed;
+}
+
+/** Re-evaluates every Arm button's enabled state. Called after every event
+    that changes connection or kill-switch status, so controls never show a
+    stale/incorrect affordance. */
+function refreshArmAvailability(){
+  Object.keys(STRATEGY_INIT).forEach(key => {
+    const running = !!(APP.strategies[key] && APP.strategies[key].active);
+    const armBtn = document.getElementById('arm-' + key);
+    if (armBtn) armBtn.disabled = running || !canArm();
+    // if trading was disconnected or killed, a "running" badge with no live
+    // connection is misleading — force it back to idle and unlock inputs.
+    if (running && !canArm()){
+      APP.strategies[key].active = false;
+      setBadge(key, false);
+      setStrategyLocked(key, false);
+      log(`[${key}] Strategy force-disarmed — connection lost or kill switch engaged.`, 'err');
+    }
+  });
+}
+
+function disarmAllStrategies(){
+  Object.keys(APP.strategies).forEach(k => disarmStrategy(k));
+}
+
+function disarmStrategy(key){
+  if (APP.strategies[key]) APP.strategies[key].active = false;
+  setBadge(key, false);
+  setStrategyLocked(key, false);
+  log(`[${key}] Strategy disarmed.`, 'sys');
+}
+
+function armStrategy(key){
+  if (!canArm()){
+    if (!APP.ws || APP.ws.readyState !== 1) log('Open the trading WebSocket before arming a strategy.', 'err');
+    else log('Kill switch is engaged — release it before arming strategies.', 'err');
+    return;
+  }
+  if (APP.strategies[key] && APP.strategies[key].active){
+    log(`[${key}] Already armed.`, 'err');
+    return;
+  }
+  const initFn = STRATEGY_INIT[key];
+  if (!initFn){ log(`Unknown strategy ${key}`, 'err'); return; }
+  const strat = initFn();
+  strat.active = true;
+  strat.inFlight = false;
+  strat.cycles = 0;
+  APP.strategies[key] = strat;
+  ensureTickFeed(strat.symbol);   // <- guarantees this strategy actually receives ticks
+  setBadge(key, true);
+  setCycles(key, 0);
+  setStrategyLocked(key, true);
+  log(`[${key}] Strategy armed on ${strat.symbol}. Waiting for entry conditions…`, 'sys');
+}
+
+/** Shared TP/SL-cycle handler used by every strategy. If the strategy's own
+    Auto-Restart checkbox is checked (and the per-cycle cap hasn't been hit),
+    the session P/L and stake are reset in place and trading continues on the
+    same connection/subscriptions. Otherwise the strategy is fully disarmed. */
+function handleCycleBoundary(key, strat, hitLabel, resetFn){
+  strat.cycles = (strat.cycles || 0) + 1;
+  setCycles(key, strat.cycles);
+  const autoRestart = document.getElementById(`${strategyPrefix(key)}-autorestart`)?.checked;
+  const maxCyclesEl = document.getElementById(`${strategyPrefix(key)}-maxcycles`);
+  const maxCycles = maxCyclesEl ? parseInt(maxCyclesEl.value) || 0 : 0;
+  const capReached = maxCycles > 0 && strat.cycles >= maxCycles;
+
+  if (autoRestart && !capReached){
+    resetFn();
+    log(`[${key}] ${hitLabel} — auto-reset & restarting cycle ${strat.cycles + 1}.`, 'sys');
+  } else {
+    log(`[${key}] ${hitLabel}${capReached ? ' — max cycle cap reached' : ''} — strategy disarmed.`, hitLabel.includes('Take-Profit') || hitLabel.includes('Take Profit') ? 'win' : 'err');
+    strat.active = false;
+    setBadge(key, false);
+    setStrategyLocked(key, false);
+  }
+}
+
+function strategyPrefix(key){
+  return { risefall:'rf', candlemine:'cm', differs:'df', risemaster:'rm' }[key];
+}
+
+/** Clamps every numeric input to its declared min/max on change, and
+    prevents non-numeric / empty submissions from silently becoming NaN
+    inside a running strategy's closures. */
+function enforceNumericInputs(){
+  document.querySelectorAll('input[type=number]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const min = inp.hasAttribute('min') ? parseFloat(inp.min) : -Infinity;
+      const max = inp.hasAttribute('max') ? parseFloat(inp.max) : Infinity;
+      let v = parseFloat(inp.value);
+      if (isNaN(v)) v = (min !== -Infinity ? min : 0);
+      if (v < min) v = min;
+      if (v > max) v = max;
+      inp.value = v;
+    });
+  });
+}
+enforceNumericInputs();
+
+/* ---- 01 Rise/Fall Momentum (Milagrosa) ---- */
+function initRiseFall(){
+  const symbol = document.getElementById('rf-symbol').value;
+  const duration = parseInt(document.getElementById('rf-duration').value);
+  const baseStake = parseFloat(document.getElementById('rf-stake').value);
+  const winAmt = parseFloat(document.getElementById('rf-winamt').value);
+  const mgFactor = parseFloat(document.getElementById('rf-mgfactor').value);
+  const target = parseFloat(document.getElementById('rf-target').value);
+  const stopLoss = parseFloat(document.getElementById('rf-sl').value);
+  let stake = baseStake;
+  let sessionProfit = 0;
+
+  const strat = {
+    active: false, inFlight: false, symbol,
+    onTick(ticks){
+      if (!this.active || this.inFlight || ticks.length < 4) return;
+      const n = ticks.length;
+      const risingConfirmed = ticks[n-1] > ticks[n-2] && ticks[n-2] > ticks[n-3] && ticks[n-3] > ticks[n-4];
+      const fallingConfirmed = ticks[n-1] < ticks[n-2] && ticks[n-2] < ticks[n-3] && ticks[n-3] < ticks[n-4];
+      if (risingConfirmed){
+        this.inFlight = true;
+        requestProposal({ amount: stake, contract_type: 'CALLE', duration, symbol }, 'risefall');
+      } else if (fallingConfirmed){
+        this.inFlight = true;
+        requestProposal({ amount: stake, contract_type: 'PUTE', duration, symbol }, 'risefall');
+      }
+    },
+    onResult(won, profit){
+      this.inFlight = false;
+      sessionProfit += profit;
+      stake = won ? winAmt : stake + Math.abs(stake * mgFactor);
+      if (sessionProfit >= target){
+        handleCycleBoundary('risefall', this, 'Take-Profit target hit', () => { stake = baseStake; sessionProfit = 0; });
+      } else if (sessionProfit <= -stopLoss){
+        handleCycleBoundary('risefall', this, 'Stop-Loss hit', () => { stake = baseStake; sessionProfit = 0; });
+      }
+    },
+    onError(){ this.inFlight = false; }
+  };
+  return strat;
+}
+
+/* ---- 02 Candle Mine Even/Odd ---- */
+function initCandleMine(){
+  const symbol = document.getElementById('cm-symbol').value;
+  const contract = document.getElementById('cm-contract').value;
+  const duration = parseInt(document.getElementById('cm-duration').value);
+  const baseStake = parseFloat(document.getElementById('cm-stake').value);
+  const winAmt = parseFloat(document.getElementById('cm-winamt').value);
+  const lossCap = parseFloat(document.getElementById('cm-losscap').value);
+  const target = parseFloat(document.getElementById('cm-target').value);
+  const stopLoss = parseFloat(document.getElementById('cm-sl').value);
+  let stake = baseStake;
+  let sessionProfit = 0;
+
+  const strat = {
+    active: false, inFlight: false, symbol,
+    onTick(ticks){
+      if (!this.active || this.inFlight) return;
+      this.inFlight = true;
+      requestProposal({ amount: stake, contract_type: contract, duration, symbol }, 'candlemine');
+    },
+    onResult(won, profit){
+      this.inFlight = false;
+      sessionProfit += profit;
+      if (won){
+        stake = winAmt;
+      } else {
+        stake = stake + Math.abs(profit);
+        if (Math.abs(profit) >= lossCap) stake = winAmt; // runaway brake
+      }
+      if (sessionProfit >= target){
+        handleCycleBoundary('candlemine', this, 'Take-Profit target hit', () => { stake = baseStake; sessionProfit = 0; });
+      } else if (sessionProfit <= -stopLoss){
+        handleCycleBoundary('candlemine', this, 'Stop-Loss hit', () => { stake = baseStake; sessionProfit = 0; });
+      }
+    },
+    onError(){ this.inFlight = false; }
+  };
+  return strat;
+}
+
+/* ---- 03 Differs Pro ---- */
+function initDiffers(){
+  const symbol = document.getElementById('df-symbol').value;
+  const contract = document.getElementById('df-contract').value;
+  const prediction = parseInt(document.getElementById('df-prediction').value);
+  const duration = parseInt(document.getElementById('df-duration').value);
+  const baseStake = parseFloat(document.getElementById('df-stake').value);
+  const winAmt = parseFloat(document.getElementById('df-winamt').value);
+  const mgMult = parseFloat(document.getElementById('df-mgmult').value);
+  const fallDigit = parseInt(document.getElementById('df-falldigit').value);
+  const riseDigit = parseInt(document.getElementById('df-risedigit').value);
+  const target = parseFloat(document.getElementById('df-target').value);
+  const stopLoss = parseFloat(document.getElementById('df-sl').value);
+  let stake = baseStake;
+  let sessionProfit = 0;
+
+  const strat = {
+    active: false, inFlight: false, symbol,
+    onTick(ticks){
+      if (!this.active || this.inFlight || ticks.length < 2) return;
+      const n = ticks.length;
+      const direction = ticks[n-1] > ticks[n-2] ? 'rise' : ticks[n-1] < ticks[n-2] ? 'fall' : null;
+      const lastDigit = parseInt(lastDigitOf(ticks[n-1]));
+      if (direction === 'fall' && lastDigit === fallDigit){
+        this.inFlight = true;
+        requestProposal({ amount: stake, contract_type: contract, duration, symbol, barrier: prediction }, 'differs');
+      } else if (direction === 'rise' && lastDigit === riseDigit){
+        this.inFlight = true;
+        requestProposal({ amount: stake, contract_type: contract, duration, symbol, barrier: prediction }, 'differs');
+      }
+    },
+    onResult(won, profit){
+      this.inFlight = false;
+      sessionProfit += profit;
+      stake = won ? winAmt : stake * mgMult;
+      if (sessionProfit >= target){
+        handleCycleBoundary('differs', this, 'Take-Profit target hit', () => { stake = baseStake; sessionProfit = 0; });
+      } else if (sessionProfit <= -stopLoss){
+        handleCycleBoundary('differs', this, 'Stop-Loss hit', () => { stake = baseStake; sessionProfit = 0; });
+      }
+    },
+    onError(){ this.inFlight = false; }
+  };
+  return strat;
+}
+
+/* ---- 04 Rise Master ---- */
+function initRiseMaster(){
+  const symbol = document.getElementById('rm-symbol').value;
+  const duration = parseInt(document.getElementById('rm-duration').value);
+  const baseStake = parseFloat(document.getElementById('rm-stake').value);
+  const winAmt = parseFloat(document.getElementById('rm-winamt').value);
+  const mgFactor = parseFloat(document.getElementById('rm-mgfactor').value);
+  const stopLoss = parseFloat(document.getElementById('rm-sl').value);
+  const takeProfit = parseFloat(document.getElementById('rm-tp').value);
+  let stake = baseStake;
+  let sessionProfit = 0;
+  let fallFlags = [false, false, false, false, false]; // digit1..digit5, digit1 = most recent
+
+  const strat = {
+    active: false, inFlight: false, symbol,
+    onTick(ticks){
+      if (ticks.length < 2) return;
+      const n = ticks.length;
+      const isFall = ticks[n-1] < ticks[n-2];
+      fallFlags = [isFall, fallFlags[0], fallFlags[1], fallFlags[2], fallFlags[3]];
+
+      if (!this.active || this.inFlight) return;
+      const pairs = [[0,1],[1,2],[2,3],[3,4],[0,4]];
+      const triggered = pairs.some(([a,b]) => fallFlags[a] && fallFlags[b]);
+      if (triggered){
+        this.inFlight = true;
+        requestProposal({ amount: stake, contract_type: 'CALL', duration, symbol }, 'risemaster');
+      }
+    },
+    onResult(won, profit){
+      this.inFlight = false;
+      sessionProfit += profit;
+      stake = won ? winAmt : stake + Math.abs(stake * mgFactor);
+
+      if (sessionProfit <= -stopLoss){
+        handleCycleBoundary('risemaster', this, 'Stop-Loss hit', () => { stake = baseStake; sessionProfit = 0; fallFlags = [false,false,false,false,false]; });
+      } else if (sessionProfit >= takeProfit){
+        handleCycleBoundary('risemaster', this, 'Take-Profit hit', () => { stake = baseStake; sessionProfit = 0; fallFlags = [false,false,false,false,false]; });
+      }
+    },
+    onError(){ this.inFlight = false; }
+  };
+  return strat;
+}
+
+const STRATEGY_INIT = {
+  risefall: initRiseFall,
+  candlemine: initCandleMine,
+  differs: initDiffers,
+  risemaster: initRiseMaster
+};
+
+/* feed ticks to armed strategies matching this symbol */
+function onNewTick(symbol){
+  const ticks = APP.ticksBySymbol.get(symbol) || [];
+  Object.values(APP.strategies).forEach(strat => {
+    if (strat.active && strat.symbol === symbol){
+      strat.onTick(ticks);
+    }
+  });
+}
+
+/* ---------------- init ---------------- */
+ensureTickFeed(document.getElementById('watchSymbol').value);
+log('NEXARIS terminal initialised. Connect a PAT to begin.', 'sys');
+renderStats();
+</script>
+</body>
+</html>

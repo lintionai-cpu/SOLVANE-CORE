@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#040c14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NEXUS RF">
+<title>NEXUS RF — Signal Analytics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=JetBrains+Mono:ital,wght@0,300;0,400;0,600;0,700;1,300&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg0: #020a11;
+  --bg1: #050f1a;
+  --bg2: #081523;
+  --bg3: #0c1e30;
+  --card: #0a1e2e;
+  --border: #0f2d42;
+  --border2: #163650;
+  --cyan: #00e5ff;
+  --cyan-dim: #009ab5;
+  --cyan-glow: rgba(0,229,255,0.15);
+  --amber: #ffab00;
+  --green: #00e676;
+  --red: #ff1744;
+  --red-glow: rgba(255,23,68,0.15);
+  --purple: #d500f9;
+  --text0: #e8f4ff;
+  --text1: #a8c8e0;
+  --text2: #5a8fa8;
+  --text3: #2d5a78;
+  --font-display: 'Orbitron', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --nav-h: 64px;
+  --top-h: 56px;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow-cyan: 0 0 24px rgba(0,229,255,0.2);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  background: var(--bg0);
+  color: var(--text0);
+  font-family: var(--font-mono);
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-image: radial-gradient(ellipse at 20% 0%, rgba(0,229,255,0.04) 0%, transparent 60%);
+}
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg1); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: var(--top-h);
+  background: rgba(2,10,17,0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 16px; gap: 12px;
+  z-index: 100;
+}
+#topbar .brand {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  color: var(--cyan);
+  text-shadow: var(--shadow-cyan);
+  flex-shrink: 0;
+}
+#topbar .brand span { color: var(--amber); }
+.conn-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--text3); flex-shrink: 0;
+}
+.conn-dot.connected { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.conn-dot.error { background: var(--red); box-shadow: 0 0 8px var(--red); }
+#live-price {
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  font-weight: 600;
+  flex: 1;
+  text-align: right;
+  color: var(--text0);
+}
+
+#app {
+  padding: calc(var(--top-h) + 12px) 12px calc(var(--nav-h) + 16px);
+  max-width: 600px;
+  margin: 0 auto;
+}
+.page { display: none; }
+.page.active { display: block; animation: fadeIn 0.25s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.card-title {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text2);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.metric { }
+.metric-label { font-size: 0.62rem; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+.metric-value { font-family: var(--font-display); font-size: 1.6rem; font-weight: 900; color: var(--text0); }
+.metric-value.cyan { color: var(--cyan); }
+.metric-value.green { color: var(--green); }
+.metric-value.red { color: var(--red); }
+.metric-value.amber { color: var(--amber); }
+.metrics-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+.input-group { margin-bottom: 14px; }
+.input-label { display: block; font-size: 0.62rem; color: var(--text2); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px; }
+.input-field {
+  width: 100%;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  color: var(--text0);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+.input-field:focus { border-color: var(--cyan); outline: none; }
+.range-row { display: flex; align-items: center; gap: 10px; }
+.range-slider { flex: 1; }
+.range-val { font-family: var(--font-display); font-weight: 700; color: var(--cyan); min-width: 32px; text-align: right; }
+
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.toggle-row:last-child { border-bottom: none; }
+.toggle-label { font-size: 0.78rem; }
+.toggle { position: relative; display: inline-block; width: 44px; height: 24px; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg3); border-radius: 12px; border: 1px solid var(--border2); transition: 0.2s;
+}
+.toggle-slider:before {
+  position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px;
+  background: var(--text2); border-radius: 50%; transition: 0.2s;
+}
+.toggle input:checked + .toggle-slider { background: rgba(0,229,255,0.2); border-color: var(--cyan); }
+.toggle input:checked + .toggle-slider:before { transform: translateX(20px); background: var(--cyan); }
+
+.btn {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: uppercase;
+  background: none;
+}
+.btn-full { width: 100%; }
+.btn-cyan { background: var(--cyan-glow); border-color: var(--cyan); color: var(--cyan); }
+.btn-cyan:hover { background: rgba(0,229,255,0.25); }
+.btn-outline { background: var(--bg3); border-color: var(--border2); color: var(--text2); }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.badge {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid;
+}
+.badge-active { background: var(--cyan-glow); border-color: var(--cyan); color: var(--cyan); }
+.badge-idle { background: var(--bg3); border-color: var(--border2); color: var(--text2); }
+
+/* Signal Panel */
+.signal-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  padding: 14px;
+  margin-bottom: 10px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.signal-panel.alert-call { border-color: var(--green); box-shadow: 0 0 20px rgba(0,230,118,0.25); }
+.signal-panel.alert-put { border-color: var(--red); box-shadow: 0 0 20px rgba(255,23,68,0.25); }
+.signal-type {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+.signal-type.call { color: var(--green); }
+.signal-type.put { color: var(--red); }
+.signal-type.none { color: var(--text3); }
+.signal-info { text-align: right; }
+.signal-info .label { font-size: 0.55rem; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 4px; }
+.signal-info .val { font-family: var(--font-display); font-size: 1.2rem; font-weight: 900; color: var(--amber); }
+
+/* Tick Strip */
+.tick-strip { display: flex; gap: 4px; overflow-x: auto; padding: 8px 0; }
+.tick-pill {
+  flex-shrink: 0; width: 32px; height: 32px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 0.55rem; font-weight: 900; border: 1px solid;
+}
+.tick-pill.rise { background: rgba(0,230,118,0.15); border-color: var(--green); color: var(--green); }
+.tick-pill.fall { background: rgba(255,23,68,0.15); border-color: var(--red); color: var(--red); }
+.tick-pill.neutral { background: var(--bg3); border-color: var(--border2); color: var(--text2); }
+
+/* Chart */
+.chart-wrap {
+  position: relative; width: 100%; height: 200px;
+  background: var(--bg1); border-radius: var(--radius-sm); border: 1px solid var(--border); overflow: hidden;
+}
+.chart-wrap canvas { position: absolute; inset: 0; }
+
+/* Alert Banner */
+.alert-banner {
+  display: none;
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  animation: pulseGlow 1s ease-in-out infinite;
+}
+.alert-banner.call { background: rgba(0,230,118,0.12); border: 2px solid var(--green); color: var(--green); }
+.alert-banner.put { background: rgba(255,23,68,0.12); border: 2px solid var(--red); color: var(--red); }
+.alert-banner .big { font-size: 1.3rem; margin-bottom: 4px; }
+.alert-banner .small { font-size: 0.65rem; color: var(--text1); letter-spacing: 0.05em; font-family: var(--font-mono); font-weight: 400; }
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 10px currentColor; }
+  50% { box-shadow: 0 0 28px currentColor; }
+}
+
+/* Signal Log */
+.log-entry {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+  font-size: 0.78rem;
+}
+.log-entry:last-child { border-bottom: none; }
+.log-entry .tag {
+  font-family: var(--font-display); font-weight: 900; font-size: 0.7rem; letter-spacing: 0.08em;
+  padding: 2px 8px; border-radius: 4px; border: 1px solid;
+}
+.log-entry .tag.call { color: var(--green); border-color: var(--green); background: rgba(0,230,118,0.1); }
+.log-entry .tag.put { color: var(--red); border-color: var(--red); background: rgba(255,23,68,0.1); }
+.log-entry .time { color: var(--text3); font-size: 0.65rem; }
+
+/* Error / Info States */
+.error-state {
+  background: rgba(255,23,68,0.1); border: 1px solid var(--red); border-radius: var(--radius-sm);
+  padding: 20px; text-align: center; margin: 12px 0;
+}
+.error-state h3 { color: var(--red); font-family: var(--font-display); font-size: 0.75rem; margin-bottom: 8px; }
+.error-state p { color: var(--text2); font-size: 0.7rem; }
+
+/* Toast */
+#toast-container {
+  position: fixed; top: calc(var(--top-h) + 8px); right: 12px; left: 12px; z-index: 500;
+  display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+  max-width: 600px; margin: 0 auto;
+}
+.toast {
+  background: var(--card); border-radius: var(--radius-sm); border-left: 3px solid var(--cyan);
+  padding: 12px 16px; display: flex; align-items: center; gap: 12px; pointer-events: all;
+  animation: toastIn 0.3s ease; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.toast.call { border-left-color: var(--green); }
+.toast.put { border-left-color: var(--red); }
+.toast.warning { border-left-color: var(--amber); }
+.toast.error { border-left-color: var(--purple); }
+.toast.info { border-left-color: var(--cyan); }
+@keyframes toastIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+.toast-icon { font-size: 1.1rem; }
+.toast-text { flex: 1; }
+.toast-title { font-family: var(--font-display); font-size: 0.6rem; letter-spacing: 0.1em; font-weight: 700; }
+.toast-body { font-size: 0.7rem; color: var(--text1); margin-top: 2px; }
+
+/* Bottom Nav */
+#bottomnav {
+  position: fixed; bottom: 0; left: 0; right: 0; height: var(--nav-h);
+  background: rgba(2,10,17,0.95); backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  display: flex; z-index: 100;
+}
+.nav-tab {
+  flex: 1; background: none; border: none; color: var(--text3);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  cursor: pointer; font-family: var(--font-mono); font-size: 0.58rem; letter-spacing: 0.08em;
+}
+.nav-tab svg { width: 20px; height: 20px; }
+.nav-tab.active { color: var(--cyan); }
+.nav-tab span { text-transform: uppercase; }
+
+@media (min-width: 600px) {
+  #app, #topbar, #bottomnav { max-width: 600px; margin: 0 auto; left: 0; right: 0; transform: none; }
+  #topbar, #bottomnav { left: 50%; transform: translateX(-50%); }
+}
+</style>
+</head>
+<body>
+
+<header id="topbar">
+  <div class="brand">NEXUS<span>RF</span></div>
+  <div class="conn-dot" id="connDot"></div>
+  <div id="live-price"><span id="priceVal">----.---</span></div>
+</header>
+
+<div id="app">
+
+  <!-- PAGE: DASHBOARD -->
+  <section id="page-dashboard" class="page active">
+
+    <div class="alert-banner" id="alertBanner">
+      <div class="big" id="alertBannerText">▲ CALL ENTRY SIGNAL</div>
+      <div class="small" id="alertBannerSub">Reversal confirmed — consider RISE/CALL entry</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Market Snapshot</div>
+      <div class="metric">
+        <div class="metric-label">Symbol</div>
+        <div class="metric-value cyan" id="dashSymbol">R_25</div>
+      </div>
+      <div class="metric" style="margin-top: 12px;">
+        <div class="metric-label">Last Price</div>
+        <div class="metric-value" id="dashPrice">--.--</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Session Signal Stats</div>
+      <div class="metrics-grid-3">
+        <div class="metric"><div class="metric-label">Call Signals</div><div class="metric-value green" id="dashCallCount">0</div></div>
+        <div class="metric"><div class="metric-label">Put Signals</div><div class="metric-value red" id="dashPutCount">0</div></div>
+        <div class="metric"><div class="metric-label">Total</div><div class="metric-value amber" id="dashTotalCount">0</div></div>
+      </div>
+    </div>
+
+    <div class="card" id="connectionStatusCard">
+      <div class="card-title">Connection Status</div>
+      <div id="connectionWarning" class="error-state" style="display: none;">
+        <h3>⚠ NOT CONNECTED</h3>
+        <p>Connecting to Deriv market feed...</p>
+      </div>
+      <div id="connectedInfo" style="display: none;">
+        <div style="display: flex; justify-content: space-between; padding: 8px 0;"><span>Feed</span><span style="color: var(--green);">Deriv Live Ticks (Public)</span></div>
+        <div style="display: flex; justify-content: space-between; padding: 8px 0;"><span>Symbol</span><span id="connSymbol" style="color: var(--cyan);">--</span></div>
+        <div style="display: flex; justify-content: space-between; padding: 8px 0;"><span>Status</span><span style="color: var(--green);">Streaming</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE: SIGNALS -->
+  <section id="page-signals" class="page">
+    <div class="card" style="padding: 12px;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+        <div class="card-title" style="margin-bottom: 0;">LIVE CHART — <span id="chartSymbol" style="color: var(--cyan);">R_25</span></div>
+      </div>
+      <div class="chart-wrap"><canvas id="tickChart"></canvas></div>
+    </div>
+
+    <div class="signal-panel" id="signalPanel">
+      <div>
+        <div style="font-size: 0.52rem; color: var(--text3); margin-bottom: 4px;">SIGNAL</div>
+        <div class="signal-type none" id="signalType">WAITING FOR TICKS...</div>
+      </div>
+      <div class="signal-info"><div class="label">Consecutive</div><div class="val" id="signalConsecutive">0</div></div>
+    </div>
+
+    <div class="tick-strip" id="tickStrip"></div>
+
+    <div class="card">
+      <div class="card-title">How To Read This</div>
+      <div style="font-size: 0.75rem; color: var(--text1); line-height: 1.6;">
+        This app monitors live tick direction on the selected symbol. When <span style="color:var(--cyan);">N consecutive ticks</span> move the same direction, it flags a potential reversal entry:
+        <div style="margin-top: 8px; color: var(--green);">▲ CALL/RISE — after N consecutive falling ticks</div>
+        <div style="color: var(--red);">▼ PUT/FALL — after N consecutive rising ticks</div>
+        <div style="margin-top: 8px; color: var(--text3);">This is an analytical alert only. No trades are placed. Always confirm with your own analysis before acting.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE: STRATEGY CONFIG -->
+  <section id="page-config" class="page">
+    <div class="card">
+      <div class="card-title">RF Reversal Strategy</div>
+      <div class="input-group"><label class="input-label">Symbol</label>
+        <select class="input-field" id="cfgSymbol">
+          <option value="R_10">Volatility 10 Index (R_10)</option>
+          <option value="R_25">Volatility 25 Index (R_25)</option>
+          <option value="R_50">Volatility 50 Index (R_50)</option>
+          <option value="R_75">Volatility 75 Index (R_75)</option>
+          <option value="R_100">Volatility 100 Index (R_100)</option>
+          <option value="1HZ10V">Volatility 10 (1s) Index</option>
+          <option value="1HZ25V">Volatility 25 (1s) Index</option>
+          <option value="1HZ50V">Volatility 50 (1s) Index</option>
+          <option value="1HZ100V">Volatility 100 (1s) Index</option>
+        </select>
+      </div>
+      <div class="input-group"><label class="input-label">Reversal Ticks (N)</label>
+        <select class="input-field" id="cfgStrategyTicks">
+          <option value="3">3 ticks — flag after 3 consecutive same-direction</option>
+          <option value="4" selected>4 ticks — flag after 4 consecutive same-direction</option>
+          <option value="5">5 ticks — flag after 5 consecutive same-direction</option>
+          <option value="6">6 ticks — flag after 6 consecutive same-direction</option>
+        </select>
+      </div>
+      <div class="input-group"><label class="input-label">Suggested Entry Duration (Ticks) — informational only</label>
+        <div class="range-row"><input type="range" class="range-slider" id="cfgDuration" min="1" max="10" value="5"><span class="range-val" id="cfgDurationVal">5</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Alerts</div>
+      <div class="toggle-row"><div><div class="toggle-label">Sound alert on new signal</div></div>
+        <label class="toggle"><input type="checkbox" id="cfgSound" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row"><div><div class="toggle-label">Toast notification on new signal</div></div>
+        <label class="toggle"><input type="checkbox" id="cfgToast" checked><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Engine Control</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <button class="btn btn-cyan btn-full" id="btnStartScan">▶ START SCANNING</button>
+        <button class="btn btn-outline btn-full" id="btnStopScan" disabled>⬛ PAUSE</button>
+      </div>
+      <div id="scanStatus" class="badge badge-idle" style="margin-top: 12px; display: inline-block;">IDLE</div>
+    </div>
+  </section>
+
+  <!-- PAGE: SIGNAL LOG -->
+  <section id="page-log" class="page">
+    <div class="card">
+      <div class="card-title">Signal History</div>
+      <div id="logList" style="max-height: 480px; overflow-y: auto;">
+        <div style="color: var(--text3); text-align: center; padding: 20px;">No signals detected yet</div>
+      </div>
+      <button class="btn btn-outline btn-full" id="btnClearLog" style="margin-top: 12px;">Clear Log</button>
+    </div>
+  </section>
+
+  <!-- PAGE: ABOUT -->
+  <section id="page-about" class="page">
+    <div class="card">
+      <div class="card-title">About NEXUS RF Signals</div>
+      <div style="font-size: 0.78rem; color: var(--text1); line-height: 1.7;">
+        <p>NEXUS RF Signals connects directly to Deriv's public WebSocket market data feed — no login, no API token, and no account access required.</p>
+        <p style="margin-top: 10px;">This app is a <span style="color: var(--cyan);">pure analysis and alerting tool</span>. It streams live tick data, runs the RF Reversal signal logic, and surfaces clear CALL/PUT entry alerts.</p>
+        <p style="margin-top: 10px; color: var(--amber);">⚠ This app does not place trades, manage an account, or execute orders of any kind. All trading decisions and execution remain entirely with you, on your own Deriv account.</p>
+        <p style="margin-top: 10px;">Strategy: RF Reversal (N-Tick consecutive direction reversal)</p>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<nav id="bottomnav">
+  <button class="nav-tab active" id="tab-dashboard" onclick="navigate('dashboard')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    <span>DASH</span>
+  </button>
+  <button class="nav-tab" id="tab-signals" onclick="navigate('signals')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+    <span>SIGNALS</span>
+  </button>
+  <button class="nav-tab" id="tab-config" onclick="navigate('config')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <span>CONFIG</span>
+  </button>
+  <button class="nav-tab" id="tab-log" onclick="navigate('log')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    <span>LOG</span>
+  </button>
+  <button class="nav-tab" id="tab-about" onclick="navigate('about')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    <span>ABOUT</span>
+  </button>
+</nav>
+
+<div id="toast-container"></div>
+
+<script>
+'use strict';
+
+/* ============================================
+   NEXUS RF — SIGNALS ONLY
+   Connects to Deriv public WebSocket (no API token / no login required)
+   Pure analysis + entry alerts. NO trade execution of any kind.
+============================================ */
+
+const PUBLIC_APP_ID = 1089; // Deriv's public demo app_id - works for market data without login
+
+let ws = null;
+let connected = false;
+let reqId = 1;
+let pending = {};
+let tickHistory = [];
+let chart = null;
+let scanning = false;
+let lastDirs = [];
+let signalLog = [];
+let callCount = 0;
+let putCount = 0;
+let lastSignalKey = null; // dedupe consecutive identical alerts
+
+// ---------- Config persistence ----------
+function loadConfig() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('nexus_rf_signals_config') || '{}');
+    if (saved.symbol) document.getElementById('cfgSymbol').value = saved.symbol;
+    if (saved.strategyTicks) document.getElementById('cfgStrategyTicks').value = saved.strategyTicks;
+    if (saved.duration) document.getElementById('cfgDuration').value = saved.duration;
+    if (saved.sound !== undefined) document.getElementById('cfgSound').checked = saved.sound;
+    if (saved.toastEnabled !== undefined) document.getElementById('cfgToast').checked = saved.toastEnabled;
+    document.getElementById('cfgDurationVal').textContent = document.getElementById('cfgDuration').value;
+  } catch(e) {}
+}
+function saveConfig() {
+  const config = {
+    symbol: document.getElementById('cfgSymbol').value,
+    strategyTicks: parseInt(document.getElementById('cfgStrategyTicks').value),
+    duration: parseInt(document.getElementById('cfgDuration').value),
+    sound: document.getElementById('cfgSound').checked,
+    toastEnabled: document.getElementById('cfgToast').checked
+  };
+  localStorage.setItem('nexus_rf_signals_config', JSON.stringify(config));
+  return config;
+}
+
+// ---------- Signal log persistence ----------
+function loadLog() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('nexus_rf_signals_log') || '{}');
+    signalLog = saved.signalLog || [];
+    callCount = saved.callCount || 0;
+    putCount = saved.putCount || 0;
+    updateStatsDisplay();
+    renderLog();
+  } catch(e) {}
+}
+function saveLog() {
+  localStorage.setItem('nexus_rf_signals_log', JSON.stringify({
+    signalLog: signalLog.slice(0, 200),
+    callCount, putCount
+  }));
+}
+function addSignalToLog(entry) {
+  signalLog.unshift(entry);
+  if (signalLog.length > 200) signalLog.pop();
+  if (entry.type === 'CALL') callCount++; else putCount++;
+  saveLog();
+  renderLog();
+  updateStatsDisplay();
+}
+function updateStatsDisplay() {
+  document.getElementById('dashCallCount').textContent = callCount;
+  document.getElementById('dashPutCount').textContent = putCount;
+  document.getElementById('dashTotalCount').textContent = callCount + putCount;
+}
+function renderLog() {
+  const container = document.getElementById('logList');
+  if (!signalLog.length) {
+    container.innerHTML = '<div style="color: var(--text3); text-align: center; padding: 20px;">No signals detected yet</div>';
+    return;
+  }
+  container.innerHTML = signalLog.slice(0, 100).map(s => `
+    <div class="log-entry">
+      <div><span class="tag ${s.type === 'CALL' ? 'call' : 'put'}">${s.type === 'CALL' ? '▲ CALL' : '▼ PUT'}</span>
+        <span style="margin-left: 8px; color: var(--text2);">${s.symbol} @ ${s.price}</span></div>
+      <div class="time">${s.time}</div>
+    </div>
+  `).join('');
+}
+
+// ---------- WebSocket API (market data only, no auth) ----------
+function apiSend(req) {
+  return new Promise((resolve, reject) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      reject(new Error('WebSocket not connected'));
+      return;
+    }
+    const id = reqId++;
+    req.req_id = id;
+    pending[id] = { resolve, reject };
+    ws.send(JSON.stringify(req));
+    setTimeout(() => {
+      if (pending[id]) {
+        delete pending[id];
+        reject(new Error('Request timeout'));
+      }
+    }, 15000);
+  });
+}
+
+function connectWebSocket() {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.close();
+  const url = `wss://ws.binaryws.com/websockets/v3?app_id=${PUBLIC_APP_ID}`;
+  ws = new WebSocket(url);
+  ws.onopen = () => {
+    connected = true;
+    document.getElementById('connDot').className = 'conn-dot connected';
+    document.getElementById('connectionWarning').style.display = 'none';
+    document.getElementById('connectedInfo').style.display = 'block';
+    document.getElementById('connSymbol').textContent = document.getElementById('cfgSymbol').value;
+    toast('Connected', 'Live market data feed established', 'info');
+    subscribeTicks();
+  };
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.req_id && pending[msg.req_id]) {
+      const { resolve, reject } = pending[msg.req_id];
+      delete pending[msg.req_id];
+      if (msg.error) reject(msg.error);
+      else resolve(msg);
+    }
+    handleMessage(msg);
+  };
+  ws.onclose = () => {
+    connected = false;
+    document.getElementById('connDot').className = 'conn-dot';
+    document.getElementById('connectionWarning').style.display = 'block';
+    document.getElementById('connectionWarning').querySelector('p').textContent = 'Disconnected — attempting to reconnect...';
+    document.getElementById('connectedInfo').style.display = 'none';
+    toast('Disconnected', 'Market feed connection closed — reconnecting', 'warning');
+    setTimeout(connectWebSocket, 3000);
+  };
+  ws.onerror = () => {
+    document.getElementById('connDot').className = 'conn-dot error';
+    toast('Connection Error', 'WebSocket error occurred', 'error');
+  };
+}
+
+function handleMessage(msg) {
+  switch(msg.msg_type) {
+    case 'tick':
+      if (msg.tick && msg.tick.quote) {
+        const price = parseFloat(msg.tick.quote);
+        const time = msg.tick.epoch;
+        processTick({ price, time });
+      }
+      break;
+    case 'history':
+      if (msg.history && msg.history.prices) {
+        const hist = msg.history.prices.map((p, i) => ({ price: parseFloat(p), time: msg.history.times[i] }));
+        initChart(hist);
+        tickHistory = hist.slice(-100);
+        updateTickStrip();
+      }
+      break;
+  }
+}
+
+function subscribeTicks() {
+  const symbol = document.getElementById('cfgSymbol').value;
+  // reset tick history / direction tracking on symbol switch
+  tickHistory = [];
+  lastDirs = [];
+  apiSend({ ticks_history: symbol, adjust_start_time: 1, count: 100, end: 'latest', style: 'ticks' }).catch(console.error);
+  apiSend({ ticks: symbol, subscribe: 1 }).catch(console.error);
+}
+
+// ---------- Tick processing and signal detection ----------
+function processTick(tick) {
+  if (tickHistory.length > 0) {
+    const lastPrice = tickHistory[tickHistory.length - 1].price;
+    const dir = tick.price > lastPrice ? 'rise' : tick.price < lastPrice ? 'fall' : 'neutral';
+    tick.dir = dir;
+    lastDirs.push(dir);
+    if (lastDirs.length > 20) lastDirs.shift();
+  } else {
+    tick.dir = 'neutral';
+    lastDirs.push('neutral');
+  }
+  tickHistory.push(tick);
+  if (tickHistory.length > 200) tickHistory.shift();
+  updateChart(tick);
+  updateTickStrip();
+  document.getElementById('priceVal').textContent = tick.price.toFixed(4);
+  document.getElementById('dashPrice').textContent = tick.price.toFixed(4);
+  if (scanning) checkSignal(tick);
+}
+
+function checkSignal(tick) {
+  const n = parseInt(document.getElementById('cfgStrategyTicks').value);
+  const recentDirs = lastDirs.filter(d => d !== 'neutral').slice(-n);
+  const symbol = document.getElementById('cfgSymbol').value;
+
+  if (recentDirs.length < n) {
+    setSignalDisplay('none', 'WAITING...', recentDirs.length);
+    return;
+  }
+
+  const allSame = recentDirs.every(d => d === recentDirs[0]);
+
+  if (allSame && recentDirs[0] === 'fall') {
+    // N consecutive falls -> potential reversal up -> CALL
+    setSignalDisplay('call', '▲ CALL ENTRY SIGNAL (RISE)', n);
+    fireAlert('CALL', symbol, tick);
+  } else if (allSame && recentDirs[0] === 'rise') {
+    // N consecutive rises -> potential reversal down -> PUT
+    setSignalDisplay('put', '▼ PUT ENTRY SIGNAL (FALL)', n);
+    fireAlert('PUT', symbol, tick);
+  } else {
+    setSignalDisplay('none', 'SCANNING...', 0);
+    lastSignalKey = null;
+    hideAlertBanner();
+  }
+}
+
+function setSignalDisplay(cls, text, count) {
+  const el = document.getElementById('signalType');
+  el.className = `signal-type ${cls}`;
+  el.textContent = text;
+  document.getElementById('signalConsecutive').textContent = count;
+  const panel = document.getElementById('signalPanel');
+  panel.classList.remove('alert-call', 'alert-put');
+  if (cls === 'call') panel.classList.add('alert-call');
+  if (cls === 'put') panel.classList.add('alert-put');
+}
+
+function fireAlert(type, symbol, tick) {
+  const key = `${type}-${tick.time}`;
+  if (lastSignalKey === key) return; // avoid duplicate firing on same tick
+  lastSignalKey = key;
+
+  const cfg = saveConfig();
+  const time = new Date().toLocaleTimeString();
+
+  showAlertBanner(type, symbol, cfg.duration);
+
+  if (cfg.toastEnabled) {
+    if (type === 'CALL') {
+      toast('CALL Entry Signal', `${symbol} — consider RISE/CALL, suggested ${cfg.duration}t duration`, 'call');
+    } else {
+      toast('PUT Entry Signal', `${symbol} — consider FALL/PUT, suggested ${cfg.duration}t duration`, 'put');
+    }
+  }
+
+  if (cfg.sound) playAlertSound(type);
+
+  addSignalToLog({
+    type,
+    symbol,
+    price: tick.price.toFixed(4),
+    time
+  });
+}
+
+function showAlertBanner(type, symbol, duration) {
+  const banner = document.getElementById('alertBanner');
+  const text = document.getElementById('alertBannerText');
+  const sub = document.getElementById('alertBannerSub');
+  banner.className = 'alert-banner ' + (type === 'CALL' ? 'call' : 'put');
+  text.textContent = type === 'CALL' ? '▲ CALL ENTRY SIGNAL' : '▼ PUT ENTRY SIGNAL';
+  sub.textContent = `${symbol} — ${type === 'CALL' ? 'Reversal up' : 'Reversal down'} detected · Suggested duration ${duration} ticks · Manual entry only`;
+  banner.style.display = 'block';
+  clearTimeout(banner._hideTimer);
+  banner._hideTimer = setTimeout(hideAlertBanner, 8000);
+}
+function hideAlertBanner() {
+  document.getElementById('alertBanner').style.display = 'none';
+}
+
+// ---------- Sound alert (Web Audio, no external assets) ----------
+let audioCtx = null;
+function playAlertSound(type) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = type === 'CALL' ? 880 : 440;
+    gain.gain.value = 0.15;
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.4);
+    osc.stop(audioCtx.currentTime + 0.4);
+  } catch(e) {}
+}
+
+// ---------- Chart ----------
+function initChart(history) {
+  const canvas = document.getElementById('tickChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const prices = history.slice(-60).map(t => t.price);
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: prices.map((_, i) => i), datasets: [{ data: prices, borderColor: '#00e5ff', borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.2 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => '$' + ctx.parsed.y.toFixed(4) } } }, scales: { x: { display: false }, y: { position: 'right', grid: { color: 'rgba(15,45,66,0.5)' }, ticks: { color: '#5a8fa8', callback: v => '$' + v.toFixed(2) } } } }
+  });
+}
+function updateChart(tick) {
+  if (!chart) return;
+  const prices = tickHistory.slice(-60).map(t => t.price);
+  chart.data.datasets[0].data = prices;
+  chart.data.labels = prices.map((_, i) => i);
+  const grad = chart.ctx.createLinearGradient(0, 0, 0, 200);
+  if (prices.length > 1 && prices[prices.length-1] > prices[0]) {
+    grad.addColorStop(0, 'rgba(0,230,118,0.3)');
+    grad.addColorStop(1, 'rgba(0,230,118,0.0)');
+    chart.data.datasets[0].borderColor = '#00e676';
+  } else {
+    grad.addColorStop(0, 'rgba(255,23,68,0.3)');
+    grad.addColorStop(1, 'rgba(255,23,68,0.0)');
+    chart.data.datasets[0].borderColor = '#ff1744';
+  }
+  chart.data.datasets[0].backgroundColor = grad;
+  chart.update('none');
+}
+function updateTickStrip() {
+  const strip = document.getElementById('tickStrip');
+  const recent = tickHistory.slice(-20);
+  strip.innerHTML = recent.map(t => `<div class="tick-pill ${t.dir === 'rise' ? 'rise' : t.dir === 'fall' ? 'fall' : 'neutral'}">${t.dir === 'rise' ? '▲' : t.dir === 'fall' ? '▼' : '—'}</div>`).join('');
+}
+
+// ---------- Scan control ----------
+function startScan() {
+  scanning = true;
+  lastSignalKey = null;
+  document.getElementById('btnStartScan').disabled = true;
+  document.getElementById('btnStopScan').disabled = false;
+  document.getElementById('scanStatus').className = 'badge badge-active';
+  document.getElementById('scanStatus').textContent = 'SCANNING';
+  toast('Scanning Started', `RF Reversal ${document.getElementById('cfgStrategyTicks').value}T strategy active`, 'info');
+}
+function stopScan() {
+  scanning = false;
+  document.getElementById('btnStartScan').disabled = false;
+  document.getElementById('btnStopScan').disabled = true;
+  document.getElementById('scanStatus').className = 'badge badge-idle';
+  document.getElementById('scanStatus').textContent = 'PAUSED';
+  setSignalDisplay('none', 'PAUSED', 0);
+  hideAlertBanner();
+  toast('Scanning Paused', 'Signal detection paused', 'info');
+}
+
+// ---------- Navigation ----------
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('tab-' + page).classList.add('active');
+  if (page === 'signals' && chart) chart.resize();
+}
+
+// ---------- Toast ----------
+function toast(title, body, type) {
+  const container = document.getElementById('toast-container');
+  const icons = { call: '▲', put: '▼', warning: '⚠️', error: '🚨', info: 'ℹ️' };
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span class="toast-icon">${icons[type] || 'ℹ️'}</span><div class="toast-text"><div class="toast-title">${title}</div><div class="toast-body">${body}</div></div><button class="toast-close" onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--text3);font-size:1rem;cursor:pointer;">✕</button>`;
+  container.appendChild(t);
+  setTimeout(() => { if(t.parentElement) t.remove(); }, 6000);
+}
+
+// ---------- Event Listeners ----------
+document.getElementById('btnStartScan').onclick = startScan;
+document.getElementById('btnStopScan').onclick = stopScan;
+document.getElementById('btnClearLog').onclick = () => {
+  signalLog = []; callCount = 0; putCount = 0;
+  saveLog(); renderLog(); updateStatsDisplay();
+  toast('Log Cleared', 'Signal history cleared', 'info');
+};
+document.getElementById('cfgSymbol').onchange = () => {
+  saveConfig();
+  document.getElementById('dashSymbol').textContent = document.getElementById('cfgSymbol').value;
+  document.getElementById('chartSymbol').textContent = document.getElementById('cfgSymbol').value;
+  document.getElementById('connSymbol').textContent = document.getElementById('cfgSymbol').value;
+  hideAlertBanner();
+  lastSignalKey = null;
+  if (connected) subscribeTicks();
+};
+document.getElementById('cfgStrategyTicks').onchange = () => { saveConfig(); lastSignalKey = null; hideAlertBanner(); };
+document.getElementById('cfgDuration').oninput = (e) => { document.getElementById('cfgDurationVal').textContent = e.target.value; saveConfig(); };
+document.getElementById('cfgSound').onchange = saveConfig;
+document.getElementById('cfgToast').onchange = saveConfig;
+
+// ---------- Initialize ----------
+loadConfig();
+loadLog();
+initChart([]);
+updateStatsDisplay();
+document.getElementById('dashSymbol').textContent = document.getElementById('cfgSymbol').value;
+document.getElementById('chartSymbol').textContent = document.getElementById('cfgSymbol').value;
+connectWebSocket();
+
+toast('NEXUS RF Signals', 'Connected to live market data — no login required', 'info');
+</script>
+</body>
+</html>

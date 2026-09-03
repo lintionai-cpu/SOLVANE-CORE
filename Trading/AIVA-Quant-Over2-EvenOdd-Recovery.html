@@ -1,0 +1,1728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>AIVA Quant — Over 2 / Even-Odd Recovery Terminal</title>
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiQUlWQSBRdWFudCIsInNob3J0X25hbWUiOiJBSVZBIiwic3RhcnRfdXJsIjoiLiIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiMwYTBlMTQiLCJ0aGVtZV9jb2xvciI6IiMwMGU1ZmYiLCJpY29ucyI6W119">
+<style>
+:root{
+  --bg:#070a10; --bg2:#0d121b; --surface:#111826; --surface2:#161f30;
+  --border:#232f45; --border-glow:#1e3a52;
+  --text:#e8edf5; --text-dim:#8593ab; --text-faint:#4d5972;
+  --cyan:#00e5ff; --cyan-dim:#0a3d47;
+  --gold:#f0b429; --violet:#8b7cff;
+  --green:#1fd67a; --red:#ff4d5e; --amber:#ffb020;
+  --risk-bg:#1a0f14; --risk-border:#4a1f2a;
+  --radius:12px; --radius-sm:8px;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overscroll-behavior:none;}
+body{
+  background:radial-gradient(ellipse at top,#0c131f 0%,var(--bg) 55%);
+  color:var(--text); font-size:14px; line-height:1.4;
+  padding-bottom:70px; min-height:100vh;
+}
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+
+/* ---------- Top Bar ---------- */
+.topbar{
+  position:sticky; top:0; z-index:50;
+  background:linear-gradient(180deg,#0b1119 0%,#0b1119ee 100%);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);
+  padding:10px 14px;
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+}
+.brand{display:flex;align-items:center;gap:9px;}
+.brand-mark{
+  width:32px;height:32px;border-radius:9px;
+  background:conic-gradient(from 200deg,var(--cyan),var(--violet),var(--cyan));
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:13px;color:#04141a;
+  box-shadow:0 0 18px -2px var(--cyan);
+}
+.brand-text{display:flex;flex-direction:column;line-height:1.1;}
+.brand-text b{font-size:14px;letter-spacing:.5px;}
+.brand-text span{font-size:10px;color:var(--text-dim);letter-spacing:.5px;}
+.top-status{display:flex;align-items:center;gap:10px;}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--text-faint);}
+.dot.live{background:var(--green);box-shadow:0 0 8px var(--green);}
+.dot.warn{background:var(--amber);box-shadow:0 0 8px var(--amber);}
+.dot.off{background:var(--red);box-shadow:0 0 8px var(--red);}
+.pill{
+  font-size:10px; padding:3px 8px; border-radius:20px;
+  border:1px solid var(--border); color:var(--text-dim); white-space:nowrap;
+}
+.pill.acc-demo{color:var(--cyan);border-color:var(--cyan-dim);}
+.pill.acc-real{color:var(--red);border-color:#4a1f26;background:#1a0d10;}
+
+/* ---------- Layout ---------- */
+.wrap{max-width:920px;margin:0 auto;padding:12px;display:flex;flex-direction:column;gap:12px;}
+.card{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:14px;
+}
+.card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.card-title{font-size:12px;font-weight:700;letter-spacing:.6px;color:var(--text-dim);text-transform:uppercase;display:flex;align-items:center;gap:6px;}
+.card-title .ico{color:var(--cyan);}
+.risk-card{background:var(--risk-bg);border-color:var(--risk-border);}
+.risk-card .card-title .ico{color:var(--red);}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+
+/* ---------- Stat tiles ---------- */
+.stat{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 10px;}
+.stat .lbl{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;}
+.stat .val{font-size:17px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums;}
+.stat .val.pos{color:var(--green);}
+.stat .val.neg{color:var(--red);}
+.stat .val.cyan{color:var(--cyan);}
+.stat .sub{font-size:10px;color:var(--text-faint);margin-top:1px;}
+
+/* ---------- Buttons ---------- */
+button{font-family:inherit;cursor:pointer;border:none;outline:none;}
+.btn{
+  padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;
+  background:var(--surface2);color:var(--text);border:1px solid var(--border);
+  transition:.15s;
+}
+.btn:active{transform:scale(.97);}
+.btn.primary{background:linear-gradient(135deg,var(--cyan),#00b8cc);color:#04141a;border:none;}
+.btn.ghost{background:transparent;}
+.btn.danger{background:linear-gradient(135deg,#ff4d5e,#c92836);color:#fff;}
+.btn.small{padding:6px 10px;font-size:11px;}
+.btn.full{width:100%;}
+.btn:disabled{opacity:.4;pointer-events:none;}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;}
+
+/* ---------- Inputs ---------- */
+label{font-size:11px;color:var(--text-dim);display:block;margin-bottom:4px;}
+input[type=text],input[type=password],input[type=number],select,textarea{
+  width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);
+  padding:9px 10px;border-radius:8px;font-size:13px;font-family:inherit;
+}
+input:focus,select:focus{border-color:var(--cyan);}
+.field{margin-bottom:8px;}
+.switch-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--border);}
+.switch-row:last-child{border-bottom:none;}
+.switch{position:relative;width:40px;height:22px;flex:none;}
+.switch input{opacity:0;width:0;height:0;}
+.slider{position:absolute;inset:0;background:var(--border);border-radius:20px;transition:.2s;}
+.slider:before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;}
+input:checked + .slider{background:var(--cyan);}
+input:checked + .slider:before{transform:translateX(18px);}
+
+/* ---------- Tabs ---------- */
+.tabs{display:flex;gap:6px;background:var(--bg2);padding:4px;border-radius:10px;margin-bottom:10px;}
+.tab{flex:1;text-align:center;padding:8px;border-radius:8px;font-size:12px;font-weight:600;color:var(--text-dim);background:transparent;}
+.tab.active{background:var(--surface2);color:var(--cyan);}
+
+/* ---------- Engine bars ---------- */
+.engine{margin-bottom:9px;}
+.engine-top{display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;}
+.engine-top .name{color:var(--text-dim);}
+.engine-top .score{font-weight:700;font-variant-numeric:tabular-nums;}
+.bar{height:6px;border-radius:4px;background:var(--bg2);overflow:hidden;}
+.bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--violet),var(--cyan));transition:width .3s;}
+
+.confidence-hero{
+  text-align:center;padding:16px 0 6px;
+}
+.confidence-hero .num{font-size:44px;font-weight:800;font-variant-numeric:tabular-nums;
+  background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent;}
+.confidence-hero .lbl{font-size:11px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;}
+.decision-badge{display:inline-block;margin-top:6px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;}
+.decision-badge.execute{background:#0c2b1e;color:var(--green);border:1px solid #164a30;}
+.decision-badge.wait{background:#241a06;color:var(--amber);border:1px solid #4a3512;}
+.decision-badge.cancel{background:#2b0f14;color:var(--red);border:1px solid #4a1f26;}
+
+/* ---------- Trade log ---------- */
+.log-table{width:100%;font-size:11px;border-collapse:collapse;}
+.log-table th{text-align:left;color:var(--text-faint);font-weight:600;padding:5px 6px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);}
+.log-table td{padding:5px 6px;border-bottom:1px solid #182131;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.log-scroll{max-height:260px;overflow-y:auto;}
+.tag{padding:2px 6px;border-radius:5px;font-size:10px;font-weight:700;}
+.tag.win{background:#0c2b1e;color:var(--green);}
+.tag.loss{background:#2b0f14;color:var(--red);}
+.tag.open{background:#241a06;color:var(--amber);}
+.tag.over2{color:var(--cyan);border:1px solid var(--cyan-dim);}
+.tag.even{color:var(--violet);border:1px solid #2a2560;}
+.tag.odd{color:var(--gold);border:1px solid #3a2e0a;}
+
+.sys-log{
+  background:#04070c;border:1px solid var(--border);border-radius:8px;
+  max-height:180px;overflow-y:auto;font-family:"SF Mono",Consolas,monospace;font-size:10.5px;
+  padding:8px;
+}
+.sys-log div{padding:1px 0;color:var(--text-dim);white-space:pre-wrap;word-break:break-word;}
+.sys-log .lv-info{color:var(--text-dim);}
+.sys-log .lv-ok{color:var(--green);}
+.sys-log .lv-warn{color:var(--amber);}
+.sys-log .lv-err{color:var(--red);}
+.sys-log .lv-trade{color:var(--cyan);}
+
+/* ---------- Bottom nav ---------- */
+.bottomnav{
+  position:fixed;bottom:0;left:0;right:0;z-index:60;
+  background:#0b1119ee;backdrop-filter:blur(10px);border-top:1px solid var(--border);
+  display:flex;padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+}
+.nav-btn{flex:1;background:transparent;color:var(--text-faint);display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;border-radius:10px;font-size:10px;}
+.nav-btn.active{color:var(--cyan);background:#0d1a22;}
+.nav-btn svg{width:19px;height:19px;}
+
+.view{display:none;}
+.view.active{display:flex;flex-direction:column;gap:12px;}
+
+/* ---------- Kill switch fab ---------- */
+.kill-fab{
+  position:fixed; right:14px; bottom:78px; z-index:70;
+  width:56px;height:56px;border-radius:50%;
+  background:radial-gradient(circle at 30% 30%,#ff6b78,#c92836);
+  color:#fff;font-weight:800;font-size:10px;letter-spacing:.5px;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  box-shadow:0 4px 20px -2px rgba(255,77,94,.6);border:2px solid #ffb0b6;
+}
+.kill-fab:active{transform:scale(.92);}
+
+/* ---------- Modal ---------- */
+.modal-bg{position:fixed;inset:0;background:rgba(3,5,9,.75);backdrop-filter:blur(3px);z-index:100;display:none;align-items:flex-end;justify-content:center;}
+.modal-bg.show{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px 16px 0 0;padding:18px;width:100%;max-width:520px;max-height:85vh;overflow-y:auto;}
+.modal h3{font-size:15px;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.modal h3.danger{color:var(--red);}
+.confirm-type{border:1px dashed var(--red);border-radius:8px;padding:8px;margin:10px 0;font-size:12px;color:var(--text-dim);}
+
+.badge-armed{animation:pulse 1.4s infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(31,214,122,.5);}50%{box-shadow:0 0 0 8px rgba(31,214,122,0);}}
+
+.hint{font-size:10.5px;color:var(--text-faint);margin-top:4px;line-height:1.4;}
+.section-sep{height:1px;background:var(--border);margin:12px 0;}
+select option{background:var(--bg2);}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;}
+.chip{font-size:10px;padding:4px 9px;border-radius:14px;border:1px solid var(--border);color:var(--text-dim);}
+.chip.on{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim);}
+</style>
+</head>
+<body>
+
+<!-- ================= TOP BAR ================= -->
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark">AV</div>
+    <div class="brand-text">
+      <b>AIVA QUANT</b>
+      <span id="acctLine">Over2 · Even/Odd Recovery</span>
+    </div>
+  </div>
+  <div class="top-status">
+    <span class="pill" id="acctPill">No Account</span>
+    <div class="dot off" id="wsDot" title="connection"></div>
+  </div>
+</div>
+
+<div class="wrap">
+
+<!-- ================= DASHBOARD VIEW ================= -->
+<div class="view active" id="view-dash">
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title"><span class="ico">◆</span> Confluence Confidence</div>
+      <span class="pill" id="regimePill">Regime: —</span>
+    </div>
+    <div class="confidence-hero">
+      <div class="num" id="confVal">--%</div>
+      <div class="lbl">Fused Execution Confidence</div>
+      <div class="decision-badge wait" id="decisionBadge">STANDING BY</div>
+    </div>
+    <div id="engineBars"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-title"><span class="ico">$</span> P&amp;L Stats</div>
+      <button class="btn small ghost" onclick="openReset('pnl')">Reset</button>
+    </div>
+    <div class="grid3">
+      <div class="stat"><div class="lbl">Session P&amp;L</div><div class="val" id="statSessionPnl">$0.00</div></div>
+      <div class="stat"><div class="lbl">Today P&amp;L</div><div class="val" id="statTodayPnl">$0.00</div></div>
+      <div class="stat"><div class="lbl">Drawdown</div><div class="val neg" id="statDrawdown">$0.00</div></div>
+      <div class="stat"><div class="lbl">Win Rate</div><div class="val cyan" id="statWinRate">0%</div></div>
+      <div class="stat"><div class="lbl">Profit Factor</div><div class="val cyan" id="statPF">0.00</div></div>
+      <div class="stat"><div class="lbl">Avg Payout</div><div class="val" id="statAvgPayout">0%</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-title"><span class="ico">⌘</span> Account Stats</div>
+      <button class="btn small ghost" onclick="openReset('account')">Reset</button>
+    </div>
+    <div class="grid3">
+      <div class="stat"><div class="lbl">Balance</div><div class="val" id="statBalance">--</div></div>
+      <div class="stat"><div class="lbl">Currency</div><div class="val" id="statCurrency">--</div></div>
+      <div class="stat"><div class="lbl">Account ID</div><div class="val" id="statAccId" style="font-size:12px;">--</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-title"><span class="ico">≡</span> Trade Stats</div>
+      <button class="btn small ghost" onclick="openReset('trades')">Reset</button>
+    </div>
+    <div class="grid4">
+      <div class="stat"><div class="lbl">Total</div><div class="val" id="statTotal">0</div></div>
+      <div class="stat"><div class="lbl">Wins</div><div class="val pos" id="statWins">0</div></div>
+      <div class="stat"><div class="lbl">Losses</div><div class="val neg" id="statLosses">0</div></div>
+      <div class="stat"><div class="lbl">Consec. Loss</div><div class="val" id="statConsecLoss">0</div></div>
+      <div class="stat"><div class="lbl">Martingale Lvl</div><div class="val" id="statMgLevel">0</div></div>
+      <div class="stat"><div class="lbl">Recoveries</div><div class="val" id="statRecoveries">0</div></div>
+      <div class="stat"><div class="lbl">Recovery Win%</div><div class="val" id="statRecoveryWinRate">0%</div></div>
+      <div class="stat"><div class="lbl">Open Trades</div><div class="val" id="statOpenTrades">0</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title"><span class="ico">▣</span> Engine Arm</div>
+      <span class="chip" id="armedChip">DISARMED</span>
+    </div>
+    <div class="switch-row">
+      <div><b style="font-size:12px;">Auto Trading Engine</b><div class="hint">Runs full pipeline: analysis → decision → risk gate → execution</div></div>
+      <label class="switch"><input type="checkbox" id="armSwitch" onchange="toggleArm(this.checked)"><span class="slider"></span></label>
+    </div>
+    <div class="btn-row" style="margin-top:8px;">
+      <button class="btn small" onclick="forceRefreshEngines()">↻ Recompute Now</button>
+      <button class="btn small" onclick="switchView('explain')">Explain Last Decision</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ================= AUTH VIEW ================= -->
+<div class="view" id="view-auth">
+  <div class="card">
+    <div class="card-title" style="margin-bottom:10px;"><span class="ico">⚿</span> Authentication</div>
+    <div class="tabs">
+      <button class="tab active" id="tabPAT" onclick="switchAuthTab('pat')">PAT</button>
+      <button class="tab" id="tabOAuth" onclick="switchAuthTab('oauth')">OAuth 2.0</button>
+    </div>
+
+    <div id="authPatPane">
+      <div class="field"><label>Deriv App ID (PAT type)</label><input type="text" id="patAppId" placeholder="e.g. 30412"></div>
+      <div class="field"><label>Personal Access Token</label><input type="password" id="patToken" placeholder="Paste PAT token"></div>
+      <button class="btn primary full" onclick="loginWithPAT()">Connect with PAT</button>
+      <div class="hint">Token needs <b>trade</b> and <b>account_manage</b> scopes. Never shared — stored only in this browser session.</div>
+    </div>
+
+    <div id="authOAuthPane" style="display:none;">
+      <div class="field"><label>OAuth Client ID</label><input type="text" id="oauthClientId" placeholder="OAuth-type App ID"></div>
+      <div class="field"><label>Redirect URI</label><input type="text" id="oauthRedirect" placeholder="https://your-app.com/callback"></div>
+      <button class="btn primary full" onclick="initiateOAuth()">Continue with OAuth</button>
+      <div class="section-sep"></div>
+      <div class="field"><label>Paste Access Token (after redirect)</label><input type="password" id="oauthTokenPaste" placeholder="Paste access_token from callback"></div>
+      <button class="btn full" onclick="loginWithOAuthToken()">Use Access Token</button>
+      <div class="hint">Token exchange must happen server-side. This app expects the resulting access_token to be pasted back here.</div>
+    </div>
+  </div>
+
+  <div class="card" id="accountPickerCard" style="display:none;">
+    <div class="card-title" style="margin-bottom:8px;"><span class="ico">⊙</span> Select Account</div>
+    <div id="accountList"></div>
+    <button class="btn full" style="margin-top:8px;" onclick="createDemoAccount()">+ Create Demo Account</button>
+  </div>
+
+  <div class="card risk-card">
+    <div class="card-title"><span class="ico">⚠</span> Real Money Guard</div>
+    <div class="hint">Switching the armed account to a REAL account requires typed confirmation. Demo is strongly recommended until performance is validated.</div>
+  </div>
+</div>
+
+<!-- ================= PARAMETERS VIEW ================= -->
+<div class="view" id="view-params">
+
+  <div class="card">
+    <div class="card-title" style="margin-bottom:10px;"><span class="ico">⚙</span> Trade Parameters</div>
+    <div class="field"><label>Symbol</label>
+      <select id="cfgSymbol">
+        <option value="1HZ10V">Volatility 10 (1s) Index</option>
+        <option value="1HZ25V">Volatility 25 (1s) Index</option>
+        <option value="1HZ50V" selected>Volatility 50 (1s) Index</option>
+        <option value="1HZ75V">Volatility 75 (1s) Index</option>
+        <option value="1HZ100V">Volatility 100 (1s) Index</option>
+      </select>
+    </div>
+    <div class="two-col">
+      <div class="field"><label>Base Stake (USD)</label><input type="number" id="cfgBaseStake" value="1" min="0.35" step="0.01"></div>
+      <div class="field"><label>Duration (ticks)</label><input type="number" id="cfgDuration" value="1" min="1" max="10" step="1"></div>
+    </div>
+    <div class="field"><label>Confidence Threshold to Execute (%)</label><input type="number" id="cfgConfThreshold" value="85" min="50" max="99"></div>
+    <div class="hint">Primary contract: <b>DIGITOVER</b>, barrier fixed at <b>2</b>. Recovery contracts: <b>DIGITEVEN</b> / <b>DIGITODD</b> chosen dynamically by the Recovery Engine.</div>
+    <div class="section-sep"></div>
+    <div class="switch-row">
+      <div><b style="font-size:12px;">Live Trade Execution</b><div class="hint">Default ON per project directive — PAT/OAuth + buy() pipeline active</div></div>
+      <label class="switch"><input type="checkbox" id="cfgLiveExec" checked><span class="slider"></span></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="margin-bottom:10px;"><span class="ico">↻</span> Smart Adaptive Martingale</div>
+    <div class="switch-row">
+      <div><b style="font-size:12px;">Adaptive Mode</b><div class="hint">Progression driven by confidence + volatility, not fixed doubling</div></div>
+      <label class="switch"><input type="checkbox" id="cfgMgAdaptive" checked><span class="slider"></span></label>
+    </div>
+    <div class="two-col" style="margin-top:8px;">
+      <div class="field"><label>Base Multiplier</label><input type="number" id="cfgMgBaseMult" value="1.9" min="1.05" step="0.05"></div>
+      <div class="field"><label>Max Multiplier</label><input type="number" id="cfgMgMaxMult" value="2.4" min="1.1" step="0.05"></div>
+    </div>
+    <div class="two-col">
+      <div class="field"><label>Max Martingale Levels</label><input type="number" id="cfgMgMaxLevels" value="5" min="1" max="15"></div>
+      <div class="field"><label>Confidence Floor to Progress (%)</label><input type="number" id="cfgMgConfFloor" value="70" min="0" max="99"></div>
+    </div>
+    <div class="hint">Progression is scaled down when fused confidence drops and paused entirely when Volatility Stability Engine flags instability.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="margin-bottom:10px;"><span class="ico">$</span> P&amp;L Parameters</div>
+    <div class="two-col">
+      <div class="field"><label>Take Profit / Trade (USD)</label><input type="number" id="cfgTpTrade" value="0" min="0" step="0.01" placeholder="0 = off"></div>
+      <div class="field"><label>Stop Loss / Trade (USD)</label><input type="number" id="cfgSlTrade" value="0" min="0" step="0.01" placeholder="0 = off"></div>
+    </div>
+    <div class="two-col">
+      <div class="field"><label>Session Take Profit (USD)</label><input type="number" id="cfgTpSession" value="20" min="0" step="0.5"></div>
+      <div class="field"><label>Session Stop Loss (USD)</label><input type="number" id="cfgSlSession" value="15" min="0" step="0.5"></div>
+    </div>
+    <div class="hint">Hitting session TP or SL disarms the engine automatically and logs the event.</div>
+  </div>
+
+  <div class="card risk-card">
+    <div class="card-title"><span class="ico">⚠</span> Risk Parameters</div>
+    <div class="two-col">
+      <div class="field"><label>Daily Drawdown Cap (USD)</label><input type="number" id="cfgDailyDrawdown" value="25" min="0" step="0.5"></div>
+      <div class="field"><label>Max Concurrent Trades</label><input type="number" id="cfgMaxConcurrent" value="1" min="1" max="5"></div>
+    </div>
+    <div class="two-col">
+      <div class="field"><label>Consecutive Loss Pause</label><input type="number" id="cfgConsecLossPause" value="4" min="1" max="20"></div>
+      <div class="field"><label>Stake Ceiling (USD)</label><input type="number" id="cfgStakeCeiling" value="40" min="0.35" step="0.5"></div>
+    </div>
+    <div class="field"><label>Pause Duration After Trip (seconds)</label><input type="number" id="cfgPauseSeconds" value="120" min="10" step="10"></div>
+    <div class="hint"><b>riskGatePass()</b> enforces all of the above as the mandatory final gate before every buy() call. No trade bypasses this gate.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="margin-bottom:8px;"><span class="ico">▤</span> Engine Weights (Confidence Fusion)</div>
+    <div id="weightSliders"></div>
+    <div class="hint">Weights are learned online by the Meta-Learning Engine but can be pinned manually here.</div>
+    <div class="switch-row">
+      <div><b style="font-size:12px;">Auto Meta-Learning</b><div class="hint">Weights adapt automatically from realized trade outcomes</div></div>
+      <label class="switch"><input type="checkbox" id="cfgAutoLearn" checked><span class="slider"></span></label>
+    </div>
+  </div>
+
+  <button class="btn primary full" onclick="saveConfig()">Save All Parameters</button>
+</div>
+
+<!-- ================= LOGS VIEW ================= -->
+<div class="view" id="view-logs">
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title"><span class="ico">▦</span> Trade Journal</div>
+      <div class="btn-row">
+        <button class="btn small" onclick="exportCSV()">Export CSV</button>
+        <button class="btn small ghost" onclick="openReset('tradelog')">Reset</button>
+      </div>
+    </div>
+    <div class="log-scroll">
+      <table class="log-table">
+        <thead><tr><th>Time</th><th>Type</th><th>Stake</th><th>Result</th><th>P&amp;L</th><th>Conf%</th><th>MgLvl</th></tr></thead>
+        <tbody id="tradeLogBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title"><span class="ico">▤</span> System Logs</div>
+      <div class="btn-row">
+        <button class="btn small ghost" onclick="openReset('syslog')">Reset</button>
+      </div>
+    </div>
+    <div class="sys-log" id="sysLog"></div>
+  </div>
+
+  <div class="card" id="explainCard">
+    <div class="card-title" style="margin-bottom:8px;"><span class="ico">i</span> Explainable Decision</div>
+    <div id="explainBody" class="hint">No decision evaluated yet.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="margin-bottom:8px;">Reset Everything</div>
+    <button class="btn danger full" onclick="openReset('all')">Full Factory Reset (All Data)</button>
+  </div>
+</div>
+
+</div><!-- /wrap -->
+
+<!-- ================= BOTTOM NAV ================= -->
+<div class="bottomnav">
+  <button class="nav-btn active" data-view="dash" onclick="switchView('dash')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+    Dashboard
+  </button>
+  <button class="nav-btn" data-view="auth" onclick="switchView('auth')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+    Account
+  </button>
+  <button class="nav-btn" data-view="params" onclick="switchView('params')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.34 1.87l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.7 1.7 0 00-1.87-.34 1.7 1.7 0 00-1 1.55V21a2 2 0 01-4 0v-.09A1.7 1.7 0 009 19.4a1.7 1.7 0 00-1.87.34l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.7 1.7 0 004.6 15a1.7 1.7 0 00-1.55-1H3a2 2 0 010-4h.09A1.7 1.7 0 004.6 9a1.7 1.7 0 00-.34-1.87l-.06-.06a2 2 0 112.83-2.83l.06.06A1.7 1.7 0 009 4.6a1.7 1.7 0 001-1.55V3a2 2 0 014 0v.09a1.7 1.7 0 001 1.55 1.7 1.7 0 001.87-.34l.06-.06a2 2 0 112.83 2.83l-.06.06A1.7 1.7 0 0019.4 9a1.7 1.7 0 001.55 1H21a2 2 0 010 4h-.09a1.7 1.7 0 00-1.51 1z"/></svg>
+    Parameters
+  </button>
+  <button class="nav-btn" data-view="logs" onclick="switchView('logs')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h4"/></svg>
+    Logs
+  </button>
+</div>
+
+<!-- Kill Switch -->
+<button class="kill-fab" onclick="killSwitch()">KILL<br>SWITCH</button>
+
+<!-- ================= RESET MODAL ================= -->
+<div class="modal-bg" id="resetModalBg">
+  <div class="modal">
+    <h3 class="danger">⚠ Confirm Reset — <span id="resetTargetLabel"></span></h3>
+    <p class="hint" id="resetTargetDesc"></p>
+    <div class="confirm-type">Type <b>CONFIRM</b> below to proceed. This cannot be undone.</div>
+    <input type="text" id="resetConfirmInput" placeholder="Type CONFIRM">
+    <div class="btn-row" style="margin-top:12px;">
+      <button class="btn ghost full" onclick="closeReset()">Cancel</button>
+      <button class="btn danger full" onclick="executeReset()">Reset</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= REAL MONEY GUARD MODAL ================= -->
+<div class="modal-bg" id="realGuardBg">
+  <div class="modal">
+    <h3 class="danger">⚠ Arm REAL Money Account</h3>
+    <p class="hint">You are about to arm live trade execution on a <b>REAL</b> money account. All P&amp;L will be real. Risk parameters and the kill switch remain fully in effect, but losses are real losses.</p>
+    <div class="confirm-type">Type <b>CONFIRM</b> to arm real-money trading.</div>
+    <input type="text" id="realGuardInput" placeholder="Type CONFIRM">
+    <div class="btn-row" style="margin-top:12px;">
+      <button class="btn ghost full" onclick="closeRealGuard()">Cancel</button>
+      <button class="btn danger full" onclick="confirmRealGuard()">Arm Real Account</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   AIVA QUANT — Over 2 / Even-Odd Recovery Terminal
+   Single-file PWA. Implements the full engine stack from the Aiva Engine
+   architecture: Market Data -> Statistical Deviation -> Over2 Probability
+   -> Even/Odd Recovery -> Market Regime -> Volatility Stability ->
+   Confidence Fusion -> Decision -> Adaptive Risk -> Smart Adaptive
+   Martingale -> Trade Execution -> Performance Evaluation -> Self-Learning.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   0. CONFIG
+--------------------------------------------------------------------- */
+const CONFIG = {
+  API_BASE: 'https://api.derivws.com',
+  OTP_PATH: (accountId) => `/trading/v1/options/accounts/${accountId}/otp`,
+  ACCOUNTS_PATH: '/trading/v1/options/accounts',
+  WS_PUBLIC: 'wss://api.derivws.com/trading/v1/options/ws/public',
+  AUTH_URL: 'https://auth.deriv.com/oauth2/auth',
+  TOKEN_URL: 'https://auth.deriv.com/oauth2/token',
+  HEARTBEAT_MS: 25000,
+  RECONNECT_BASE_MS: 1000,
+  RECONNECT_MAX_MS: 30000,
+  ROLLING_WINDOW: 250,          // ticks kept for statistical engines
+  EXPECTED_OVER2: 0.80,         // theoretical P(digit > 2) on fair random digits (digits 3-9 => 7/10... adjustable)
+};
+
+/* ---------------------------------------------------------------------
+   1. STATE
+--------------------------------------------------------------------- */
+const State = {
+  authToken: null, appId: null, authType: null, // 'pat' | 'oauth'
+  accounts: [], selectedAccount: null,
+  publicWs: null, publicWsState: 'closed',
+  tradeWs: null, tradeWsState: 'closed', tradeOtpAccountId: null,
+  reqIdCounter: 0,
+  pendingRequests: new Map(), // req_id -> {resolve,reject}
+  subscriptions: new Map(),   // req_id -> command (for resub)
+  heartbeatPublic: null, heartbeatTrade: null,
+  reconnectAttemptsPublic: 0, reconnectAttemptsTrade: 0,
+
+  ticks: [],           // rolling raw ticks {quote, epoch}
+  digits: [],          // rolling last-digit stream
+  lastPrice: null,
+
+  armed: false,
+  inFlight: false,     // trade-in-flight lock (separate from armed)
+  pendingRecovery: null, // {side:'DIGITEVEN'|'DIGITODD'} when a recovery trade should fire next
+  mgLevel: 0,
+  consecutiveLosses: 0,
+  sessionPnl: 0, todayPnl: 0, peakEquity: 0, drawdown: 0,
+  dailyLossAccum: 0,
+  pausedUntil: 0,
+
+  trades: [],           // in-memory mirror of IndexedDB trade journal
+  openContracts: new Map(), // contract_id -> trade record ref
+
+  engineScores: { deviation: 0, over2: 0, recovery: 0, regime: 0, volatility: 0, entropy: 0 },
+  fusedConfidence: 0,
+  lastDecision: null,
+  lastExplain: null,
+
+  weights: { deviation: 0.20, over2: 0.25, recovery: 0.20, volatility: 0.15, entropy: 0.20 },
+
+  balance: null, currency: null,
+};
+
+const Config = loadPersisted('aiva_config', {
+  symbol: '1HZ50V', baseStake: 1, duration: 1, confThreshold: 85,
+  liveExec: true,
+  mgAdaptive: true, mgBaseMult: 1.9, mgMaxMult: 2.4, mgMaxLevels: 5, mgConfFloor: 70,
+  tpTrade: 0, slTrade: 0, tpSession: 20, slSession: 15,
+  dailyDrawdown: 25, maxConcurrent: 1, consecLossPause: 4, stakeCeiling: 40, pauseSeconds: 120,
+  autoLearn: true,
+});
+
+/* ---------------------------------------------------------------------
+   2. PERSISTENCE — localStorage (config/weights/engine state) + IndexedDB (journal)
+--------------------------------------------------------------------- */
+function loadPersisted(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return { ...fallback };
+    return { ...fallback, ...JSON.parse(raw) };
+  } catch (e) { return { ...fallback }; }
+}
+function persist(key, obj) {
+  try { localStorage.setItem(key, JSON.stringify(obj)); } catch (e) { log('warn', 'Persist failed: ' + e.message); }
+}
+
+let db = null;
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('aiva_quant_db', 1);
+    req.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('trades')) {
+        const store = d.createObjectStore('trades', { keyPath: 'id', autoIncrement: true });
+        store.createIndex('time', 'time');
+      }
+    };
+    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+    req.onerror = (e) => reject(e);
+  });
+}
+async function dbAddTrade(trade) {
+  if (!db) await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('trades', 'readwrite');
+    const req = tx.objectStore('trades').add(trade);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = (e) => reject(e);
+  });
+}
+async function dbUpdateTrade(trade) {
+  if (!db) await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('trades', 'readwrite');
+    const req = tx.objectStore('trades').put(trade);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = (e) => reject(e);
+  });
+}
+async function dbGetAllTrades() {
+  if (!db) await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('trades', 'readonly');
+    const req = tx.objectStore('trades').getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = (e) => reject(e);
+  });
+}
+async function dbClearTrades() {
+  if (!db) await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('trades', 'readwrite');
+    const req = tx.objectStore('trades').clear();
+    req.onsuccess = () => resolve();
+    req.onerror = (e) => reject(e);
+  });
+}
+
+/* ---------------------------------------------------------------------
+   3. SYSTEM LOG
+--------------------------------------------------------------------- */
+function log(level, msg) {
+  const el = document.getElementById('sysLog');
+  const time = new Date().toLocaleTimeString();
+  const div = document.createElement('div');
+  div.className = 'lv-' + level;
+  div.textContent = `[${time}] ${msg}`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+  while (el.children.length > 400) el.removeChild(el.firstChild);
+  const arr = loadPersisted('aiva_syslog_cache', { lines: [] });
+}
+
+/* ---------------------------------------------------------------------
+   4. CONNECTION LAYER — Public WS (market data) + Trade WS (OTP auth)
+--------------------------------------------------------------------- */
+function nextReqId() { State.reqIdCounter = (State.reqIdCounter | 0) + 1; return State.reqIdCounter; }
+
+function setDot(state) {
+  const dot = document.getElementById('wsDot');
+  dot.className = 'dot ' + (state === 'live' ? 'live' : state === 'warn' ? 'warn' : 'off');
+}
+
+function ensurePublicWs() {
+  if (State.publicWs && (State.publicWs.readyState === WebSocket.OPEN || State.publicWs.readyState === WebSocket.CONNECTING)) {
+    return;
+  }
+  State.publicWsState = 'connecting';
+  const ws = new WebSocket(CONFIG.WS_PUBLIC);
+  State.publicWs = ws;
+
+  ws.onopen = () => {
+    if (State.publicWs !== ws) return; // stale socket guard
+    State.publicWsState = 'open';
+    State.reconnectAttemptsPublic = 0;
+    log('ok', 'Public market-data WebSocket connected.');
+    setDot('live');
+    subscribeMarketData(Config.symbol);
+    clearInterval(State.heartbeatPublic);
+    State.heartbeatPublic = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ ping: 1, req_id: nextReqId() }));
+    }, CONFIG.HEARTBEAT_MS);
+  };
+  ws.onmessage = (event) => {
+    if (State.publicWs !== ws) return;
+    let data; try { data = JSON.parse(event.data); } catch (e) { return; }
+    routePublicMessage(data);
+  };
+  ws.onerror = (e) => { log('err', 'Public WS error.'); };
+  ws.onclose = () => {
+    if (State.publicWs !== ws) return;
+    State.publicWsState = 'closed';
+    setDot('off');
+    clearInterval(State.heartbeatPublic);
+    scheduleReconnect('public');
+  };
+}
+
+function scheduleReconnect(which) {
+  const attemptsKey = which === 'public' ? 'reconnectAttemptsPublic' : 'reconnectAttemptsTrade';
+  State[attemptsKey]++;
+  const delay = Math.min(CONFIG.RECONNECT_BASE_MS * Math.pow(2, State[attemptsKey]), CONFIG.RECONNECT_MAX_MS);
+  log('warn', `${which} WS disconnected — reconnecting in ${Math.round(delay/1000)}s (attempt ${State[attemptsKey]})`);
+  setTimeout(() => {
+    if (which === 'public') ensurePublicWs();
+    else if (State.tradeOtpAccountId) reconnectTradeWs();
+  }, delay);
+}
+
+function subscribeMarketData(symbol) {
+  if (!State.publicWs || State.publicWs.readyState !== WebSocket.OPEN) return;
+  // Teardown any prior tick subscription before creating a new one (symbol switch safety)
+  State.publicWs.send(JSON.stringify({ forget_all: 'ticks', req_id: nextReqId() }));
+  State.ticks = []; State.digits = [];
+  const histId = nextReqId();
+  State.publicWs.send(JSON.stringify({ ticks_history: symbol, count: CONFIG.ROLLING_WINDOW, end: 'latest', style: 'ticks', req_id: histId }));
+  const tickId = nextReqId();
+  State.publicWs.send(JSON.stringify({ ticks: symbol, subscribe: 1, req_id: tickId }));
+  State.subscriptions.set(tickId, { ticks: symbol, subscribe: 1 });
+  log('info', `Subscribed to ${symbol} tick stream + history seed.`);
+}
+
+function routePublicMessage(data) {
+  if (data.error) { log('err', `API error [${data.error.code}]: ${data.error.message}`); return; }
+  switch (data.msg_type) {
+    case 'history': {
+      const prices = data.history?.prices || [];
+      State.ticks = prices.map(p => Number(p));
+      State.digits = State.ticks.map(lastDigit);
+      log('info', `Seeded ${State.ticks.length} historical ticks.`);
+      runEnginePipeline();
+      break;
+    }
+    case 'tick': {
+      const quote = Number(data.tick.quote);
+      State.lastPrice = quote;
+      State.ticks.push(quote);
+      State.digits.push(lastDigit(quote));
+      if (State.ticks.length > CONFIG.ROLLING_WINDOW) { State.ticks.shift(); State.digits.shift(); }
+      runEnginePipeline();
+      break;
+    }
+    case 'ping': break;
+    default: break;
+  }
+}
+
+function lastDigit(quote) {
+  const s = String(quote).replace('.', '');
+  return Number(s[s.length - 1]);
+}
+
+/* -- Trade WebSocket (OTP-authenticated) -- */
+async function getOtpUrl(accountId) {
+  const res = await fetch(`${CONFIG.API_BASE}${CONFIG.OTP_PATH(accountId)}`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${State.authToken}`, 'Deriv-App-ID': State.appId }
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`OTP request failed: ${err.errors?.[0]?.message || res.status}`);
+  }
+  const { data } = await res.json();
+  return data.url;
+}
+
+async function connectTradeWs(accountId) {
+  State.tradeOtpAccountId = accountId;
+  try {
+    const url = await getOtpUrl(accountId);
+    _openTradeSocket(url);
+  } catch (e) {
+    log('err', 'Failed to obtain OTP: ' + e.message);
+  }
+}
+async function reconnectTradeWs() {
+  if (!State.tradeOtpAccountId) return;
+  try {
+    const url = await getOtpUrl(State.tradeOtpAccountId); // fresh OTP required every reconnect
+    _openTradeSocket(url);
+  } catch (e) {
+    log('err', 'Reconnect OTP fetch failed: ' + e.message);
+    scheduleReconnect('trade');
+  }
+}
+function _openTradeSocket(url) {
+  if (State.tradeWs && (State.tradeWs.readyState === WebSocket.OPEN || State.tradeWs.readyState === WebSocket.CONNECTING)) {
+    try { State.tradeWs.close(); } catch (e) {}
+  }
+  State.tradeWsState = 'connecting';
+  const ws = new WebSocket(url);
+  State.tradeWs = ws;
+
+  ws.onopen = () => {
+    if (State.tradeWs !== ws) return;
+    State.tradeWsState = 'open';
+    State.reconnectAttemptsTrade = 0;
+    log('ok', 'Trade WebSocket authenticated & connected.');
+    ws.send(JSON.stringify({ balance: 1, subscribe: 1, req_id: nextReqId() }));
+    clearInterval(State.heartbeatTrade);
+    State.heartbeatTrade = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ ping: 1, req_id: nextReqId() }));
+    }, CONFIG.HEARTBEAT_MS);
+  };
+  ws.onmessage = (event) => {
+    if (State.tradeWs !== ws) return;
+    let data; try { data = JSON.parse(event.data); } catch (e) { return; }
+    routeTradeMessage(data);
+  };
+  ws.onerror = () => log('err', 'Trade WS error.');
+  ws.onclose = () => {
+    if (State.tradeWs !== ws) return;
+    State.tradeWsState = 'closed';
+    clearInterval(State.heartbeatTrade);
+    log('warn', 'Trade WS disconnected.');
+    scheduleReconnect('trade');
+  };
+}
+
+function routeTradeMessage(data) {
+  if (data.req_id && State.pendingRequests.has(data.req_id)) {
+    const { resolve, reject } = State.pendingRequests.get(data.req_id);
+    State.pendingRequests.delete(data.req_id);
+    if (data.error) reject(new Error(`${data.error.code}: ${data.error.message}`));
+    else resolve(data);
+  }
+  if (data.error && !data.req_id) { log('err', `Trade API error: ${data.error.code}: ${data.error.message}`); }
+  switch (data.msg_type) {
+    case 'balance': {
+      State.balance = Number(data.balance.balance);
+      State.currency = data.balance.currency;
+      document.getElementById('statBalance').textContent = fmt(State.balance);
+      document.getElementById('statCurrency').textContent = State.currency;
+      break;
+    }
+    case 'proposal_open_contract': onOpenContractUpdate(data.proposal_open_contract); break;
+    default: break;
+  }
+}
+
+function tradeSend(command) {
+  return new Promise((resolve, reject) => {
+    if (!State.tradeWs || State.tradeWs.readyState !== WebSocket.OPEN) { reject(new Error('Trade WS not connected')); return; }
+    const reqId = nextReqId();
+    const msg = { ...command, req_id: reqId };
+    State.pendingRequests.set(reqId, { resolve, reject });
+    State.tradeWs.send(JSON.stringify(msg));
+    setTimeout(() => { if (State.pendingRequests.has(reqId)) { State.pendingRequests.delete(reqId); reject(new Error('Request timeout')); } }, 15000);
+  });
+}
+
+/* ---------------------------------------------------------------------
+   5. STATISTICAL DEVIATION ENGINE
+--------------------------------------------------------------------- */
+function statisticalDeviationEngine() {
+  const digits = State.digits;
+  if (digits.length < 20) return { score: 0, zscore: 0, entropy: 1, coverage: 0 };
+  const over2Count = digits.filter(d => d > 2).length;
+  const observed = over2Count / digits.length;
+  const expected = CONFIG.EXPECTED_OVER2;
+  const deviation = observed - expected;
+  const n = digits.length;
+  const stderr = Math.sqrt(expected * (1 - expected) / n);
+  const zscore = stderr > 0 ? deviation / stderr : 0;
+
+  // Shannon entropy of digit distribution (0-9), normalized 0..1
+  const counts = new Array(10).fill(0);
+  digits.forEach(d => counts[d]++);
+  let entropy = 0;
+  counts.forEach(c => { if (c > 0) { const p = c / n; entropy -= p * Math.log2(p); } });
+  const entropyNorm = entropy / Math.log2(10); // 1 = max randomness
+
+  // Deviation score 0-100: reward positive deviation (more over2 than expected) with low entropy
+  const devComponent = clamp(50 + deviation * 300, 0, 100);
+  const entropyComponent = clamp((1 - entropyNorm) * 100, 0, 100);
+  const score = clamp(devComponent * 0.65 + entropyComponent * 0.35, 0, 100);
+
+  return { score, zscore, entropy: entropyNorm, observed, deviation, coverage: Math.min(1, n / CONFIG.ROLLING_WINDOW) };
+}
+
+/* ---------------------------------------------------------------------
+   6. OVER 2 PROBABILITY ENGINE
+--------------------------------------------------------------------- */
+function over2ProbabilityEngine(devResult) {
+  const digits = State.digits;
+  if (digits.length < 20) return { score: 0, probability: 0, coverage: 0 };
+  const window = digits.slice(-100);
+  const observed = window.filter(d => d > 2).length / window.length;
+  // Blend rolling observed frequency with deviation z-score adjustment
+  const zAdj = clamp(devResult.zscore * 0.03, -0.15, 0.15);
+  const probability = clamp(observed + zAdj, 0, 1);
+  const score = clamp(probability * 100, 0, 100);
+  return { score, probability, coverage: Math.min(1, window.length / 100) };
+}
+
+/* ---------------------------------------------------------------------
+   7. EVEN/ODD RECOVERY ENGINE
+--------------------------------------------------------------------- */
+function evenOddRecoveryEngine() {
+  const digits = State.digits;
+  if (digits.length < 20) return { score: 0, side: 'DIGITEVEN', confidence: 0, coverage: 0 };
+  const window = digits.slice(-80);
+  const evenCount = window.filter(d => d % 2 === 0).length;
+  const oddCount = window.length - evenCount;
+  const imbalance = (oddCount - evenCount) / window.length; // positive => odds overrepresented -> recovery favors EVEN (mean reversion)
+
+  // consecutive run length of the most recent parity
+  let run = 1;
+  const parity = (d) => d % 2 === 0 ? 'E' : 'O';
+  for (let i = window.length - 1; i > 0; i--) {
+    if (parity(window[i]) === parity(window[i - 1])) run++; else break;
+  }
+  const lastParity = parity(window[window.length - 1]);
+  // Mean-reversion bias: favor the side currently under-represented, amplified by run length (exhaustion)
+  const runFactor = clamp(run / 8, 0, 1);
+  let side, confidence;
+  if (imbalance > 0) { side = 'DIGITEVEN'; confidence = 55 + imbalance * 200 + runFactor * 15; }
+  else { side = 'DIGITODD'; confidence = 55 + Math.abs(imbalance) * 200 + runFactor * 15; }
+  confidence = clamp(confidence, 0, 100);
+  return { score: confidence, side, confidence, imbalance, run, coverage: Math.min(1, window.length / 80) };
+}
+
+/* ---------------------------------------------------------------------
+   8. MARKET REGIME ENGINE
+--------------------------------------------------------------------- */
+function marketRegimeEngine(volResult, devResult) {
+  let regime = 'Balanced';
+  if (devResult.entropy > 0.97 && volResult.score < 40) regime = 'Chaotic';
+  else if (devResult.entropy < 0.85 && volResult.score > 60) regime = 'Trending';
+  else if (volResult.score > 75) regime = 'Volatile';
+  else if (volResult.score < 30) regime = 'Stable';
+  else if (devResult.zscore > 1.2) regime = 'Recovery-Friendly';
+  else if (devResult.zscore < -1.2) regime = 'Recovery-Hostile';
+  const friendly = ['Stable', 'Trending', 'Recovery-Friendly', 'Balanced'].includes(regime);
+  return { regime, friendly };
+}
+
+/* ---------------------------------------------------------------------
+   9. VOLATILITY STABILITY ENGINE
+--------------------------------------------------------------------- */
+function volatilityStabilityEngine() {
+  const ticks = State.ticks;
+  if (ticks.length < 20) return { score: 0, stdev: 0, coverage: 0 };
+  const window = ticks.slice(-60);
+  const deltas = [];
+  for (let i = 1; i < window.length; i++) deltas.push(window[i] - window[i - 1]);
+  const mean = deltas.reduce((a, b) => a + b, 0) / deltas.length;
+  const variance = deltas.reduce((a, b) => a + (b - mean) ** 2, 0) / deltas.length;
+  const stdev = Math.sqrt(variance);
+  const avgAbs = deltas.reduce((a, b) => a + Math.abs(b), 0) / deltas.length;
+  const noise = avgAbs > 0 ? stdev / (avgAbs + 1e-9) : 0;
+  // Stability score: lower noise/impulse => higher stability score (favorable)
+  const score = clamp(100 - noise * 40, 0, 100);
+  return { score, stdev, noise, coverage: Math.min(1, window.length / 60) };
+}
+
+/* ---------------------------------------------------------------------
+   10. CONFIDENCE FUSION ENGINE — weighted, coverage-penalized
+--------------------------------------------------------------------- */
+function confidenceFusionEngine(dev, over2, recovery, vol) {
+  const w = State.weights;
+  const totalW = w.deviation + w.over2 + w.recovery + w.volatility + w.entropy;
+  const entropyScore = clamp((1 - dev.entropy) * 100, 0, 100);
+  const weightedSum =
+    dev.score * w.deviation +
+    over2.score * w.over2 +
+    recovery.score * w.recovery +
+    vol.score * w.volatility +
+    entropyScore * w.entropy;
+  const raw = totalW > 0 ? weightedSum / totalW : 0;
+  const avgCoverage = (dev.coverage + over2.coverage + recovery.coverage + vol.coverage) / 4;
+  const coveragePenalty = 0.5 + 0.5 * avgCoverage; // full penalty if coverage is 0, none if coverage is 1
+  const fused = clamp(raw * coveragePenalty, 0, 100);
+  return { fused, entropyScore, coveragePenalty };
+}
+
+/* ---------------------------------------------------------------------
+   11. DECISION ENGINE
+--------------------------------------------------------------------- */
+function decisionEngine(fused, regimeResult, volResult, riskOk) {
+  const threshold = Config.confThreshold;
+  const conflicts = [];
+  if (fused >= threshold && !regimeResult.friendly) conflicts.push('Regime unfavorable despite high confidence');
+  if (fused >= threshold && volResult.score < 25) conflicts.push('Volatility instability flag');
+
+  let decision = 'WAIT';
+  if (!riskOk.pass) decision = 'CANCEL';
+  else if (fused >= threshold && regimeResult.friendly && volResult.score >= 25 && conflicts.length === 0) decision = 'EXECUTE';
+  else if (fused >= threshold) decision = 'WAIT'; // confident but blocked by regime/vol/conflict
+
+  return { decision, conflicts };
+}
+
+/* ---------------------------------------------------------------------
+   12. ADAPTIVE RISK ENGINE — riskAssess() / riskGatePass()
+       Mandatory final gate before every buy() call.
+--------------------------------------------------------------------- */
+function riskAssess() {
+  const now = Date.now();
+  const reasons = [];
+  let pass = true;
+
+  if (now < State.pausedUntil) { pass = false; reasons.push(`Paused until ${new Date(State.pausedUntil).toLocaleTimeString()}`); }
+  if (State.consecutiveLosses >= Config.consecLossPause) { pass = false; reasons.push('Consecutive loss cap reached'); }
+  if (Config.dailyDrawdown > 0 && State.dailyLossAccum >= Config.dailyDrawdown) { pass = false; reasons.push('Daily drawdown cap reached'); }
+  if (Config.tpSession > 0 && State.sessionPnl >= Config.tpSession) { pass = false; reasons.push('Session take-profit reached'); }
+  if (Config.slSession > 0 && State.sessionPnl <= -Config.slSession) { pass = false; reasons.push('Session stop-loss reached'); }
+  if (State.openContracts.size >= Config.maxConcurrent) { pass = false; reasons.push('Max concurrent trades reached'); }
+  if (State.inFlight) { pass = false; reasons.push('Trade already in-flight'); }
+  if (State.balance !== null && State.balance <= 0) { pass = false; reasons.push('Zero/negative balance'); }
+
+  const projectedStake = computeMartingaleStake();
+  if (projectedStake > Config.stakeCeiling) { pass = false; reasons.push('Stake exceeds ceiling'); }
+
+  return { pass, reasons, projectedStake };
+}
+function riskGatePass() { return riskAssess().pass; }
+
+function tripPause(reasonMsg) {
+  State.pausedUntil = Date.now() + Config.pauseSeconds * 1000;
+  log('warn', `Risk pause engaged: ${reasonMsg}. Resumes at ${new Date(State.pausedUntil).toLocaleTimeString()}.`);
+}
+
+/* ---------------------------------------------------------------------
+   13. SMART ADAPTIVE MARTINGALE ENGINE
+--------------------------------------------------------------------- */
+function computeMartingaleStake() {
+  const base = Number(Config.baseStake);
+  if (State.mgLevel === 0) return round2(base);
+  if (!Config.mgAdaptive) {
+    // fallback fixed doubling (still bounded)
+    return round2(Math.min(base * Math.pow(2, State.mgLevel), Config.stakeCeiling));
+  }
+  // Adaptive: multiplier scales with confidence and shrinks with instability
+  const confRatio = clamp(State.fusedConfidence / 100, 0, 1);
+  const volScore = State.engineScores.volatility;
+  let mult = Config.mgBaseMult;
+  if (State.fusedConfidence < Config.mgConfFloor) mult *= 0.55;      // confidence dropped -> reduce progression
+  else mult *= (0.85 + confRatio * 0.3);                              // confidence strong -> lean toward max
+  if (volScore < 25) mult *= 0.5;                                     // unstable market -> heavily dampen
+  mult = clamp(mult, 1.05, Config.mgMaxMult);
+
+  let stake = base;
+  for (let i = 0; i < State.mgLevel; i++) stake *= mult;
+  stake = Math.min(stake, Config.stakeCeiling);
+  return round2(stake);
+}
+
+/* ---------------------------------------------------------------------
+   14. RECOVERY CONTROLLER
+--------------------------------------------------------------------- */
+function recoveryControllerOnLoss(recoveryResult) {
+  if (State.mgLevel >= Config.mgMaxLevels) {
+    log('warn', 'Recovery cancelled: max Martingale levels reached. Resetting progression.');
+    resetMartingaleState();
+    return;
+  }
+  State.mgLevel++;
+  State.pendingRecovery = { side: recoveryResult.side, confidence: recoveryResult.confidence };
+  log('info', `Recovery armed: next trade ${recoveryResult.side} (level ${State.mgLevel}, recovery conf ${recoveryResult.confidence.toFixed(1)}%).`);
+}
+function resetMartingaleState() {
+  State.mgLevel = 0; State.consecutiveLosses = 0; State.pendingRecovery = null;
+  updateDashboard();
+}
+
+/* ---------------------------------------------------------------------
+   15. TRADE EXECUTION ENGINE — proposal -> buy -> proposal_open_contract
+--------------------------------------------------------------------- */
+async function proposeAndBuy(contractType) {
+  if (State.inFlight) { log('warn', 'Blocked duplicate proposal: trade already in-flight.'); return; }
+  State.inFlight = true;
+  const stake = computeMartingaleStake();
+  try {
+    const proposalCmd = {
+      proposal: 1,
+      amount: stake,
+      basis: 'stake',
+      contract_type: contractType,
+      currency: State.currency || 'USD',
+      duration: Number(Config.duration),
+      duration_unit: 't',
+      underlying_symbol: Config.symbol,
+    };
+    if (contractType === 'DIGITOVER') proposalCmd.barrier = '2';
+
+    log('trade', `Requesting proposal: ${contractType} stake=${stake} ${proposalCmd.currency}`);
+    const propRes = await tradeSend(proposalCmd);
+    const proposalId = propRes.proposal.id;
+    const askPrice = Number(propRes.proposal.ask_price);
+
+    if (!Config.liveExec) {
+      log('warn', 'Live execution disabled — proposal received but buy() skipped by config.');
+      State.inFlight = false;
+      return;
+    }
+
+    const buyRes = await tradeSend({ buy: proposalId, price: askPrice });
+    const contractId = buyRes.buy.contract_id;
+    const buyPrice = Number(buyRes.buy.buy_price);
+
+    const tradeRecord = {
+      time: Date.now(), contractId, contractType, stake: buyPrice,
+      confidence: round2(State.fusedConfidence), mgLevel: State.mgLevel,
+      isRecovery: contractType !== 'DIGITOVER',
+      result: 'open', pnl: 0,
+    };
+    const id = await dbAddTrade(tradeRecord);
+    tradeRecord.id = id;
+    State.trades.unshift(tradeRecord);
+    State.openContracts.set(contractId, tradeRecord);
+    renderTradeLog();
+    updateDashboard();
+
+    log('trade', `BOUGHT ${contractType} #${contractId} price=${buyPrice}`);
+
+    await tradeSend({ proposal_open_contract: 1, contract_id: contractId, subscribe: 1 });
+  } catch (e) {
+    log('err', 'Trade execution failed: ' + e.message);
+  } finally {
+    State.inFlight = false;
+  }
+}
+
+function onOpenContractUpdate(contract) {
+  const contractId = contract.contract_id;
+  const record = State.openContracts.get(contractId);
+  if (!record) return;
+  if (Number(contract.is_sold)) {
+    const profit = Number(contract.profit);
+    record.result = profit >= 0 ? 'win' : 'loss';
+    record.pnl = round2(profit);
+    dbUpdateTrade(record);
+    State.openContracts.delete(contractId);
+    performanceEvaluationOnClose(record);
+  }
+}
+
+/* ---------------------------------------------------------------------
+   16. PERFORMANCE EVALUATION + SELF-LEARNING
+--------------------------------------------------------------------- */
+function performanceEvaluationOnClose(record) {
+  State.sessionPnl = round2(State.sessionPnl + record.pnl);
+  State.todayPnl = round2(State.todayPnl + record.pnl);
+  State.peakEquity = Math.max(State.peakEquity, State.sessionPnl);
+  State.drawdown = round2(State.peakEquity - State.sessionPnl);
+  if (record.pnl < 0) State.dailyLossAccum = round2(State.dailyLossAccum + Math.abs(record.pnl));
+
+  if (record.result === 'win') {
+    log('ok', `Contract #${record.contractId} WON ${record.pnl >= 0 ? '+' : ''}${record.pnl}`);
+    State.consecutiveLosses = 0;
+    if (record.isRecovery) State.recoveriesWon = (State.recoveriesWon || 0) + 1;
+    resetMartingaleState();
+  } else {
+    log('warn', `Contract #${record.contractId} LOST ${record.pnl}`);
+    State.consecutiveLosses++;
+    if (record.isRecovery) { /* recovery attempt failed */ }
+    const recoveryResult = evenOddRecoveryEngine();
+    recoveryControllerOnLoss(recoveryResult);
+  }
+  if (record.isRecovery) State.recoveriesTotal = (State.recoveriesTotal || 0) + 1;
+
+  if (Config.autoLearn) metaLearningUpdate(record);
+
+  const risk = riskAssess();
+  if (!risk.pass) tripPause(risk.reasons.join('; '));
+
+  renderTradeLog();
+  updateDashboard();
+  maybeContinuePipeline();
+}
+
+// Online / meta-learning: nudge engine weights toward whichever engines aligned with the outcome
+function metaLearningUpdate(record) {
+  const delta = record.result === 'win' ? 0.01 : -0.01;
+  const scores = State.engineScores;
+  const total = scores.deviation + scores.over2 + scores.recovery + scores.volatility + scores.entropy || 1;
+  ['deviation', 'over2', 'recovery', 'volatility', 'entropy'].forEach(k => {
+    const contribution = (scores[k] || 0) / total;
+    State.weights[k] = clamp(State.weights[k] + delta * contribution, 0.05, 0.5);
+  });
+  const sum = Object.values(State.weights).reduce((a, b) => a + b, 0);
+  Object.keys(State.weights).forEach(k => State.weights[k] = State.weights[k] / sum);
+  persist('aiva_weights', State.weights);
+  renderWeightSliders();
+}
+
+/* ---------------------------------------------------------------------
+   17. ENGINE PIPELINE ORCHESTRATION
+--------------------------------------------------------------------- */
+function runEnginePipeline() {
+  const dev = statisticalDeviationEngine();
+  const over2 = over2ProbabilityEngine(dev);
+  const recovery = evenOddRecoveryEngine();
+  const vol = volatilityStabilityEngine();
+  const regime = marketRegimeEngine(vol, dev);
+  const fusion = confidenceFusionEngine(dev, over2, recovery, vol);
+
+  State.engineScores = {
+    deviation: dev.score, over2: over2.score, recovery: recovery.score,
+    regime: regime.regime, volatility: vol.score, entropy: (1 - dev.entropy) * 100,
+  };
+  State.fusedConfidence = fusion.fused;
+
+  const risk = riskAssess();
+  const decisionResult = decisionEngine(fusion.fused, regime, vol, risk);
+  State.lastDecision = decisionResult.decision;
+
+  State.lastExplain = {
+    time: new Date().toLocaleTimeString(),
+    decision: decisionResult.decision,
+    over2Probability: over2.probability ? round2(over2.probability * 100) : 0,
+    deviationZ: round2(dev.zscore || 0),
+    entropy: dev.entropy > 0.9 ? 'High' : dev.entropy > 0.7 ? 'Moderate' : 'Low',
+    regime: regime.regime,
+    volatility: vol.score >= 60 ? 'Elevated' : vol.score >= 30 ? 'Normal' : 'Unstable',
+    recoveryProbability: round2(recovery.confidence || 0),
+    confidence: round2(fusion.fused),
+    martingaleLevel: State.mgLevel,
+    riskScore: risk.pass ? 'Low' : 'Blocked',
+    conflicts: decisionResult.conflicts,
+    riskReasons: risk.reasons,
+  };
+
+  renderEngines(dev, over2, recovery, vol, regime, fusion);
+  renderExplain();
+
+  if (State.armed && decisionResult.decision === 'EXECUTE') {
+    maybeContinuePipeline();
+  }
+}
+
+function maybeContinuePipeline() {
+  if (!State.armed) return;
+  if (State.inFlight) return;
+  const risk = riskAssess();
+  if (!risk.pass) return;
+
+  if (State.pendingRecovery) {
+    const side = State.pendingRecovery.side;
+    State.pendingRecovery = null;
+    proposeAndBuy(side);
+    return;
+  }
+  if (State.lastDecision === 'EXECUTE' && State.mgLevel === 0) {
+    proposeAndBuy('DIGITOVER');
+  } else if (State.lastDecision === 'EXECUTE' && State.mgLevel > 0 && !State.pendingRecovery) {
+    // continuing progression on the primary Over2 side if no recovery is queued
+    proposeAndBuy('DIGITOVER');
+  }
+}
+
+function forceRefreshEngines() { runEnginePipeline(); log('info', 'Engines recomputed on demand.'); }
+
+/* ---------------------------------------------------------------------
+   18. UI RENDER
+--------------------------------------------------------------------- */
+function renderEngines(dev, over2, recovery, vol, regime, fusion) {
+  document.getElementById('confVal').textContent = (fusion.fused || 0).toFixed(1) + '%';
+  document.getElementById('regimePill').textContent = 'Regime: ' + regime.regime;
+  const badge = document.getElementById('decisionBadge');
+  const d = State.lastDecision || 'WAIT';
+  badge.textContent = d === 'EXECUTE' ? 'EXECUTE' : d === 'CANCEL' ? 'BLOCKED — RISK' : 'STANDING BY';
+  badge.className = 'decision-badge ' + (d === 'EXECUTE' ? 'execute' : d === 'CANCEL' ? 'cancel' : 'wait');
+
+  const bars = [
+    ['Statistical Deviation', dev.score],
+    ['Over 2 Probability', over2.score],
+    ['Even/Odd Recovery', recovery.score],
+    ['Volatility Stability', vol.score],
+    ['Entropy (inverted)', (1 - dev.entropy) * 100],
+    ['Confidence Fusion', fusion.fused],
+  ];
+  const container = document.getElementById('engineBars');
+  container.innerHTML = bars.map(([name, score]) => `
+    <div class="engine">
+      <div class="engine-top"><span class="name">${name}</span><span class="score">${(score||0).toFixed(1)}%</span></div>
+      <div class="bar"><div class="bar-fill" style="width:${clamp(score||0,0,100)}%"></div></div>
+    </div>`).join('');
+}
+
+function renderExplain() {
+  const e = State.lastExplain;
+  const el = document.getElementById('explainBody');
+  if (!e) { el.textContent = 'No decision evaluated yet.'; return; }
+  el.innerHTML = `
+    <div><b>Decision:</b> ${e.decision} <span style="color:var(--text-faint)">(${e.time})</span></div>
+    <div><b>Over 2 Probability:</b> ${e.over2Probability}%</div>
+    <div><b>Deviation Z-Score:</b> ${e.deviationZ}σ</div>
+    <div><b>Entropy:</b> ${e.entropy}</div>
+    <div><b>Market Regime:</b> ${e.regime}</div>
+    <div><b>Volatility:</b> ${e.volatility}</div>
+    <div><b>Recovery Probability:</b> ${e.recoveryProbability}%</div>
+    <div><b>Fused Confidence:</b> ${e.confidence}%</div>
+    <div><b>Martingale Level:</b> ${e.martingaleLevel}</div>
+    <div><b>Risk Score:</b> ${e.riskScore}</div>
+    ${e.conflicts.length ? `<div style="color:var(--amber)"><b>Conflicts:</b> ${e.conflicts.join(', ')}</div>` : ''}
+    ${e.riskReasons.length ? `<div style="color:var(--red)"><b>Risk Blocks:</b> ${e.riskReasons.join(', ')}</div>` : ''}
+  `;
+}
+
+function updateDashboard() {
+  document.getElementById('statSessionPnl').textContent = fmt(State.sessionPnl);
+  document.getElementById('statSessionPnl').className = 'val ' + (State.sessionPnl >= 0 ? 'pos' : 'neg');
+  document.getElementById('statTodayPnl').textContent = fmt(State.todayPnl);
+  document.getElementById('statTodayPnl').className = 'val ' + (State.todayPnl >= 0 ? 'pos' : 'neg');
+  document.getElementById('statDrawdown').textContent = fmt(State.drawdown);
+
+  const wins = State.trades.filter(t => t.result === 'win').length;
+  const losses = State.trades.filter(t => t.result === 'loss').length;
+  const closed = wins + losses;
+  const winRate = closed > 0 ? (wins / closed * 100) : 0;
+  document.getElementById('statWinRate').textContent = winRate.toFixed(1) + '%';
+
+  const grossWin = State.trades.filter(t => t.pnl > 0).reduce((a, t) => a + t.pnl, 0);
+  const grossLoss = Math.abs(State.trades.filter(t => t.pnl < 0).reduce((a, t) => a + t.pnl, 0));
+  const pf = grossLoss > 0 ? grossWin / grossLoss : (grossWin > 0 ? grossWin : 0);
+  document.getElementById('statPF').textContent = pf.toFixed(2);
+
+  const closedTrades = State.trades.filter(t => t.result === 'win' || t.result === 'loss');
+  const avgPayoutPct = closedTrades.length > 0
+    ? (closedTrades.reduce((a, t) => a + (t.stake > 0 ? (t.pnl / t.stake) * 100 : 0), 0) / closedTrades.length)
+    : 0;
+  document.getElementById('statAvgPayout').textContent = avgPayoutPct.toFixed(1) + '%';
+
+  document.getElementById('statTotal').textContent = State.trades.length;
+  document.getElementById('statWins').textContent = wins;
+  document.getElementById('statLosses').textContent = losses;
+  document.getElementById('statConsecLoss').textContent = State.consecutiveLosses;
+  document.getElementById('statMgLevel').textContent = State.mgLevel;
+  document.getElementById('statOpenTrades').textContent = State.openContracts.size;
+
+  const recTotal = State.recoveriesTotal || 0;
+  const recWon = State.recoveriesWon || 0;
+  document.getElementById('statRecoveries').textContent = recTotal;
+  document.getElementById('statRecoveryWinRate').textContent = recTotal > 0 ? ((recWon / recTotal) * 100).toFixed(0) + '%' : '0%';
+
+  document.getElementById('armedChip').textContent = State.armed ? 'ARMED' : 'DISARMED';
+  document.getElementById('armedChip').className = 'chip' + (State.armed ? ' on badge-armed' : '');
+}
+
+function renderTradeLog() {
+  const body = document.getElementById('tradeLogBody');
+  body.innerHTML = State.trades.slice(0, 100).map(t => {
+    const typeTag = t.contractType === 'DIGITOVER' ? '<span class="tag over2">OVER2</span>'
+      : t.contractType === 'DIGITEVEN' ? '<span class="tag even">EVEN</span>'
+      : '<span class="tag odd">ODD</span>';
+    const resTag = t.result === 'win' ? '<span class="tag win">WIN</span>'
+      : t.result === 'loss' ? '<span class="tag loss">LOSS</span>'
+      : '<span class="tag open">OPEN</span>';
+    return `<tr>
+      <td>${new Date(t.time).toLocaleTimeString()}</td>
+      <td>${typeTag}</td>
+      <td>${fmt(t.stake)}</td>
+      <td>${resTag}</td>
+      <td style="color:${t.pnl >= 0 ? 'var(--green)' : 'var(--red)'}">${fmt(t.pnl)}</td>
+      <td>${t.confidence}%</td>
+      <td>${t.mgLevel}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderWeightSliders() {
+  const container = document.getElementById('weightSliders');
+  const labels = { deviation: 'Statistical Deviation', over2: 'Over 2 Probability', recovery: 'Even/Odd Recovery', volatility: 'Volatility Stability', entropy: 'Entropy' };
+  container.innerHTML = Object.keys(State.weights).map(k => `
+    <div class="engine">
+      <div class="engine-top"><span class="name">${labels[k]}</span><span class="score">${(State.weights[k]*100).toFixed(0)}%</span></div>
+      <div class="bar"><div class="bar-fill" style="width:${State.weights[k]*100}%"></div></div>
+    </div>`).join('');
+}
+
+function fmt(n) { const v = Number(n) || 0; return (v >= 0 ? '$' : '-$') + Math.abs(v).toFixed(2); }
+function round2(n) { return Math.round((Number(n) + Number.EPSILON) * 100) / 100; }
+function clamp(n, min, max) { return Math.min(max, Math.max(min, isFinite(n) ? n : min)); }
+
+/* ---------------------------------------------------------------------
+   19. VIEW NAV
+--------------------------------------------------------------------- */
+function switchView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === name));
+}
+function switchAuthTab(which) {
+  document.getElementById('tabPAT').classList.toggle('active', which === 'pat');
+  document.getElementById('tabOAuth').classList.toggle('active', which === 'oauth');
+  document.getElementById('authPatPane').style.display = which === 'pat' ? 'block' : 'none';
+  document.getElementById('authOAuthPane').style.display = which === 'oauth' ? 'block' : 'none';
+}
+
+/* ---------------------------------------------------------------------
+   20. AUTH FLOWS
+--------------------------------------------------------------------- */
+async function loginWithPAT() {
+  const appId = document.getElementById('patAppId').value.trim();
+  const token = document.getElementById('patToken').value.trim();
+  if (!appId || !token) { log('warn', 'App ID and PAT token are required.'); return; }
+  State.authType = 'pat'; State.appId = appId; State.authToken = token;
+  await fetchAccounts();
+}
+
+function generateCodeVerifier() {
+  const array = crypto.getRandomValues(new Uint8Array(64));
+  return Array.from(array).map(v => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'[v % 66]).join('');
+}
+async function generateCodeChallenge(verifier) {
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function generateState() {
+  return crypto.getRandomValues(new Uint8Array(16)).reduce((s, b) => s + b.toString(16).padStart(2, '0'), '');
+}
+async function initiateOAuth() {
+  const clientId = document.getElementById('oauthClientId').value.trim();
+  const redirectUri = document.getElementById('oauthRedirect').value.trim();
+  if (!clientId || !redirectUri) { log('warn', 'Client ID and redirect URI required.'); return; }
+  const verifier = generateCodeVerifier();
+  const challenge = await generateCodeChallenge(verifier);
+  const state = generateState();
+  sessionStorage.setItem('aiva_pkce_verifier', verifier);
+  sessionStorage.setItem('aiva_oauth_state', state);
+  sessionStorage.setItem('aiva_oauth_clientid', clientId);
+  const url = new URL(CONFIG.AUTH_URL);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('client_id', clientId);
+  url.searchParams.set('redirect_uri', redirectUri);
+  url.searchParams.set('scope', 'trade account_manage');
+  url.searchParams.set('state', state);
+  url.searchParams.set('code_challenge', challenge);
+  url.searchParams.set('code_challenge_method', 'S256');
+  log('info', 'Redirecting to Deriv OAuth authorization page...');
+  window.open(url.toString(), '_blank');
+}
+async function loginWithOAuthToken() {
+  const token = document.getElementById('oauthTokenPaste').value.trim();
+  const clientId = sessionStorage.getItem('aiva_oauth_clientid') || document.getElementById('oauthClientId').value.trim();
+  if (!token || !clientId) { log('warn', 'Access token and client ID required.'); return; }
+  State.authType = 'oauth'; State.appId = clientId; State.authToken = token;
+  await fetchAccounts();
+}
+
+async function fetchAccounts() {
+  try {
+    const res = await fetch(`${CONFIG.API_BASE}${CONFIG.ACCOUNTS_PATH}`, {
+      headers: { 'Authorization': `Bearer ${State.authToken}`, 'Deriv-App-ID': State.appId }
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.errors?.[0]?.message || res.status); }
+    const { data } = await res.json();
+    State.accounts = Array.isArray(data) ? data : [data];
+    log('ok', `Fetched ${State.accounts.length} account(s).`);
+    renderAccountPicker();
+    document.getElementById('accountPickerCard').style.display = 'block';
+  } catch (e) {
+    log('err', 'Account fetch failed: ' + e.message);
+  }
+}
+
+function renderAccountPicker() {
+  const el = document.getElementById('accountList');
+  el.innerHTML = State.accounts.map(a => `
+    <div class="switch-row">
+      <div>
+        <b style="font-size:12px;">${a.account_id}</b>
+        <div class="hint">${a.account_type.toUpperCase()} · ${a.balance} ${a.currency} · ${a.status}</div>
+      </div>
+      <button class="btn small ${a.account_type === 'real' ? 'danger' : 'primary'}" onclick="selectAccount('${a.account_id}')">Use</button>
+    </div>`).join('');
+}
+
+async function createDemoAccount() {
+  try {
+    const res = await fetch(`${CONFIG.API_BASE}${CONFIG.ACCOUNTS_PATH}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${State.authToken}`, 'Deriv-App-ID': State.appId, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currency: 'USD', group: 'row', account_type: 'demo' })
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.errors?.[0]?.message || res.status);
+    log('ok', 'Demo account ready.');
+    await fetchAccounts();
+  } catch (e) { log('err', 'Create account failed: ' + e.message); }
+}
+
+let pendingRealAccountId = null;
+function selectAccount(accountId) {
+  const acc = State.accounts.find(a => a.account_id === accountId);
+  if (!acc) return;
+  if (acc.account_type === 'real') { pendingRealAccountId = accountId; openRealGuard(); return; }
+  _finalizeSelectAccount(acc);
+}
+function _finalizeSelectAccount(acc) {
+  State.selectedAccount = acc;
+  document.getElementById('acctPill').textContent = acc.account_id;
+  document.getElementById('acctPill').className = 'pill ' + (acc.account_type === 'real' ? 'acc-real' : 'acc-demo');
+  document.getElementById('acctLine').textContent = `${acc.account_type.toUpperCase()} · Over2 · Even/Odd Recovery`;
+  document.getElementById('statAccId').textContent = acc.account_id;
+  connectTradeWs(acc.account_id);
+  log('ok', `Account armed for connection: ${acc.account_id} (${acc.account_type}).`);
+}
+function openRealGuard() { document.getElementById('realGuardBg').classList.add('show'); }
+function closeRealGuard() { document.getElementById('realGuardBg').classList.remove('show'); document.getElementById('realGuardInput').value=''; }
+function confirmRealGuard() {
+  if (document.getElementById('realGuardInput').value.trim() !== 'CONFIRM') { log('warn', 'Real-money confirmation text mismatch.'); return; }
+  const acc = State.accounts.find(a => a.account_id === pendingRealAccountId);
+  closeRealGuard();
+  if (acc) _finalizeSelectAccount(acc);
+}
+
+/* ---------------------------------------------------------------------
+   21. ARM / KILL SWITCH
+--------------------------------------------------------------------- */
+function toggleArm(on) {
+  if (on && !State.selectedAccount) { log('warn', 'Select an account before arming.'); document.getElementById('armSwitch').checked = false; return; }
+  if (on && (!State.tradeWs || State.tradeWs.readyState !== WebSocket.OPEN)) { log('warn', 'Trade WebSocket not connected.'); document.getElementById('armSwitch').checked = false; return; }
+  State.armed = on;
+  log(on ? 'ok' : 'warn', on ? 'Auto trading engine ARMED.' : 'Auto trading engine DISARMED.');
+  updateDashboard();
+}
+function killSwitch() {
+  State.armed = false;
+  document.getElementById('armSwitch').checked = false;
+  if (State.tradeWs && State.tradeWs.readyState === WebSocket.OPEN) {
+    State.tradeWs.send(JSON.stringify({ forget_all: 'proposal', req_id: nextReqId() }));
+    State.tradeWs.send(JSON.stringify({ forget_all: 'proposal_open_contract', req_id: nextReqId() }));
+  }
+  if (State.publicWs && State.publicWs.readyState === WebSocket.OPEN) {
+    State.publicWs.send(JSON.stringify({ forget_all: 'ticks', req_id: nextReqId() }));
+  }
+  State.inFlight = false; State.pendingRecovery = null;
+  log('err', '⛔ KILL SWITCH TRIGGERED — all engines disarmed, subscriptions forgotten.');
+  updateDashboard();
+}
+
+/* ---------------------------------------------------------------------
+   22. CONFIG SAVE
+--------------------------------------------------------------------- */
+function saveConfig() {
+  Config.symbol = document.getElementById('cfgSymbol').value;
+  Config.baseStake = Number(document.getElementById('cfgBaseStake').value);
+  Config.duration = Number(document.getElementById('cfgDuration').value);
+  Config.confThreshold = Number(document.getElementById('cfgConfThreshold').value);
+  Config.liveExec = document.getElementById('cfgLiveExec').checked;
+
+  Config.mgAdaptive = document.getElementById('cfgMgAdaptive').checked;
+  Config.mgBaseMult = Number(document.getElementById('cfgMgBaseMult').value);
+  Config.mgMaxMult = Number(document.getElementById('cfgMgMaxMult').value);
+  Config.mgMaxLevels = Number(document.getElementById('cfgMgMaxLevels').value);
+  Config.mgConfFloor = Number(document.getElementById('cfgMgConfFloor').value);
+
+  Config.tpTrade = Number(document.getElementById('cfgTpTrade').value);
+  Config.slTrade = Number(document.getElementById('cfgSlTrade').value);
+  Config.tpSession = Number(document.getElementById('cfgTpSession').value);
+  Config.slSession = Number(document.getElementById('cfgSlSession').value);
+
+  Config.dailyDrawdown = Number(document.getElementById('cfgDailyDrawdown').value);
+  Config.maxConcurrent = Number(document.getElementById('cfgMaxConcurrent').value);
+  Config.consecLossPause = Number(document.getElementById('cfgConsecLossPause').value);
+  Config.stakeCeiling = Number(document.getElementById('cfgStakeCeiling').value);
+  Config.pauseSeconds = Number(document.getElementById('cfgPauseSeconds').value);
+  Config.autoLearn = document.getElementById('cfgAutoLearn').checked;
+
+  persist('aiva_config', Config);
+  log('ok', 'Parameters saved.');
+
+  if (State.publicWsState === 'open') subscribeMarketData(Config.symbol);
+}
+function loadConfigIntoForm() {
+  document.getElementById('cfgSymbol').value = Config.symbol;
+  document.getElementById('cfgBaseStake').value = Config.baseStake;
+  document.getElementById('cfgDuration').value = Config.duration;
+  document.getElementById('cfgConfThreshold').value = Config.confThreshold;
+  document.getElementById('cfgLiveExec').checked = Config.liveExec;
+  document.getElementById('cfgMgAdaptive').checked = Config.mgAdaptive;
+  document.getElementById('cfgMgBaseMult').value = Config.mgBaseMult;
+  document.getElementById('cfgMgMaxMult').value = Config.mgMaxMult;
+  document.getElementById('cfgMgMaxLevels').value = Config.mgMaxLevels;
+  document.getElementById('cfgMgConfFloor').value = Config.mgConfFloor;
+  document.getElementById('cfgTpTrade').value = Config.tpTrade;
+  document.getElementById('cfgSlTrade').value = Config.slTrade;
+  document.getElementById('cfgTpSession').value = Config.tpSession;
+  document.getElementById('cfgSlSession').value = Config.slSession;
+  document.getElementById('cfgDailyDrawdown').value = Config.dailyDrawdown;
+  document.getElementById('cfgMaxConcurrent').value = Config.maxConcurrent;
+  document.getElementById('cfgConsecLossPause').value = Config.consecLossPause;
+  document.getElementById('cfgStakeCeiling').value = Config.stakeCeiling;
+  document.getElementById('cfgPauseSeconds').value = Config.pauseSeconds;
+  document.getElementById('cfgAutoLearn').checked = Config.autoLearn;
+}
+
+/* ---------------------------------------------------------------------
+   23. CSV EXPORT
+--------------------------------------------------------------------- */
+function exportCSV() {
+  const header = 'time,contractId,contractType,stake,result,pnl,confidence,mgLevel\n';
+  const rows = State.trades.map(t => [new Date(t.time).toISOString(), t.contractId, t.contractType, t.stake, t.result, t.pnl, t.confidence, t.mgLevel].join(',')).join('\n');
+  const blob = new Blob([header + rows], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `aiva_trades_${Date.now()}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  log('info', 'Trade journal exported to CSV.');
+}
+
+/* ---------------------------------------------------------------------
+   24. RESET SYSTEM — individual + full factory reset
+--------------------------------------------------------------------- */
+let resetTarget = null;
+const RESET_TARGETS = {
+  pnl: { label: 'P&L Stats', desc: 'Clears session/today P&L, drawdown, and daily loss accumulator.' },
+  account: { label: 'Account Stats', desc: 'Clears cached balance/currency display (re-fetches on next update).' },
+  trades: { label: 'Trade Stats', desc: 'Clears win/loss counters, consecutive loss counter, and recovery stats (does not delete trade journal rows).' },
+  tradelog: { label: 'Trade Journal Log', desc: 'Permanently deletes all rows from the IndexedDB trade journal.' },
+  syslog: { label: 'System Logs', desc: 'Clears the on-screen system log console.' },
+  martingale: { label: 'Martingale State', desc: 'Resets martingale level, pending recovery, and consecutive losses.' },
+  risk: { label: 'Risk State', desc: 'Clears active pause timers and daily drawdown accumulator.' },
+  all: { label: 'FULL FACTORY RESET', desc: 'Wipes trade journal, all stats, martingale state, risk state, weights, and config back to defaults. Account connection is preserved.' },
+};
+function openReset(target) {
+  resetTarget = target;
+  const t = RESET_TARGETS[target];
+  document.getElementById('resetTargetLabel').textContent = t.label;
+  document.getElementById('resetTargetDesc').textContent = t.desc;
+  document.getElementById('resetConfirmInput').value = '';
+  document.getElementById('resetModalBg').classList.add('show');
+}
+function closeReset() { document.getElementById('resetModalBg').classList.remove('show'); resetTarget = null; }
+async function executeReset() {
+  if (document.getElementById('resetConfirmInput').value.trim() !== 'CONFIRM') { log('warn', 'Confirmation text mismatch.'); return; }
+  switch (resetTarget) {
+    case 'pnl':
+      State.sessionPnl = 0; State.todayPnl = 0; State.peakEquity = 0; State.drawdown = 0; State.dailyLossAccum = 0;
+      break;
+    case 'account':
+      State.balance = null; State.currency = null;
+      document.getElementById('statBalance').textContent = '--';
+      document.getElementById('statCurrency').textContent = '--';
+      break;
+    case 'trades':
+      State.consecutiveLosses = 0; State.recoveriesTotal = 0; State.recoveriesWon = 0;
+      break;
+    case 'tradelog':
+      await dbClearTrades(); State.trades = []; State.openContracts.clear(); renderTradeLog();
+      break;
+    case 'syslog':
+      document.getElementById('sysLog').innerHTML = '';
+      break;
+    case 'martingale':
+      resetMartingaleState();
+      break;
+    case 'risk':
+      State.pausedUntil = 0; State.dailyLossAccum = 0;
+      break;
+    case 'all':
+      await dbClearTrades();
+      State.trades = []; State.openContracts.clear();
+      State.sessionPnl = 0; State.todayPnl = 0; State.peakEquity = 0; State.drawdown = 0; State.dailyLossAccum = 0;
+      State.consecutiveLosses = 0; State.mgLevel = 0; State.pendingRecovery = null; State.pausedUntil = 0;
+      State.recoveriesTotal = 0; State.recoveriesWon = 0;
+      State.weights = { deviation: 0.20, over2: 0.25, recovery: 0.20, volatility: 0.15, entropy: 0.20 };
+      persist('aiva_weights', State.weights);
+      Object.assign(Config, {
+        symbol: '1HZ50V', baseStake: 1, duration: 1, confThreshold: 85, liveExec: true,
+        mgAdaptive: true, mgBaseMult: 1.9, mgMaxMult: 2.4, mgMaxLevels: 5, mgConfFloor: 70,
+        tpTrade: 0, slTrade: 0, tpSession: 20, slSession: 15,
+        dailyDrawdown: 25, maxConcurrent: 1, consecLossPause: 4, stakeCeiling: 40, pauseSeconds: 120, autoLearn: true,
+      });
+      persist('aiva_config', Config);
+      loadConfigIntoForm();
+      document.getElementById('sysLog').innerHTML = '';
+      renderTradeLog(); renderWeightSliders();
+      break;
+  }
+  log('warn', `Reset executed: ${RESET_TARGETS[resetTarget].label}`);
+  updateDashboard();
+  closeReset();
+}
+
+/* ---------------------------------------------------------------------
+   25. BOOTSTRAP
+--------------------------------------------------------------------- */
+async function bootstrap() {
+  await openDB();
+  State.trades = (await dbGetAllTrades()).sort((a, b) => b.time - a.time);
+  const savedWeights = loadPersisted('aiva_weights', State.weights);
+  State.weights = savedWeights;
+  loadConfigIntoForm();
+  renderWeightSliders();
+  renderTradeLog();
+  updateDashboard();
+  ensurePublicWs();
+  log('info', 'AIVA Quant terminal initialized. Connect an account to arm live trading.');
+}
+window.addEventListener('DOMContentLoaded', bootstrap);
+window.addEventListener('beforeunload', () => {
+  if (State.tradeWs && State.tradeWs.readyState === WebSocket.OPEN) {
+    State.tradeWs.send(JSON.stringify({ forget_all: 'ticks' }));
+  }
+});
+</script>
+</body>
+</html>

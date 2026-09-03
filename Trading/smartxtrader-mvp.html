@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SmartXtrader MVP // Deriv Multi-Engine Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg-0:#06080a; --bg-1:#0a0e12; --bg-2:#0f1419; --bg-3:#151b22;
+  --line:#1e2730; --line-soft:#161c23;
+  --txt-hi:#eaf2f5; --txt-mid:#8fa3ad; --txt-low:#556570;
+  --green:#00e5a0; --green-dim:#0a3d31;
+  --red:#ff4d6a; --red-dim:#3d0f1a;
+  --amber:#ffb020; --amber-dim:#3d2a0a;
+  --blue:#3ea9ff; --violet:#a684ff;
+  --mono:'JetBrains Mono',monospace; --sans:'Inter',sans-serif;
+}
+*{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+html,body{background:var(--bg-0); color:var(--txt-hi); font-family:var(--sans); overflow-x:hidden; width:100%;}
+body{padding-bottom:70px;}
+::-webkit-scrollbar{width:4px; height:4px;}
+::-webkit-scrollbar-thumb{background:var(--line); border-radius:2px;}
+.mono{font-family:var(--mono);}
+button{font-family:inherit; cursor:pointer;}
+input,select{font-family:var(--mono); background:var(--bg-2); border:1px solid var(--line); color:var(--txt-hi); border-radius:6px; padding:8px 10px; font-size:13px; width:100%;}
+input:focus,select:focus{outline:none; border-color:var(--blue);}
+label{font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--txt-low); display:block; margin-bottom:4px; font-weight:600;}
+
+/* ===== TOP BAR ===== */
+.topbar{position:sticky; top:0; z-index:50; background:rgba(6,8,10,0.92); backdrop-filter:blur(10px); border-bottom:1px solid var(--line); padding:10px 14px; display:flex; align-items:center; justify-content:space-between;}
+.brand{display:flex; align-items:center; gap:8px;}
+.brand-mark{width:26px; height:26px; border-radius:6px; background:linear-gradient(135deg,var(--green),#00a86b); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; color:#04120c;}
+.brand-name{font-weight:800; font-size:14px; letter-spacing:-0.01em;}
+.brand-sub{font-size:9px; color:var(--txt-low); font-family:var(--mono); letter-spacing:0.04em;}
+.conn-pill{display:flex; align-items:center; gap:6px; font-size:10px; font-family:var(--mono); padding:5px 9px; border-radius:20px; border:1px solid var(--line); background:var(--bg-2);}
+.dot{width:6px; height:6px; border-radius:50%; background:var(--txt-low);}
+.dot.live{background:var(--green); box-shadow:0 0 6px var(--green);}
+.dot.err{background:var(--red); box-shadow:0 0 6px var(--red);}
+
+/* ===== TABS ===== */
+.tabs{display:flex; overflow-x:auto; gap:0; border-bottom:1px solid var(--line); background:var(--bg-1); position:sticky; top:47px; z-index:40;}
+.tab{flex:none; padding:11px 16px; font-size:11px; font-weight:700; color:var(--txt-low); border-bottom:2px solid transparent; white-space:nowrap; letter-spacing:0.02em;}
+.tab.active{color:var(--txt-hi); border-color:var(--green);}
+
+.view{display:none; padding:14px; max-width:640px; margin:0 auto;}
+.view.active{display:block;}
+
+/* ===== CARD ===== */
+.card{background:var(--bg-1); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:12px;}
+.card-h{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+.card-title{font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--txt-mid);}
+.card-title .n{color:var(--txt-hi);}
+
+/* ===== DASHBOARD ===== */
+.stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+.stat-grid.g3{grid-template-columns:1fr 1fr 1fr;}
+.stat{background:var(--bg-2); border:1px solid var(--line-soft); border-radius:8px; padding:10px;}
+.stat-label{font-size:9px; color:var(--txt-low); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;}
+.stat-val{font-family:var(--mono); font-size:17px; font-weight:700;}
+.pos{color:var(--green);} .neg{color:var(--red);} .neu{color:var(--txt-hi);}
+
+.pnl-hero{text-align:center; padding:18px 0 10px;}
+.pnl-hero .label{font-size:10px; color:var(--txt-low); text-transform:uppercase; letter-spacing:0.08em;}
+.pnl-hero .val{font-family:var(--mono); font-size:36px; font-weight:800; margin-top:4px;}
+.pnl-bar{height:5px; background:var(--bg-3); border-radius:3px; overflow:hidden; margin-top:10px; display:flex;}
+.pnl-bar .seg-loss{background:var(--red);} .pnl-bar .seg-profit{background:var(--green);}
+
+/* ===== ENGINES ===== */
+.engine{background:var(--bg-1); border:1px solid var(--line); border-radius:10px; margin-bottom:10px; overflow:hidden;}
+.engine-head{display:flex; align-items:center; justify-content:space-between; padding:12px 14px; cursor:pointer;}
+.engine-id{display:flex; align-items:center; gap:10px;}
+.engine-badge{width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800; font-family:var(--mono); flex:none;}
+.engine-name{font-size:13px; font-weight:700;}
+.engine-sub{font-size:10px; color:var(--txt-low); font-family:var(--mono); margin-top:1px;}
+.toggle{width:40px; height:22px; border-radius:12px; background:var(--bg-3); border:1px solid var(--line); position:relative; flex:none; transition:.15s;}
+.toggle.on{background:var(--green-dim); border-color:var(--green);}
+.toggle::after{content:''; position:absolute; width:16px; height:16px; border-radius:50%; background:var(--txt-low); top:2px; left:2px; transition:.15s;}
+.toggle.on::after{background:var(--green); left:20px;}
+.engine-body{padding:0 14px 14px; border-top:1px solid var(--line-soft); display:none;}
+.engine-body.open{display:block; padding-top:12px;}
+.row2{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;}
+.row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:8px;}
+.mini-stats{display:flex; gap:14px; font-family:var(--mono); font-size:10.5px; color:var(--txt-mid); margin-top:8px; flex-wrap:wrap;}
+.mini-stats b{color:var(--txt-hi);}
+.digit-grid{display:grid; grid-template-columns:repeat(10,1fr); gap:3px; margin:10px 0;}
+.digit-cell{aspect-ratio:1; background:var(--bg-2); border-radius:5px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-family:var(--mono); font-size:9px; border:1px solid var(--line-soft);}
+.digit-cell .d{font-size:11px; font-weight:700; color:var(--txt-hi);}
+.digit-cell .p{color:var(--txt-low); font-size:8px;}
+.digit-cell.hot{border-color:var(--red); background:var(--red-dim);}
+.digit-cell.cold{border-color:var(--blue); background:#0a1f30;}
+
+.btn{border:1px solid var(--line); background:var(--bg-2); color:var(--txt-hi); border-radius:7px; padding:9px 12px; font-size:11.5px; font-weight:700; text-align:center;}
+.btn.primary{background:var(--green); border-color:var(--green); color:#04120c;}
+.btn.danger{background:var(--red-dim); border-color:var(--red); color:var(--red);}
+.btn.ghost{background:transparent;}
+.btn.full{width:100%;}
+.btn:active{opacity:0.75;}
+.btn-row{display:flex; gap:8px;}
+
+.badge{font-size:9px; font-family:var(--mono); padding:2px 7px; border-radius:10px; border:1px solid var(--line); color:var(--txt-mid);}
+.badge.run{border-color:var(--green); color:var(--green);}
+.badge.paused{border-color:var(--amber); color:var(--amber);}
+.badge.halt{border-color:var(--red); color:var(--red);}
+
+/* ===== LOG ===== */
+.log-box{background:#000; border:1px solid var(--line); border-radius:8px; padding:10px; height:340px; overflow-y:auto; font-family:var(--mono); font-size:10.5px; line-height:1.6;}
+.log-line{white-space:pre-wrap; word-break:break-all; border-bottom:1px solid #101418; padding:3px 0;}
+.log-line .ts{color:var(--txt-low);}
+.log-line.INFO .lvl{color:var(--blue);}
+.log-line.TRADE .lvl{color:var(--green);}
+.log-line.WARN .lvl{color:var(--amber);}
+.log-line.ERROR .lvl{color:var(--red);}
+.log-line.SYS .lvl{color:var(--violet);}
+
+/* ===== TRADE LOG TABLE ===== */
+.tlog{width:100%; border-collapse:collapse; font-family:var(--mono); font-size:11px;}
+.tlog th{text-align:left; font-size:9px; text-transform:uppercase; color:var(--txt-low); padding:6px 6px; border-bottom:1px solid var(--line); letter-spacing:0.04em;}
+.tlog td{padding:7px 6px; border-bottom:1px solid var(--line-soft);}
+.tlog tr:last-child td{border-bottom:none;}
+
+/* ===== BOTTOM NAV ===== */
+.bottomnav{position:fixed; bottom:0; left:0; right:0; background:rgba(10,14,18,0.96); backdrop-filter:blur(10px); border-top:1px solid var(--line); display:flex; z-index:60;}
+.bn-item{flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; padding:9px 0 8px; color:var(--txt-low); font-size:9px; font-weight:700; letter-spacing:0.02em;}
+.bn-item.active{color:var(--green);}
+.bn-icon{font-size:16px; line-height:1;}
+
+/* master controls */
+.master-strip{display:flex; gap:8px; padding:10px 14px; background:var(--bg-1); border-bottom:1px solid var(--line); position:sticky; top:87px; z-index:39;}
+
+/* switch small */
+.chk{display:flex; align-items:center; gap:8px; padding:8px 0;}
+.chk .toggle{margin-left:auto;}
+
+.help{font-size:10px; color:var(--txt-low); margin-top:4px; line-height:1.5;}
+.divider{height:1px; background:var(--line-soft); margin:12px 0;}
+.section-note{font-size:10.5px; color:var(--txt-low); background:var(--bg-2); border:1px solid var(--line-soft); border-radius:7px; padding:8px 10px; margin-bottom:10px; line-height:1.5;}
+.section-note b{color:var(--txt-mid);}
+
+.modal-bg{position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100; display:none; align-items:flex-end; justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--bg-1); border:1px solid var(--line); border-radius:14px 14px 0 0; padding:18px; width:100%; max-width:640px; max-height:80vh; overflow-y:auto;}
+.modal h3{font-size:15px; margin-bottom:6px;}
+.modal p{font-size:12px; color:var(--txt-mid); line-height:1.6; margin-bottom:14px;}
+
+.gate{position:fixed; inset:0; background:var(--bg-0); z-index:200; display:none; align-items:center; justify-content:center; padding:24px;}
+.gate.open{display:flex;}
+.gate-card{max-width:380px; text-align:center;}
+.gate-card .icon{font-size:38px; margin-bottom:14px;}
+.gate-card h2{font-size:18px; margin-bottom:8px;}
+.gate-card p{font-size:12.5px; color:var(--txt-mid); line-height:1.6; margin-bottom:20px;}
+</style>
+</head>
+<body>
+
+<!-- ============ REAL MONEY CONFIRMATION GATE ============ -->
+<div class="gate" id="realGate">
+  <div class="gate-card">
+    <div class="icon">⚠️</div>
+    <h2>Real-Money Trading</h2>
+    <p>You're switching to a <b style="color:var(--red)">REAL</b> account. Trades placed here use actual funds. Engines will execute live buys according to the parameters you've configured. Confirm you understand the risk before continuing.</p>
+    <div class="btn-row">
+      <button class="btn full ghost" onclick="cancelRealSwitch()">Cancel</button>
+      <button class="btn full danger" onclick="confirmRealSwitch()">I Understand — Enable Real</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TOP BAR ============ -->
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark">SX</div>
+    <div>
+      <div class="brand-name">SmartXtrader MVP</div>
+      <div class="brand-sub" id="acctLabel">DISCONNECTED</div>
+    </div>
+  </div>
+  <div class="conn-pill" id="connPill" onclick="showView('connect')">
+    <div class="dot" id="connDot"></div>
+    <span id="connText">Connect</span>
+  </div>
+</div>
+
+<div class="tabs" id="tabBar">
+  <div class="tab active" data-tab="dashboard" onclick="showView('dashboard')">Dashboard</div>
+  <div class="tab" data-tab="engines" onclick="showView('engines')">Engines</div>
+  <div class="tab" data-tab="risk" onclick="showView('risk')">Risk / Martingale</div>
+  <div class="tab" data-tab="trades" onclick="showView('trades')">Trade Log</div>
+  <div class="tab" data-tab="logs" onclick="showView('logs')">System Logs</div>
+  <div class="tab" data-tab="connect" onclick="showView('connect')">Connection</div>
+</div>
+
+<!-- ============ DASHBOARD VIEW ============ -->
+<div class="view active" id="view-dashboard">
+
+  <div class="card">
+    <div class="pnl-hero">
+      <div class="label">Session P&amp;L</div>
+      <div class="val" id="dashPnl">$0.00</div>
+      <div class="pnl-bar"><div class="seg-loss" id="pnlBarLoss" style="width:0%"></div><div class="seg-profit" id="pnlBarProfit" style="width:0%"></div></div>
+    </div>
+    <div class="stat-grid g3">
+      <div class="stat"><div class="stat-label">Wins</div><div class="stat-val pos" id="statWins">0</div></div>
+      <div class="stat"><div class="stat-label">Losses</div><div class="stat-val neg" id="statLosses">0</div></div>
+      <div class="stat"><div class="stat-label">Win Rate</div><div class="stat-val neu" id="statWinRate">0%</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Lifetime P&amp;L <span class="n">(persists across auto-restart cycles)</span></div></div>
+    <div class="stat-grid g3">
+      <div class="stat"><div class="stat-label">Lifetime P&amp;L</div><div class="stat-val" id="statLifetimePnl">$0.00</div></div>
+      <div class="stat"><div class="stat-label">Cycles Completed</div><div class="stat-val neu" id="statCycles">0</div></div>
+      <div class="stat"><div class="stat-label">Lifetime Trades</div><div class="stat-val neu" id="statLifetimeTrades">0</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Account Stats</div><span class="badge" id="acctTypeBadge">—</span></div>
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-label">Balance</div><div class="stat-val neu" id="statBalance">—</div></div>
+      <div class="stat"><div class="stat-label">Currency</div><div class="stat-val neu" id="statCurrency">—</div></div>
+      <div class="stat"><div class="stat-label">Account ID</div><div class="stat-val neu" id="statAcctId" style="font-size:12px;">—</div></div>
+      <div class="stat"><div class="stat-label">Status</div><div class="stat-val neu" id="statAcctStatus">—</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Trade Stats</div></div>
+    <div class="stat-grid g3">
+      <div class="stat"><div class="stat-label">Total Trades</div><div class="stat-val neu" id="statTotalTrades">0</div></div>
+      <div class="stat"><div class="stat-label">Cons. Losses</div><div class="stat-val neu" id="statConsLoss">0</div></div>
+      <div class="stat"><div class="stat-label">Cons. Wins</div><div class="stat-val neu" id="statConsWin">0</div></div>
+      <div class="stat"><div class="stat-label">Avg Stake</div><div class="stat-val neu" id="statAvgStake">$0.00</div></div>
+      <div class="stat"><div class="stat-label">Best Trade</div><div class="stat-val pos" id="statBest">$0.00</div></div>
+      <div class="stat"><div class="stat-label">Worst Trade</div><div class="stat-val neg" id="statWorst">$0.00</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Global Controls</div></div>
+    <div class="btn-row" style="margin-bottom:8px;">
+      <button class="btn full primary" id="masterStartBtn" onclick="masterStart()">▶ Start Enabled Engines</button>
+      <button class="btn full danger" id="masterStopBtn" onclick="masterStop()">■ Stop All</button>
+    </div>
+    <button class="btn full ghost" onclick="openResetModal()">↺ Reset Session (logs, stats, dashboard)</button>
+  </div>
+
+  <div class="section-note"><b>Status:</b> <span id="riskStatusLine">All systems nominal. No limits triggered.</span></div>
+</div>
+
+<!-- ============ ENGINES VIEW ============ -->
+<div class="view" id="view-engines">
+  <div class="section-note">5 engines derived from uploaded XML bot strategies. Each has independent trade parameters and P&amp;L limits, and shares the global Risk / Martingale rules unless overridden.</div>
+  <div id="engineList"></div>
+</div>
+
+<!-- ============ RISK / MARTINGALE VIEW ============ -->
+<div class="view" id="view-risk">
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Smart Martingale Parameters</div></div>
+    <div class="section-note">Applied on consecutive loss. Stake resets to base after a win (or after Max Steps is hit, per Recovery Mode).</div>
+    <div class="row2">
+      <div><label>Multiplier (x)</label><input type="number" step="0.1" min="1" id="mgMultiplier" value="2.1"></div>
+      <div><label>Max Steps</label><input type="number" min="1" id="mgMaxSteps" value="6"></div>
+    </div>
+    <div class="row2">
+      <div><label>Base Stake ($)</label><input type="number" step="0.01" min="0.35" id="mgBaseStake" value="0.35"></div>
+      <div><label>Recovery Mode</label>
+        <select id="mgRecoveryMode">
+          <option value="classic">Classic (stake × mult)</option>
+          <option value="dalembert">D'Alembert (stake + base)</option>
+          <option value="fixed_recovery">Fixed Recovery Target</option>
+        </select>
+      </div>
+    </div>
+    <div class="chk"><span>Reset stake to base after any win</span><div class="toggle on" id="mgResetOnWin" onclick="toggleEl(this)"></div></div>
+    <div class="chk"><span>Halt engine after Max Steps reached (instead of resetting)</span><div class="toggle" id="mgHaltOnMax" onclick="toggleEl(this)"></div></div>
+    <div class="help" id="mgPreview">Preview: 0.35 → 0.74 → 1.55 → 3.26 → 6.85 → 14.39 → 30.22</div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Trade Parameters (Global Defaults)</div></div>
+    <div class="row2">
+      <div><label>Default Duration</label><input type="number" min="1" id="tpDuration" value="1"></div>
+      <div><label>Duration Unit</label>
+        <select id="tpDurationUnit"><option value="t">Ticks</option><option value="s">Seconds</option><option value="m">Minutes</option></select>
+      </div>
+    </div>
+    <div class="row2">
+      <div><label>Currency</label><input type="text" id="tpCurrency" value="USD" disabled></div>
+      <div><label>Basis</label><select id="tpBasis"><option value="stake">Stake</option><option value="payout">Payout</option></select></div>
+    </div>
+    <div class="chk"><span>Require price re-confirmation before buy (proposal re-check)</span><div class="toggle on" id="tpReconfirm" onclick="toggleEl(this)"></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Profit &amp; Loss Parameters — Per Trade</div></div>
+    <div class="row2">
+      <div><label>Max Stake / Trade ($)</label><input type="number" step="0.01" id="plMaxStakeTrade" value="50"></div>
+      <div><label>Min Payout Ratio (%)</label><input type="number" step="1" id="plMinPayout" value="60"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Profit &amp; Loss Parameters — Session</div></div>
+    <div class="row2">
+      <div><label>Take Profit ($)</label><input type="number" step="0.01" id="plTakeProfit" value="20"></div>
+      <div><label>Stop Loss ($)</label><input type="number" step="0.01" id="plStopLoss" value="30"></div>
+    </div>
+    <div class="chk"><span>Auto-stop all engines when SL hit (TP behavior set below)</span><div class="toggle on" id="plAutoStop" onclick="toggleEl(this)"></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Auto-Reset &amp; Auto-Restart</div></div>
+    <div class="section-note">When enabled, hitting Session Take Profit — or any engine's own Target Profit — banks the result to <b>Lifetime P&amp;L</b>, resets that scope's counters, and resumes trading immediately toward the next Take Profit. Stop Loss / Max Consecutive Losses / Max Runs / Max Daily Loss remain hard safety halts and always require a manual Reset, regardless of this setting.</div>
+    <div class="chk"><span>Auto-Reset &amp; Auto-Restart on Take Profit (session + per-engine)</span><div class="toggle on" id="rpAutoRestartOnTP" onclick="toggleEl(this)"></div></div>
+    <div><label>Restart Delay After Cycle (sec) — 0 = instant</label><input type="number" min="0" id="rpAutoRestartCooldown" value="0"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Risk Parameters</div></div>
+    <div class="row2">
+      <div><label>Max Consecutive Losses</label><input type="number" min="1" id="rpMaxConsLoss" value="8"></div>
+      <div><label>Max Runs (trades) / Session</label><input type="number" min="1" id="rpMaxRuns" value="200"></div>
+    </div>
+    <div class="row2">
+      <div><label>Max Daily Loss ($)</label><input type="number" step="0.01" id="rpMaxDailyLoss" value="50"></div>
+      <div><label>Cooldown After Halt (sec)</label><input type="number" min="0" id="rpCooldown" value="0"></div>
+    </div>
+    <div class="chk"><span>Require real-account confirmation gate</span><div class="toggle on" id="rpRealGate" disabled onclick="return false;"></div></div>
+    <div class="help">Real-account gate is enforced and cannot be disabled.</div>
+  </div>
+
+  <button class="btn full primary" onclick="applyGlobalParams()">✓ Apply &amp; Enforce Parameters</button>
+</div>
+
+<!-- ============ TRADE LOG VIEW ============ -->
+<div class="view" id="view-trades">
+  <div class="card" style="padding:0; overflow-x:auto;">
+    <div style="padding:14px 14px 0;"><div class="card-title">Trade Log <span class="n" id="tradeCount">(0)</span></div></div>
+    <div style="overflow-x:auto;">
+    <table class="tlog">
+      <thead><tr><th>Time</th><th>Engine</th><th>Type</th><th>Stake</th><th>Result</th><th>P&amp;L</th></tr></thead>
+      <tbody id="tradeTableBody"></tbody>
+    </table>
+    </div>
+    <div style="padding:12px 14px;"><div class="section-note" id="noTradesNote">No trades yet this session.</div></div>
+  </div>
+</div>
+
+<!-- ============ SYSTEM LOGS VIEW ============ -->
+<div class="view" id="view-logs">
+  <div class="card">
+    <div class="card-h">
+      <div class="card-title">System Logs</div>
+      <button class="btn ghost" onclick="clearLogsOnly()">Clear</button>
+    </div>
+    <div class="log-box" id="logBox"></div>
+  </div>
+</div>
+
+<!-- ============ CONNECTION VIEW ============ -->
+<div class="view" id="view-connect">
+  <div class="card">
+    <div class="card-h"><div class="card-title">Deriv API Connection</div></div>
+    <label>Deriv-App-ID</label>
+    <input type="text" id="cfgAppId" placeholder="e.g. 99999" style="margin-bottom:8px;">
+    <label>Authorization Token (PAT or OAuth)</label>
+    <input type="password" id="cfgToken" placeholder="Bearer token" style="margin-bottom:8px;">
+    <label>Account Type</label>
+    <select id="cfgAcctType" style="margin-bottom:8px;">
+      <option value="demo">Demo</option>
+      <option value="real">Real</option>
+    </select>
+    <div class="btn-row">
+      <button class="btn full primary" onclick="connectDeriv()">Connect</button>
+      <button class="btn full danger" onclick="disconnectDeriv()">Disconnect</button>
+    </div>
+    <div class="help" style="margin-top:10px;">Auth flow: GET/POST /trading/v1/options/accounts → POST /accounts/{id}/otp → WebSocket connect immediately using the returned URL. Tokens are never logged. Switching to Real requires an explicit confirmation gate.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Connection Diagnostics</div></div>
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-label">WS State</div><div class="stat-val neu" id="diagWs">CLOSED</div></div>
+      <div class="stat"><div class="stat-label">Last OTP</div><div class="stat-val neu" id="diagOtp">—</div></div>
+      <div class="stat"><div class="stat-label">Latency</div><div class="stat-val neu" id="diagLatency">—</div></div>
+      <div class="stat"><div class="stat-label">Reconnects</div><div class="stat-val neu" id="diagReconnects">0</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ RESET CONFIRM MODAL ============ -->
+<div class="modal-bg" id="resetModal">
+  <div class="modal">
+    <h3>Reset Session?</h3>
+    <p>This clears trade logs, dashboard stats, P&amp;L, and consecutive win/loss counters. Live connections and any currently open contracts are preserved. This cannot be undone.</p>
+    <div class="chk"><span>Also reset Lifetime P&amp;L / Cycles Completed</span><div class="toggle" id="resetIncludesLifetime" onclick="toggleEl(this)"></div></div>
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn full ghost" onclick="closeResetModal()">Cancel</button>
+      <button class="btn full danger" onclick="doReset()">Reset Session</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ BOTTOM NAV ============ -->
+<div class="bottomnav">
+  <div class="bn-item active" data-nav="dashboard" onclick="showView('dashboard')"><div class="bn-icon">◧</div>Dashboard</div>
+  <div class="bn-item" data-nav="engines" onclick="showView('engines')"><div class="bn-icon">⚙</div>Engines</div>
+  <div class="bn-item" data-nav="risk" onclick="showView('risk')"><div class="bn-icon">Δ</div>Risk</div>
+  <div class="bn-item" data-nav="trades" onclick="showView('trades')"><div class="bn-icon">≡</div>Trades</div>
+  <div class="bn-item" data-nav="logs" onclick="showView('logs')"><div class="bn-icon">▤</div>Logs</div>
+</div>
+
+<script>
+/* ============================================================
+   SmartXtrader MVP — Deriv Multi-Engine Trading Terminal
+   Engines derived from uploaded XML bots:
+     1. VOLT-PRO      (MASTER_VOLT_PRO.xml)        DIGITUNDER  1HZ75V
+     2. DIGIT-DIFF    (LEAST_DIGIT_DIFFERS.xml)    DIGITDIFF   R_10
+     3. OVER-SEQ      (OVER_2_SEQUENCE.xml)        DIGITOVER   R_50
+     4. OVER-RECOVERY (OVER_2_RECOVERY_OVER_4.xml) DIGITOVER   R_100
+     5. AZTEC-TECHNIC (ΛZTΞC_TECHNIC_BOT.xml)      CALL/PUT    1HZ30V
+   Single-file, browser-only, no backend. Deriv API v3 patterns enforced
+   per project knowledge base (auth, proposal one-shot, barrier.toFixed(2), etc).
+============================================================ */
+
+/* ---------- Utility ---------- */
+const $ = id => document.getElementById(id);
+const fmt = n => { n = Number(n)||0; return (n>=0?'+':'-') + '$' + Math.abs(n).toFixed(2); };
+const money = n => { n = Number(n)||0; return '$' + n.toFixed(2); };
+function nowTs(){ const d=new Date(); return d.toTimeString().split(' ')[0]; }
+
+/* ---------- Global State ---------- */
+const STATE = {
+  ws: null, wsUrl: null, connected: false, appId:'', token:'', accountType:'demo',
+  account: { id:null, balance:0, currency:'USD', status:'—' },
+  reqId: 0, pending: new Map(), subs: new Map(),
+  reconnects: 0,
+  session: { pnl:0, wins:0, losses:0, totalTrades:0, consLoss:0, consWin:0, maxConsLoss:0,
+             bestTrade:0, worstTrade:0, stakeSum:0, halted:false, haltReason:null },
+  lifetime: { pnl:0, wins:0, losses:0, totalTrades:0, cycles:0 }, // persists across auto-restart cycles and manual session resets
+  trades: [], // {time, engine, type, stake, result, pnl}
+  globalParams: null,
+  tickHistories: {}, // symbol -> array of last digits / prices
+  activeSymbolSubs: new Set(),
+  cycleInProgress: false, // mutex: prevents overlapping auto-cycle triggers
+};
+
+const GLOBAL_DEFAULTS = {
+  mgMultiplier:2.1, mgMaxSteps:6, mgBaseStake:0.35, mgRecoveryMode:'classic',
+  mgResetOnWin:true, mgHaltOnMax:false,
+  tpDuration:1, tpDurationUnit:'t', tpBasis:'stake', tpReconfirm:true,
+  plMaxStakeTrade:50, plMinPayout:60,
+  plTakeProfit:20, plStopLoss:30, plAutoStop:true,
+  rpMaxConsLoss:8, rpMaxRuns:200, rpMaxDailyLoss:50, rpCooldown:0,
+  rpAutoRestartOnTP:true, rpAutoRestartCooldown:0
+};
+STATE.globalParams = {...GLOBAL_DEFAULTS};
+
+/* ---------- Logging ---------- */
+function log(level, msg){
+  const box = $('logBox');
+  const line = document.createElement('div');
+  line.className = 'log-line ' + level;
+  line.innerHTML = `<span class="ts">[${nowTs()}]</span> <span class="lvl">${level.padEnd(5)}</span> ${escapeHtml(msg)}`;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+  while(box.children.length > 500) box.removeChild(box.firstChild);
+}
+function escapeHtml(s){ return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function clearLogsOnly(){ $('logBox').innerHTML=''; log('SYS','Log view cleared.'); }
+
+/* ---------- View / Nav ---------- */
+function showView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  $('view-'+name).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
+  document.querySelectorAll('.bn-item').forEach(t=>t.classList.toggle('active', t.dataset.nav===name));
+}
+function toggleEl(el){ el.classList.toggle('on'); }
+
+/* ============================================================
+   DERIV CONNECTION LAYER
+============================================================ */
+async function connectDeriv(){
+  const appId = $('cfgAppId').value.trim();
+  const token = $('cfgToken').value.trim();
+  const acctType = $('cfgAcctType').value;
+
+  if(!appId || !token){ log('ERROR','App ID and Token are required to connect.'); return; }
+
+  if(acctType === 'real' && !STATE.realConfirmed){
+    STATE._pendingConnect = {appId, token, acctType};
+    $('realGate').classList.add('open');
+    return;
+  }
+
+  STATE.appId = appId; STATE.token = token; STATE.accountType = acctType;
+  await doConnectFlow();
+}
+function confirmRealSwitch(){
+  STATE.realConfirmed = true;
+  $('realGate').classList.remove('open');
+  if(STATE._pendingConnect){
+    STATE.appId = STATE._pendingConnect.appId;
+    STATE.token = STATE._pendingConnect.token;
+    STATE.accountType = STATE._pendingConnect.acctType;
+    doConnectFlow();
+  }
+}
+function cancelRealSwitch(){
+  $('realGate').classList.remove('open');
+  $('cfgAcctType').value = 'demo';
+  STATE._pendingConnect = null;
+}
+
+async function doConnectFlow(){
+  setConnPill('connecting');
+  log('INFO', `Requesting accounts list (Deriv-App-ID: ${STATE.appId})...`);
+  try {
+    // NOTE: In a live deployment this hits https://api.derivws.com.
+    // REST calls are wrapped defensively since browser-only apps may hit CORS
+    // depending on Deriv app configuration; failures fall back to guidance in logs.
+    const headers = { 'Authorization': `Bearer ${STATE.token}`, 'Deriv-App-ID': STATE.appId };
+
+    let accounts = await restCall('GET', '/trading/v1/options/accounts', headers);
+    let account = (accounts.data && accounts.data.find(a=>a.account_type===STATE.accountType)) || null;
+
+    if(!account){
+      log('INFO', `No existing ${STATE.accountType} account found — creating one...`);
+      const createRes = await restCall('POST', '/trading/v1/options/accounts', {...headers,'Content-Type':'application/json'},
+        { currency:'USD', group:'row', account_type: STATE.accountType });
+      account = Array.isArray(createRes.data) ? createRes.data[0] : createRes.data;
+    }
+
+    STATE.account.id = account.account_id;
+    STATE.account.balance = Number(account.balance) || 0;
+    STATE.account.currency = account.currency;
+    STATE.account.status = account.status;
+    log('INFO', `Account ready: ${account.account_id} (${account.account_type}) — ${money(account.balance)} ${account.currency}`);
+
+    log('INFO', 'Requesting OTP for WebSocket auth...');
+    const otpRes = await restCall('POST', `/trading/v1/options/accounts/${account.account_id}/otp`, headers);
+    const wsUrl = otpRes.data.url;
+    $('diagOtp').textContent = 'issued ' + nowTs();
+    log('INFO', 'OTP received — connecting WebSocket immediately.');
+
+    openWebSocket(wsUrl);
+  } catch(err){
+    log('ERROR', 'Connection failed: ' + err.message + ' — check network settings / App ID / token.');
+    setConnPill('error');
+    // If this happened during an auto-reconnect (wsUrl was already established once),
+    // keep retrying with exponential backoff rather than giving up silently.
+    if(STATE.wsUrl || STATE._everConnected){
+      scheduleReconnect();
+    }
+  }
+}
+
+async function restCall(method, path, headers, body){
+  const opts = { method, headers };
+  if(body) opts.body = JSON.stringify(body);
+  const res = await fetch('https://api.derivws.com'+path, opts);
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok){
+    const msg = data.errors?.[0]?.message || `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data;
+}
+
+function openWebSocket(url){
+  STATE.wsUrl = url;
+  try{
+    const ws = new WebSocket(url);
+    STATE.ws = ws;
+    $('diagWs').textContent = 'CONNECTING';
+
+    ws.onopen = () => {
+      STATE.connected = true;
+      STATE._everConnected = true;
+      STATE.reconnects = 0; // successful connect resets backoff counter
+      $('diagWs').textContent = 'OPEN';
+      setConnPill('live');
+      log('INFO', 'WebSocket connected. Subscribing to balance...');
+      wsSend({ balance: 1, subscribe: 1 });
+      // Validate tradable symbols before subscribing/trading — avoids retry-spamming
+      // engines against assets the account/session doesn't currently offer.
+      const asRid = wsSend({ active_symbols: 'brief' });
+      if(asRid != null) STATE.activeSymbolsReqId = asRid;
+      // Keepalive ping every 30s to prevent idle-timeout disconnects
+      if(STATE.pingInterval) clearInterval(STATE.pingInterval);
+      STATE.pingInterval = setInterval(()=>{
+        if(STATE.ws && STATE.ws.readyState === 1) wsSend({ ping: 1 });
+      }, 30000);
+    };
+    ws.onmessage = (evt) => {
+      let data; try{ data = JSON.parse(evt.data); } catch(e){ return; }
+      routeMessage(data);
+    };
+    ws.onerror = () => {
+      log('ERROR', 'WebSocket error encountered.');
+      setConnPill('error');
+    };
+    ws.onclose = () => {
+      STATE.connected = false;
+      $('diagWs').textContent = 'CLOSED';
+      setConnPill('closed');
+      if(STATE.pingInterval){ clearInterval(STATE.pingInterval); STATE.pingInterval = null; }
+      log('WARN', 'WebSocket disconnected — scheduling reconnect (backoff).');
+      scheduleReconnect();
+    };
+  } catch(err){
+    log('ERROR', 'Failed to open WebSocket: ' + err.message);
+  }
+}
+
+function scheduleReconnect(){
+  if(!STATE.wsUrl) return;
+  STATE.reconnects++;
+  $('diagReconnects').textContent = STATE.reconnects;
+  const delay = Math.min(1000 * Math.pow(2, Math.min(STATE.reconnects,5)), 30000);
+  setTimeout(()=>{
+    if(!STATE.connected && STATE.appId && STATE.token){
+      log('INFO','Re-requesting fresh OTP before reconnect (OTPs are short-lived)...');
+      doConnectFlow();
+    }
+  }, delay);
+}
+
+function disconnectDeriv(){
+  STATE.wsUrl = null;
+  if(STATE.ws) STATE.ws.close();
+  STATE.connected = false;
+  setConnPill('closed');
+  log('SYS', 'Disconnected by user.');
+}
+
+function setConnPill(state){
+  const dot = $('connDot'), txt = $('connText');
+  dot.className = 'dot';
+  if(state==='live'){ dot.classList.add('live'); txt.textContent = STATE.accountType.toUpperCase(); $('acctLabel').textContent = STATE.account.id + ' · ' + STATE.accountType.toUpperCase(); $('acctTypeBadge').textContent = STATE.accountType.toUpperCase(); $('acctTypeBadge').className = 'badge ' + (STATE.accountType==='real'?'halt':'run'); }
+  else if(state==='error'){ dot.classList.add('err'); txt.textContent = 'Error'; }
+  else if(state==='connecting'){ txt.textContent = 'Connecting…'; }
+  else { txt.textContent = 'Connect'; $('acctLabel').textContent = 'DISCONNECTED'; }
+}
+
+let reqCounter = 0;
+function nextReqId(){ return ++reqCounter; }
+function wsSend(cmd){
+  if(!STATE.ws || STATE.ws.readyState !== 1){ log('WARN','WS not open — dropped command: '+JSON.stringify(cmd)); return null; }
+  const req_id = nextReqId();
+  STATE.ws.send(JSON.stringify({...cmd, req_id}));
+  return req_id;
+}
+
+function subscribeTicks(symbol){
+  if(STATE.activeSymbolSubs.has(symbol)) return;
+  STATE.activeSymbolSubs.add(symbol);
+  STATE.tickHistories[symbol] = STATE.tickHistories[symbol] || [];
+  wsSend({ ticks: symbol, subscribe: 1 });
+  log('INFO', `Subscribed to tick stream: ${symbol}`);
+}
+
+function routeMessage(data){
+  if(data.error){
+    log('ERROR', `[${data.error.code}] ${data.error.message}`);
+    const ctx = data.req_id != null ? STATE.pending.get(data.req_id) : null;
+    if(ctx && ctx.engine){
+      ctx.engine.pendingProposal = false;
+      STATE.pending.delete(data.req_id);
+      if(data.error.code === 'InvalidInputAsset'){
+        ctx.engine.enabled = false; ctx.engine.running = false; ctx.engine.status = 'halted';
+        log('WARN', `[${ctx.engine.name}] Symbol ${ctx.engine.symbol} is not tradable on this account/session — engine disabled automatically.`);
+        renderEngines();
+      }
+    } else {
+      // Unmatched error (e.g. stale request) — clear all pending flags defensively
+      ENGINES.forEach(e=>{ if(e.pendingProposal) e.pendingProposal=false; });
+    }
+    return;
+  }
+  switch(data.msg_type){
+    case 'balance':
+      STATE.account.balance = Number(data.balance.balance) || 0;
+      STATE.account.currency = data.balance.currency;
+      renderAccountStats();
+      break;
+    case 'active_symbols':
+      onActiveSymbols(data.active_symbols);
+      break;
+    case 'tick':
+      onTick(data.tick);
+      break;
+    case 'proposal':
+      onProposal(data.proposal, data.req_id);
+      break;
+    case 'buy':
+      onBuy(data.buy);
+      break;
+    case 'proposal_open_contract':
+      onOpenContract(data.proposal_open_contract);
+      break;
+  }
+}
+
+function onActiveSymbols(list){
+  const tradable = new Set((list||[]).filter(s=>s.exchange_is_open !== 0).map(s=>s.symbol));
+  log('INFO', `Active symbols received (${tradable.size} tradable). Validating engine symbols...`);
+  ENGINES.forEach(e=>{
+    if(!tradable.has(e.symbol)){
+      e.enabled = false; e.running = false; e.status = 'halted';
+      log('WARN', `[${e.name}] Symbol ${e.symbol} not found in active_symbols — engine disabled. Verify the symbol code for your account/region.`);
+    } else if(e.enabled){
+      subscribeTicks(e.symbol);
+    }
+  });
+  renderEngines();
+}
+
+/* ============================================================
+   ENGINE DEFINITIONS  (derived from uploaded XML strategies)
+============================================================ */
+class Engine {
+  constructor(cfg){
+    Object.assign(this, cfg);
+    this.enabled = false;
+    this.running = false;
+    this.currentStake = this.baseStake;
+    this.consLoss = 0;
+    this.stepIndex = 0;
+    this.pnl = 0;
+    this.runs = 0;
+    this.wins = 0; this.losses = 0;
+    this.pendingProposal = false;
+    this.lastProposal = null;
+    this.digitStats = new Array(10).fill(0);
+    this.status = 'idle'; // idle | running | paused | halted
+    this.lastSignalReason = '';
+    this.lifetimePnl = 0;
+    this.cycles = 0;
+  }
+  digits(){ return STATE.tickHistories[this.symbol] || []; }
+  updateDigitStats(){
+    const h = this.digits().slice(-100);
+    const counts = new Array(10).fill(0);
+    h.forEach(d=>counts[d]++);
+    this.digitStats = counts.map(c => h.length ? (c/h.length*100) : 0);
+  }
+  effectiveStake(){
+    const gp = STATE.globalParams;
+    if(this.consLoss === 0) return this.baseStake;
+    if(gp.mgRecoveryMode === 'dalembert') return +(this.baseStake * (1+this.consLoss)).toFixed(2);
+    if(gp.mgRecoveryMode === 'fixed_recovery') return +(this.currentStake).toFixed(2); // handled at loss-time
+    // classic
+    let s = this.baseStake;
+    for(let i=0;i<this.consLoss;i++) s *= gp.mgMultiplier;
+    return +s.toFixed(2);
+  }
+  reset(){
+    this.currentStake = this.baseStake; this.consLoss = 0; this.stepIndex = 0;
+    this.pnl = 0; this.runs = 0; this.wins = 0; this.losses = 0; this.status = this.enabled ? 'running':'idle';
+  }
+}
+
+/* Contract-type specific signal generators, translated from each XML bot's core logic */
+const SIGNAL_FN = {
+  // MASTER_VOLT_PRO: DIGITUNDER on 1HZ75V, prediction digit, analysis% threshold
+  voltpro(engine){
+    engine.updateDigitStats();
+    const h = engine.digits();
+    if(h.length < 25) return null;
+    const pred = engine.params.prediction;
+    const underProb = engine.digitStats.slice(0, pred).reduce((a,b)=>a+b,0);
+    if(underProb >= engine.params.analysisThreshold){
+      engine.lastSignalReason = `Under(${pred}) prob ${underProb.toFixed(1)}% ≥ threshold ${engine.params.analysisThreshold}%`;
+      return { contract_type:'DIGITUNDER', barrier: String(pred) };
+    }
+    return null;
+  },
+  // LEAST_DIGIT_DIFFERS: DIGITDIFF on R_10, pick least-frequent digit as prediction
+  digitdiff(engine){
+    engine.updateDigitStats();
+    const h = engine.digits();
+    if(h.length < 25) return null;
+    let minIdx = 0;
+    for(let i=1;i<10;i++) if(engine.digitStats[i] < engine.digitStats[minIdx]) minIdx = i;
+    engine.lastSignalReason = `Least frequent digit=${minIdx} (${engine.digitStats[minIdx].toFixed(1)}%) selected as DIFFERS prediction`;
+    return { contract_type:'DIGITDIFF', barrier: String(minIdx) };
+  },
+  // OVER_2_SEQUENCE: DIGITOVER on R_50, sequential fixed prediction with martingale progression
+  overseq(engine){
+    const h = engine.digits();
+    if(h.length < 10) return null;
+    engine.lastSignalReason = `Sequential OVER(${engine.params.prediction}) entry`;
+    return { contract_type:'DIGITOVER', barrier: String(engine.params.prediction) };
+  },
+  // OVER_2_RECOVERY_OVER_4: DIGITOVER on R_100, switches prediction after loss (recovery prediction)
+  overrecovery(engine){
+    const h = engine.digits();
+    if(h.length < 10) return null;
+    const pred = engine.consLoss > 0 ? engine.params.recoveryPrediction : engine.params.initialPrediction;
+    engine.lastSignalReason = `${engine.consLoss>0?'Recovery':'Initial'} OVER(${pred}) entry`;
+    return { contract_type:'DIGITOVER', barrier: String(pred) };
+  },
+  // AZTEC_TECHNIC: CALL/PUT on 1HZ30V using EMA/SMA/RSI/BB confluence
+  aztec(engine){
+    const h = STATE.tickHistories[engine.symbol+'_price'] || [];
+    if(h.length < 30) return null;
+    const ema = emaCalc(h, 10);
+    const sma = smaCalc(h, 20);
+    const rsi = rsiCalc(h, 14);
+    if(ema == null || sma == null || rsi == null) return null;
+    if(ema > sma && rsi < 70){
+      engine.lastSignalReason = `EMA(${ema.toFixed(2)}) > SMA(${sma.toFixed(2)}), RSI ${rsi.toFixed(1)} — bullish`;
+      return { contract_type:'CALL' };
+    }
+    if(ema < sma && rsi > 30){
+      engine.lastSignalReason = `EMA(${ema.toFixed(2)}) < SMA(${sma.toFixed(2)}), RSI ${rsi.toFixed(1)} — bearish`;
+      return { contract_type:'PUT' };
+    }
+    return null;
+  }
+};
+function smaCalc(arr,p){ if(arr.length<p) return null; const s=arr.slice(-p); return s.reduce((a,b)=>a+b,0)/p; }
+function emaCalc(arr,p){ if(arr.length<p) return null; const k=2/(p+1); let e=arr[0]; for(let i=1;i<arr.length;i++) e = arr[i]*k + e*(1-k); return e; }
+function rsiCalc(arr,p){
+  if(arr.length < p+1) return null;
+  let gains=0, losses=0;
+  for(let i=arr.length-p;i<arr.length;i++){
+    const diff = arr[i]-arr[i-1];
+    if(diff>=0) gains+=diff; else losses-=diff;
+  }
+  if(losses===0) return 100;
+  const rs = (gains/p)/(losses/p);
+  return 100 - (100/(1+rs));
+}
+
+const ENGINES = [
+  new Engine({
+    id:'voltpro', name:'VOLT-PRO', source:'MASTER_VOLT_PRO.xml', symbol:'1HZ75V',
+    color:'#00e5a0', icon:'V', contractFamily:'DIGITUNDER',
+    baseStake:0.35, targetProfit:5, stopLoss:200, maxConsLosses:8, maxRuns:200,
+    params:{ prediction:9, analysisThreshold:60 },
+    signalFn: SIGNAL_FN.voltpro
+  }),
+  new Engine({
+    id:'digitdiff', name:'DIGIT-DIFF', source:'LEAST_DIGIT_DIFFERS.xml', symbol:'R_10',
+    color:'#3ea9ff', icon:'D', contractFamily:'DIGITDIFF',
+    baseStake:0.35, targetProfit:5, stopLoss:150, maxConsLosses:8, maxRuns:200,
+    params:{}, signalFn: SIGNAL_FN.digitdiff
+  }),
+  new Engine({
+    id:'overseq', name:'OVER-SEQ', source:'OVER_2_SEQUENCE.xml', symbol:'R_50',
+    color:'#ffb020', icon:'S', contractFamily:'DIGITOVER',
+    baseStake:0.5, targetProfit:8, stopLoss:150, maxConsLosses:8, maxRuns:200,
+    params:{ prediction:2 }, signalFn: SIGNAL_FN.overseq
+  }),
+  new Engine({
+    id:'overrecovery', name:'OVER-RECOVERY', source:'OVER_2_RECOVERY_OVER_4.xml', symbol:'R_100',
+    color:'#a684ff', icon:'R', contractFamily:'DIGITOVER',
+    baseStake:0.5, targetProfit:8, stopLoss:150, maxConsLosses:6, maxRuns:200,
+    params:{ initialPrediction:2, recoveryPrediction:4 }, signalFn: SIGNAL_FN.overrecovery
+  }),
+  new Engine({
+    id:'aztec', name:'AZTEC-TECHNIC', source:'ΛZTΞC_TECHNIC_BOT.xml', symbol:'1HZ30V',
+    color:'#ff4d6a', icon:'A', contractFamily:'CALL/PUT',
+    baseStake:0.5, targetProfit:10, stopLoss:150, maxConsLosses:8, maxRuns:200,
+    params:{}, signalFn: SIGNAL_FN.aztec
+  }),
+];
+
+/* ---------- Tick handling: feed digit + price histories, drive engines ---------- */
+function onTick(tick){
+  const symbol = tick.symbol;
+  const quote = tick.quote;
+  const lastDigitStr = String(quote).replace('.', '');
+  const lastDigit = parseInt(lastDigitStr[lastDigitStr.length-1], 10);
+
+  STATE.tickHistories[symbol] = STATE.tickHistories[symbol] || [];
+  STATE.tickHistories[symbol].push(lastDigit);
+  if(STATE.tickHistories[symbol].length > 200) STATE.tickHistories[symbol].shift();
+
+  STATE.tickHistories[symbol+'_price'] = STATE.tickHistories[symbol+'_price'] || [];
+  STATE.tickHistories[symbol+'_price'].push(quote);
+  if(STATE.tickHistories[symbol+'_price'].length > 200) STATE.tickHistories[symbol+'_price'].shift();
+
+  ENGINES.forEach(e => {
+    if(e.symbol === symbol) renderEngineTicker(e);
+    if(e.enabled && e.running && e.symbol === symbol && !e.pendingProposal){
+      evaluateEngine(e);
+    }
+  });
+}
+
+function evaluateEngine(engine){
+  if(STATE.session.halted){ return; }
+  if(engine.status === 'halted' || engine.status === 'paused') return;
+
+  const signal = engine.signalFn(engine);
+  if(!signal) return;
+
+  const stake = engine.effectiveStake();
+  if(stake > STATE.globalParams.plMaxStakeTrade){
+    log('WARN', `[${engine.name}] Computed stake ${money(stake)} exceeds Max Stake/Trade — signal skipped.`);
+    return;
+  }
+
+  requestProposal(engine, signal, stake);
+}
+
+function requestProposal(engine, signal, stake){
+  engine.pendingProposal = true;
+  const gp = STATE.globalParams;
+  const req = {
+    proposal: 1,
+    amount: +stake.toFixed(2),
+    basis: gp.tpBasis,
+    contract_type: signal.contract_type,
+    currency: 'USD',
+    duration: gp.tpDuration,
+    duration_unit: gp.tpDurationUnit,
+    underlying_symbol: engine.symbol
+  };
+  const DIGIT_CONTRACTS = new Set(['DIGITOVER','DIGITUNDER','DIGITDIFF','DIGITMATCH','DIGITODD','DIGITEVEN']);
+  if(signal.barrier !== undefined){
+    req.barrier = DIGIT_CONTRACTS.has(signal.contract_type)
+      ? String(Math.max(0, Math.min(9, Math.round(Number(signal.barrier))))) // digit barrier: plain integer 0-9
+      : Number(signal.barrier).toFixed(2); // price barrier (e.g. Touch/No Touch): fixed 2dp
+  }
+  // NOTE: one-shot proposal (not subscribed) per API gotcha — subscribe:1 causes leaks
+  const rid = wsSend(req);
+  if(rid == null){ engine.pendingProposal = false; return; }
+  STATE.pending.set(rid, { engine, signal, stake });
+  log('INFO', `[${engine.name}] Proposal requested — ${signal.contract_type}${signal.barrier!==undefined?' barrier '+signal.barrier:''} @ ${money(stake)}. ${engine.lastSignalReason}`);
+}
+
+function onProposal(proposal, reqId){
+  const ctx = STATE.pending.get(reqId);
+  if(!ctx) return;
+  STATE.pending.delete(reqId);
+  const { engine, stake } = ctx;
+  engine.pendingProposal = false;
+
+  proposal.ask_price = Number(proposal.ask_price) || 0;
+  proposal.payout = Number(proposal.payout) || 0;
+  const payoutRatio = proposal.payout ? ((proposal.payout - proposal.ask_price)/proposal.ask_price*100) : 0;
+  if(payoutRatio < STATE.globalParams.plMinPayout){
+    log('WARN', `[${engine.name}] Payout ratio ${payoutRatio.toFixed(1)}% below Min Payout Ratio — trade skipped.`);
+    return;
+  }
+  if(STATE.globalParams.tpReconfirm){
+    log('INFO', `[${engine.name}] Proposal confirmed: ask ${money(proposal.ask_price)} / payout ${money(proposal.payout)}.`);
+  }
+  const rid = wsSend({ buy: proposal.id, price: proposal.ask_price });
+  if(rid == null) return;
+  STATE.pending.set(rid, { engine, stake, buyPrice: proposal.ask_price });
+}
+
+function onBuy(buy){
+  buy.buy_price = Number(buy.buy_price) || 0;
+  // find matching pending entry by scanning (buy responses map to their own req_id already consumed on send)
+  // We stored context under the buy req_id itself.
+  for(const [rid, ctx] of STATE.pending.entries()){
+    if(ctx.buyPrice !== undefined && Math.abs(ctx.buyPrice - buy.buy_price) < 0.0001){
+      STATE.pending.delete(rid);
+      const { engine, stake } = ctx;
+      log('TRADE', `[${engine.name}] BUY confirmed — contract ${buy.contract_id} @ ${money(buy.buy_price)}.`);
+      engine.contractId = buy.contract_id;
+      wsSend({ proposal_open_contract: 1, contract_id: buy.contract_id, subscribe: 1 });
+      engine.lastStakeUsed = stake;
+      return;
+    }
+  }
+}
+
+function onOpenContract(contract){
+  if(!contract.is_sold) return;
+  const engine = ENGINES.find(e => e.contractId === contract.contract_id);
+  if(!engine) return;
+
+  const profit = Number(contract.profit) || 0;
+  const isWin = profit > 0;
+  recordTrade(engine, isWin, engine.lastStakeUsed || contract.buy_price, profit);
+
+  // martingale progression
+  const gp = STATE.globalParams;
+  if(isWin){
+    engine.wins++; engine.consLoss = 0; engine.stepIndex = 0;
+    if(gp.mgResetOnWin) engine.currentStake = engine.baseStake;
+  } else {
+    engine.losses++; engine.consLoss++; engine.stepIndex++;
+    if(engine.stepIndex >= gp.mgMaxSteps){
+      if(gp.mgHaltOnMax){
+        engine.status = 'halted';
+        log('WARN', `[${engine.name}] Max Martingale Steps reached — engine halted per configuration.`);
+      } else {
+        engine.consLoss = 0; engine.stepIndex = 0; engine.currentStake = engine.baseStake;
+        log('WARN', `[${engine.name}] Max Martingale Steps reached — stake reset to base.`);
+      }
+    }
+  }
+  engine.pnl += profit;
+  engine.runs++;
+
+  // per-engine limits — SL / cons.loss / max runs are hard safety limits (never auto-restarted)
+  if(engine.consLoss >= engine.maxConsLosses){
+    engine.status = 'paused';
+    log('WARN', `[${engine.name}] Max Consecutive Losses (${engine.maxConsLosses}) hit — engine paused.`);
+  }
+  if(engine.pnl <= -Math.abs(engine.stopLoss)){
+    engine.status = 'halted';
+    log('WARN', `[${engine.name}] Engine Stop Loss (${money(engine.stopLoss)}) hit — engine halted.`);
+  }
+  if(engine.runs >= engine.maxRuns){
+    engine.status = 'halted';
+    log('WARN', `[${engine.name}] Max Runs (${engine.maxRuns}) reached — engine halted.`);
+  }
+
+  // per-engine TARGET PROFIT — success condition: auto-cycle (reset & keep running) if enabled,
+  // otherwise fall back to the old pause-on-target behavior.
+  if(engine.pnl >= engine.targetProfit && engine.status !== 'halted'){
+    if(gp.rpAutoRestartOnTP){
+      autoCycleEngine(engine);
+    } else {
+      engine.status = 'paused';
+      log('TRADE', `[${engine.name}] Engine Target Profit (${money(engine.targetProfit)}) achieved — engine paused.`);
+    }
+  }
+
+  // global risk enforcement (session-level TP / SL / limits)
+  enforceGlobalRisk();
+  renderEngines();
+  renderDashboard();
+}
+
+/* ============================================================
+   AUTO-RESET / AUTO-RESTART — SINGLE AUTHORITATIVE ENTRY POINTS
+   Triggered ONLY from post-settlement checks above/in enforceGlobalRisk.
+   Never gated by pre-trade guards — those would silently block the
+   restart before this logic ever runs.
+============================================================ */
+function autoCycleEngine(engine){
+  // Fold this cycle's result into the engine's lifetime tracker, then reset
+  // the engine's transient trading state and let it keep running immediately.
+  engine.lifetimePnl += engine.pnl;
+  engine.cycles++;
+  const completedPnl = engine.pnl;
+  log('TRADE', `[${engine.name}] Target Profit (${money(engine.targetProfit)}) achieved — cycle #${engine.cycles} complete (${fmt(completedPnl)}). Auto-resetting and restarting engine for next target.`);
+  engine.pnl = 0;
+  engine.consLoss = 0;
+  engine.stepIndex = 0;
+  engine.currentStake = engine.baseStake;
+  engine.wins = 0; engine.losses = 0; engine.runs = 0;
+  // status stays 'running' (or resumes running) — no gap, no manual intervention needed
+  engine.status = engine.enabled ? 'running' : 'idle';
+  if(engine.enabled) engine.running = true;
+}
+
+function autoCycleSession(reason){
+  if(STATE.cycleInProgress) return; // mutex — prevents overlapping triggers from near-simultaneous settlements
+  STATE.cycleInProgress = true;
+
+  const completedPnl = STATE.session.pnl;
+  STATE.lifetime.pnl += STATE.session.pnl;
+  STATE.lifetime.wins += STATE.session.wins;
+  STATE.lifetime.losses += STATE.session.losses;
+  STATE.lifetime.totalTrades += STATE.session.totalTrades;
+  STATE.lifetime.cycles++;
+
+  log('SYS', `SESSION TAKE PROFIT ACHIEVED (${reason}) — cycle #${STATE.lifetime.cycles} complete, session P&L ${fmt(completedPnl)} banked to Lifetime P&L (${fmt(STATE.lifetime.pnl)}).`);
+
+  // Reset session counters (audit trail in Trade Log / System Logs is preserved, not wiped)
+  STATE.session = { pnl:0, wins:0, losses:0, totalTrades:0, consLoss:0, consWin:0, maxConsLoss:0,
+                     bestTrade:0, worstTrade:0, stakeSum:0, halted:false, haltReason:null };
+
+  // Reset every non-hard-halted engine's transient state so the next cycle starts clean
+  ENGINES.forEach(e=>{
+    if(e.status !== 'halted'){
+      e.pnl = 0; e.consLoss = 0; e.stepIndex = 0; e.currentStake = e.baseStake;
+      e.wins = 0; e.losses = 0; e.runs = 0;
+      e.status = e.enabled ? 'running' : 'idle';
+      if(e.enabled) e.running = true;
+    }
+  });
+
+  $('riskStatusLine').textContent = `Cycle #${STATE.lifetime.cycles} complete — auto-restarted, pursuing next Take Profit target.`;
+  $('riskStatusLine').parentElement.style.borderColor = 'var(--green)';
+
+  renderEngines();
+  renderDashboard();
+  renderTradeLog();
+
+  const doRestart = () => {
+    STATE.cycleInProgress = false;
+    if(STATE.connected) masterStart();
+    log('SYS', `Cycle #${STATE.lifetime.cycles} — all app functions restarted, seeking next Take Profit.`);
+  };
+  const cooldown = Math.max(0, STATE.globalParams.rpAutoRestartCooldown || 0);
+  if(cooldown > 0) setTimeout(doRestart, cooldown * 1000);
+  else doRestart(); // zero-delay path — required for "no bugs or delay"
+}
+
+function recordTrade(engine, isWin, stake, pnl){
+  STATE.trades.unshift({ time: nowTs(), engine: engine.name, type: engine.contractFamily, stake, result: isWin?'WIN':'LOSS', pnl });
+  STATE.session.totalTrades++;
+  STATE.session.stakeSum += stake;
+  STATE.session.pnl += pnl;
+  if(isWin){ STATE.session.wins++; STATE.session.consWin++; STATE.session.consLoss=0; }
+  else { STATE.session.losses++; STATE.session.consLoss++; STATE.session.consWin=0; STATE.session.maxConsLoss = Math.max(STATE.session.maxConsLoss, STATE.session.consLoss); }
+  STATE.session.bestTrade = Math.max(STATE.session.bestTrade, pnl);
+  STATE.session.worstTrade = Math.min(STATE.session.worstTrade, pnl);
+  log('TRADE', `[${engine.name}] ${isWin?'WIN':'LOSS'} — stake ${money(stake)} — P&L ${fmt(pnl)}`);
+  renderTradeLog();
+}
+
+/* ---------- Global risk enforcement ---------- */
+function enforceGlobalRisk(){
+  if(STATE.cycleInProgress) return;
+  const gp = STATE.globalParams;
+
+  // SUCCESS condition — Session Take Profit. Auto-cycle if enabled; otherwise hard-halt.
+  if(gp.plAutoStop && STATE.session.pnl >= gp.plTakeProfit && !STATE.session.halted){
+    if(gp.rpAutoRestartOnTP){
+      autoCycleSession(`Session Take Profit ${money(gp.plTakeProfit)} reached`);
+      return; // session was reset — nothing else to enforce this cycle
+    } else {
+      haltSession(`Session Take Profit ${money(gp.plTakeProfit)} reached`);
+      return;
+    }
+  }
+
+  // SAFETY conditions — always hard-halt, regardless of auto-restart setting
+  let reason = null;
+  if(gp.plAutoStop && STATE.session.pnl <= -Math.abs(gp.plStopLoss)) reason = `Session Stop Loss ${money(gp.plStopLoss)} hit`;
+  if(STATE.session.consLoss >= gp.rpMaxConsLoss) reason = `Global Max Consecutive Losses (${gp.rpMaxConsLoss}) hit`;
+  if(STATE.session.totalTrades >= gp.rpMaxRuns) reason = `Global Max Runs (${gp.rpMaxRuns}) reached`;
+  if(STATE.session.pnl <= -Math.abs(gp.rpMaxDailyLoss)) reason = `Max Daily Loss (${money(gp.rpMaxDailyLoss)}) hit`;
+
+  if(reason && !STATE.session.halted) haltSession(reason);
+}
+
+function haltSession(reason){
+  STATE.session.halted = true;
+  STATE.session.haltReason = reason;
+  masterStop();
+  log('WARN', `GLOBAL HALT: ${reason}. All engines stopped.`);
+  $('riskStatusLine').textContent = 'HALTED — ' + reason;
+  $('riskStatusLine').parentElement.style.borderColor = 'var(--red)';
+}
+
+/* ============================================================
+   ENGINE CONTROL (start/stop/enable)
+============================================================ */
+function masterStart(){
+  if(STATE.session.halted){ log('WARN','Cannot start — global halt active. Reset session to clear.'); return; }
+  if(!STATE.connected){ log('WARN','Connect to Deriv before starting engines.'); return; }
+  ENGINES.forEach(e=>{
+    if(e.enabled){
+      e.running = true;
+      if(e.status==='idle') e.status='running';
+      subscribeTicks(e.symbol);
+    }
+  });
+  log('SYS','Master Start — all enabled engines are now running.');
+  renderEngines();
+}
+function masterStop(){
+  ENGINES.forEach(e=>{ e.running = false; if(e.status==='running') e.status = e.enabled ? 'paused' : 'idle'; });
+  log('SYS','Master Stop — all engines halted from executing new trades.');
+  renderEngines();
+}
+function toggleEngineEnabled(id){
+  const e = ENGINES.find(x=>x.id===id);
+  e.enabled = !e.enabled;
+  e.status = e.enabled ? 'idle' : 'idle';
+  if(e.enabled && STATE.connected) subscribeTicks(e.symbol);
+  renderEngines();
+}
+function startEngine(id){
+  const e = ENGINES.find(x=>x.id===id);
+  if(!STATE.connected){ log('WARN','Connect to Deriv before starting an engine.'); return; }
+  if(!e.enabled){ log('WARN', `[${e.name}] Enable the engine before starting.`); return; }
+  e.running = true; e.status = 'running';
+  subscribeTicks(e.symbol);
+  log('SYS', `[${e.name}] Engine started.`);
+  renderEngines();
+}
+function stopEngine(id){
+  const e = ENGINES.find(x=>x.id===id);
+  e.running = false; e.status = 'paused';
+  log('SYS', `[${e.name}] Engine stopped.`);
+  renderEngines();
+}
+function resetEngine(id){
+  const e = ENGINES.find(x=>x.id===id);
+  e.reset();
+  log('SYS', `[${e.name}] Engine stats reset.`);
+  renderEngines();
+}
+
+/* ============================================================
+   RENDER FUNCTIONS
+============================================================ */
+function renderDashboard(){
+  const p = STATE.session.pnl;
+  $('dashPnl').textContent = fmt(p);
+  $('dashPnl').className = 'val ' + (p>0?'pos':p<0?'neg':'neu');
+  $('statWins').textContent = STATE.session.wins;
+  $('statLosses').textContent = STATE.session.losses;
+  const totalWL = STATE.session.wins + STATE.session.losses;
+  $('statWinRate').textContent = totalWL ? Math.round(STATE.session.wins/totalWL*100)+'%' : '0%';
+  $('statTotalTrades').textContent = STATE.session.totalTrades;
+  $('statConsLoss').textContent = STATE.session.consLoss;
+  $('statConsWin').textContent = STATE.session.consWin;
+  $('statAvgStake').textContent = money(STATE.session.totalTrades ? STATE.session.stakeSum/STATE.session.totalTrades : 0);
+  $('statBest').textContent = fmt(STATE.session.bestTrade);
+  $('statWorst').textContent = fmt(STATE.session.worstTrade);
+
+  $('statLifetimePnl').textContent = fmt(STATE.lifetime.pnl);
+  $('statLifetimePnl').className = 'stat-val ' + (STATE.lifetime.pnl>0?'pos':STATE.lifetime.pnl<0?'neg':'neu');
+  $('statCycles').textContent = STATE.lifetime.cycles;
+  $('statLifetimeTrades').textContent = STATE.lifetime.totalTrades;
+
+  const gp = STATE.globalParams;
+  const tp = gp.plTakeProfit, sl = gp.plStopLoss;
+  const range = tp+sl;
+  const lossPct = Math.min(100, Math.max(0, (-Math.min(p,0)/sl)*50));
+  const profitPct = Math.min(100, Math.max(0, (Math.max(p,0)/tp)*50));
+  $('pnlBarLoss').style.width = lossPct+'%';
+  $('pnlBarProfit').style.width = profitPct+'%';
+
+  renderAccountStats();
+  if(!STATE.session.halted){
+    $('riskStatusLine').textContent = 'All systems nominal. No limits triggered.';
+    $('riskStatusLine').parentElement.style.borderColor = 'var(--line-soft)';
+  }
+}
+function renderAccountStats(){
+  $('statBalance').textContent = STATE.account.id ? money(STATE.account.balance) : '—';
+  $('statCurrency').textContent = STATE.account.currency || '—';
+  $('statAcctId').textContent = STATE.account.id || '—';
+  $('statAcctStatus').textContent = STATE.account.status || '—';
+}
+
+function renderEngines(){
+  const list = $('engineList');
+  list.innerHTML = '';
+  ENGINES.forEach(e=>{
+    const wrap = document.createElement('div');
+    wrap.className = 'engine';
+    const statusBadgeClass = e.status==='running'?'run':e.status==='halted'?'halt':e.status==='paused'?'paused':'';
+    wrap.innerHTML = `
+      <div class="engine-head" onclick="toggleEngineBody('${e.id}')">
+        <div class="engine-id">
+          <div class="engine-badge" style="background:${e.color}22; color:${e.color}; border:1px solid ${e.color}55;">${e.icon}</div>
+          <div>
+            <div class="engine-name">${e.name} <span class="badge ${statusBadgeClass}">${e.status}</span></div>
+            <div class="engine-sub">${e.contractFamily} · ${e.symbol} · ${e.source}</div>
+          </div>
+        </div>
+        <div class="toggle ${e.enabled?'on':''}" onclick="event.stopPropagation(); toggleEngineEnabled('${e.id}')"></div>
+      </div>
+      <div class="engine-body" id="body-${e.id}">
+        <div class="digit-grid" id="digitgrid-${e.id}"></div>
+        <div class="mini-stats">
+          <span>Stake: <b>${money(e.effectiveStake())}</b></span>
+          <span>P&amp;L: <b class="${e.pnl>0?'pos':e.pnl<0?'neg':''}">${fmt(e.pnl)}</b></span>
+          <span>W/L: <b>${e.wins}/${e.losses}</b></span>
+          <span>Cons.Loss: <b>${e.consLoss}/${e.maxConsLosses}</b></span>
+          <span>Runs: <b>${e.runs}/${e.maxRuns}</b></span>
+          <span>Cycles: <b>${e.cycles}</b></span>
+          <span>Lifetime P&amp;L: <b class="${e.lifetimePnl>0?'pos':e.lifetimePnl<0?'neg':''}">${fmt(e.lifetimePnl)}</b></span>
+        </div>
+        <div class="divider"></div>
+        <div class="row2">
+          <div><label>Base Stake ($)</label><input type="number" step="0.01" min="0.35" value="${e.baseStake}" onchange="updateEngineField('${e.id}','baseStake',this.value)"></div>
+          <div><label>Target Profit ($)</label><input type="number" step="0.01" value="${e.targetProfit}" onchange="updateEngineField('${e.id}','targetProfit',this.value)"></div>
+        </div>
+        <div class="row2">
+          <div><label>Stop Loss ($)</label><input type="number" step="0.01" value="${e.stopLoss}" onchange="updateEngineField('${e.id}','stopLoss',this.value)"></div>
+          <div><label>Max Cons. Losses</label><input type="number" min="1" value="${e.maxConsLosses}" onchange="updateEngineField('${e.id}','maxConsLosses',this.value)"></div>
+        </div>
+        <div class="row2">
+          <div><label>Max Runs</label><input type="number" min="1" value="${e.maxRuns}" onchange="updateEngineField('${e.id}','maxRuns',this.value)"></div>
+          ${engineExtraParamField(e)}
+        </div>
+        <div class="help">${e.lastSignalReason || 'Awaiting sufficient tick history to analyze.'}</div>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="btn full" onclick="startEngine('${e.id}')">▶ Start</button>
+          <button class="btn full" onclick="stopEngine('${e.id}')">■ Stop</button>
+          <button class="btn full ghost" onclick="resetEngine('${e.id}')">↺ Reset</button>
+        </div>
+      </div>
+    `;
+    list.appendChild(wrap);
+    renderEngineTicker(e);
+  });
+}
+function engineExtraParamField(e){
+  if(e.id==='voltpro') return `<div><label>Prediction / Threshold%</label><input type="text" value="${e.params.prediction} / ${e.params.analysisThreshold}" onchange="updateVoltParams(this.value)"></div>`;
+  if(e.id==='overseq') return `<div><label>Prediction Digit</label><input type="number" min="0" max="9" value="${e.params.prediction}" onchange="updateEngineField('${e.id}','params.prediction',this.value,true)"></div>`;
+  if(e.id==='overrecovery') return `<div><label>Init / Recovery Pred.</label><input type="text" value="${e.params.initialPrediction} / ${e.params.recoveryPrediction}" onchange="updateRecoveryParams(this.value)"></div>`;
+  return `<div></div>`;
+}
+function updateVoltParams(val){
+  const [pred, thr] = val.split('/').map(s=>parseFloat(s.trim()));
+  const e = ENGINES.find(x=>x.id==='voltpro');
+  if(!isNaN(pred)) e.params.prediction = Math.max(0,Math.min(9,Math.round(pred)));
+  if(!isNaN(thr)) e.params.analysisThreshold = thr;
+  renderEngines();
+}
+function updateRecoveryParams(val){
+  const [a,b] = val.split('/').map(s=>parseFloat(s.trim()));
+  const e = ENGINES.find(x=>x.id==='overrecovery');
+  if(!isNaN(a)) e.params.initialPrediction = Math.max(0,Math.min(9,Math.round(a)));
+  if(!isNaN(b)) e.params.recoveryPrediction = Math.max(0,Math.min(9,Math.round(b)));
+  renderEngines();
+}
+function updateEngineField(id, field, value, isParam){
+  const e = ENGINES.find(x=>x.id===id);
+  const num = parseFloat(value);
+  if(isNaN(num)) return;
+  if(field.startsWith('params.')){
+    e.params[field.split('.')[1]] = Math.round(num);
+  } else {
+    e[field] = num;
+    if(field==='baseStake') e.currentStake = num;
+  }
+  log('SYS', `[${e.name}] ${field} updated to ${num}.`);
+  renderEngines();
+}
+function toggleEngineBody(id){
+  $('body-'+id).classList.toggle('open');
+}
+function renderEngineTicker(e){
+  const grid = $('digitgrid-'+e.id);
+  if(!grid) return;
+  e.updateDigitStats();
+  grid.innerHTML = '';
+  for(let d=0; d<10; d++){
+    const pct = e.digitStats[d]||0;
+    const cell = document.createElement('div');
+    let cls = 'digit-cell';
+    if(pct >= 14) cls += ' hot'; else if(pct>0 && pct<=7) cls += ' cold';
+    cell.className = cls;
+    cell.innerHTML = `<div class="d">${d}</div><div class="p">${pct.toFixed(0)}%</div>`;
+    grid.appendChild(cell);
+  }
+}
+
+function renderTradeLog(){
+  const body = $('tradeTableBody');
+  body.innerHTML = '';
+  STATE.trades.slice(0,200).forEach(t=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${t.time}</td><td>${t.engine}</td><td>${t.type}</td><td>${money(t.stake)}</td>
+      <td class="${t.result==='WIN'?'pos':'neg'}">${t.result}</td><td class="${t.pnl>0?'pos':t.pnl<0?'neg':''}">${fmt(t.pnl)}</td>`;
+    body.appendChild(tr);
+  });
+  $('tradeCount').textContent = `(${STATE.trades.length})`;
+  $('noTradesNote').style.display = STATE.trades.length ? 'none' : 'block';
+}
+
+/* ============================================================
+   GLOBAL PARAMETER APPLICATION
+============================================================ */
+function applyGlobalParams(){
+  const gp = STATE.globalParams;
+  gp.mgMultiplier = parseFloat($('mgMultiplier').value) || GLOBAL_DEFAULTS.mgMultiplier;
+  gp.mgMaxSteps = parseInt($('mgMaxSteps').value) || GLOBAL_DEFAULTS.mgMaxSteps;
+  gp.mgBaseStake = parseFloat($('mgBaseStake').value) || GLOBAL_DEFAULTS.mgBaseStake;
+  gp.mgRecoveryMode = $('mgRecoveryMode').value;
+  gp.mgResetOnWin = $('mgResetOnWin').classList.contains('on');
+  gp.mgHaltOnMax = $('mgHaltOnMax').classList.contains('on');
+
+  gp.tpDuration = parseInt($('tpDuration').value) || 1;
+  gp.tpDurationUnit = $('tpDurationUnit').value;
+  gp.tpBasis = $('tpBasis').value;
+  gp.tpReconfirm = $('tpReconfirm').classList.contains('on');
+
+  gp.plMaxStakeTrade = parseFloat($('plMaxStakeTrade').value) || GLOBAL_DEFAULTS.plMaxStakeTrade;
+  gp.plMinPayout = parseFloat($('plMinPayout').value) || GLOBAL_DEFAULTS.plMinPayout;
+
+  gp.plTakeProfit = parseFloat($('plTakeProfit').value) || GLOBAL_DEFAULTS.plTakeProfit;
+  gp.plStopLoss = parseFloat($('plStopLoss').value) || GLOBAL_DEFAULTS.plStopLoss;
+  gp.plAutoStop = $('plAutoStop').classList.contains('on');
+
+  gp.rpMaxConsLoss = parseInt($('rpMaxConsLoss').value) || GLOBAL_DEFAULTS.rpMaxConsLoss;
+  gp.rpMaxRuns = parseInt($('rpMaxRuns').value) || GLOBAL_DEFAULTS.rpMaxRuns;
+  gp.rpMaxDailyLoss = parseFloat($('rpMaxDailyLoss').value) || GLOBAL_DEFAULTS.rpMaxDailyLoss;
+  gp.rpCooldown = parseInt($('rpCooldown').value) || 0;
+  gp.rpAutoRestartOnTP = $('rpAutoRestartOnTP').classList.contains('on');
+  gp.rpAutoRestartCooldown = parseInt($('rpAutoRestartCooldown').value) || 0;
+
+  updateMgPreview();
+  log('SYS', 'Global parameters applied and enforced across all engines.');
+}
+function updateMgPreview(){
+  const base = parseFloat($('mgBaseStake').value) || 0.35;
+  const mult = parseFloat($('mgMultiplier').value) || 2.1;
+  const steps = parseInt($('mgMaxSteps').value) || 6;
+  let vals = [base];
+  let s = base;
+  for(let i=0;i<steps;i++){ s = s*mult; vals.push(+s.toFixed(2)); }
+  $('mgPreview').textContent = 'Preview: ' + vals.map(v=>v.toFixed(2)).join(' → ');
+}
+['mgBaseStake','mgMultiplier','mgMaxSteps'].forEach(id=>{
+  document.addEventListener('DOMContentLoaded', ()=>{ $(id).addEventListener('input', updateMgPreview); });
+});
+
+/* ============================================================
+   RESET
+============================================================ */
+function openResetModal(){ $('resetModal').classList.add('open'); }
+function closeResetModal(){ $('resetModal').classList.remove('open'); }
+function doReset(){
+  STATE.session = { pnl:0, wins:0, losses:0, totalTrades:0, consLoss:0, consWin:0, maxConsLoss:0,
+    bestTrade:0, worstTrade:0, stakeSum:0, halted:false, haltReason:null };
+  STATE.trades = [];
+  ENGINES.forEach(e=>e.reset());
+  const includeLifetime = $('resetIncludesLifetime').classList.contains('on');
+  if(includeLifetime){
+    STATE.lifetime = { pnl:0, wins:0, losses:0, totalTrades:0, cycles:0 };
+    ENGINES.forEach(e=>{ e.lifetimePnl = 0; e.cycles = 0; });
+  }
+  renderDashboard();
+  renderTradeLog();
+  renderEngines();
+  $('riskStatusLine').textContent = 'All systems nominal. No limits triggered.';
+  $('riskStatusLine').parentElement.style.borderColor = 'var(--line-soft)';
+  closeResetModal();
+  log('SYS', `Session reset — trade logs, dashboard stats, and engine counters cleared.${includeLifetime?' Lifetime P&L and Cycles also reset.':' Lifetime P&L preserved.'} Connections preserved.`);
+}
+
+/* ============================================================
+   INIT
+============================================================ */
+function init(){
+  renderDashboard();
+  renderEngines();
+  renderTradeLog();
+  updateMgPreview();
+  log('SYS', 'SmartXtrader MVP initialized. 5 engines loaded from XML strategy sources. Configure connection to begin.');
+  log('INFO', 'Deriv API v3 gotchas enforced: one-shot proposals, barrier.toFixed(2), underlying symbol field, 200/201 account shape handling, real-account confirmation gate.');
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

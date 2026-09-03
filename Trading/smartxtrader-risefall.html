@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SmartXtrader · DLDAS Rise/Fall Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg-0:#07090c; --bg-1:#0c0f14; --bg-2:#11151b; --bg-3:#171c24; --bg-4:#1d232d;
+  --line:#242b36; --line-soft:#1a1f27;
+  --txt-0:#eef1f6; --txt-1:#aab4c4; --txt-2:#697588; --txt-dim:#485162;
+  --rise:#20e3a2; --rise-dim:#0f5e46; --fall:#ff5470; --fall-dim:#6e1c2b;
+  --amber:#ffb648; --violet:#8b7cff; --cyan:#3fd7ff;
+  --mono:'JetBrains Mono',monospace; --sans:'Inter',sans-serif;
+  --r-sm:6px; --r-md:10px; --r-lg:14px;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0; padding:0; background:var(--bg-0); color:var(--txt-0); font-family:var(--sans); overflow-x:hidden;}
+body{padding-bottom:78px;}
+::-webkit-scrollbar{width:6px; height:6px;}
+::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px;}
+.num{font-family:var(--mono); font-variant-numeric:tabular-nums;}
+button{font-family:var(--sans); cursor:pointer;}
+input,select{font-family:var(--mono);}
+
+/* ---------- Top Bar ---------- */
+#topbar{position:sticky; top:0; z-index:50; display:flex; align-items:center; justify-content:space-between;
+  padding:10px 14px; background:linear-gradient(180deg,var(--bg-1),rgba(12,15,20,.96)); backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line-soft);}
+#brand{display:flex; align-items:center; gap:8px;}
+#brand .dot{width:9px; height:9px; border-radius:50%; background:var(--txt-dim); box-shadow:0 0 0 3px rgba(255,255,255,.03);}
+#brand .dot.live{background:var(--rise); box-shadow:0 0 10px var(--rise);}
+#brand .dot.err{background:var(--fall); box-shadow:0 0 10px var(--fall);}
+#brand h1{font-size:13px; font-weight:800; letter-spacing:.04em; margin:0;}
+#brand small{display:block; font-size:9px; color:var(--txt-2); letter-spacing:.12em; font-family:var(--mono);}
+#connState{font-family:var(--mono); font-size:10px; color:var(--txt-2); text-align:right;}
+#connState b{color:var(--txt-0); display:block; font-size:12px;}
+
+/* ---------- Tabs ---------- */
+#tabs{display:flex; overflow-x:auto; gap:2px; padding:6px 8px; background:var(--bg-1); border-bottom:1px solid var(--line-soft); position:sticky; top:49px; z-index:40;}
+#tabs::-webkit-scrollbar{display:none;}
+.tabbtn{flex:0 0 auto; padding:8px 13px; font-size:11px; font-weight:700; letter-spacing:.03em; color:var(--txt-2);
+  background:transparent; border:1px solid transparent; border-radius:8px; white-space:nowrap;}
+.tabbtn.active{color:var(--bg-0); background:var(--txt-0);}
+
+.view{display:none; padding:12px; max-width:720px; margin:0 auto;}
+.view.active{display:block; animation:fade .18s ease;}
+@keyframes fade{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);}}
+
+/* ---------- Cards ---------- */
+.card{background:var(--bg-2); border:1px solid var(--line-soft); border-radius:var(--r-lg); padding:14px; margin-bottom:12px;}
+.card-h{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+.card-h h2{font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--txt-2); margin:0; font-weight:700;}
+.card-h .tag{font-family:var(--mono); font-size:9px; padding:2px 7px; border-radius:20px; border:1px solid var(--line); color:var(--txt-2);}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+.grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+
+/* ---------- Stat tiles ---------- */
+.tile{background:var(--bg-3); border:1px solid var(--line-soft); border-radius:var(--r-md); padding:10px;}
+.tile .l{font-size:9px; color:var(--txt-2); text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px;}
+.tile .v{font-size:17px; font-weight:700; font-family:var(--mono);}
+.up{color:var(--rise);} .down{color:var(--fall);} .neu{color:var(--txt-1);} .warn{color:var(--amber);}
+
+/* ---------- Buttons ---------- */
+.btn{display:flex; align-items:center; justify-content:center; gap:6px; padding:11px 14px; border-radius:var(--r-md);
+  border:1px solid var(--line); background:var(--bg-3); color:var(--txt-0); font-size:12px; font-weight:700; letter-spacing:.02em;}
+.btn:active{transform:scale(.98);}
+.btn-primary{background:var(--txt-0); color:var(--bg-0); border-color:var(--txt-0);}
+.btn-rise{background:var(--rise); color:#04140e; border-color:var(--rise);}
+.btn-fall{background:var(--fall); color:#1c0509; border-color:var(--fall);}
+.btn-ghost{background:transparent;}
+.btn-danger{color:var(--fall); border-color:var(--fall-dim);}
+.btn-sm{padding:7px 10px; font-size:10px; border-radius:8px;}
+.btn:disabled{opacity:.35; pointer-events:none;}
+.btn-full{width:100%;}
+.row-btns{display:flex; gap:8px;}
+
+/* ---------- Form fields ---------- */
+.field{margin-bottom:10px;}
+.field label{display:block; font-size:10px; color:var(--txt-2); margin-bottom:5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600;}
+.field input[type=number], .field input[type=text], .field input[type=password], .field select{
+  width:100%; padding:10px 11px; background:var(--bg-4); border:1px solid var(--line); border-radius:var(--r-sm);
+  color:var(--txt-0); font-size:13px; outline:none;}
+.field input:focus, .field select:focus{border-color:var(--cyan);}
+.hint{font-size:9.5px; color:var(--txt-dim); margin-top:4px; line-height:1.4;}
+.switch-row{display:flex; align-items:center; justify-content:space-between; padding:9px 0;}
+.switch-row .lbl{font-size:12px; color:var(--txt-1); font-weight:600;}
+.sw{position:relative; width:38px; height:22px; border-radius:20px; background:var(--bg-4); border:1px solid var(--line); flex:0 0 auto;}
+.sw i{position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:var(--txt-2); transition:.15s;}
+.sw.on{background:rgba(32,227,162,.18); border-color:var(--rise);}
+.sw.on i{left:18px; background:var(--rise);}
+
+/* ---------- Engine cards ---------- */
+.engine{border:1px solid var(--line-soft); border-radius:var(--r-md); padding:11px; margin-bottom:8px; background:var(--bg-3);}
+.engine-h{display:flex; align-items:center; justify-content:space-between;}
+.engine-h .name{font-size:12px; font-weight:800;}
+.engine-h .sig{font-family:var(--mono); font-size:11px; font-weight:800; padding:2px 8px; border-radius:5px;}
+.sig-rise{background:rgba(32,227,162,.14); color:var(--rise);}
+.sig-fall{background:rgba(255,84,112,.14); color:var(--fall);}
+.sig-flat{background:rgba(255,255,255,.05); color:var(--txt-2);}
+.engine-bar{height:5px; border-radius:3px; background:var(--bg-4); margin-top:8px; overflow:hidden; display:flex;}
+.engine-bar .r{background:var(--rise);} .engine-bar .f{background:var(--fall);}
+.engine-meta{display:flex; justify-content:space-between; margin-top:6px; font-size:9.5px; color:var(--txt-2); font-family:var(--mono);}
+
+/* ---------- Trade log ---------- */
+.logrow{display:grid; grid-template-columns:52px 1fr 56px 64px; gap:8px; align-items:center; padding:8px 4px; border-bottom:1px solid var(--line-soft); font-size:11px;}
+.logrow:last-child{border-bottom:none;}
+.logrow .t{font-family:var(--mono); color:var(--txt-2); font-size:9.5px;}
+.logrow .sym{color:var(--txt-1); font-weight:600;}
+.logrow .side{font-size:9px; font-weight:800; padding:1px 6px; border-radius:4px; text-align:center; width:fit-content;}
+.side-rise{background:rgba(32,227,162,.15); color:var(--rise);}
+.side-fall{background:rgba(255,84,112,.15); color:var(--fall);}
+.pl{font-family:var(--mono); font-weight:700; text-align:right;}
+
+/* ---------- System log ---------- */
+#syslog{background:#030405; border:1px solid var(--line-soft); border-radius:var(--r-md); padding:9px; height:260px; overflow-y:auto; font-family:var(--mono); font-size:10.5px; line-height:1.6;}
+.logline{white-space:pre-wrap; word-break:break-word;}
+.lg-info{color:var(--txt-1);} .lg-ok{color:var(--rise);} .lg-warn{color:var(--amber);} .lg-err{color:var(--fall);} .lg-sys{color:var(--violet);}
+
+/* ---------- Bottom nav ---------- */
+#botnav{position:fixed; bottom:0; left:0; right:0; z-index:60; display:flex; background:var(--bg-1);
+  border-top:1px solid var(--line-soft); padding:6px 4px calc(6px + env(safe-area-inset-bottom));}
+.navbtn{flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; padding:7px 2px; background:transparent; border:none; color:var(--txt-2);}
+.navbtn .ic{font-size:16px;}
+.navbtn .lb{font-size:8.5px; font-weight:700; letter-spacing:.03em; text-transform:uppercase;}
+.navbtn.active{color:var(--txt-0);}
+.navbtn.active .ic{color:var(--cyan);}
+
+/* ---------- Master control strip ---------- */
+#masterstrip{position:sticky; top:88px; z-index:39; display:flex; gap:8px; padding:10px 12px; background:linear-gradient(180deg,var(--bg-1),rgba(12,15,20,.9)); border-bottom:1px solid var(--line-soft);}
+#masterstrip .btn{flex:1;}
+
+/* ---------- Modal ---------- */
+.modal-bg{position:fixed; inset:0; background:rgba(3,4,6,.72); backdrop-filter:blur(3px); z-index:100; display:none; align-items:flex-end; justify-content:center;}
+.modal-bg.show{display:flex;}
+.modal{width:100%; max-width:520px; background:var(--bg-2); border:1px solid var(--line); border-radius:16px 16px 0 0; padding:18px; max-height:88vh; overflow-y:auto;}
+.modal h3{margin:0 0 4px; font-size:15px;}
+.modal p{color:var(--txt-2); font-size:12px; line-height:1.5;}
+.modal-real{border-top:3px solid var(--fall);}
+
+/* ---------- Small helpers ---------- */
+.pillrow{display:flex; gap:6px; flex-wrap:wrap;}
+.pill{padding:6px 11px; border-radius:20px; border:1px solid var(--line); font-size:10.5px; font-weight:700; color:var(--txt-2); background:var(--bg-3);}
+.pill.on{color:var(--bg-0); background:var(--txt-0); border-color:var(--txt-0);}
+.divider{height:1px; background:var(--line-soft); margin:12px 0;}
+.empty{text-align:center; padding:26px 10px; color:var(--txt-dim); font-size:11.5px;}
+.badge-mtx{font-family:var(--mono); font-size:9px; padding:2px 7px; border-radius:5px; background:rgba(255,182,72,.12); color:var(--amber); font-weight:700;}
+.footer-note{font-size:9.5px; color:var(--txt-dim); text-align:center; margin-top:6px; line-height:1.5;}
+</style>
+</head>
+<body>
+
+<!-- ============ TOP BAR ============ -->
+<div id="topbar">
+  <div id="brand">
+    <span class="dot" id="connDot"></span>
+    <div>
+      <h1>SMARTXTRADER</h1>
+      <small>DLDAS RISE/FALL TERMINAL</small>
+    </div>
+  </div>
+  <div id="connState"><b id="connLabel">Disconnected</b><span id="acctLabel">no account</span></div>
+</div>
+
+<!-- ============ TABS ============ -->
+<div id="tabs">
+  <button class="tabbtn active" data-tab="dashboard">Dashboard</button>
+  <button class="tabbtn" data-tab="engine">Engine</button>
+  <button class="tabbtn" data-tab="params">Parameters</button>
+  <button class="tabbtn" data-tab="risk">Risk & Martingale</button>
+  <button class="tabbtn" data-tab="logs">Trade Log</button>
+  <button class="tabbtn" data-tab="system">System Log</button>
+  <button class="tabbtn" data-tab="reset">Reset</button>
+</div>
+
+<div id="masterstrip">
+  <button class="btn btn-ghost btn-sm" id="btnConnect" style="flex:0 0 auto; padding:9px 14px;">Connect</button>
+  <button class="btn btn-rise btn-full" id="btnArm">ARM ENGINE</button>
+  <button class="btn btn-danger btn-full" id="btnDisarm" disabled>DISARM</button>
+</div>
+
+<!-- ============ DASHBOARD ============ -->
+<div class="view active" id="view-dashboard">
+  <div class="card">
+    <div class="card-h"><h2>Account Stats</h2><span class="tag" id="accTypeTag">—</span></div>
+    <div class="grid3">
+      <div class="tile"><div class="l">Balance</div><div class="v num" id="stBalance">0.00</div></div>
+      <div class="tile"><div class="l">Currency</div><div class="v num" id="stCurrency">—</div></div>
+      <div class="tile"><div class="l">Account ID</div><div class="v num" id="stAccId" style="font-size:12px;">—</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>PnL Stats — Session</h2><span class="tag" id="sessionClock">00:00:00</span></div>
+    <div class="grid3">
+      <div class="tile"><div class="l">Net P/L</div><div class="v num" id="stNetPl">0.00</div></div>
+      <div class="tile"><div class="l">Win Rate</div><div class="v num" id="stWinRate">0%</div></div>
+      <div class="tile"><div class="l">Trades</div><div class="v num" id="stTrades">0</div></div>
+      <div class="tile"><div class="l">Wins</div><div class="v num up" id="stWins">0</div></div>
+      <div class="tile"><div class="l">Losses</div><div class="v num down" id="stLosses">0</div></div>
+      <div class="tile"><div class="l">Consec. Loss</div><div class="v num warn" id="stConsecLoss">0</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>Take-Profit Cycle Stats</h2><span class="tag" id="cycleAutoTag">AUTO-CYCLE ON</span></div>
+    <div class="grid3">
+      <div class="tile"><div class="l">Cycles Completed</div><div class="v num" id="stCycles">0</div></div>
+      <div class="tile"><div class="l">Cumulative P/L</div><div class="v num" id="stCumPl">0.00</div></div>
+      <div class="tile"><div class="l">Current Cycle Target</div><div class="v num" id="stCycleTarget">0.00</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>Trade Stats</h2></div>
+    <div class="grid2">
+      <div class="tile"><div class="l">Avg Stake</div><div class="v num" id="stAvgStake">0.00</div></div>
+      <div class="tile"><div class="l">Largest Win</div><div class="v num up" id="stMaxWin">0.00</div></div>
+      <div class="tile"><div class="l">Largest Loss</div><div class="v num down" id="stMaxLoss">0.00</div></div>
+      <div class="tile"><div class="l">Martingale Step</div><div class="v num" id="stMgStep">0</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>Live Status</h2><span class="badge-mtx" id="mutexBadge">MUTEX FREE</span></div>
+    <div id="liveStatusBox" class="empty">Engine idle — press ARM ENGINE to begin analysis.</div>
+  </div>
+
+  <div class="footer-note">Demo account trading is simulated with virtual funds. Real-account trading requires explicit confirmation and carries financial risk.</div>
+</div>
+
+<!-- ============ ENGINE (DLDAS) ============ -->
+<div class="view" id="view-engine">
+  <div class="card">
+    <div class="card-h"><h2>Dynamic Linear Deviation Analytics System</h2><span class="tag">DLDAS v1</span></div>
+    <p style="color:var(--txt-2); font-size:11.5px; line-height:1.5; margin:0 0 10px;">Fuses reference-deviation, pressure, persistence, mean-reversion and velocity sub-engines into one weighted Rise/Fall signal. Requires a warm tick buffer before signaling.</p>
+    <div class="grid3">
+      <div class="tile"><div class="l">Buffer</div><div class="v num" id="engBuffer">0/300</div></div>
+      <div class="tile"><div class="l">Fusion Signal</div><div class="v num" id="engFusion">—</div></div>
+      <div class="tile"><div class="l">Confidence</div><div class="v num" id="engConf">0%</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>Sub-Engines</h2></div>
+    <div id="engineList"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>DLDAS Output Object</h2></div>
+    <pre id="engJson" class="num" style="white-space:pre-wrap; font-size:10px; color:var(--txt-1); background:var(--bg-3); border:1px solid var(--line-soft); border-radius:var(--r-md); padding:10px; margin:0;">Awaiting connection…</pre>
+  </div>
+</div>
+
+<!-- ============ PARAMETERS (Trade Params + P/L Params) ============ -->
+<div class="view" id="view-params">
+  <div class="card">
+    <div class="card-h"><h2>Trade Parameters</h2></div>
+    <div class="field">
+      <label>Symbol (Underlying)</label>
+      <select id="pSymbol"><option value="1HZ100V">Volatility 100 (1s) Index</option></select>
+      <div class="hint" id="symbolHint">Symbol list populated from active_symbols on connect. Non-tradable symbols are auto-disabled.</div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Base Stake</label><input type="number" id="pStake" value="1" min="0.35" step="0.01"></div>
+      <div class="field"><label>Currency</label><input type="text" id="pCurrency" value="USD" disabled></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Duration</label><input type="number" id="pDuration" value="5" min="1" step="1"></div>
+      <div class="field"><label>Duration Unit</label>
+        <select id="pDurationUnit">
+          <option value="t">Ticks</option>
+          <option value="s">Seconds</option>
+          <option value="m">Minutes</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Minimum Signal Confidence to Trade (%)</label>
+      <input type="number" id="pMinConf" value="80" min="50" max="99" step="1">
+      <div class="hint">Engine will only fire a trade when Fusion Confidence ≥ this threshold.</div>
+    </div>
+    <div class="switch-row">
+      <span class="lbl">Auto-trade on qualifying signal</span>
+      <div class="sw on" id="swAutoTrade"><i></i></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>Profit &amp; Loss Parameters — Per Trade</h2></div>
+    <div class="switch-row">
+      <span class="lbl">Enable per-trade stake cap</span>
+      <div class="sw on" id="swStakeCap"><i></i></div>
+    </div>
+    <div class="field">
+      <label>Max Stake Per Trade</label>
+      <input type="number" id="pMaxStakePerTrade" value="20" min="0.35" step="0.01">
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>Profit &amp; Loss Parameters — Session</h2></div>
+    <div class="switch-row">
+      <span class="lbl">Enable session Take-Profit</span>
+      <div class="sw on" id="swTp"><i></i></div>
+    </div>
+    <div class="field"><label>Session Take-Profit ($)</label><input type="number" id="pTp" value="20" min="0" step="0.5"></div>
+    <div class="switch-row">
+      <span class="lbl">Enable session Stop-Loss</span>
+      <div class="sw on" id="swSl"><i></i></div>
+    </div>
+    <div class="field"><label>Session Stop-Loss ($)</label><input type="number" id="pSl" value="15" min="0" step="0.5"></div>
+    <div class="divider"></div>
+    <div class="switch-row">
+      <span class="lbl">Auto-Cycle: reset &amp; restart on Take-Profit</span>
+      <div class="sw on" id="swAutoCycleTp"><i></i></div>
+    </div>
+    <div class="hint">When the session Take-Profit is hit, the engine logs the cycle result, resets trade log / stats / martingale / engine buffers, then automatically re-arms to pursue the next Take-Profit target. Stop-Loss and other risk limits always stop the engine permanently — they never auto-restart. Disabled automatically on REAL accounts, which always require manual re-confirmation to re-arm.</div>
+    <div class="field" style="margin-top:8px;"><label>Delay Before Restart (sec)</label><input type="number" id="pCycleDelay" value="5" min="3" step="1"></div>
+  </div>
+</div>
+
+<!-- ============ RISK & MARTINGALE ============ -->
+<div class="view" id="view-risk">
+  <div class="card">
+    <div class="card-h"><h2>Smart Martingale Control</h2><span class="tag" id="mgStatusTag">OFF</span></div>
+    <div class="switch-row">
+      <span class="lbl">Enable Martingale Recovery</span>
+      <div class="sw" id="swMartingale"><i></i></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Multiplier (on loss)</label><input type="number" id="pMgMultiplier" value="2.1" min="1.01" step="0.05"></div>
+      <div class="field"><label>Max Steps</label><input type="number" id="pMgMaxSteps" value="5" min="1" max="12" step="1"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Reset Trigger</label>
+        <select id="pMgResetOn">
+          <option value="win">On any win</option>
+          <option value="win2">On 2 consecutive wins</option>
+        </select>
+      </div>
+      <div class="field"><label>Step-Down Mode</label>
+        <select id="pMgStepDown">
+          <option value="full">Full reset to base</option>
+          <option value="half">Halve toward base</option>
+        </select>
+      </div>
+    </div>
+    <div class="switch-row">
+      <span class="lbl">Cap martingale stake at Max Stake/Trade</span>
+      <div class="sw on" id="swMgCap"><i></i></div>
+    </div>
+    <div class="hint">Martingale stake for the next trade = min(base × multiplier^step, cap). If the cap would be exceeded, the engine forces a full reset instead of trading over-limit.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>Risk Parameters</h2></div>
+    <div class="grid2">
+      <div class="field"><label>Max Concurrent Contracts</label><input type="number" id="pMaxConcurrent" value="1" min="1" max="1" disabled></div>
+      <div class="field"><label>Post-Loss Cooldown (sec)</label><input type="number" id="pCooldown" value="5" min="5" step="1"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Max Trades / Session</label><input type="number" id="pMaxTradesSession" value="50" min="1" step="1"></div>
+      <div class="field"><label>Max Consecutive Losses</label><input type="number" id="pMaxConsecLoss" value="6" min="1" step="1"></div>
+    </div>
+    <div class="hint">Global trade mutex enforces exactly one open contract across all engines. Cooldown floor is 5 seconds and is never released early, even after a failed request, to prevent request spamming.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>Account Safety</h2></div>
+    <div class="switch-row"><span class="lbl">Real-account confirmation gate</span><div class="sw on" style="pointer-events:none;"><i></i></div></div>
+    <div class="hint">This lock cannot be disabled. Arming the engine on a REAL account always requires an explicit typed confirmation.</div>
+  </div>
+</div>
+
+<!-- ============ TRADE LOG ============ -->
+<div class="view" id="view-logs">
+  <div class="card">
+    <div class="card-h"><h2>Trade Log</h2><button class="btn btn-ghost btn-sm" id="btnResetLogOnly">Reset</button></div>
+    <div class="logrow" style="border-bottom:1px solid var(--line); color:var(--txt-2); font-size:9.5px; font-weight:700; text-transform:uppercase;">
+      <div>Time</div><div>Symbol / Signal</div><div>Stake</div><div style="text-align:right;">P/L</div>
+    </div>
+    <div id="logList"><div class="empty">No trades yet this session.</div></div>
+  </div>
+</div>
+
+<!-- ============ SYSTEM LOG ============ -->
+<div class="view" id="view-system">
+  <div class="card">
+    <div class="card-h"><h2>System Logs</h2><button class="btn btn-ghost btn-sm" id="btnResetSysLog">Clear</button></div>
+    <div id="syslog"></div>
+  </div>
+</div>
+
+<!-- ============ RESET ============ -->
+<div class="view" id="view-reset">
+  <div class="card">
+    <div class="card-h"><h2>Individual Reset Controls</h2></div>
+    <div class="row-btns" style="flex-direction:column; gap:8px;">
+      <button class="btn btn-ghost btn-full" data-reset="tradelog">Reset Trade Log</button>
+      <button class="btn btn-ghost btn-full" data-reset="stats">Reset Dashboard / PnL / Trade Stats</button>
+      <button class="btn btn-ghost btn-full" data-reset="martingale">Reset Martingale State</button>
+      <button class="btn btn-ghost btn-full" data-reset="engine">Reset Engine Buffers</button>
+      <button class="btn btn-ghost btn-full" data-reset="cycle">Reset Take-Profit Cycle Stats</button>
+      <button class="btn btn-ghost btn-full" data-reset="syslog">Reset System Logs</button>
+      <button class="btn btn-ghost btn-full" data-reset="session">Reset Session Clock</button>
+      <button class="btn btn-danger btn-full" data-reset="all">Reset Everything</button>
+    </div>
+    <div class="hint" style="margin-top:10px;">Every reset action requires confirmation and only clears local terminal state — it never touches your Deriv account balance or open contracts.</div>
+  </div>
+</div>
+
+<!-- ============ BOTTOM NAV ============ -->
+<div id="botnav">
+  <button class="navbtn active" data-tab="dashboard"><span class="ic">◆</span><span class="lb">Dash</span></button>
+  <button class="navbtn" data-tab="engine"><span class="ic">◈</span><span class="lb">Engine</span></button>
+  <button class="navbtn" data-tab="params"><span class="ic">▤</span><span class="lb">Params</span></button>
+  <button class="navbtn" data-tab="risk"><span class="ic">▲</span><span class="lb">Risk</span></button>
+  <button class="navbtn" data-tab="logs"><span class="ic">☰</span><span class="lb">Log</span></button>
+</div>
+
+<!-- ============ MODALS ============ -->
+<div class="modal-bg" id="modalConnect">
+  <div class="modal">
+    <h3>Connect to Deriv</h3>
+    <p>Personal Access Token authentication. Token and App ID are only stored in memory for this session.</p>
+    <div class="field"><label>App ID</label><input type="text" id="inAppId" placeholder="e.g. 1089"></div>
+    <div class="field"><label>Personal Access Token</label><input type="password" id="inToken" placeholder="Paste PAT token"></div>
+    <div class="field"><label>Account Preference</label>
+      <select id="inAccPref"><option value="demo">Demo (recommended)</option><option value="real">Real</option></select>
+    </div>
+    <div class="row-btns">
+      <button class="btn btn-ghost btn-full" id="btnCancelConnect">Cancel</button>
+      <button class="btn btn-primary btn-full" id="btnDoConnect">Connect</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalReal">
+  <div class="modal modal-real">
+    <h3 style="color:var(--fall);">⚠ Real Account Confirmation</h3>
+    <p>You are about to arm the engine on a <b>REAL money account</b>. Trades will use real funds and losses are final. Type <b>CONFIRM</b> below to proceed.</p>
+    <div class="field"><input type="text" id="inRealConfirm" placeholder="Type CONFIRM"></div>
+    <div class="row-btns">
+      <button class="btn btn-ghost btn-full" id="btnCancelReal">Cancel</button>
+      <button class="btn btn-danger btn-full" id="btnDoReal">Arm on Real</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalConfirmReset">
+  <div class="modal">
+    <h3 id="resetTitle">Confirm Reset</h3>
+    <p id="resetBody">This action cannot be undone.</p>
+    <div class="row-btns">
+      <button class="btn btn-ghost btn-full" id="btnCancelReset">Cancel</button>
+      <button class="btn btn-danger btn-full" id="btnConfirmReset">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================================================
+   SMARTXTRADER — DLDAS RISE/FALL TERMINAL
+   Single-file terminal. Sections:
+   1. Logger + EventBus
+   2. State store
+   3. REST client (accounts / otp)
+   4. WebSocket manager (keepalive, reconnect, req_id routing)
+   5. DLDAS Signal Engine (sub-engines + fusion)
+   6. Trade Manager (mutex, martingale, risk, P/L)
+   7. UI Controller (render, tabs, modals, resets)
+   ========================================================================================= */
+
+/* ---------------------------- 1. LOGGER + EVENT BUS ---------------------------- */
+const Bus = (() => {
+  const handlers = {};
+  return {
+    on(evt, fn){ (handlers[evt] = handlers[evt] || []).push(fn); },
+    emit(evt, payload){ (handlers[evt] || []).forEach(fn => { try { fn(payload); } catch(e){ Logger.error('bus handler error: ' + e.message); } }); }
+  };
+})();
+
+const Logger = (() => {
+  const el = () => document.getElementById('syslog');
+  function write(level, msg){
+    const box = el();
+    if (!box) return;
+    const ts = new Date().toISOString().split('T')[1].replace('Z','');
+    const line = document.createElement('div');
+    line.className = 'logline lg-' + level;
+    line.textContent = `[${ts}] ${msg}`;
+    box.appendChild(line);
+    box.scrollTop = box.scrollHeight;
+    while (box.children.length > 500) box.removeChild(box.firstChild);
+  }
+  return {
+    info: m => write('info', m),
+    ok: m => write('ok', m),
+    warn: m => write('warn', m),
+    error: m => write('err', m),
+    sys: m => write('sys', m),
+    clear(){ const box = el(); if (box) box.innerHTML = ''; }
+  };
+})();
+
+/* ---------------------------- 2. STATE STORE ---------------------------- */
+const State = {
+  connected:false,
+  appId:'', token:'', accountPref:'demo',
+  account:null,               // {account_id, balance, currency, group, status, account_type}
+  activeSymbols:[],           // tradable underlyings from active_symbols
+  armed:false,
+  mutexLocked:false,
+  cooldownUntil:0,
+  sessionStart:null,
+  stats:{
+    trades:0, wins:0, losses:0, netPl:0, maxWin:0, maxLoss:0, consecLoss:0, stakeSum:0
+  },
+  martingale:{ step:0, currentStake:0 },
+  cycle:{ count:0, cumulativePl:0 },   // Take-Profit auto-cycle tracking
+  tradeLog:[],                 // {time, symbol, side, stake, pl, status}
+  openContract:null,
+  reconnectAttempts:0,
+  maxReconnectAttempts:8
+};
+
+function fmt(n, d){ n = Number(n) || 0; return n.toFixed(d===undefined?2:d); }
+
+/* ---------------------------- 3. REST CLIENT ---------------------------- */
+const REST_BASE = 'https://api.derivws.com';
+
+function headers(withJson){
+  const h = { 'Authorization': 'Bearer ' + State.token, 'Deriv-App-ID': State.appId };
+  if (withJson) h['Content-Type'] = 'application/json';
+  return h;
+}
+
+async function restGetAccounts(){
+  const res = await fetch(`${REST_BASE}/trading/v1/options/accounts`, { headers: headers() });
+  const data = await res.json();
+  if (!res.ok){
+    const err = data.errors?.[0];
+    throw new Error(`${err?.code || 'Error'}: ${err?.message || res.status}`);
+  }
+  return data.data || [];
+}
+
+async function restGetOtpUrl(accountId){
+  const res = await fetch(`${REST_BASE}/trading/v1/options/accounts/${accountId}/otp`, { method:'POST', headers: headers() });
+  const data = await res.json();
+  if (!res.ok){
+    const err = data.errors?.[0];
+    throw new Error(`${err?.code || 'Error'}: ${err?.message || res.status}`);
+  }
+  return data.data.url;
+}
+
+/* ---------------------------- 4. WEBSOCKET MANAGER ---------------------------- */
+const Sock = (() => {
+  let ws = null;
+  let reqId = 0;
+  let keepaliveTimer = null;
+  let reconnecting = false;
+  let currentAccountId = null;
+
+  const pending = new Map();     // req_id -> {resolve, reject}
+  const handlers = new Map();    // msg_type -> [fn]
+
+  function nextId(){ return ++reqId; }
+
+  function on(msgType, fn){
+    if (!handlers.has(msgType)) handlers.set(msgType, []);
+    handlers.get(msgType).push(fn);
+  }
+
+  function send(cmd, opts){
+    return new Promise((resolve, reject) => {
+      if (!ws || ws.readyState !== WebSocket.OPEN){
+        reject(new Error('Socket not open'));
+        return;
+      }
+      const id = nextId();
+      const msg = Object.assign({}, cmd, { req_id: id });
+      if (opts && opts.subscribe) msg.subscribe = 1;   // BUGFIX: this must be on the wire payload, not just an internal flag
+      if (!opts || !opts.subscribe){
+        pending.set(id, { resolve, reject });
+      } else {
+        resolve(id);
+      }
+      try {
+        ws.send(JSON.stringify(msg));
+      } catch(e){
+        pending.delete(id);
+        reject(e);
+      }
+    });
+  }
+
+  function handleMessage(raw){
+    let data;
+    try { data = JSON.parse(raw); } catch(e){ Logger.error('WS parse error: ' + e.message); return; }
+
+    if (data.req_id && pending.has(data.req_id)){
+      const { resolve, reject } = pending.get(data.req_id);
+      pending.delete(data.req_id);
+      if (data.error) reject(new Error(`${data.error.code}: ${data.error.message}`));
+      else resolve(data);
+    }
+
+    if (data.error){
+      Logger.error(`API error [${data.msg_type || '?'}] ${data.error.code}: ${data.error.message}`);
+    }
+
+    if (data.msg_type && handlers.has(data.msg_type)){
+      handlers.get(data.msg_type).forEach(fn => fn(data));
+    }
+  }
+
+  function startKeepalive(){
+    stopKeepalive();
+    keepaliveTimer = setInterval(() => {
+      if (ws && ws.readyState === WebSocket.OPEN){
+        send({ ping: 1 }).catch(() => {});
+      }
+    }, 30000);
+  }
+  function stopKeepalive(){ if (keepaliveTimer){ clearInterval(keepaliveTimer); keepaliveTimer = null; } }
+
+  async function connect(accountId){
+    currentAccountId = accountId;
+    const url = await restGetOtpUrl(accountId);
+    Logger.info('OTP acquired — connecting WebSocket immediately.');
+    return new Promise((resolve, reject) => {
+      try {
+        ws = new WebSocket(url);
+      } catch(e){ reject(e); return; }
+
+      ws.onopen = () => {
+        Logger.ok('WebSocket connected.');
+        State.reconnectAttempts = 0;
+        startKeepalive();
+        Bus.emit('ws:open');
+        resolve();
+      };
+      ws.onmessage = (evt) => handleMessage(evt.data);
+      ws.onerror = (err) => {
+        Logger.error('WebSocket error.');
+        Bus.emit('ws:error', err);
+      };
+      ws.onclose = () => {
+        stopKeepalive();
+        Logger.warn('WebSocket closed.');
+        Bus.emit('ws:close');
+        scheduleReconnect();
+      };
+    });
+  }
+
+  function scheduleReconnect(){
+    if (reconnecting) return;
+    if (!State.connected) return; // user disconnected intentionally
+    if (State.reconnectAttempts >= State.maxReconnectAttempts){
+      Logger.error('Max reconnect attempts reached — please reconnect manually.');
+      State.connected = false;
+      Bus.emit('conn:lost');
+      return;
+    }
+    reconnecting = true;
+    const delay = Math.min(1000 * Math.pow(2, State.reconnectAttempts), 30000);
+    State.reconnectAttempts++;
+    Logger.warn(`Reconnecting in ${Math.round(delay/1000)}s (attempt ${State.reconnectAttempts})…`);
+    setTimeout(async () => {
+      reconnecting = false;
+      try {
+        await connect(currentAccountId);
+        Logger.ok('Reconnected — fresh OTP requested as required.');
+        Bus.emit('conn:restored');
+      } catch(e){
+        Logger.error('Reconnect failed: ' + e.message);
+        scheduleReconnect();
+      }
+    }, delay);
+  }
+
+  function disconnect(){
+    State.connected = false;
+    stopKeepalive();
+    if (ws){ try { ws.close(); } catch(e){} }
+    ws = null;
+  }
+
+  return { connect, disconnect, send, on, nextId };
+})();
+
+/* ---------------------------- 5. DLDAS SIGNAL ENGINE ---------------------------- */
+/*
+  Implements the Dynamic Linear Deviation Analytics System described in the
+  supplied strategy document, condensed into deterministic, computable sub-engines:
+
+    - Dynamic Reference Engine   : rolling linear regression reference line
+    - Linear Deviation Engine    : price distance from reference + stats
+    - Tick Velocity Engine       : rate of change of deviation
+    - Tick Acceleration Engine   : rate of change of velocity
+    - Directional Pressure Engine: cumulative sign-weighted deviation pressure
+    - Trend Persistence Engine   : how long deviation survives on one side
+    - Mean Reversion Engine      : probability of reversion vs continuation
+    - Signal Confidence / Fusion Engine : weighted vote across all sub-engines
+*/
+const DLDAS = (() => {
+  const BUFFER_MAX = 300;
+  const REGRESSION_WINDOW = 60;
+  let ticks = [];  // {price, epoch}
+  let deviationHistory = [];
+  let lastOutput = null;
+
+  function reset(){
+    ticks = [];
+    deviationHistory = [];
+    lastOutput = null;
+  }
+
+  function pushTick(price, epoch){
+    ticks.push({ price: Number(price) || 0, epoch: epoch || Date.now()/1000 });
+    if (ticks.length > BUFFER_MAX) ticks.shift();
+    return compute();
+  }
+
+  function linreg(points){
+    const n = points.length;
+    if (n < 2) return { slope:0, intercept: points[0]?.price || 0 };
+    let sx=0, sy=0, sxy=0, sxx=0;
+    points.forEach((p,i) => { sx+=i; sy+=p.price; sxy+=i*p.price; sxx+=i*i; });
+    const denom = (n*sxx - sx*sx) || 1;
+    const slope = (n*sxy - sx*sy) / denom;
+    const intercept = (sy - slope*sx)/n;
+    return { slope, intercept };
+  }
+
+  function stdev(arr){
+    if (arr.length < 2) return 0;
+    const mean = arr.reduce((a,b)=>a+b,0)/arr.length;
+    const v = arr.reduce((a,b)=>a+(b-mean)*(b-mean),0)/arr.length;
+    return Math.sqrt(v);
+  }
+
+  function compute(){
+    if (ticks.length < 20) return null;
+
+    const window = ticks.slice(-REGRESSION_WINDOW);
+    const { slope, intercept } = linreg(window);
+    const refIndex = window.length - 1;
+    const reference = intercept + slope * refIndex;
+    const currentPrice = ticks[ticks.length-1].price;
+    const deviation = currentPrice - reference;
+
+    deviationHistory.push(deviation);
+    if (deviationHistory.length > BUFFER_MAX) deviationHistory.shift();
+
+    // --- Deviation stats ---
+    const recentDev = deviationHistory.slice(-40);
+    const avgDev = recentDev.reduce((a,b)=>a+b,0)/recentDev.length;
+    const maxDev = Math.max(...recentDev.map(Math.abs));
+    const devStd = stdev(recentDev) || 0.0001;
+
+    // --- Velocity / Acceleration ---
+    const prevDev = deviationHistory[deviationHistory.length-2] ?? deviation;
+    const prevPrevDev = deviationHistory[deviationHistory.length-3] ?? prevDev;
+    const velocity = deviation - prevDev;
+    const prevVelocity = prevDev - prevPrevDev;
+    const acceleration = velocity - prevVelocity;
+
+    // --- Pressure Engine: sign-weighted sum over recent window ---
+    const pressureWindow = deviationHistory.slice(-30);
+    const posSum = pressureWindow.filter(d=>d>0).reduce((a,b)=>a+b,0);
+    const negSum = Math.abs(pressureWindow.filter(d=>d<0).reduce((a,b)=>a+b,0));
+    const pressure = posSum - negSum; // + = buying pressure, - = selling pressure
+    const pressureNorm = Math.max(-1, Math.min(1, pressure / ((posSum+negSum) || 1)));
+
+    // --- Persistence Engine: consecutive same-sign deviations ---
+    let persistence = 0;
+    const sign = Math.sign(deviation) || 1;
+    for (let i = deviationHistory.length-1; i>=0; i--){
+      if (Math.sign(deviationHistory[i]) === sign) persistence++;
+      else break;
+    }
+    const persistenceScore = Math.min(1, persistence / 40);
+
+    // --- Mean Reversion Engine: larger normalized deviation -> higher reversion odds ---
+    const normDev = Math.min(3, Math.abs(deviation) / devStd);
+    const meanReversionProb = Math.min(0.95, 0.15 + normDev * 0.22);
+    const continuationProb = 1 - meanReversionProb;
+
+    // --- Sub-engine votes (rise% each, 0-100) ---
+    const votes = {};
+    votes.linearDeviation = clampVote(50 + sign * Math.min(45, normDev*22));
+    votes.pressure        = clampVote(50 + pressureNorm*45);
+    votes.persistence     = clampVote(50 + sign * persistenceScore*40);
+    votes.velocity         = clampVote(50 + Math.sign(velocity||1) * Math.min(40, Math.abs(velocity)/devStd*20));
+    votes.meanReversion    = clampVote(50 - sign * continuationProb*40 + sign*20); // higher continuation -> favors current sign
+    votes.acceleration     = clampVote(50 + Math.sign(acceleration||1) * Math.min(30, Math.abs(acceleration)/devStd*15));
+
+    // --- Weighted Fusion / Confidence Engine ---
+    const weights = { linearDeviation:.25, pressure:.20, persistence:.15, velocity:.15, meanReversion:.15, acceleration:.10 };
+    let fusionRise = 0;
+    Object.keys(weights).forEach(k => { fusionRise += votes[k]*weights[k]; });
+    const fusionFall = 100 - fusionRise;
+    const signal = fusionRise >= fusionFall ? 'RISE' : 'FALL';
+    const confidence = Math.max(fusionRise, fusionFall);
+
+    lastOutput = {
+      market: State.tradeParams?.symbol || '—',
+      contract: 'Rise/Fall',
+      dynamic_reference: round(reference,5),
+      current_price: round(currentPrice,5),
+      linear_deviation: round(deviation,5),
+      deviation_velocity: describeVelocity(velocity, devStd),
+      deviation_acceleration: describeAccel(acceleration, devStd),
+      pressure: pressureNorm >= 0 ? 'Buying Pressure' : 'Selling Pressure',
+      trend_persistence: round(persistenceScore,2),
+      mean_reversion_probability: round(meanReversionProb,2),
+      continuation_probability: round(continuationProb,2),
+      signal,
+      confidence: round(confidence,1),
+      votes,
+      bufferSize: ticks.length
+    };
+    return lastOutput;
+  }
+
+  function clampVote(v){ return Math.max(2, Math.min(98, v)); }
+  function round(n,d){ return Math.round(n*Math.pow(10,d))/Math.pow(10,d); }
+  function describeVelocity(v, std){
+    const r = Math.abs(v)/ (std||0.0001);
+    if (r < 0.3) return 'Slow'; if (r < 0.8) return 'Medium'; if (r < 1.8) return 'High'; return 'Explosive';
+  }
+  function describeAccel(a, std){
+    const r = a/(std||0.0001);
+    if (Math.abs(r) < 0.2) return 'Stable';
+    return r > 0 ? 'Increasing' : 'Decreasing';
+  }
+
+  function getOutput(){ return lastOutput; }
+  function bufferInfo(){ return { size: ticks.length, max: BUFFER_MAX, ready: ticks.length >= 20 }; }
+
+  return { reset, pushTick, getOutput, bufferInfo };
+})();
+
+/* ---------------------------- 6. TRADE MANAGER ---------------------------- */
+const Trader = (() => {
+  let cooldownTimer = null;
+
+  function params(){
+    return {
+      symbol: document.getElementById('pSymbol').value,
+      stake: Number(document.getElementById('pStake').value) || 1,
+      duration: Number(document.getElementById('pDuration').value) || 5,
+      durationUnit: document.getElementById('pDurationUnit').value,
+      minConf: Number(document.getElementById('pMinConf').value) || 80,
+      autoTrade: document.getElementById('swAutoTrade').classList.contains('on'),
+      stakeCapOn: document.getElementById('swStakeCap').classList.contains('on'),
+      maxStakePerTrade: Number(document.getElementById('pMaxStakePerTrade').value) || 20,
+      tpOn: document.getElementById('swTp').classList.contains('on'),
+      tp: Number(document.getElementById('pTp').value) || 0,
+      slOn: document.getElementById('swSl').classList.contains('on'),
+      sl: Number(document.getElementById('pSl').value) || 0,
+      autoCycleTp: document.getElementById('swAutoCycleTp').classList.contains('on'),
+      cycleDelay: Math.max(3, Number(document.getElementById('pCycleDelay').value) || 5),
+      mgOn: document.getElementById('swMartingale').classList.contains('on'),
+      mgMultiplier: Number(document.getElementById('pMgMultiplier').value) || 2,
+      mgMaxSteps: Number(document.getElementById('pMgMaxSteps').value) || 5,
+      mgResetOn: document.getElementById('pMgResetOn').value,
+      mgStepDown: document.getElementById('pMgStepDown').value,
+      mgCapOn: document.getElementById('swMgCap').classList.contains('on'),
+      cooldown: Math.max(5, Number(document.getElementById('pCooldown').value) || 5),
+      maxTradesSession: Number(document.getElementById('pMaxTradesSession').value) || 50,
+      maxConsecLoss: Number(document.getElementById('pMaxConsecLoss').value) || 6
+    };
+  }
+
+  function nextStake(p){
+    if (!p.mgOn) return p.stake;
+    let stake = p.stake * Math.pow(p.mgMultiplier, State.martingale.step);
+    if (p.mgCapOn && stake > p.maxStakePerTrade){
+      Logger.warn('Martingale stake would exceed cap — forcing full reset instead of over-limit trade.');
+      State.martingale.step = 0;
+      stake = p.stake;
+    }
+    return Math.round(stake*100)/100;
+  }
+
+  function canTrade(p){
+    if (!State.armed) return { ok:false, reason:'Engine not armed' };
+    if (State.mutexLocked) return { ok:false, reason:'Trade mutex locked' };
+    if (Date.now() < State.cooldownUntil) return { ok:false, reason:'Cooldown active' };
+    if (State.stats.trades >= p.maxTradesSession) return { ok:false, reason:'Max trades/session reached' };
+    if (State.stats.consecLoss >= p.maxConsecLoss) return { ok:false, reason:'Max consecutive losses reached' };
+    if (p.tpOn && State.stats.netPl >= p.tp) return { ok:false, reason:'Session take-profit reached' };
+    if (p.slOn && State.stats.netPl <= -Math.abs(p.sl)) return { ok:false, reason:'Session stop-loss reached' };
+    return { ok:true };
+  }
+
+  async function evaluateAndMaybeTrade(dldasOut){
+    if (!dldasOut) return;
+    const p = params();
+    UI.renderEngine(dldasOut);
+
+    const gate = canTrade(p);
+    UI.setLiveStatus(dldasOut, gate);
+    if (!p.autoTrade) return;
+    if (!gate.ok) {
+      if (gate.reason === 'Session take-profit reached'){
+        if (State.armed) UI.handleTakeProfitHit();
+        return;
+      }
+      if (gate.reason !== 'Cooldown active' && gate.reason !== 'Trade mutex locked') {
+        if (['Session stop-loss reached','Max trades/session reached','Max consecutive losses reached'].includes(gate.reason)){
+          if (State.armed){ Logger.warn('Auto-disarm (hard stop): ' + gate.reason); UI.disarmEngine(); }
+        }
+      }
+      return;
+    }
+    if (dldasOut.confidence < p.minConf) return;
+
+    await executeTrade(dldasOut.signal, p);
+  }
+
+  async function executeTrade(signal, p){
+    if (State.mutexLocked) return;
+    State.mutexLocked = true;
+    UI.refreshMutexBadge();
+
+    const stake = nextStake(p);
+    const contractType = signal === 'RISE' ? 'CALL' : 'PUT';
+    Logger.info(`Requesting proposal → ${signal} ${p.symbol} stake=${stake}`);
+
+    try {
+      const proposalReq = {
+        proposal: 1,
+        amount: stake,
+        basis: 'stake',
+        contract_type: contractType,
+        currency: State.account.currency || 'USD',
+        duration: p.duration,
+        duration_unit: p.durationUnit,
+        underlying_symbol: p.symbol
+      };
+      const proposalRes = await Sock.send(proposalReq);
+      const proposalId = proposalRes.proposal.id;
+      Logger.ok(`Proposal received: ask_price=${fmt(proposalRes.proposal.ask_price)}`);
+
+      const buyRes = await Sock.send({ buy: proposalId, price: stake });
+      const contractId = buyRes.buy.contract_id;
+      Logger.ok(`Contract bought: id=${contractId} price=${fmt(buyRes.buy.buy_price)}`);
+
+      State.openContract = { contractId, stake, signal, symbol: p.symbol, time: Date.now() };
+      logTradeOpen(State.openContract);
+
+      await Sock.send({ proposal_open_contract: 1, contract_id: contractId }, { subscribe:true });
+      // NOTE: handler is registered exactly once in init() below — do not re-register per trade.
+
+    } catch(e){
+      Logger.error('Trade execution failed: ' + e.message);
+      releaseMutex(p.cooldown);
+    }
+  }
+
+  function handleContractUpdate(data){
+    const c = data.proposal_open_contract;
+    if (!c || !State.openContract || c.contract_id !== State.openContract.contractId) return;
+    if (Number(c.is_sold)){
+      const pl = Number(c.profit) || 0;
+      settleTrade(pl);
+      Sock.send({ forget_all: 'proposal_open_contract' }).catch(()=>{});
+    }
+  }
+
+  let handlersRegistered = false;
+  function init(){
+    if (handlersRegistered) return;
+    handlersRegistered = true;
+    Sock.on('proposal_open_contract', handleContractUpdate);
+    Logger.sys('Trade manager initialized — contract-update handler registered once.');
+  }
+
+  function settleTrade(pl){
+    const p = params();
+    State.stats.trades++;
+    State.stats.netPl += pl;
+    State.stats.stakeSum += (State.openContract?.stake || 0);
+    if (pl >= 0){
+      State.stats.wins++; State.stats.consecLoss = 0;
+      if (pl > State.stats.maxWin) State.stats.maxWin = pl;
+      if (p.mgOn){
+        if (p.mgResetOn === 'win' || (p.mgResetOn === 'win2')) {
+          State.martingale.step = p.mgStepDown === 'half' ? Math.max(0, Math.floor(State.martingale.step/2)) : 0;
+        }
+      }
+    } else {
+      State.stats.losses++; State.stats.consecLoss++;
+      if (pl < State.stats.maxLoss) State.stats.maxLoss = pl;
+      if (p.mgOn) State.martingale.step = Math.min(p.mgMaxSteps, State.martingale.step+1);
+    }
+    logTradeClose(pl);
+    State.openContract = null;
+    UI.renderDashboard();
+    releaseMutex(p.cooldown);
+  }
+
+  function releaseMutex(cooldownSec){
+    // enforce minimum 5s cooldown before mutex actually frees
+    State.cooldownUntil = Date.now() + Math.max(5, cooldownSec)*1000;
+    setTimeout(() => {
+      State.mutexLocked = false;
+      UI.refreshMutexBadge();
+    }, Math.max(5, cooldownSec)*1000);
+  }
+
+  function logTradeOpen(t){
+    State.tradeLog.unshift({ time: new Date(t.time), symbol: t.symbol, side: t.signal, stake: t.stake, pl: null, status:'open' });
+    UI.renderTradeLog();
+  }
+  function logTradeClose(pl){
+    const row = State.tradeLog.find(r => r.status === 'open');
+    if (row){ row.pl = pl; row.status = 'closed'; }
+    UI.renderTradeLog();
+  }
+
+  return { params, canTrade, evaluateAndMaybeTrade, executeTrade, init };
+})();
+
+/* ---------------------------- 7. UI CONTROLLER ---------------------------- */
+const UI = (() => {
+
+  function switchTab(tab){
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-'+tab)?.classList.add('active');
+    document.querySelectorAll('.tabbtn').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
+    document.querySelectorAll('.navbtn').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
+  }
+
+  function bindTabs(){
+    document.querySelectorAll('.tabbtn, .navbtn').forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+  }
+
+  function bindSwitches(){
+    document.querySelectorAll('.sw').forEach(sw => {
+      if (sw.style.pointerEvents === 'none') return;
+      sw.addEventListener('click', () => {
+        sw.classList.toggle('on');
+        if (sw.id === 'swAutoCycleTp' || sw.id === 'swTp') renderCycleStats();
+      });
+    });
+  }
+
+  function refreshMutexBadge(){
+    const b = document.getElementById('mutexBadge');
+    if (State.mutexLocked) { b.textContent = 'MUTEX LOCKED'; b.style.color='var(--fall)'; b.style.background='rgba(255,84,112,.12)'; }
+    else if (Date.now() < State.cooldownUntil) { b.textContent = 'COOLDOWN'; b.style.color='var(--amber)'; b.style.background='rgba(255,182,72,.12)'; }
+    else { b.textContent = 'MUTEX FREE'; b.style.color='var(--amber)'; b.style.background='rgba(255,182,72,.12)'; }
+  }
+
+  function renderAccount(){
+    if (!State.account) return;
+    document.getElementById('stBalance').textContent = fmt(State.account.balance);
+    document.getElementById('stCurrency').textContent = State.account.currency || '—';
+    document.getElementById('stAccId').textContent = State.account.account_id || '—';
+    document.getElementById('accTypeTag').textContent = (State.account.account_type||'—').toUpperCase();
+    document.getElementById('acctLabel').textContent = `${State.account.account_id||''} · ${(State.account.account_type||'').toUpperCase()}`;
+  }
+
+  function renderCycleStats(){
+    document.getElementById('stCycles').textContent = State.cycle.count;
+    const cum = State.cycle.cumulativePl;
+    const cumEl = document.getElementById('stCumPl');
+    cumEl.textContent = (cum>=0?'+':'') + fmt(cum);
+    cumEl.className = 'v num ' + (cum>0?'up':cum<0?'down':'neu');
+    document.getElementById('stCycleTarget').textContent = fmt(Trader.params().tp);
+    document.getElementById('cycleAutoTag').textContent = Trader.params().autoCycleTp ? 'AUTO-CYCLE ON' : 'AUTO-CYCLE OFF';
+  }
+
+  function renderDashboard(){
+    const s = State.stats;
+    document.getElementById('stNetPl').textContent = (s.netPl>=0?'+':'') + fmt(s.netPl);
+    document.getElementById('stNetPl').className = 'v num ' + (s.netPl>0?'up':s.netPl<0?'down':'neu');
+    document.getElementById('stWinRate').textContent = s.trades ? Math.round((s.wins/s.trades)*100)+'%' : '0%';
+    document.getElementById('stTrades').textContent = s.trades;
+    document.getElementById('stWins').textContent = s.wins;
+    document.getElementById('stLosses').textContent = s.losses;
+    document.getElementById('stConsecLoss').textContent = s.consecLoss;
+    document.getElementById('stAvgStake').textContent = fmt(s.trades ? s.stakeSum/s.trades : 0);
+    document.getElementById('stMaxWin').textContent = fmt(s.maxWin);
+    document.getElementById('stMaxLoss').textContent = fmt(s.maxLoss);
+    document.getElementById('stMgStep').textContent = State.martingale.step;
+    refreshMutexBadge();
+    renderCycleStats();
+  }
+
+  function renderTradeLog(){
+    const list = document.getElementById('logList');
+    if (!State.tradeLog.length){ list.innerHTML = '<div class="empty">No trades yet this session.</div>'; return; }
+    list.innerHTML = State.tradeLog.slice(0,80).map(r => {
+      const plStr = r.pl===null ? '…' : (r.pl>=0?'+':'') + fmt(r.pl);
+      const plCls = r.pl===null ? 'neu' : (r.pl>=0?'up':'down');
+      return `<div class="logrow">
+        <div class="t">${r.time.toTimeString().slice(0,8)}</div>
+        <div><div class="sym">${r.symbol}</div><span class="side ${r.side==='RISE'?'side-rise':'side-fall'}">${r.side}</span></div>
+        <div class="num">${fmt(r.stake)}</div>
+        <div class="pl num ${plCls}">${plStr}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderEngine(out){
+    document.getElementById('engBuffer').textContent = `${out.bufferSize}/300`;
+    document.getElementById('engFusion').textContent = out.signal;
+    document.getElementById('engFusion').className = 'v num ' + (out.signal==='RISE'?'up':'down');
+    document.getElementById('engConf').textContent = out.confidence + '%';
+    document.getElementById('engJson').textContent = JSON.stringify(out, null, 2);
+
+    const names = {
+      linearDeviation:'Linear Deviation Engine',
+      pressure:'Directional Pressure Engine',
+      persistence:'Trend Persistence Engine',
+      velocity:'Tick Velocity Engine',
+      meanReversion:'Mean Reversion Engine',
+      acceleration:'Tick Acceleration Engine'
+    };
+    const list = document.getElementById('engineList');
+    list.innerHTML = Object.keys(names).map(k => {
+      const v = out.votes[k];
+      const sig = v>55?'RISE':v<45?'FALL':'FLAT';
+      const sigCls = sig==='RISE'?'sig-rise':sig==='FALL'?'sig-fall':'sig-flat';
+      return `<div class="engine">
+        <div class="engine-h"><span class="name">${names[k]}</span><span class="sig ${sigCls}">${sig}</span></div>
+        <div class="engine-bar"><div class="r" style="width:${v}%"></div><div class="f" style="width:${100-v}%"></div></div>
+        <div class="engine-meta"><span>Rise ${Math.round(v)}%</span><span>Fall ${Math.round(100-v)}%</span></div>
+      </div>`;
+    }).join('');
+  }
+
+  function setLiveStatus(out, gate){
+    const box = document.getElementById('liveStatusBox');
+    if (!out){ box.className='empty'; box.textContent='Warming up tick buffer…'; return; }
+    box.className = '';
+    const color = out.signal==='RISE' ? 'var(--rise)' : 'var(--fall)';
+    box.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center;">
+      <div><b style="color:${color}; font-family:var(--mono); font-size:15px;">${out.signal}</b>
+      <span class="num" style="color:var(--txt-2); margin-left:8px;">${out.confidence}% confidence</span></div>
+      <div class="num" style="font-size:10px; color:${gate.ok?'var(--rise)':'var(--amber)'};">${gate.ok?'READY':gate.reason}</div>
+    </div>`;
+  }
+
+  let cycleInFlight = false;
+  let TickFeed = null;
+  let lastTickAt = 0;
+  function handleTakeProfitHit(){
+    if (cycleInFlight) return; // guard against re-entry from rapid successive ticks
+    cycleInFlight = true;
+
+    const p = Trader.params();
+    const achieved = State.stats.netPl;
+    State.cycle.count++;
+    State.cycle.cumulativePl += achieved;
+    Logger.sys(`🎯 TAKE-PROFIT ACHIEVED: +${fmt(achieved)} — cycle #${State.cycle.count} complete. Cumulative P/L: ${(State.cycle.cumulativePl>=0?'+':'')+fmt(State.cycle.cumulativePl)}`);
+    disarmEngine();
+    renderCycleStats();
+
+    if (!p.autoCycleTp){
+      Logger.info('Auto-Cycle is OFF — engine remains disarmed. Arm manually to start a new cycle.');
+      cycleInFlight = false;
+      return;
+    }
+    if (State.account?.account_type === 'real'){
+      Logger.warn('Auto-Cycle is disabled for REAL accounts as a safety measure — arm manually to re-confirm and continue.');
+      cycleInFlight = false;
+      return;
+    }
+
+    Logger.info(`Auto-Cycle ON — resetting trade log, stats, martingale and engine buffers. Restarting in ${p.cycleDelay}s to pursue the next Take-Profit target of ${fmt(p.tp)}…`);
+    setTimeout(() => {
+      doReset('tradelog');
+      doReset('stats');
+      doReset('martingale');
+      doReset('engine');
+      // Defensive safety net: guarantee the mutex/cooldown can never be left stuck across a cycle boundary.
+      State.mutexLocked = false;
+      State.cooldownUntil = 0;
+      State.openContract = null;
+      refreshMutexBadge();
+      // Session clock, account balance, cycle history and system log are intentionally preserved across cycles.
+      doArm();
+      if (TickFeed) TickFeed.resubscribe();
+      Logger.ok(`Cycle #${State.cycle.count+1} started — engine re-armed and pursuing next Take-Profit target.`);
+      cycleInFlight = false;
+    }, p.cycleDelay*1000);
+  }
+
+  function armEngine(){
+    if (!State.connected){ Logger.warn('Connect before arming.'); return; }
+    if (State.account?.account_type === 'real'){
+      document.getElementById('modalReal').classList.add('show');
+      return;
+    }
+    doArm();
+  }
+  function doArm(){
+    State.armed = true;
+    document.getElementById('btnArm').disabled = true;
+    document.getElementById('btnDisarm').disabled = false;
+    if (!State.sessionStart) State.sessionStart = Date.now();
+    Logger.sys('Engine ARMED. Auto-trade=' + Trader.params().autoTrade);
+  }
+  function disarmEngine(){
+    State.armed = false;
+    document.getElementById('btnArm').disabled = false;
+    document.getElementById('btnDisarm').disabled = true;
+    Logger.sys('Engine DISARMED.');
+  }
+
+  function bindMasterControls(){
+    document.getElementById('btnArm').addEventListener('click', armEngine);
+    document.getElementById('btnDisarm').addEventListener('click', disarmEngine);
+    document.getElementById('btnConnect').addEventListener('click', () => document.getElementById('modalConnect').classList.add('show'));
+    document.getElementById('btnCancelConnect').addEventListener('click', () => document.getElementById('modalConnect').classList.remove('show'));
+    document.getElementById('btnDoConnect').addEventListener('click', doConnect);
+    document.getElementById('btnCancelReal').addEventListener('click', () => document.getElementById('modalReal').classList.remove('show'));
+    document.getElementById('btnDoReal').addEventListener('click', () => {
+      if (document.getElementById('inRealConfirm').value.trim() === 'CONFIRM'){
+        document.getElementById('modalReal').classList.remove('show');
+        doArm();
+      } else {
+        Logger.warn('Real-account confirmation text did not match.');
+      }
+    });
+  }
+
+  async function doConnect(){
+    State.appId = document.getElementById('inAppId').value.trim();
+    State.token = document.getElementById('inToken').value.trim();
+    State.accountPref = document.getElementById('inAccPref').value;
+    if (!State.appId || !State.token){ Logger.warn('App ID and Token required.'); return; }
+
+    document.getElementById('modalConnect').classList.remove('show');
+    document.getElementById('connLabel').textContent = 'Connecting…';
+    Logger.sys('Fetching accounts…');
+
+    try {
+      const accounts = await restGetAccounts();
+      if (!accounts.length) throw new Error('No accounts returned for this token.');
+      const acc = accounts.find(a => a.account_type === State.accountPref && a.status === 'active') || accounts.find(a=>a.status==='active') || accounts[0];
+      acc.balance = Number(acc.balance) || 0;
+      State.account = acc;
+      renderAccount();
+      Logger.ok(`Account selected: ${acc.account_id} (${acc.account_type})`);
+
+      await Sock.connect(acc.account_id);
+      State.connected = true;
+      document.getElementById('connDot').classList.add('live');
+      document.getElementById('connLabel').textContent = 'Connected';
+
+      // active_symbols validation gate
+      Sock.on('active_symbols', data => {
+        const raw = data.active_symbols || [];
+        const norm = raw.map(normalizeSymbolEntry).filter(s => s.symbol);
+        if (raw.length && !norm.length){
+          Logger.error('active_symbols payload did not match any known symbol field (symbol/underlying_symbol/underlying/code) — dumping first entry to system log.');
+          Logger.error(JSON.stringify(raw[0]));
+        }
+        State.activeSymbols = norm.map(s => s.symbol);
+        populateSymbolSelect(norm);
+        Logger.ok(`active_symbols received: ${State.activeSymbols.length} tradable symbols.`);
+      });
+      await Sock.send({ active_symbols: 'brief' });
+
+      // balance subscription
+      Sock.on('balance', data => {
+        if (data.balance){
+          State.account.balance = Number(data.balance.balance) || 0;
+          renderAccount();
+        }
+      });
+      await Sock.send({ balance: 1 }, { subscribe:true });
+
+      Bus.on('conn:restored', async () => {
+        document.getElementById('connDot').classList.remove('err');
+        document.getElementById('connDot').classList.add('live');
+        document.getElementById('connLabel').textContent = 'Connected';
+        await resubscribeAfterReconnect();
+      });
+      Bus.on('ws:close', () => {
+        document.getElementById('connDot').classList.remove('live');
+        document.getElementById('connDot').classList.add('err');
+        document.getElementById('connLabel').textContent = 'Reconnecting…';
+      });
+      Bus.on('conn:lost', () => {
+        State.connected = false;
+        document.getElementById('connDot').classList.remove('live');
+        document.getElementById('connLabel').textContent = 'Disconnected';
+        disarmEngine();
+      });
+
+      startTickLoop();
+      startSessionClock();
+      startWatchdog();
+
+    } catch(e){
+      Logger.error('Connect failed: ' + e.message);
+      document.getElementById('connLabel').textContent = 'Disconnected';
+    }
+  }
+
+  // Real payloads have been observed to use different field names for the symbol code
+  // (symbol / underlying_symbol / underlying / code). Normalize defensively rather than
+  // assuming the documented shape.
+  function normalizeSymbolEntry(s){
+    const symbol = s.symbol || s.underlying_symbol || s.underlying || s.code || '';
+    const display = s.display_name || s.name || s.underlying_symbol_display || symbol;
+    return { symbol, display_name: display, raw: s };
+  }
+
+  function populateSymbolSelect(symbols){
+    const sel = document.getElementById('pSymbol');
+    if (!symbols.length){
+      document.getElementById('symbolHint').textContent = 'No tradable symbols resolved from active_symbols — check System Log for the raw payload shape.';
+      return;
+    }
+    const preferred = symbols.filter(s => /^(1HZ|R_)/.test(s.symbol));
+    const list = preferred.length ? preferred : symbols;
+    sel.innerHTML = list.slice(0,40).map(s => `<option value="${s.symbol}">${s.display_name}</option>`).join('');
+    document.getElementById('symbolHint').textContent = `${list.length} tradable symbols loaded from active_symbols. Non-tradable symbols are excluded.`;
+  }
+
+  function startTickLoop(){
+    let subscribed = null;
+    // Registered exactly once — closes over `subscribed`, so switching symbols never stacks handlers.
+    Sock.on('tick', data => {
+      if (!data.tick || data.tick.symbol !== subscribed) return;
+      lastTickAt = Date.now();
+      const out = DLDAS.pushTick(data.tick.quote, data.tick.epoch);
+      if (out) Trader.evaluateAndMaybeTrade(out);
+    });
+    function subscribe(force){
+      const symbol = document.getElementById('pSymbol').value;
+      if (!symbol){
+        Logger.warn('No symbol selected yet — waiting for active_symbols to populate before subscribing to ticks.');
+        return;
+      }
+      if (State.activeSymbols.length && !State.activeSymbols.includes(symbol)){
+        Logger.error(`Symbol "${symbol}" is not in the validated active_symbols list — refusing to subscribe.`);
+        return;
+      }
+      if (subscribed === symbol && !force) return;
+      const previous = subscribed;
+      subscribed = symbol;
+      if (!force) DLDAS.reset();
+      if (previous && previous !== symbol) Sock.send({ forget_all: 'ticks' }).catch(() => {});
+      Sock.send({ ticks: symbol }, { subscribe:true }).catch(e => Logger.error('Tick subscribe failed: ' + e.message));
+      lastTickAt = Date.now();
+      Logger.info((force ? 'Re-subscribed' : 'Subscribed') + ' to tick stream: ' + symbol);
+    }
+    subscribe(false);
+    document.getElementById('pSymbol').addEventListener('change', () => subscribe(false));
+    TickFeed = { resubscribe: () => subscribe(true) };
+  }
+
+  async function resubscribeAfterReconnect(){
+    try {
+      Logger.warn('Reconnected — restoring active_symbols, balance, tick' + (State.openContract ? ' and open-contract' : '') + ' subscriptions.');
+      await Sock.send({ active_symbols: 'brief' });
+      await Sock.send({ balance: 1 }, { subscribe:true });
+      if (TickFeed) TickFeed.resubscribe();
+      if (State.openContract){
+        await Sock.send({ proposal_open_contract: 1, contract_id: State.openContract.contractId }, { subscribe:true });
+        Logger.warn(`Resubscribed to in-flight open contract #${State.openContract.contractId} after reconnect.`);
+      }
+      Logger.ok('All subscriptions restored after reconnect.');
+    } catch(e){
+      Logger.error('Resubscribe after reconnect failed: ' + e.message);
+    }
+  }
+
+  function startWatchdog(){
+    setInterval(() => {
+      if (!State.connected) return;
+      if (State.armed && lastTickAt && (Date.now() - lastTickAt > 20000)){
+        Logger.warn('Watchdog: no ticks received for 20s+ while armed — forcing tick resubscribe.');
+        if (TickFeed) TickFeed.resubscribe();
+        lastTickAt = Date.now(); // throttle repeat warnings until a real tick arrives
+      }
+      if (State.openContract && (Date.now() - State.openContract.time > 90000)){
+        Logger.warn(`Watchdog: open contract #${State.openContract.contractId} has not settled in 90s — forcing contract resubscribe.`);
+        Sock.send({ proposal_open_contract: 1, contract_id: State.openContract.contractId }, { subscribe:true }).catch(() => {});
+        State.openContract.time = Date.now(); // throttle repeat warnings
+      }
+    }, 15000);
+  }
+
+  function startSessionClock(){
+    setInterval(() => {
+      if (!State.sessionStart) return;
+      const secs = Math.floor((Date.now()-State.sessionStart)/1000);
+      const h = String(Math.floor(secs/3600)).padStart(2,'0');
+      const m = String(Math.floor((secs%3600)/60)).padStart(2,'0');
+      const s = String(secs%60).padStart(2,'0');
+      document.getElementById('sessionClock').textContent = `${h}:${m}:${s}`;
+    }, 1000);
+  }
+
+  /* ---------------- Reset system ---------------- */
+  const resetCopy = {
+    tradelog:{ title:'Reset Trade Log', body:'This clears the visible trade log for this session. Stats totals are unaffected.' },
+    stats:{ title:'Reset Dashboard / PnL / Trade Stats', body:'This zeroes out net P/L, win rate, trade counts and stake stats.' },
+    martingale:{ title:'Reset Martingale State', body:'This resets the current martingale step back to zero.' },
+    engine:{ title:'Reset Engine Buffers', body:'This clears the DLDAS tick buffer and forces a fresh warm-up.' },
+    cycle:{ title:'Reset Take-Profit Cycle Stats', body:'This zeroes the completed-cycle count and cumulative cross-cycle P/L. Does not affect the current session stats.' },
+    syslog:{ title:'Reset System Logs', body:'This clears the on-screen system log panel.' },
+    session:{ title:'Reset Session Clock', body:'This restarts the session timer from 00:00:00.' },
+    all:{ title:'Reset Everything', body:'This clears trade log, stats, martingale, engine buffers, cycle stats, system logs, and the session clock.' }
+  };
+  let pendingReset = null;
+
+  function bindResets(){
+    document.querySelectorAll('[data-reset]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        pendingReset = btn.dataset.reset;
+        document.getElementById('resetTitle').textContent = resetCopy[pendingReset].title;
+        document.getElementById('resetBody').textContent = resetCopy[pendingReset].body;
+        document.getElementById('modalConfirmReset').classList.add('show');
+      });
+    });
+    document.getElementById('btnCancelReset').addEventListener('click', () => document.getElementById('modalConfirmReset').classList.remove('show'));
+    document.getElementById('btnConfirmReset').addEventListener('click', () => { doReset(pendingReset); document.getElementById('modalConfirmReset').classList.remove('show'); });
+    document.getElementById('btnResetLogOnly').addEventListener('click', () => { pendingReset='tradelog'; document.getElementById('resetTitle').textContent=resetCopy.tradelog.title; document.getElementById('resetBody').textContent=resetCopy.tradelog.body; document.getElementById('modalConfirmReset').classList.add('show'); });
+    document.getElementById('btnResetSysLog').addEventListener('click', () => Logger.clear());
+  }
+
+  function doReset(kind){
+    switch(kind){
+      case 'tradelog': State.tradeLog = []; renderTradeLog(); Logger.sys('Trade log reset.'); break;
+      case 'stats': State.stats = { trades:0, wins:0, losses:0, netPl:0, maxWin:0, maxLoss:0, consecLoss:0, stakeSum:0 }; renderDashboard(); Logger.sys('Dashboard stats reset.'); break;
+      case 'martingale': State.martingale = { step:0, currentStake:0 }; renderDashboard(); Logger.sys('Martingale state reset.'); break;
+      case 'engine': DLDAS.reset(); Logger.sys('Engine buffers reset.'); break;
+      case 'cycle': State.cycle = { count:0, cumulativePl:0 }; renderCycleStats(); Logger.sys('Take-Profit cycle stats reset.'); break;
+      case 'syslog': Logger.clear(); Logger.sys('System log reset.'); break;
+      case 'session': State.sessionStart = Date.now(); Logger.sys('Session clock reset.'); break;
+      case 'all':
+        State.tradeLog = []; State.stats = { trades:0, wins:0, losses:0, netPl:0, maxWin:0, maxLoss:0, consecLoss:0, stakeSum:0 };
+        State.martingale = { step:0, currentStake:0 }; State.cycle = { count:0, cumulativePl:0 }; DLDAS.reset(); Logger.clear();
+        State.sessionStart = Date.now();
+        renderTradeLog(); renderDashboard();
+        Logger.sys('Full terminal reset performed.');
+        break;
+    }
+  }
+
+  function init(){
+    bindTabs();
+    bindSwitches();
+    bindMasterControls();
+    bindResets();
+    Trader.init();
+    renderDashboard();
+    renderTradeLog();
+    Logger.sys('SmartXtrader DLDAS Rise/Fall Terminal initialized. Awaiting connection.');
+  }
+
+  return { init, renderDashboard, renderTradeLog, renderEngine, setLiveStatus, refreshMutexBadge, armEngine, disarmEngine, handleTakeProfitHit };
+})();
+
+document.addEventListener('DOMContentLoaded', UI.init);
+
+})();
+</script>
+</body>
+</html>

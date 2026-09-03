@@ -1,0 +1,2185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>OV2UN7 Nexus — Deriv Trading Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0c0f14;
+  --bg-raised:#12161d;
+  --bg-card:#161b24;
+  --bg-card-hover:#1b212c;
+  --border:#232a37;
+  --border-soft:#1c222d;
+  --text:#e8eaee;
+  --text-dim:#8a93a3;
+  --text-faint:#5b6472;
+  --amber:#f2a93b;
+  --amber-dim:#5c4423;
+  --cyan:#3fc6e8;
+  --cyan-dim:#1c4451;
+  --coral:#e8543f;
+  --coral-dim:#4a231d;
+  --green:#3ecf8e;
+  --green-dim:#1c3d2e;
+  --radius:10px;
+  --radius-lg:16px;
+  --font-display:'Space Grotesk',sans-serif;
+  --font-body:'Inter',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-body);
+  height:100%;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+body{
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(63,198,232,0.05), transparent 45%),
+    radial-gradient(circle at 85% 100%, rgba(242,169,59,0.04), transparent 45%);
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+input,select{font-family:inherit;color:inherit;}
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+::-webkit-scrollbar-thumb:hover{background:var(--text-faint);}
+
+.app-shell{
+  display:grid;
+  grid-template-columns:84px 1fr;
+  height:100vh;
+  width:100vw;
+}
+
+/* ===== SIDE RAIL ===== */
+.rail{
+  background:var(--bg-raised);
+  border-right:1px solid var(--border-soft);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:18px 0;
+  gap:4px;
+}
+.rail-logo{
+  width:42px;height:42px;
+  border-radius:11px;
+  background:linear-gradient(145deg,var(--cyan),var(--amber));
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-display);font-weight:700;font-size:15px;
+  color:#0c0f14;
+  margin-bottom:22px;
+  flex-shrink:0;
+  position:relative;
+}
+.rail-logo::after{
+  content:'';
+  position:absolute;
+  inset:-3px;
+  border-radius:14px;
+  border:1px solid rgba(63,198,232,0.3);
+  animation:pulse-ring 3s ease-in-out infinite;
+}
+@keyframes pulse-ring{
+  0%,100%{opacity:0;transform:scale(1);}
+  50%{opacity:1;transform:scale(1.04);}
+}
+.rail-nav{display:flex;flex-direction:column;gap:6px;flex:1;width:100%;align-items:center;}
+.rail-btn{
+  width:54px;height:54px;
+  border-radius:var(--radius);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;
+  color:var(--text-faint);
+  transition:all .15s ease;
+  position:relative;
+}
+.rail-btn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;}
+.rail-btn span{font-size:9.5px;font-weight:600;letter-spacing:.02em;}
+.rail-btn:hover{background:var(--bg-card-hover);color:var(--text-dim);}
+.rail-btn.active{color:var(--cyan);background:rgba(63,198,232,0.08);}
+.rail-btn.active::before{
+  content:'';
+  position:absolute;
+  left:-18px;top:50%;transform:translateY(-50%);
+  width:3px;height:22px;
+  border-radius:2px;
+  background:var(--cyan);
+}
+.rail-status{
+  width:54px;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding-top:14px;
+  border-top:1px solid var(--border-soft);
+}
+.conn-dot{width:9px;height:9px;border-radius:50%;background:var(--text-faint);transition:background .3s;}
+.conn-dot.live{background:var(--green);box-shadow:0 0 8px rgba(62,207,142,0.6);animation:dot-breathe 2s ease-in-out infinite;}
+.conn-dot.connecting{background:var(--amber);animation:dot-breathe 1s ease-in-out infinite;}
+@keyframes dot-breathe{0%,100%{opacity:1;}50%{opacity:.4;}}
+.rail-status small{font-size:8px;color:var(--text-faint);font-weight:600;letter-spacing:.03em;}
+
+/* ===== MAIN ===== */
+.main{
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  height:100vh;
+}
+.topbar{
+  height:64px;
+  border-bottom:1px solid var(--border-soft);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 26px;
+  flex-shrink:0;
+  background:rgba(18,22,29,0.6);
+  backdrop-filter:blur(10px);
+}
+.topbar h1{
+  font-family:var(--font-display);
+  font-size:18px;
+  font-weight:600;
+  letter-spacing:-0.01em;
+}
+.topbar .sub{font-size:12px;color:var(--text-faint);margin-top:1px;font-weight:500;}
+.topbar-right{display:flex;align-items:center;gap:14px;}
+.account-chip{
+  display:flex;align-items:center;gap:10px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:999px;
+  padding:6px 14px 6px 6px;
+  font-size:13px;
+}
+.account-chip .avatar{
+  width:26px;height:26px;border-radius:50%;
+  background:linear-gradient(145deg,var(--cyan-dim),var(--amber-dim));
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;color:var(--cyan);
+}
+.account-chip .bal{font-family:var(--font-mono);font-weight:600;color:var(--text);}
+.account-chip .cur{color:var(--text-faint);font-size:11px;}
+.mode-pill{
+  font-size:10.5px;font-weight:700;letter-spacing:.04em;
+  padding:3px 9px;border-radius:999px;
+  text-transform:uppercase;
+}
+.mode-pill.demo{background:var(--cyan-dim);color:var(--cyan);}
+.mode-pill.real{background:var(--coral-dim);color:var(--coral);}
+
+.content{
+  flex:1;
+  overflow-y:auto;
+  padding:24px 28px 100px;
+}
+.page{display:none;}
+.page.active{display:block;animation:fadein .25s ease;}
+@keyframes fadein{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+/* ===== CARDS / GRID ===== */
+.grid{display:grid;gap:16px;}
+.grid-3{grid-template-columns:repeat(3,1fr);}
+.grid-2{grid-template-columns:1.6fr 1fr;}
+.card{
+  background:var(--bg-card);
+  border:1px solid var(--border-soft);
+  border-radius:var(--radius-lg);
+  padding:20px;
+}
+.card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.card-head h3{font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em;}
+.card-head .actions{display:flex;gap:8px;}
+
+.stat-card{padding:18px 20px;}
+.stat-card .label{font-size:11.5px;color:var(--text-faint);font-weight:600;letter-spacing:.03em;text-transform:uppercase;margin-bottom:8px;}
+.stat-card .value{font-family:var(--font-mono);font-size:26px;font-weight:600;letter-spacing:-0.02em;}
+.stat-card .delta{font-size:12px;font-weight:600;margin-top:6px;display:flex;align-items:center;gap:4px;}
+.delta.up{color:var(--green);}
+.delta.down{color:var(--coral);}
+.delta.neutral{color:var(--text-faint);}
+
+/* ===== BUTTONS ===== */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:10px 18px;
+  border-radius:var(--radius);
+  font-size:13.5px;font-weight:600;
+  background:var(--bg-card-hover);
+  border:1px solid var(--border);
+  color:var(--text);
+  transition:all .15s ease;
+  white-space:nowrap;
+}
+.btn:hover{border-color:var(--text-faint);}
+.btn:active{transform:scale(.97);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-primary{background:var(--cyan);border-color:var(--cyan);color:#06141a;}
+.btn-primary:hover{background:#5ad3ef;border-color:#5ad3ef;}
+.btn-amber{background:var(--amber);border-color:var(--amber);color:#241804;}
+.btn-amber:hover{background:#f5ba5e;}
+.btn-danger{background:transparent;border-color:var(--coral-dim);color:var(--coral);}
+.btn-danger:hover{background:var(--coral-dim);}
+.btn-ghost{background:transparent;border-color:transparent;color:var(--text-dim);}
+.btn-ghost:hover{background:var(--bg-card-hover);color:var(--text);}
+.btn-sm{padding:6px 12px;font-size:12px;}
+.btn-block{width:100%;}
+.btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;}
+
+/* ===== FORMS ===== */
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--text-dim);margin-bottom:7px;letter-spacing:.01em;}
+.field input,.field select{
+  width:100%;
+  padding:11px 13px;
+  background:var(--bg-raised);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  font-size:13.5px;
+  color:var(--text);
+  transition:border-color .15s;
+}
+.field input:focus,.field select:focus{outline:none;border-color:var(--cyan);}
+.field .hint{font-size:11.5px;color:var(--text-faint);margin-top:6px;line-height:1.4;}
+.field-row{display:flex;gap:12px;}
+.field-row .field{flex:1;}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border-soft);}
+.toggle-row:last-child{border-bottom:none;}
+.toggle-row .label-group .t{font-size:13.5px;font-weight:600;}
+.toggle-row .label-group .d{font-size:11.5px;color:var(--text-faint);margin-top:2px;}
+.switch{position:relative;width:42px;height:24px;border-radius:999px;background:var(--border);transition:background .2s;flex-shrink:0;}
+.switch.on{background:var(--cyan);}
+.switch::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s;}
+.switch.on::after{left:21px;}
+
+/* ===== BADGES ===== */
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;letter-spacing:.01em;}
+.badge-cyan{background:var(--cyan-dim);color:var(--cyan);}
+.badge-amber{background:var(--amber-dim);color:var(--amber);}
+.badge-coral{background:var(--coral-dim);color:var(--coral);}
+.badge-green{background:var(--green-dim);color:var(--green);}
+.badge-dim{background:var(--bg-raised);color:var(--text-faint);}
+
+/* ===== CONNECT PAGE ===== */
+.connect-wrap{max-width:560px;margin:20px auto;}
+.auth-tabs{display:flex;gap:6px;background:var(--bg-raised);border-radius:var(--radius);padding:4px;margin-bottom:20px;}
+.auth-tab{flex:1;padding:9px;border-radius:7px;font-size:13px;font-weight:600;color:var(--text-faint);text-align:center;}
+.auth-tab.active{background:var(--bg-card);color:var(--text);}
+.step-list{display:flex;flex-direction:column;gap:0;}
+.step{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--border-soft);}
+.step:last-child{border-bottom:none;}
+.step-num{
+  width:26px;height:26px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11.5px;font-weight:700;font-family:var(--font-mono);
+  background:var(--bg-raised);color:var(--text-faint);border:1px solid var(--border);
+}
+.step.done .step-num{background:var(--green-dim);color:var(--green);border-color:transparent;}
+.step.current .step-num{background:var(--cyan-dim);color:var(--cyan);border-color:transparent;}
+.step-body{flex:1;padding-top:2px;}
+.step-body .t{font-size:13.5px;font-weight:600;}
+.step-body .d{font-size:12px;color:var(--text-faint);margin-top:3px;line-height:1.5;}
+
+/* ===== STRATEGY PAGE ===== */
+.strat-cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+.strat-card{
+  background:var(--bg-card);
+  border:1.5px solid var(--border-soft);
+  border-radius:var(--radius-lg);
+  padding:20px;
+  cursor:pointer;
+  transition:all .18s ease;
+  position:relative;
+  overflow:hidden;
+}
+.strat-card:hover{border-color:var(--border);}
+.strat-card.selected{border-color:var(--cyan);background:linear-gradient(160deg,rgba(63,198,232,0.07),var(--bg-card) 60%);}
+.strat-card.selected::after{
+  content:'ACTIVE';
+  position:absolute;top:14px;right:14px;
+  font-size:9px;font-weight:700;letter-spacing:.06em;
+  color:var(--cyan);background:var(--cyan-dim);
+  padding:3px 8px;border-radius:999px;
+}
+.strat-card .icon{
+  width:38px;height:38px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:14px;
+}
+.strat-card .icon svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;}
+.strat-card h4{font-family:var(--font-display);font-size:16px;font-weight:600;margin-bottom:6px;}
+.strat-card p{font-size:12.5px;color:var(--text-faint);line-height:1.55;margin-bottom:14px;}
+.strat-tags{display:flex;gap:6px;flex-wrap:wrap;}
+
+.param-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+
+/* ===== LADDER (signature element) ===== */
+.ladder-wrap{
+  display:flex;
+  gap:18px;
+  height:340px;
+}
+.ladder-chart{flex:1;position:relative;background:var(--bg-raised);border-radius:var(--radius);overflow:hidden;}
+.ladder-chart canvas{width:100%;height:100%;display:block;}
+.ladder-rail{
+  width:108px;
+  position:relative;
+  background:var(--bg-raised);
+  border-radius:var(--radius);
+  padding:10px 0;
+}
+.ladder-level{
+  position:absolute;
+  left:0;right:0;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 10px;
+  font-family:var(--font-mono);
+  font-size:10.5px;
+  font-weight:600;
+  height:1px;
+}
+.ladder-level .ln{color:var(--text-faint);font-size:9px;font-weight:700;}
+.ladder-level .lv{color:var(--text-dim);}
+.ladder-level.r .lv{color:var(--coral);}
+.ladder-level.s .lv{color:var(--cyan);}
+.ladder-level.pp .lv{color:var(--amber);}
+.ladder-level::before{
+  content:'';position:absolute;left:0;right:0;top:0;
+  height:1px;background:var(--border-soft);
+}
+.price-puck{
+  position:absolute;
+  right:6px;
+  width:14px;height:14px;
+  border-radius:50%;
+  background:var(--green);
+  box-shadow:0 0 12px rgba(62,207,142,0.7);
+  transform:translateY(-50%);
+  transition:top .4s cubic-bezier(.4,0,.2,1);
+  z-index:5;
+}
+.price-puck::after{
+  content:'';position:absolute;
+  inset:-5px;border-radius:50%;
+  border:1.5px solid var(--green);
+  opacity:.5;
+  animation:puck-pulse 1.8s ease-out infinite;
+}
+@keyframes puck-pulse{0%{transform:scale(.6);opacity:.6;}100%{transform:scale(1.8);opacity:0;}}
+
+/* ===== ALERTS / SIGNAL CARDS ===== */
+.alert-card{
+  background:var(--bg-card);
+  border:1px solid var(--border-soft);
+  border-radius:var(--radius-lg);
+  padding:18px;
+  margin-bottom:12px;
+  border-left:3px solid var(--border);
+  animation:alert-in .3s ease;
+}
+@keyframes alert-in{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:translateX(0);}}
+.alert-card.rise{border-left-color:var(--cyan);}
+.alert-card.fall{border-left-color:var(--coral);}
+.alert-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.alert-dir{display:flex;align-items:center;gap:8px;font-family:var(--font-display);font-weight:600;font-size:15px;}
+.alert-dir .arrow{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+.alert-dir .arrow svg{width:13px;height:13px;stroke-width:2.5;}
+.rise .arrow{background:var(--cyan-dim);color:var(--cyan);}
+.fall .arrow{background:var(--coral-dim);color:var(--coral);}
+.alert-time{font-size:11px;color:var(--text-faint);font-family:var(--font-mono);}
+.alert-detail-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;}
+.alert-detail-grid .d-item .k{font-size:10px;color:var(--text-faint);font-weight:600;text-transform:uppercase;letter-spacing:.03em;margin-bottom:3px;}
+.alert-detail-grid .d-item .v{font-family:var(--font-mono);font-size:13px;font-weight:600;}
+.alert-votes{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+.vote-chip{font-size:10px;padding:3px 8px;border-radius:999px;background:var(--bg-raised);color:var(--text-faint);font-weight:600;}
+.vote-chip.agree{background:var(--green-dim);color:var(--green);}
+.confidence-bar{height:5px;background:var(--bg-raised);border-radius:999px;overflow:hidden;margin-bottom:14px;}
+.confidence-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--cyan),var(--green));}
+.alert-actions{display:flex;gap:8px;}
+
+.empty-state{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:60px 20px;text-align:center;color:var(--text-faint);
+}
+.empty-state svg{width:40px;height:40px;stroke:var(--text-faint);fill:none;stroke-width:1.5;margin-bottom:14px;opacity:.6;}
+.empty-state .t{font-size:14px;font-weight:600;color:var(--text-dim);margin-bottom:5px;}
+.empty-state .d{font-size:12.5px;max-width:280px;line-height:1.5;}
+
+/* ===== TABLE ===== */
+.table{width:100%;border-collapse:collapse;font-size:13px;}
+.table th{
+  text-align:left;font-size:10.5px;font-weight:700;color:var(--text-faint);
+  text-transform:uppercase;letter-spacing:.04em;
+  padding:0 10px 10px;border-bottom:1px solid var(--border-soft);
+}
+.table td{padding:11px 10px;border-bottom:1px solid var(--border-soft);font-family:var(--font-mono);font-size:12.5px;}
+.table tr:last-child td{border-bottom:none;}
+.table .win{color:var(--green);}
+.table .loss{color:var(--coral);}
+
+/* ===== MODAL ===== */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(8,10,14,0.7);
+  display:none;align-items:center;justify-content:center;z-index:100;
+  backdrop-filter:blur(3px);
+  padding:20px;
+}
+.modal-overlay.open{display:flex;}
+.modal{
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:24px;
+  width:100%;max-width:420px;
+  max-height:85vh;overflow-y:auto;
+}
+.modal h3{font-family:var(--font-display);font-size:17px;margin-bottom:18px;}
+.modal-foot{display:flex;gap:10px;margin-top:18px;}
+.modal-foot .btn{flex:1;}
+
+/* ===== TOAST ===== */
+.toast-stack{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:10px;z-index:200;}
+.toast{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius);padding:13px 16px;
+  font-size:13px;font-weight:500;
+  display:flex;align-items:center;gap:10px;
+  min-width:260px;max-width:340px;
+  animation:toast-in .25s ease;
+  box-shadow:0 8px 24px rgba(0,0,0,0.3);
+}
+@keyframes toast-in{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.toast.success{border-left:3px solid var(--green);}
+.toast.error{border-left:3px solid var(--coral);}
+.toast.info{border-left:3px solid var(--cyan);}
+
+/* ===== LOG MONO ===== */
+.log-feed{
+  font-family:var(--font-mono);font-size:11.5px;line-height:1.7;
+  max-height:200px;overflow-y:auto;color:var(--text-faint);
+}
+.log-feed .ln{padding:2px 0;display:flex;gap:8px;}
+.log-feed .ln .t{color:var(--text-faint);flex-shrink:0;}
+.log-feed .ln.err{color:var(--coral);}
+.log-feed .ln.ok{color:var(--green);}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width:880px){
+  .app-shell{grid-template-columns:1fr;grid-template-rows:1fr 70px;}
+  .rail{
+    order:2;flex-direction:row;width:100%;height:70px;padding:0 4px;
+    border-right:none;border-top:1px solid var(--border-soft);
+    justify-content:space-around;
+  }
+  .rail-logo{display:none;}
+  .rail-nav{flex-direction:row;width:auto;flex:1;justify-content:space-around;}
+  .rail-btn{width:auto;flex:1;height:54px;}
+  .rail-status{flex-direction:row;width:auto;border-top:none;padding-top:0;}
+  .main{order:1;height:auto;}
+  .content{padding:16px 16px 90px;}
+  .grid-3{grid-template-columns:1fr;}
+  .grid-2{grid-template-columns:1fr;}
+  .strat-cards{grid-template-columns:1fr;}
+  .param-grid{grid-template-columns:1fr 1fr;}
+  .ladder-wrap{flex-direction:column;height:auto;}
+  .ladder-chart{height:220px;}
+  .ladder-rail{width:100%;height:140px;}
+  .alert-detail-grid{grid-template-columns:1fr 1fr;}
+  .topbar{padding:0 16px;}
+  .topbar h1{font-size:15px;}
+  .account-chip .cur{display:none;}
+}
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ============ SIDE RAIL ============ -->
+  <nav class="rail">
+    <div class="rail-logo">N7</div>
+    <div class="rail-nav">
+      <button class="rail-btn active" data-page="dashboard">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        <span>Home</span>
+      </button>
+      <button class="rail-btn" data-page="connect">
+        <svg viewBox="0 0 24 24"><path d="M5 12.5a7 7 0 0 1 14 0"/><path d="M8.5 15.5a3.5 3.5 0 0 1 7 0"/><circle cx="12" cy="18.5" r="1.2" fill="currentColor" stroke="none"/></svg>
+        <span>Connect</span>
+      </button>
+      <button class="rail-btn" data-page="strategies">
+        <svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 5-7 4 5"/></svg>
+        <span>Strategy</span>
+      </button>
+      <button class="rail-btn" data-page="trade">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+        <span>Trade</span>
+      </button>
+      <button class="rail-btn" data-page="log">
+        <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
+        <span>Log</span>
+      </button>
+      <button class="rail-btn" data-page="settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Settings</span>
+      </button>
+    </div>
+    <div class="rail-status">
+      <div class="conn-dot" id="connDot"></div>
+      <small id="connLabel">OFFLINE</small>
+    </div>
+  </nav>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <h1 id="pageTitle">Dashboard</h1>
+        <div class="sub" id="pageSub">Live market overview</div>
+      </div>
+      <div class="topbar-right">
+        <span class="mode-pill demo" id="modePill">No Account</span>
+        <div class="account-chip" id="acctChip" style="display:none;">
+          <div class="avatar" id="acctAvatar">--</div>
+          <div>
+            <div class="bal" id="acctBalance">0.00</div>
+          </div>
+          <span class="cur" id="acctCurrency">USD</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="content">
+
+      <!-- ============ DASHBOARD PAGE ============ -->
+      <section class="page active" id="page-dashboard">
+        <div class="grid grid-3" style="margin-bottom:16px;">
+          <div class="card stat-card">
+            <div class="label">Current Symbol</div>
+            <div class="value" id="statSymbol">R_100</div>
+            <div class="delta neutral" id="statSymbolPrice">— awaiting feed —</div>
+          </div>
+          <div class="card stat-card">
+            <div class="label">Active Strategy</div>
+            <div class="value" style="font-size:18px;" id="statStrategy">None Selected</div>
+            <div class="delta neutral" id="statStrategyState">Idle</div>
+          </div>
+          <div class="card stat-card">
+            <div class="label">Session P/L</div>
+            <div class="value" id="statPL">0.00</div>
+            <div class="delta neutral" id="statPLPct">0 trades logged</div>
+          </div>
+        </div>
+
+        <div class="grid grid-2" style="margin-bottom:16px;">
+          <div class="card">
+            <div class="card-head">
+              <h3>Live Price &amp; S/R Ladder</h3>
+              <div class="actions">
+                <select id="symbolSelect" class="btn btn-sm" style="padding:6px 10px;">
+                  <option value="R_10">Volatility 10</option>
+                  <option value="R_25">Volatility 25</option>
+                  <option value="R_50">Volatility 50</option>
+                  <option value="R_75">Volatility 75</option>
+                  <option value="R_100" selected>Volatility 100</option>
+                  <option value="1HZ100V">Volatility 100 (1s)</option>
+                </select>
+              </div>
+            </div>
+            <div class="ladder-wrap">
+              <div class="ladder-chart"><canvas id="priceCanvas"></canvas></div>
+              <div class="ladder-rail" id="ladderRail"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h3>Signal Strength</h3>
+              <span class="badge badge-dim" id="modelsActiveBadge">5 models</span>
+            </div>
+            <div id="strengthMeter" style="display:flex;gap:5px;height:60px;align-items:flex-end;margin-bottom:18px;"></div>
+            <div id="modelVotesList" style="display:flex;flex-direction:column;gap:9px;"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Recent Alerts</h3>
+            <button class="btn btn-ghost btn-sm" data-page-link="trade">View All →</button>
+          </div>
+          <div id="dashboardAlerts">
+            <div class="empty-state">
+              <svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+              <div class="t">No alerts yet</div>
+              <div class="d">Connect a feed and select a strategy to begin receiving entry alerts based on live tick data.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ CONNECT PAGE ============ -->
+      <section class="page" id="page-connect">
+        <div class="connect-wrap">
+          <div class="auth-tabs">
+            <button class="auth-tab active" data-auth="pat">Token (PAT)</button>
+            <button class="auth-tab" data-auth="oauth">OAuth 2.0</button>
+          </div>
+
+          <div class="card" id="patPanel">
+            <div class="card-head"><h3>Connect with Personal Access Token</h3></div>
+            <div class="field">
+              <label>Deriv App ID</label>
+              <input type="text" id="inputAppId" placeholder="e.g. 70123">
+              <div class="hint">Register a PAT-type app at developers.deriv.com to get this. Legacy App IDs will not work.</div>
+            </div>
+            <div class="field">
+              <label>API Token</label>
+              <input type="password" id="inputToken" placeholder="Paste your PAT token">
+              <div class="hint">Generate under API Tokens with scopes <code>trade</code> and <code>account_manage</code>. Stored only in this browser session — never sent anywhere but Deriv's API.</div>
+            </div>
+            <button class="btn btn-primary btn-block" id="btnConnectPat">
+              <svg viewBox="0 0 24 24"><path d="M5 12.5a7 7 0 0 1 14 0"/><path d="M8.5 15.5a3.5 3.5 0 0 1 7 0"/></svg>
+              Connect Account
+            </button>
+          </div>
+
+          <div class="card" id="oauthPanel" style="display:none;">
+            <div class="card-head"><h3>Connect with OAuth 2.0</h3></div>
+            <p style="font-size:12.5px;color:var(--text-faint);line-height:1.6;margin-bottom:16px;">
+              OAuth requires a registered redirect URI and, for security, the authorization-code exchange must happen on a server you control — this is per Deriv's security requirements and can't be done safely from a static browser page alone.
+            </p>
+            <div class="field">
+              <label>OAuth Client ID</label>
+              <input type="text" id="inputClientId" placeholder="Your OAuth-type App ID">
+            </div>
+            <div class="field">
+              <label>Redirect URI</label>
+              <input type="text" id="inputRedirect" placeholder="https://your-app.com/callback">
+            </div>
+            <button class="btn btn-primary btn-block" id="btnConnectOauth">
+              <svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5M15 12H3M21 19V5"/></svg>
+              Start OAuth Login
+            </button>
+          </div>
+
+          <div class="card" style="margin-top:16px;">
+            <div class="card-head"><h3>Connection Steps</h3></div>
+            <div class="step-list" id="connectSteps">
+              <div class="step current" data-step="0">
+                <div class="step-num">1</div>
+                <div class="step-body">
+                  <div class="t">Authenticate</div>
+                  <div class="d">Submit your token and App ID, or complete the OAuth redirect flow.</div>
+                </div>
+              </div>
+              <div class="step" data-step="1">
+                <div class="step-num">2</div>
+                <div class="step-body">
+                  <div class="t">List &amp; select account</div>
+                  <div class="d">GET /trading/v1/options/accounts — choose between demo and real.</div>
+                </div>
+              </div>
+              <div class="step" data-step="2">
+                <div class="step-num">3</div>
+                <div class="step-body">
+                  <div class="t">Request OTP &amp; open WebSocket</div>
+                  <div class="d">A fresh one-time-password URL is requested and connected to immediately, since OTPs expire quickly.</div>
+                </div>
+              </div>
+              <div class="step" data-step="3">
+                <div class="step-num">4</div>
+                <div class="step-body">
+                  <div class="t">Subscribe to balance &amp; ticks</div>
+                  <div class="d">Live balance and market data subscriptions begin streaming.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" id="accountPickerCard" style="display:none;margin-top:16px;">
+            <div class="card-head"><h3>Select Account</h3></div>
+            <div id="accountPickerList"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ STRATEGIES PAGE ============ -->
+      <section class="page" id="page-strategies">
+        <div class="strat-cards">
+          <div class="strat-card" data-strategy="thunder" id="cardThunder">
+            <div class="icon" style="background:var(--cyan-dim);color:var(--cyan);">
+              <svg viewBox="0 0 24 24"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg>
+            </div>
+            <h4>Rise/Fall Thunder</h4>
+            <p>Directional Rise/Fall with a 3-step stake-recovery ladder after a loss, and a flip of bias on win/loss outcome. Resets stake on a win.</p>
+            <div class="strat-tags">
+              <span class="badge badge-cyan">CALL / PUT</span>
+              <span class="badge badge-dim">Tick duration</span>
+              <span class="badge badge-amber">Stake ladder</span>
+            </div>
+          </div>
+          <div class="strat-card" data-strategy="fox" id="cardFox">
+            <div class="icon" style="background:var(--amber-dim);color:var(--amber);">
+              <svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 5-7 4 5"/><circle cx="3" cy="17" r="1.2" fill="currentColor" stroke="none"/><circle cx="8" cy="11" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="14" r="1.2" fill="currentColor" stroke="none"/><circle cx="17" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="21" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>
+            </div>
+            <h4>FOX Pivot / S&amp;R</h4>
+            <p>Classic pivot-point levels (PP, R1–R3, S1–S3) from the prior period's OHLC. Signals on price crossing a level with follow-through or reversal, confirmed by a 7/28 RSI filter.</p>
+            <div class="strat-tags">
+              <span class="badge badge-amber">Pivot points</span>
+              <span class="badge badge-cyan">RSI 7/28</span>
+              <span class="badge badge-coral">Martingale levels</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="strategyParamsCard" style="display:none;">
+          <div class="card-head"><h3 id="strategyParamsTitle">Strategy Parameters</h3></div>
+          <div id="strategyParamsBody"></div>
+          <div style="display:flex;gap:10px;margin-top:18px;">
+            <button class="btn btn-amber" id="btnArmStrategy" style="flex:1;">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>
+              Arm Strategy (Signal Only)
+            </button>
+            <button class="btn btn-ghost" id="btnDisarmStrategy" style="display:none;">Stop</button>
+          </div>
+          <div class="hint" style="margin-top:10px;">Arming starts signal analysis only. No trade is ever placed without your explicit confirmation on each alert, unless auto-execute is enabled in Settings.</div>
+        </div>
+      </section>
+
+      <!-- ============ TRADE PAGE ============ -->
+      <section class="page" id="page-trade">
+        <div class="grid grid-2">
+          <div>
+            <div class="card-head" style="margin-bottom:14px;">
+              <h3 style="font-size:14px;color:var(--text);">Live Alerts</h3>
+            </div>
+            <div id="alertsFeed">
+              <div class="empty-state">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+                <div class="t">Waiting for signals</div>
+                <div class="d">Arm a strategy from the Strategy page to start receiving entry alerts here, with full setup detail for manual confirmation.</div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="card" style="margin-bottom:16px;">
+              <div class="card-head"><h3>Manual Trade Ticket</h3></div>
+              <div class="field-row">
+                <div class="field">
+                  <label>Contract Type</label>
+                  <select id="ticketContractType">
+                    <option value="CALL">Rise (CALL)</option>
+                    <option value="PUT">Fall (PUT)</option>
+                    <option value="DIGITOVER">Digit Over</option>
+                    <option value="DIGITUNDER">Digit Under</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Duration (ticks)</label>
+                  <input type="number" id="ticketDuration" value="5" min="1" max="10">
+                </div>
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label>Stake (USD)</label>
+                  <input type="number" id="ticketStake" value="1" min="0.35" step="0.01">
+                </div>
+                <div class="field" id="ticketBarrierField" style="display:none;">
+                  <label>Barrier Digit</label>
+                  <input type="number" id="ticketBarrier" value="5" min="0" max="9">
+                </div>
+              </div>
+              <button class="btn btn-primary btn-block" id="btnGetProposal" disabled>
+                Get Price Proposal
+              </button>
+              <div id="proposalResult" style="display:none;margin-top:14px;padding:14px;background:var(--bg-raised);border-radius:var(--radius);">
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-faint);margin-bottom:6px;">
+                  <span>Ask Price</span><span>Payout</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-weight:600;font-size:16px;">
+                  <span id="proposalAsk">—</span><span id="proposalPayout">—</span>
+                </div>
+                <button class="btn btn-amber btn-block" id="btnBuyContract" style="margin-top:12px;">Buy Contract</button>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h3>Open Positions</h3></div>
+              <div id="openPositions">
+                <div class="empty-state" style="padding:30px 16px;">
+                  <div class="d">No open contracts</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ LOG PAGE ============ -->
+      <section class="page" id="page-log">
+        <div class="grid grid-3" style="margin-bottom:16px;">
+          <div class="card stat-card">
+            <div class="label">Trades Logged</div>
+            <div class="value" id="logCount">0</div>
+          </div>
+          <div class="card stat-card">
+            <div class="label">Win Rate</div>
+            <div class="value" id="logWinRate">—</div>
+          </div>
+          <div class="card stat-card">
+            <div class="label">Net P/L</div>
+            <div class="value" id="logNetPL">0.00</div>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head">
+            <h3>Trade History</h3>
+            <button class="btn btn-ghost btn-sm" id="btnClearLog">Clear</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="table">
+              <thead><tr><th>Time</th><th>Symbol</th><th>Type</th><th>Stake</th><th>Result</th><th>P/L</th></tr></thead>
+              <tbody id="tradeLogBody">
+                <tr><td colspan="6" style="text-align:center;color:var(--text-faint);font-family:var(--font-body);padding:24px;">No trades recorded this session.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Connection &amp; System Log</h3></div>
+          <div class="log-feed" id="systemLog"></div>
+        </div>
+      </section>
+
+      <!-- ============ SETTINGS PAGE ============ -->
+      <section class="page" id="page-settings">
+        <div class="grid grid-2">
+          <div class="card">
+            <div class="card-head"><h3>Trading Controls</h3></div>
+            <div class="toggle-row">
+              <div class="label-group">
+                <div class="t">Auto-execute on signal</div>
+                <div class="d">When on, armed strategies place trades automatically. When off (default), every signal is a manual-confirm alert only.</div>
+              </div>
+              <button class="switch" id="toggleAutoExec"></button>
+            </div>
+            <div class="toggle-row">
+              <div class="label-group">
+                <div class="t">Auto martingale recalculation</div>
+                <div class="d">Recalculate stake using the active strategy's recovery ladder after a loss. Off uses flat stake always.</div>
+              </div>
+              <button class="switch on" id="toggleMartingale"></button>
+            </div>
+            <div class="toggle-row">
+              <div class="label-group">
+                <div class="t">Confirm martingale stakes</div>
+                <div class="d">Show the recalculated stake for confirmation before it's applied to the next trade.</div>
+              </div>
+              <button class="switch on" id="toggleConfirmMartingale"></button>
+            </div>
+            <div class="toggle-row">
+              <div class="label-group">
+                <div class="t">Sound on alert</div>
+                <div class="d">Play a tone when a new entry alert is generated.</div>
+              </div>
+              <button class="switch" id="toggleSound"></button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Risk Limits</h3></div>
+            <div class="field">
+              <label>Target Profit (session)</label>
+              <input type="number" id="riskTargetProfit" value="50">
+            </div>
+            <div class="field">
+              <label>Stop Loss (session)</label>
+              <input type="number" id="riskStopLoss" value="-30">
+            </div>
+            <div class="field">
+              <label>Max Martingale Steps</label>
+              <input type="number" id="riskMaxSteps" value="3" min="1" max="10">
+            </div>
+            <div class="hint">When session P/L crosses either limit, armed strategies automatically disarm and you'll receive a notice. This never executes a trade on your behalf — it only stops further signals.</div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px;">
+          <div class="card-head"><h3>Session</h3></div>
+          <button class="btn btn-danger btn-block" id="btnDisconnect">Disconnect &amp; Forget All Subscriptions</button>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<!-- ============ MODALS ============ -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <h3 id="confirmModalTitle">Confirm Trade</h3>
+    <div id="confirmModalBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="confirmModalCancel">Cancel</button>
+      <button class="btn btn-primary" id="confirmModalOk">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =====================================================================
+   OV2UN7 NEXUS — Deriv Trading Console
+   No simulated data. No execution without explicit user action unless
+   auto-execute is toggled on in Settings. All market data is live from
+   the connected WebSocket. All REST calls follow the project's
+   REST+OTP authentication system (api.derivws.com / auth.deriv.com).
+   ===================================================================== */
+
+const REST_BASE = "https://api.derivws.com";
+
+const state = {
+  appId:null, token:null,
+  accounts:[], activeAccount:null,
+  ws:null, wsConnected:false, reqId:0, pending:new Map(), handlers:new Map(),
+  reconnectAttempts:0, maxReconnect:5,
+  subs:new Map(), // type -> subscription id
+  symbol:"R_100",
+  ticks:[], // {quote, epoch}
+  lastDigits:[],
+  ohlc:{open:null,high:null,low:null,close:null}, // previous-period reference candle for pivots
+  currentPeriodOhlc:{open:null,high:null,low:null,close:null,startEpoch:null},
+  pivot:null, // {pp,r1,r2,r3,s1,s2,s3}
+  rsiCloses:[],
+  strategy:null, // 'thunder' | 'fox'
+  armed:false,
+  thunder:{lastDirection:"CALL", stakeStep:0, baseStake:1, multiplier:2.1, maxSteps:3},
+  fox:{lastCross:null, rsiPeriodFast:7, rsiPeriodSlow:28, baseStake:1, multiplier:2.3, maxSteps:3, stakeStep:0},
+  trades:[], // trade log
+  sessionPL:0,
+  openContracts:new Map(),
+  settings:{
+    autoExec:false, autoMartingale:true, confirmMartingale:true, sound:false,
+    targetProfit:50, stopLoss:-30, maxSteps:3
+  },
+  lastProposal:null,
+  proposalReqId:null
+};
+
+const $ = (sel,root)=> (root||document).querySelector(sel);
+const $$ = (sel,root)=> Array.from((root||document).querySelectorAll(sel));
+
+/* ---------------------------------------------------------------------
+   LOGGING / TOASTS
+   --------------------------------------------------------------------- */
+function logLine(msg, cls){
+  const feed = $("#systemLog");
+  if(!feed) return;
+  const div = document.createElement("div");
+  div.className = "ln" + (cls? " "+cls : "");
+  const t = new Date().toLocaleTimeString();
+  div.innerHTML = `<span class="t">${t}</span><span>${escapeHtml(msg)}</span>`;
+  feed.appendChild(div);
+  feed.scrollTop = feed.scrollHeight;
+  while(feed.children.length > 200) feed.removeChild(feed.firstChild);
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function toast(msg, type){
+  type = type || "info";
+  const stack = $("#toastStack");
+  const el = document.createElement("div");
+  el.className = "toast " + type;
+  el.textContent = msg;
+  stack.appendChild(el);
+  setTimeout(()=>{ el.style.opacity="0"; el.style.transition="opacity .3s"; setTimeout(()=>el.remove(),300); }, 4200);
+}
+
+/* ---------------------------------------------------------------------
+   NAVIGATION
+   --------------------------------------------------------------------- */
+const PAGE_META = {
+  dashboard:{title:"Dashboard", sub:"Live market overview"},
+  connect:{title:"Connect", sub:"Link your Deriv account"},
+  strategies:{title:"Strategy", sub:"Configure signal logic"},
+  trade:{title:"Trade", sub:"Alerts & manual ticket"},
+  log:{title:"Log", sub:"History & system events"},
+  settings:{title:"Settings", sub:"Risk & execution controls"}
+};
+function showPage(name){
+  $$(".page").forEach(p=>p.classList.remove("active"));
+  const target = $("#page-"+name);
+  if(target) target.classList.add("active");
+  $$(".rail-btn").forEach(b=>b.classList.toggle("active", b.dataset.page===name));
+  const meta = PAGE_META[name] || {title:name, sub:""};
+  $("#pageTitle").textContent = meta.title;
+  $("#pageSub").textContent = meta.sub;
+}
+$$(".rail-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=> showPage(btn.dataset.page));
+});
+$$("[data-page-link]").forEach(btn=>{
+  btn.addEventListener("click", ()=> showPage(btn.dataset.pageLink));
+});
+
+/* ---------------------------------------------------------------------
+   AUTH TABS
+   --------------------------------------------------------------------- */
+$$(".auth-tab").forEach(tab=>{
+  tab.addEventListener("click", ()=>{
+    $$(".auth-tab").forEach(t=>t.classList.remove("active"));
+    tab.classList.add("active");
+    const mode = tab.dataset.auth;
+    $("#patPanel").style.display = mode==="pat" ? "block" : "none";
+    $("#oauthPanel").style.display = mode==="oauth" ? "block" : "none";
+  });
+});
+
+function setConnectStep(idx){
+  $$("#connectSteps .step").forEach((s,i)=>{
+    s.classList.remove("current","done");
+    if(i < idx) s.classList.add("done");
+    else if(i === idx) s.classList.add("current");
+  });
+}
+
+/* ---------------------------------------------------------------------
+   REST LAYER (Auth + OTP) — per knowledge-base.md / endpoints-reference.md
+   --------------------------------------------------------------------- */
+function restHeaders(includeContentType){
+  const h = {
+    "Authorization": "Bearer " + state.token,
+    "Deriv-App-ID": state.appId
+  };
+  if(includeContentType) h["Content-Type"] = "application/json";
+  return h;
+}
+
+async function restRequest(method, path, body){
+  const opts = { method, headers: restHeaders(!!body) };
+  if(body) opts.body = JSON.stringify(body);
+  const res = await fetch(REST_BASE + path, opts);
+  let data;
+  try{ data = await res.json(); }
+  catch(e){ throw new Error("Malformed response from " + path); }
+  if(!res.ok){
+    const code = data.errors?.[0]?.code || "UnknownError";
+    const message = data.errors?.[0]?.message || ("HTTP " + res.status);
+    const err = new Error(`[${code}] ${message}`);
+    err.status = res.status; err.code = code;
+    throw err;
+  }
+  return { status: res.status, data };
+}
+
+async function getAccounts(){
+  logLine("GET /trading/v1/options/accounts");
+  const { data } = await restRequest("GET", "/trading/v1/options/accounts");
+  return data.data; // array
+}
+
+async function getOtpUrl(accountId){
+  logLine(`POST /accounts/${accountId}/otp — requesting fresh OTP`);
+  const { data } = await restRequest("POST", `/trading/v1/options/accounts/${accountId}/otp`);
+  return data.data.url;
+}
+
+async function resetDemoBalance(accountId){
+  const { data } = await restRequest("POST", `/trading/v1/options/accounts/${accountId}/reset-demo-balance`);
+  return data.data;
+}
+
+/* ---------------------------------------------------------------------
+   CONNECT FLOW
+   --------------------------------------------------------------------- */
+$("#btnConnectPat").addEventListener("click", async ()=>{
+  const appId = $("#inputAppId").value.trim();
+  const token = $("#inputToken").value.trim();
+  if(!appId || !token){ toast("Enter both App ID and Token", "error"); return; }
+  state.appId = appId; state.token = token;
+  $("#btnConnectPat").disabled = true;
+  $("#btnConnectPat").textContent = "Connecting…";
+  setConnDot("connecting");
+  try{
+    setConnectStep(1);
+    const accounts = await getAccounts();
+    if(!accounts || !accounts.length){
+      throw new Error("No accounts returned — create one at developers.deriv.com first.");
+    }
+    state.accounts = accounts;
+    renderAccountPicker(accounts);
+    logLine(`Found ${accounts.length} account(s)`, "ok");
+    toast("Authenticated. Select an account to continue.", "success");
+  }catch(err){
+    logLine("Auth failed: " + err.message, "err");
+    toast(err.message, "error");
+    setConnDot("offline");
+    setConnectStep(0);
+  }finally{
+    $("#btnConnectPat").disabled = false;
+    $("#btnConnectPat").textContent = "Connect Account";
+  }
+});
+
+$("#btnConnectOauth").addEventListener("click", ()=>{
+  const clientId = $("#inputClientId").value.trim();
+  const redirect = $("#inputRedirect").value.trim();
+  if(!clientId || !redirect){ toast("Enter Client ID and Redirect URI", "error"); return; }
+  // PKCE generation per auth-guide.md
+  (async ()=>{
+    const verifier = generateCodeVerifier();
+    const challenge = await generateCodeChallenge(verifier);
+    const stateParam = generateState();
+    sessionStorage.setItem("pkce_code_verifier", verifier);
+    sessionStorage.setItem("oauth_state", stateParam);
+    sessionStorage.setItem("oauth_client_id", clientId);
+    sessionStorage.setItem("oauth_redirect", redirect);
+    const url = new URL("https://auth.deriv.com/oauth2/auth");
+    url.searchParams.set("response_type","code");
+    url.searchParams.set("client_id", clientId);
+    url.searchParams.set("redirect_uri", redirect);
+    url.searchParams.set("scope","trade account_manage");
+    url.searchParams.set("state", stateParam);
+    url.searchParams.set("code_challenge", challenge);
+    url.searchParams.set("code_challenge_method","S256");
+    logLine("Redirecting to Deriv OAuth authorization endpoint…");
+    window.location.href = url.toString();
+  })();
+});
+
+function generateCodeVerifier(){
+  const array = crypto.getRandomValues(new Uint8Array(64));
+  return Array.from(array).map(v=>"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"[v%66]).join("");
+}
+async function generateCodeChallenge(verifier){
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+  return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function generateState(){
+  return Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+// Handle OAuth callback if present (code+state in URL)
+(function handleOauthCallbackIfPresent(){
+  const params = new URLSearchParams(window.location.search);
+  if(params.get("code") && params.get("state")){
+    const savedState = sessionStorage.getItem("oauth_state");
+    if(params.get("state") !== savedState){
+      toast("OAuth state mismatch — possible CSRF, aborting", "error");
+      return;
+    }
+    toast("Authorization code received. Server-side token exchange required — see hint on Connect page.", "info");
+    logLine("OAuth callback received code. Exchange must happen server-side per Deriv security requirements.");
+    // Per project rules: token exchange must be server-side only. We surface
+    // the code for the developer's own backend, we do not exchange it here.
+    history.replaceState({}, document.title, window.location.pathname);
+  }
+})();
+
+function renderAccountPicker(accounts){
+  $("#accountPickerCard").style.display = "block";
+  const list = $("#accountPickerList");
+  list.innerHTML = "";
+  accounts.forEach(acc=>{
+    const row = document.createElement("div");
+    row.className = "toggle-row";
+    row.innerHTML = `
+      <div class="label-group">
+        <div class="t">${acc.account_id} <span class="badge ${acc.account_type==='demo'?'badge-cyan':'badge-coral'}" style="margin-left:6px;">${acc.account_type.toUpperCase()}</span></div>
+        <div class="d">${acc.balance} ${acc.currency} — ${acc.status}</div>
+      </div>
+      <button class="btn btn-sm btn-primary">Use</button>
+    `;
+    row.querySelector("button").addEventListener("click", ()=> selectAccount(acc));
+    list.appendChild(row);
+  });
+}
+
+async function selectAccount(acc){
+  state.activeAccount = acc;
+  $("#modePill").textContent = acc.account_type === "demo" ? "Demo" : "Real";
+  $("#modePill").className = "mode-pill " + (acc.account_type === "demo" ? "demo" : "real");
+  $("#acctChip").style.display = "flex";
+  $("#acctAvatar").textContent = acc.account_id.slice(-2);
+  $("#acctBalance").textContent = Number(acc.balance).toFixed(2);
+  $("#acctCurrency").textContent = acc.currency;
+  setConnectStep(2);
+  logLine(`Selected account ${acc.account_id} (${acc.account_type})`, "ok");
+  try{
+    await connectWebSocket(acc.account_id);
+  }catch(err){
+    logLine("WebSocket connect failed: " + err.message, "err");
+    toast("Connection failed: " + err.message, "error");
+  }
+}
+
+/* ---------------------------------------------------------------------
+   WEBSOCKET LAYER — per websocket-guide.md DerivWebSocket pattern
+   --------------------------------------------------------------------- */
+function setConnDot(mode){
+  const dot = $("#connDot"), label = $("#connLabel");
+  dot.classList.remove("live","connecting");
+  if(mode === "live"){ dot.classList.add("live"); label.textContent = "LIVE"; }
+  else if(mode === "connecting"){ dot.classList.add("connecting"); label.textContent = "LINKING"; }
+  else { label.textContent = "OFFLINE"; }
+}
+
+async function connectWebSocket(accountId){
+  setConnDot("connecting");
+  const wsUrl = await getOtpUrl(accountId);
+  logLine("OTP URL received — connecting immediately (OTPs expire fast)");
+  return openSocket(wsUrl, accountId);
+}
+
+function openSocket(wsUrl, accountId){
+  return new Promise((resolve, reject)=>{
+    if(state.ws){ try{ state.ws.close(); }catch(e){} }
+    const ws = new WebSocket(wsUrl);
+    state.ws = ws;
+    let opened = false;
+
+    ws.onopen = ()=>{
+      opened = true;
+      state.wsConnected = true;
+      state.reconnectAttempts = 0;
+      setConnDot("live");
+      logLine("WebSocket connected", "ok");
+      toast("Connected to Deriv WebSocket", "success");
+      setConnectStep(3);
+      subscribeBalance();
+      subscribeTicks(state.symbol);
+      requestTickHistory(state.symbol);
+      $("#btnGetProposal").disabled = false;
+      resolve(ws);
+    };
+
+    ws.onmessage = (event)=>{
+      let data;
+      try{ data = JSON.parse(event.data); }catch(e){ return; }
+      routeMessage(data);
+    };
+
+    ws.onerror = (e)=>{
+      logLine("WebSocket error", "err");
+      if(!opened) reject(new Error("WebSocket connection error"));
+    };
+
+    ws.onclose = ()=>{
+      state.wsConnected = false;
+      setConnDot("offline");
+      logLine("WebSocket closed");
+      scheduleReconnect(accountId);
+    };
+  });
+}
+
+function scheduleReconnect(accountId){
+  if(!state.activeAccount) return; // user disconnected deliberately
+  if(state.reconnectAttempts >= state.maxReconnect){
+    logLine("Max reconnect attempts reached — giving up", "err");
+    toast("Connection lost. Reconnect manually from Connect page.", "error");
+    return;
+  }
+  const delay = Math.min(1000 * Math.pow(2, state.reconnectAttempts), 30000);
+  state.reconnectAttempts++;
+  logLine(`Reconnecting in ${delay}ms (attempt ${state.reconnectAttempts})`);
+  setTimeout(async ()=>{
+    try{
+      // Per project rules: re-request a fresh OTP on reconnect, never reuse the old URL
+      await connectWebSocket(accountId);
+      restoreSubscriptions();
+    }catch(e){
+      logLine("Reconnect attempt failed: " + e.message, "err");
+      scheduleReconnect(accountId);
+    }
+  }, delay);
+}
+
+function restoreSubscriptions(){
+  subscribeBalance();
+  subscribeTicks(state.symbol);
+}
+
+function nextReqId(){ return ++state.reqId; }
+
+function wsSend(command){
+  return new Promise((resolve, reject)=>{
+    if(!state.ws || state.ws.readyState !== 1){
+      reject(new Error("WebSocket not connected"));
+      return;
+    }
+    const reqId = nextReqId();
+    const msg = Object.assign({}, command, { req_id: reqId });
+    if(command.subscribe){
+      state.pending.set(reqId, { resolve, reject, subscribe:true });
+    } else {
+      state.pending.set(reqId, { resolve, reject, subscribe:false });
+    }
+    state.ws.send(JSON.stringify(msg));
+    if(command.subscribe) resolve(reqId);
+  });
+}
+
+function routeMessage(data){
+  if(data.req_id && state.pending.has(data.req_id)){
+    const entry = state.pending.get(data.req_id);
+    if(!entry.subscribe) state.pending.delete(data.req_id);
+    if(data.error){
+      logLine(`API error [${data.error.code}]: ${data.error.message}`, "err");
+      if(!entry.subscribe) entry.reject(new Error(data.error.message));
+    } else {
+      if(!entry.subscribe) entry.resolve(data);
+    }
+  }
+  if(data.error && !(data.req_id && state.pending.has(data.req_id))){
+    logLine(`API error [${data.error.code}]: ${data.error.message}`, "err");
+  }
+  if(!data.msg_type) return;
+
+  switch(data.msg_type){
+    case "balance": onBalance(data.balance); break;
+    case "tick": onTick(data.tick); break;
+    case "history": onHistory(data.history); break;
+    case "active_symbols": break;
+    case "proposal": onProposal(data); break;
+    case "buy": onBuy(data); break;
+    case "proposal_open_contract": onOpenContract(data.proposal_open_contract); break;
+    case "sell": onSell(data); break;
+  }
+  if(data.subscription?.id && data.req_id){
+    // track subscription ids for forget/forget_all cleanliness
+    state.subs.set(data.msg_type, data.subscription.id);
+  }
+}
+
+function subscribeBalance(){
+  wsSend({ balance:1, subscribe:1 }).catch(e=>logLine("Balance sub failed: "+e.message,"err"));
+}
+function subscribeTicks(symbol){
+  wsSend({ ticks: symbol, subscribe:1 }).catch(e=>logLine("Tick sub failed: "+e.message,"err"));
+}
+function requestTickHistory(symbol){
+  wsSend({ ticks_history: symbol, count: 60, end: "latest", style: "ticks" })
+    .catch(e=>logLine("History request failed: "+e.message,"err"));
+}
+
+function onBalance(bal){
+  if(!bal) return;
+  $("#acctBalance").textContent = Number(bal.balance).toFixed(2);
+  if(state.activeAccount) state.activeAccount.balance = bal.balance;
+}
+
+function onProposal(data){
+  if(data.error) return;
+  state.lastProposal = data.proposal;
+  $("#proposalAsk").textContent = Number(data.proposal.ask_price).toFixed(2) + " " + (state.activeAccount?.currency || "USD");
+  $("#proposalPayout").textContent = Number(data.proposal.payout).toFixed(2) + " " + (state.activeAccount?.currency || "USD");
+  $("#proposalResult").style.display = "block";
+}
+
+function onBuy(data){
+  const buy = data.buy;
+  toast(`Contract purchased — ID ${buy.contract_id}`, "success");
+  logLine(`BUY confirmed: contract ${buy.contract_id} @ ${buy.buy_price}`, "ok");
+  wsSend({ proposal_open_contract:1, contract_id: buy.contract_id, subscribe:1 }).catch(()=>{});
+  state.openContracts.set(buy.contract_id, { contract_id: buy.contract_id, buy_price: buy.buy_price, symbol: state.symbol });
+  renderOpenPositions();
+}
+
+function onSell(data){
+  logLine(`Contract sold @ ${data.sell?.sold_for ?? "—"}`);
+}
+
+function onOpenContract(c){
+  if(!c) return;
+  state.openContracts.set(c.contract_id, c);
+  renderOpenPositions();
+  if(c.is_sold){
+    finalizeTrade(c);
+    state.openContracts.delete(c.contract_id);
+    renderOpenPositions();
+  }
+}
+
+function finalizeTrade(c){
+  const profit = Number(c.profit) || 0;
+  state.sessionPL += profit;
+  const record = {
+    time: new Date(), symbol: c.underlying || state.symbol,
+    type: c.contract_type || "—", stake: c.buy_price, result: profit >= 0 ? "WIN" : "LOSS", pl: profit
+  };
+  state.trades.push(record);
+  applyMartingaleOutcome(profit >= 0);
+  renderTradeLog();
+  renderDashboardStats();
+  checkRiskLimits();
+}
+
+/* ---------------------------------------------------------------------
+   TICK HANDLING — last-digit extraction, OHLC, RSI feed
+   --------------------------------------------------------------------- */
+function extractLastDigit(quoteStr){
+  // Fixed-decimal string indexing — same correctness principle as v4.0:
+  // the last character of a consistently-formatted decimal price string
+  // is the true last significant digit.
+  const s = String(quoteStr);
+  return parseInt(s.charAt(s.length - 1), 10);
+}
+
+function onTick(tick){
+  if(!tick) return;
+  const quote = tick.quote;
+  const epoch = tick.epoch;
+  state.ticks.push({ quote, epoch });
+  if(state.ticks.length > 200) state.ticks.shift();
+
+  const digit = extractLastDigit(tick.quote_display ?? String(quote));
+  state.lastDigits.push(digit);
+  if(state.lastDigits.length > 60) state.lastDigits.shift();
+
+  updateCurrentPeriodOhlc(quote, epoch);
+  state.rsiCloses.push(quote);
+  if(state.rsiCloses.length > 120) state.rsiCloses.shift();
+
+  $("#statSymbolPrice").textContent = Number(quote).toFixed(getPipSize(quote));
+  $("#statSymbolPrice").className = "delta neutral";
+
+  renderPriceCanvas();
+  renderLadder();
+  runModels();
+  if(state.armed && state.strategy === "thunder") evaluateThunder();
+  if(state.armed && state.strategy === "fox") evaluateFox();
+}
+
+function getPipSize(q){
+  const s = String(q);
+  const dot = s.indexOf(".");
+  return dot === -1 ? 0 : (s.length - dot - 1);
+}
+
+function onHistory(history){
+  if(!history || !history.prices) return;
+  state.ticks = history.prices.map((p,i)=>({ quote:p, epoch: history.times[i] }));
+  state.ticks.forEach(t=>{
+    const d = extractLastDigit(String(t.quote));
+    state.lastDigits.push(d);
+  });
+  if(state.lastDigits.length > 60) state.lastDigits = state.lastDigits.slice(-60);
+  history.prices.forEach((p,i)=> updateCurrentPeriodOhlc(p, history.times[i]));
+  state.rsiCloses = history.prices.slice(-120);
+  renderPriceCanvas();
+  renderLadder();
+  runModels();
+}
+
+// 5-minute reference period for pivot calculation — matches a standard
+// pivot-point methodology: previous completed period's OHLC feeds next
+// period's PP/R/S levels (per FOX strategy logic).
+const PIVOT_PERIOD_SECONDS = 300;
+function updateCurrentPeriodOhlc(quote, epoch){
+  const periodStart = Math.floor(epoch / PIVOT_PERIOD_SECONDS) * PIVOT_PERIOD_SECONDS;
+  const cur = state.currentPeriodOhlc;
+  if(cur.startEpoch === null){
+    cur.startEpoch = periodStart; cur.open = quote; cur.high = quote; cur.low = quote; cur.close = quote;
+    return;
+  }
+  if(periodStart !== cur.startEpoch){
+    // period rolled over — the just-closed period becomes the pivot reference
+    state.ohlc = { open: cur.open, high: cur.high, low: cur.low, close: cur.close };
+    computePivotLevels();
+    cur.startEpoch = periodStart; cur.open = quote; cur.high = quote; cur.low = quote; cur.close = quote;
+  } else {
+    cur.high = Math.max(cur.high, quote);
+    cur.low = Math.min(cur.low, quote);
+    cur.close = quote;
+  }
+  // seed pivot levels even before first full rollover, using the in-progress period,
+  // so the app is usable immediately rather than waiting up to 5 minutes
+  if(!state.pivot) computePivotLevels(true);
+}
+
+function computePivotLevels(provisional){
+  const src = provisional ? state.currentPeriodOhlc : state.ohlc;
+  if(src.high == null || src.low == null || src.close == null) return;
+  const pp = (src.high + src.low + src.close) / 3;
+  const r1 = 2*pp - src.low;
+  const s1 = 2*pp - src.high;
+  const r2 = pp + (src.high - src.low);
+  const s2 = pp - (src.high - src.low);
+  const r3 = src.high + 2*(pp - src.low);
+  const s3 = src.low - 2*(src.high - pp);
+  state.pivot = { pp, r1, r2, r3, s1, s2, s3, provisional: !!provisional };
+}
+
+/* ---------------------------------------------------------------------
+   RSI (Wilder's smoothing) — used as FOX strategy confirmation filter
+   --------------------------------------------------------------------- */
+function computeRSI(closes, period){
+  if(closes.length < period + 1) return null;
+  let gains = 0, losses = 0;
+  for(let i = closes.length - period; i < closes.length; i++){
+    const diff = closes[i] - closes[i-1];
+    if(diff >= 0) gains += diff; else losses += Math.abs(diff);
+  }
+  const avgGain = gains / period, avgLoss = losses / period;
+  if(avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return 100 - (100 / (1 + rs));
+}
+
+/* ---------------------------------------------------------------------
+   5-MODEL AI ENSEMBLE (digit-domain signal strength, carried from v4.0)
+   --------------------------------------------------------------------- */
+function modelDigitFrequency(){
+  if(state.lastDigits.length < 10) return null;
+  const counts = new Array(10).fill(0);
+  state.lastDigits.forEach(d=> counts[d]++);
+  const total = state.lastDigits.length;
+  const maxIdx = counts.indexOf(Math.max(...counts));
+  const minIdx = counts.indexOf(Math.min(...counts));
+  const skew = (counts[maxIdx] - counts[minIdx]) / total;
+  return { name:"Digit Frequency", bias: skew > 0.12 ? (maxIdx >= 5 ? "fall" : "rise") : "neutral", strength: Math.min(1, skew*2) };
+}
+function modelStreakDetector(){
+  if(state.lastDigits.length < 5) return null;
+  const last5 = state.lastDigits.slice(-5);
+  const avg = last5.reduce((a,b)=>a+b,0) / 5;
+  const overCount = last5.filter(d=>d>=5).length;
+  return { name:"Streak Detector", bias: overCount>=4 ? "fall" : overCount<=1 ? "rise" : "neutral", strength: Math.abs(overCount-2.5)/2.5 };
+}
+function modelMeanReversion(){
+  if(state.ticks.length < 20) return null;
+  const recent = state.ticks.slice(-20).map(t=>t.quote);
+  const mean = recent.reduce((a,b)=>a+b,0)/recent.length;
+  const last = recent[recent.length-1];
+  const dev = (last - mean) / (mean || 1);
+  return { name:"Mean Reversion", bias: dev > 0.0008 ? "fall" : dev < -0.0008 ? "rise" : "neutral", strength: Math.min(1, Math.abs(dev)*400) };
+}
+function modelDistributionBias(){
+  if(state.lastDigits.length < 14) return null;
+  const last14 = state.lastDigits.slice(-14);
+  const overCount = last14.filter(d=>d>2).length; // DIGITOVER 2 domain
+  const underCount = last14.filter(d=>d<7).length; // DIGITUNDER 7 domain
+  const overBias = overCount/14, underBias = underCount/14;
+  return { name:"Distribution Bias", bias: overBias>0.75 ? "over2" : underBias>0.75 ? "under7" : "neutral", strength: Math.max(Math.abs(overBias-0.7), Math.abs(underBias-0.7))*3 };
+}
+function modelMomentumRSI(){
+  if(state.lastDigits.length < 14) return null;
+  const zone = state.lastDigits.slice(-14).map(d=> d>=5 ? 1 : -1);
+  let transitions = 0;
+  for(let i=1;i<zone.length;i++) if(zone[i]!==zone[i-1]) transitions++;
+  const momentum = zone.reduce((a,b)=>a+b,0)/zone.length;
+  return { name:"Momentum/RSI Zone", bias: momentum>0.3 ? "fall" : momentum<-0.3 ? "rise" : "neutral", strength: Math.min(1, Math.abs(momentum)) };
+}
+
+let lastModelResults = [];
+function runModels(){
+  const models = [modelDigitFrequency(), modelStreakDetector(), modelMeanReversion(), modelDistributionBias(), modelMomentumRSI()].filter(Boolean);
+  lastModelResults = models;
+  renderModelVotes(models);
+}
+
+/* ---------------------------------------------------------------------
+   STRATEGY ENGINE 1 — Rise/Fall Thunder (martingale ladder)
+   Mirrors 3-fox-martilevel.xml's recovery pattern: stake escalates on a
+   loss following a multiplier, resets to base on a win. Direction is a
+   simple momentum-flip bias confirmed by the model ensemble, since the
+   uploaded bot's own entry trigger is its host platform's tick stream —
+   here we gate it on the same live tick data through the local models.
+   --------------------------------------------------------------------- */
+function evaluateThunder(){
+  if(lastModelResults.length < 3) return;
+  const riseVotes = lastModelResults.filter(m=>m.bias==="rise").length;
+  const fallVotes = lastModelResults.filter(m=>m.bias==="fall").length;
+  const total = lastModelResults.length;
+  const agree = Math.max(riseVotes, fallVotes);
+  if(agree < Math.ceil(total*0.6)) return; // require ensemble majority
+
+  const direction = riseVotes > fallVotes ? "CALL" : "PUT";
+  if(direction === state.thunder._lastSignalDir) return; // avoid duplicate spam
+  state.thunder._lastSignalDir = direction;
+
+  const stake = currentThunderStake();
+  emitAlert({
+    strategyTag:"THUNDER", direction: direction==="CALL"?"rise":"fall",
+    contractType: direction, symbol: state.symbol,
+    entryPrice: state.ticks[state.ticks.length-1]?.quote,
+    confidence: agree/total,
+    votes: lastModelResults,
+    stake, duration: 5, durationUnit:"t",
+    basis: `Ensemble majority ${agree}/${total} on ${direction==="CALL"?"upward":"downward"} bias`,
+    winProbability: 0.5 // even-money rise/fall before spread
+  });
+}
+
+function currentThunderStake(){
+  const t = state.thunder;
+  let stake = t.baseStake;
+  for(let i=0;i<t.stakeStep;i++) stake *= t.multiplier;
+  return Math.round(stake*100)/100;
+}
+
+/* ---------------------------------------------------------------------
+   STRATEGY ENGINE 2 — FOX Pivot / S&R + RSI confirmation
+   Mirrors 3-fox-martilevel.xml: price crossing a pivot level (R1/S1 etc.)
+   with RSI(7) vs RSI(28) confirming momentum direction triggers a signal;
+   stake follows its own martingale ladder on loss.
+   --------------------------------------------------------------------- */
+function evaluateFox(){
+  if(!state.pivot || state.ticks.length < 30) return;
+  const price = state.ticks[state.ticks.length-1].quote;
+  const prevPrice = state.ticks[state.ticks.length-2]?.quote;
+  if(prevPrice == null) return;
+
+  const rsiFast = computeRSI(state.rsiCloses, state.fox.rsiPeriodFast);
+  const rsiSlow = computeRSI(state.rsiCloses, state.fox.rsiPeriodSlow);
+  if(rsiFast == null || rsiSlow == null) return;
+
+  const levels = [
+    {name:"R3", value:state.pivot.r3, side:"r"}, {name:"R2", value:state.pivot.r2, side:"r"},
+    {name:"R1", value:state.pivot.r1, side:"r"}, {name:"PP", value:state.pivot.pp, side:"pp"},
+    {name:"S1", value:state.pivot.s1, side:"s"}, {name:"S2", value:state.pivot.s2, side:"s"},
+    {name:"S3", value:state.pivot.s3, side:"s"}
+  ];
+
+  for(const lvl of levels){
+    const crossedUp = prevPrice < lvl.value && price >= lvl.value;
+    const crossedDown = prevPrice > lvl.value && price <= lvl.value;
+    if(!crossedUp && !crossedDown) continue;
+    const crossKey = lvl.name + (crossedUp?"_up":"_down");
+    if(state.fox.lastCross === crossKey) continue;
+
+    // Follow-through: cross up + RSI fast > RSI slow confirms upward momentum (rise)
+    // Reversal: cross up but RSI fast < RSI slow means momentum fading (fall), and vice versa
+    let direction = null, basis = "";
+    if(crossedUp && rsiFast > rsiSlow){ direction="CALL"; basis=`Follow-through cross above ${lvl.name}, RSI7 ${rsiFast.toFixed(1)} > RSI28 ${rsiSlow.toFixed(1)}`; }
+    else if(crossedUp && rsiFast < rsiSlow){ direction="PUT"; basis=`Reversal at ${lvl.name}, RSI7 ${rsiFast.toFixed(1)} < RSI28 ${rsiSlow.toFixed(1)}`; }
+    else if(crossedDown && rsiFast < rsiSlow){ direction="PUT"; basis=`Follow-through cross below ${lvl.name}, RSI7 ${rsiFast.toFixed(1)} < RSI28 ${rsiSlow.toFixed(1)}`; }
+    else if(crossedDown && rsiFast > rsiSlow){ direction="CALL"; basis=`Reversal at ${lvl.name}, RSI7 ${rsiFast.toFixed(1)} > RSI28 ${rsiSlow.toFixed(1)}`; }
+    if(!direction) continue;
+
+    state.fox.lastCross = crossKey;
+    const stake = currentFoxStake();
+    emitAlert({
+      strategyTag:"FOX", direction: direction==="CALL"?"rise":"fall",
+      contractType: direction, symbol: state.symbol,
+      entryPrice: price, triggerLevel: lvl.name, triggerValue: lvl.value,
+      confidence: Math.min(1, Math.abs(rsiFast-rsiSlow)/40),
+      votes: lastModelResults,
+      stake, duration: 5, durationUnit:"t",
+      basis, winProbability: 0.5
+    });
+    break;
+  }
+}
+
+function currentFoxStake(){
+  const f = state.fox;
+  let stake = f.baseStake;
+  for(let i=0;i<f.stakeStep;i++) stake *= f.multiplier;
+  return Math.round(stake*100)/100;
+}
+
+function applyMartingaleOutcome(won){
+  if(!state.settings.autoMartingale) return;
+  const engine = state.strategy === "fox" ? state.fox : state.thunder;
+  if(!engine) return;
+  if(won){
+    engine.stakeStep = 0;
+  } else {
+    const maxSteps = state.settings.maxSteps || engine.maxSteps || 3;
+    engine.stakeStep = Math.min(engine.stakeStep + 1, maxSteps);
+  }
+  const nextStake = state.strategy === "fox" ? currentFoxStake() : currentThunderStake();
+  logLine(`Martingale recalculated: step ${engine.stakeStep}, next stake ${nextStake}`);
+  if(state.settings.confirmMartingale){
+    toast(`Next stake recalculated to ${nextStake} after ${won?"win":"loss"}`, "info");
+  }
+}
+
+/* ---------------------------------------------------------------------
+   ALERTS
+   --------------------------------------------------------------------- */
+let alertIdCounter = 0;
+function emitAlert(payload){
+  const id = ++alertIdCounter;
+  payload.id = id;
+  payload.time = new Date();
+  renderAlertCard(payload, "#alertsFeed", true);
+  renderAlertCard(payload, "#dashboardAlerts", false);
+  if(state.settings.sound) playAlertTone();
+  toast(`New ${payload.direction.toUpperCase()} signal — ${payload.strategyTag}`, payload.direction==="rise"?"success":"error");
+
+  if(state.settings.autoExec){
+    executeTrade(payload);
+  }
+}
+
+function playAlertTone(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const osc = ctx.createOscillator(); const gain = ctx.createGain();
+    osc.frequency.value = 740; osc.type = "sine";
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.3);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime+0.3);
+  }catch(e){}
+}
+
+function renderAlertCard(a, containerSel, withActions){
+  const container = $(containerSel);
+  if(!container) return;
+  // clear empty state on first alert
+  if(container.querySelector(".empty-state")) container.innerHTML = "";
+
+  const card = document.createElement("div");
+  card.className = "alert-card " + a.direction;
+  const arrowSvg = a.direction==="rise"
+    ? '<svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>'
+    : '<svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg>';
+
+  card.innerHTML = `
+    <div class="alert-head">
+      <div class="alert-dir">
+        <div class="arrow">${arrowSvg}</div>
+        ${a.direction === "rise" ? "RISE" : "FALL"} · ${a.strategyTag}
+      </div>
+      <div class="alert-time">${a.time.toLocaleTimeString()}</div>
+    </div>
+    <div class="alert-detail-grid">
+      <div class="d-item"><div class="k">Contract</div><div class="v">${a.contractType}</div></div>
+      <div class="d-item"><div class="k">Symbol</div><div class="v">${a.symbol}</div></div>
+      <div class="d-item"><div class="k">Entry</div><div class="v">${Number(a.entryPrice).toFixed(getPipSize(a.entryPrice))}</div></div>
+      <div class="d-item"><div class="k">Stake</div><div class="v">${a.stake}</div></div>
+    </div>
+    ${a.triggerLevel ? `<div style="margin-bottom:10px;"><span class="badge badge-amber">Trigger: ${a.triggerLevel} @ ${Number(a.triggerValue).toFixed(getPipSize(a.triggerValue))}</span></div>` : ""}
+    <div class="alert-votes">${(a.votes||[]).map(v=>`<span class="vote-chip ${v.bias===("rise"===a.direction?"rise":"fall")?'agree':''}">${v.name}: ${v.bias}</span>`).join("")}</div>
+    <div class="confidence-bar"><div class="confidence-fill" style="width:${Math.round((a.confidence||0)*100)}%;"></div></div>
+    <div style="font-size:11.5px;color:var(--text-faint);margin-bottom:${withActions?'12px':'0'};line-height:1.5;">${escapeHtml(a.basis)} · Win probability ≈ ${Math.round(a.winProbability*100)}%</div>
+    ${withActions ? `<div class="alert-actions">
+      <button class="btn btn-amber btn-sm" data-action="confirm">Confirm &amp; Place Trade</button>
+      <button class="btn btn-ghost btn-sm" data-action="dismiss">Dismiss</button>
+    </div>` : ""}
+  `;
+  if(withActions){
+    card.querySelector('[data-action="confirm"]').addEventListener("click", ()=> confirmAndExecute(a, card));
+    card.querySelector('[data-action="dismiss"]').addEventListener("click", ()=> card.remove());
+  }
+  container.insertBefore(card, container.firstChild);
+  while(container.children.length > 25) container.removeChild(container.lastChild);
+}
+
+function confirmAndExecute(alert, cardEl){
+  openConfirmModal(
+    "Confirm Trade Placement",
+    `<div class="field"><label>Contract</label><div style="font-family:var(--font-mono);font-size:15px;">${alert.contractType} · ${alert.symbol}</div></div>
+     <div class="field"><label>Stake</label><div style="font-family:var(--font-mono);font-size:15px;">${alert.stake}</div></div>
+     <div class="hint">This places a real ${state.activeAccount?.account_type==='real'?'money':'demo'} trade on your connected ${state.activeAccount?.account_type||'—'} account.</div>`,
+    ()=>{ executeTrade(alert); if(cardEl) cardEl.remove(); }
+  );
+}
+
+function executeTrade(alert){
+  if(!state.wsConnected){ toast("Not connected to WebSocket", "error"); return; }
+  logLine(`Requesting proposal for ${alert.contractType} ${alert.symbol} stake ${alert.stake}`);
+  wsSend({
+    proposal:1, amount: alert.stake, basis:"stake", contract_type: alert.contractType,
+    currency: state.activeAccount?.currency || "USD", duration: alert.duration||5,
+    duration_unit: alert.durationUnit||"t", underlying_symbol: alert.symbol
+  }).then(data=>{
+    if(data.error){ toast(data.error.message, "error"); return; }
+    const proposalId = data.proposal.id;
+    return wsSend({ buy: proposalId, price: alert.stake });
+  }).then(buyData=>{
+    if(buyData && buyData.buy){
+      toast(`Trade placed: contract ${buyData.buy.contract_id}`, "success");
+    }
+  }).catch(err=>{
+    logLine("Trade execution failed: " + err.message, "err");
+    toast("Trade failed: " + err.message, "error");
+  });
+}
+
+/* ---------------------------------------------------------------------
+   RISK LIMITS
+   --------------------------------------------------------------------- */
+function checkRiskLimits(){
+  const tp = Number($("#riskTargetProfit").value);
+  const sl = Number($("#riskStopLoss").value);
+  if(state.sessionPL >= tp && tp > 0){
+    disarmStrategy(); toast(`Target profit of ${tp} reached — strategy disarmed`, "success");
+  } else if(state.sessionPL <= sl && sl < 0){
+    disarmStrategy(); toast(`Stop loss of ${sl} hit — strategy disarmed`, "error");
+  }
+}
+
+/* ---------------------------------------------------------------------
+   RENDERING — Ladder, Canvas, Models, Stats, Log, Positions
+   --------------------------------------------------------------------- */
+function renderLadder(){
+  const rail = $("#ladderRail");
+  if(!rail || !state.pivot) return;
+  rail.innerHTML = "";
+  const levels = [
+    {n:"R3", v:state.pivot.r3, c:"r"}, {n:"R2", v:state.pivot.r2, c:"r"}, {n:"R1", v:state.pivot.r1, c:"r"},
+    {n:"PP", v:state.pivot.pp, c:"pp"},
+    {n:"S1", v:state.pivot.s1, c:"s"}, {n:"S2", v:state.pivot.s2, c:"s"}, {n:"S3", v:state.pivot.s3, c:"s"}
+  ];
+  const vals = levels.map(l=>l.v);
+  const maxV = Math.max(...vals), minV = Math.min(...vals);
+  const span = (maxV-minV) || 1;
+  const railHeight = rail.clientHeight || 320;
+  const padding = 20;
+
+  levels.forEach(l=>{
+    const pct = (maxV - l.v) / span;
+    const top = padding + pct * (railHeight - padding*2);
+    const row = document.createElement("div");
+    row.className = "ladder-level " + l.c;
+    row.style.top = top + "px";
+    row.innerHTML = `<span class="ln">${l.n}</span><span class="lv">${l.v.toFixed(getPipSize(l.v))}</span>`;
+    rail.appendChild(row);
+  });
+
+  const lastTick = state.ticks[state.ticks.length-1];
+  if(lastTick){
+    const pricePct = Math.min(1, Math.max(0, (maxV - lastTick.quote) / span));
+    const top = padding + pricePct * (railHeight - padding*2);
+    let puck = rail.querySelector(".price-puck");
+    if(!puck){ puck = document.createElement("div"); puck.className = "price-puck"; rail.appendChild(puck); }
+    puck.style.top = top + "px";
+  }
+}
+
+function renderPriceCanvas(){
+  const canvas = $("#priceCanvas");
+  if(!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  if(canvas.width !== rect.width*dpr || canvas.height !== rect.height*dpr){
+    canvas.width = rect.width*dpr; canvas.height = rect.height*dpr;
+  }
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const w = rect.width, h = rect.height;
+  ctx.clearRect(0,0,w,h);
+
+  const ticks = state.ticks.slice(-60);
+  if(ticks.length < 2) return;
+  const prices = ticks.map(t=>t.quote);
+  const maxP = Math.max(...prices), minP = Math.min(...prices);
+  const span = (maxP-minP) || 1;
+  const stepX = w / (ticks.length-1);
+
+  ctx.beginPath();
+  ticks.forEach((t,i)=>{
+    const x = i*stepX;
+    const y = h - ((t.quote-minP)/span)*(h-20) - 10;
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  const grad = ctx.createLinearGradient(0,0,w,0);
+  grad.addColorStop(0,"#3fc6e8"); grad.addColorStop(1,"#f2a93b");
+  ctx.strokeStyle = grad; ctx.lineWidth = 2; ctx.lineJoin="round"; ctx.stroke();
+
+  // fill under line
+  ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath();
+  const fillGrad = ctx.createLinearGradient(0,0,0,h);
+  fillGrad.addColorStop(0,"rgba(63,198,232,0.12)"); fillGrad.addColorStop(1,"rgba(63,198,232,0)");
+  ctx.fillStyle = fillGrad; ctx.fill();
+
+  // last point dot
+  const lastX = (ticks.length-1)*stepX;
+  const lastY = h - ((prices[prices.length-1]-minP)/span)*(h-20) - 10;
+  ctx.beginPath(); ctx.arc(lastX,lastY,3.5,0,Math.PI*2);
+  ctx.fillStyle = "#3ecf8e"; ctx.fill();
+}
+
+function renderModelVotes(models){
+  const strengthMeter = $("#strengthMeter");
+  const votesList = $("#modelVotesList");
+  if(!strengthMeter || !votesList) return;
+  strengthMeter.innerHTML = "";
+  votesList.innerHTML = "";
+
+  const barsCount = 5;
+  const avgStrength = models.length ? models.reduce((a,m)=>a+m.strength,0)/models.length : 0;
+  for(let i=0;i<barsCount;i++){
+    const bar = document.createElement("div");
+    const active = (i+1)/barsCount <= avgStrength + 0.0001 || (avgStrength > i/barsCount);
+    bar.style.flex = "1";
+    bar.style.borderRadius = "3px";
+    bar.style.height = (20 + i*9) + "px";
+    bar.style.background = active ? "linear-gradient(180deg,var(--cyan),var(--green))" : "var(--bg-raised)";
+    bar.style.transition = "background .3s";
+    strengthMeter.appendChild(bar);
+  }
+
+  models.forEach(m=>{
+    const row = document.createElement("div");
+    row.style.display = "flex"; row.style.justifyContent="space-between"; row.style.alignItems="center";
+    const biasColor = m.bias==="rise" ? "var(--cyan)" : m.bias==="fall" ? "var(--coral)" : "var(--text-faint)";
+    row.innerHTML = `<span style="font-size:12.5px;color:var(--text-dim);">${m.name}</span><span style="font-size:11.5px;font-weight:700;color:${biasColor};text-transform:uppercase;">${m.bias}</span>`;
+    votesList.appendChild(row);
+  });
+  if(!models.length){
+    votesList.innerHTML = `<div style="font-size:12px;color:var(--text-faint);">Awaiting enough tick data…</div>`;
+  }
+}
+
+function renderDashboardStats(){
+  $("#statPL").textContent = state.sessionPL.toFixed(2);
+  $("#statPL").parentElement.querySelector(".value").style.color = state.sessionPL>=0 ? "var(--green)" : "var(--coral)";
+  $("#statPLPct").textContent = `${state.trades.length} trades logged`;
+  $("#statSymbol").textContent = state.symbol;
+}
+
+function renderTradeLog(){
+  const body = $("#tradeLogBody");
+  if(!body) return;
+  if(!state.trades.length){
+    body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-faint);font-family:var(--font-body);padding:24px;">No trades recorded this session.</td></tr>`;
+  } else {
+    body.innerHTML = state.trades.slice().reverse().map(t=>`
+      <tr>
+        <td>${t.time.toLocaleTimeString()}</td>
+        <td>${t.symbol}</td>
+        <td>${t.type}</td>
+        <td>${Number(t.stake).toFixed(2)}</td>
+        <td class="${t.result==='WIN'?'win':'loss'}">${t.result}</td>
+        <td class="${t.pl>=0?'win':'loss'}">${t.pl>=0?'+':''}${t.pl.toFixed(2)}</td>
+      </tr>`).join("");
+  }
+  $("#logCount").textContent = state.trades.length;
+  const wins = state.trades.filter(t=>t.result==="WIN").length;
+  $("#logWinRate").textContent = state.trades.length ? Math.round(wins/state.trades.length*100)+"%" : "—";
+  $("#logNetPL").textContent = state.sessionPL.toFixed(2);
+}
+
+function renderOpenPositions(){
+  const container = $("#openPositions");
+  if(!container) return;
+  const list = Array.from(state.openContracts.values());
+  if(!list.length){
+    container.innerHTML = `<div class="empty-state" style="padding:30px 16px;"><div class="d">No open contracts</div></div>`;
+    return;
+  }
+  container.innerHTML = list.map(c=>`
+    <div class="toggle-row">
+      <div class="label-group">
+        <div class="t">${c.contract_type || "—"} · ${c.underlying || state.symbol}</div>
+        <div class="d">Buy ${Number(c.buy_price).toFixed(2)} ${c.profit!=null ? "· P/L "+Number(c.profit).toFixed(2):""}</div>
+      </div>
+      <span class="badge ${c.profit>=0?'badge-green':'badge-coral'}">${c.is_sold ? "Closed":"Open"}</span>
+    </div>`).join("");
+}
+
+/* ---------------------------------------------------------------------
+   STRATEGY SELECTION UI
+   --------------------------------------------------------------------- */
+$("#cardThunder").addEventListener("click", ()=> selectStrategyUI("thunder"));
+$("#cardFox").addEventListener("click", ()=> selectStrategyUI("fox"));
+
+function selectStrategyUI(name){
+  state.strategy = name;
+  $("#cardThunder").classList.toggle("selected", name==="thunder");
+  $("#cardFox").classList.toggle("selected", name==="fox");
+  $("#strategyParamsCard").style.display = "block";
+  $("#strategyParamsTitle").textContent = name==="thunder" ? "Rise/Fall Thunder Parameters" : "FOX Pivot/RSI Parameters";
+  const body = $("#strategyParamsBody");
+  if(name === "thunder"){
+    body.innerHTML = `
+      <div class="param-grid">
+        <div class="field"><label>Base Stake</label><input type="number" id="pThunderBase" value="${state.thunder.baseStake}" step="0.01"></div>
+        <div class="field"><label>Recovery Multiplier</label><input type="number" id="pThunderMult" value="${state.thunder.multiplier}" step="0.1"></div>
+        <div class="field"><label>Max Martingale Steps</label><input type="number" id="pThunderSteps" value="${state.thunder.maxSteps}" min="1" max="10"></div>
+      </div>`;
+  } else {
+    body.innerHTML = `
+      <div class="param-grid">
+        <div class="field"><label>Base Stake</label><input type="number" id="pFoxBase" value="${state.fox.baseStake}" step="0.01"></div>
+        <div class="field"><label>Recovery Multiplier</label><input type="number" id="pFoxMult" value="${state.fox.multiplier}" step="0.1"></div>
+        <div class="field"><label>Max Martingale Steps</label><input type="number" id="pFoxSteps" value="${state.fox.maxSteps}" min="1" max="10"></div>
+        <div class="field"><label>RSI Fast Period</label><input type="number" id="pFoxFast" value="${state.fox.rsiPeriodFast}" min="2"></div>
+        <div class="field"><label>RSI Slow Period</label><input type="number" id="pFoxSlow" value="${state.fox.rsiPeriodSlow}" min="2"></div>
+      </div>`;
+  }
+  $("#statStrategy").textContent = name === "thunder" ? "Rise/Fall Thunder" : "FOX Pivot/RSI";
+}
+
+$("#btnArmStrategy").addEventListener("click", ()=>{
+  if(!state.strategy){ toast("Select a strategy first", "error"); return; }
+  if(!state.wsConnected){ toast("Connect your account first", "error"); return; }
+  // pull params
+  if(state.strategy === "thunder"){
+    state.thunder.baseStake = Number($("#pThunderBase").value)||1;
+    state.thunder.multiplier = Number($("#pThunderMult").value)||2.1;
+    state.thunder.maxSteps = Number($("#pThunderSteps").value)||3;
+  } else {
+    state.fox.baseStake = Number($("#pFoxBase").value)||1;
+    state.fox.multiplier = Number($("#pFoxMult").value)||2.3;
+    state.fox.maxSteps = Number($("#pFoxSteps").value)||3;
+    state.fox.rsiPeriodFast = Number($("#pFoxFast").value)||7;
+    state.fox.rsiPeriodSlow = Number($("#pFoxSlow").value)||28;
+  }
+  state.armed = true;
+  $("#btnArmStrategy").style.display = "none";
+  $("#btnDisarmStrategy").style.display = "inline-flex";
+  $("#statStrategyState").textContent = "Armed — monitoring live ticks";
+  $("#statStrategyState").className = "delta up";
+  toast(`${state.strategy==='thunder'?'Rise/Fall Thunder':'FOX Pivot/RSI'} armed`, "success");
+  logLine(`Strategy armed: ${state.strategy}`, "ok");
+});
+
+$("#btnDisarmStrategy").addEventListener("click", disarmStrategy);
+function disarmStrategy(){
+  state.armed = false;
+  $("#btnArmStrategy").style.display = "inline-flex";
+  $("#btnDisarmStrategy").style.display = "none";
+  $("#statStrategyState").textContent = "Idle";
+  $("#statStrategyState").className = "delta neutral";
+  logLine("Strategy disarmed");
+}
+
+/* ---------------------------------------------------------------------
+   SYMBOL SWITCH
+   --------------------------------------------------------------------- */
+$("#symbolSelect").addEventListener("change", (e)=>{
+  const newSymbol = e.target.value;
+  if(state.wsConnected){
+    wsSend({ forget_all:"ticks" }).catch(()=>{});
+  }
+  state.symbol = newSymbol;
+  state.ticks = []; state.lastDigits = []; state.rsiCloses = [];
+  state.pivot = null; state.ohlc = {open:null,high:null,low:null,close:null};
+  state.currentPeriodOhlc = {open:null,high:null,low:null,close:null,startEpoch:null};
+  if(state.wsConnected){
+    subscribeTicks(newSymbol);
+    requestTickHistory(newSymbol);
+  }
+  renderDashboardStats();
+});
+
+/* ---------------------------------------------------------------------
+   MANUAL TRADE TICKET
+   --------------------------------------------------------------------- */
+$("#ticketContractType").addEventListener("change", (e)=>{
+  const isDigit = e.target.value.startsWith("DIGIT");
+  $("#ticketBarrierField").style.display = isDigit ? "block" : "none";
+});
+
+$("#btnGetProposal").addEventListener("click", ()=>{
+  if(!state.wsConnected){ toast("Connect first", "error"); return; }
+  const contractType = $("#ticketContractType").value;
+  const duration = Number($("#ticketDuration").value)||5;
+  const stake = Number($("#ticketStake").value)||1;
+  const command = {
+    proposal:1, amount: stake, basis:"stake", contract_type: contractType,
+    currency: state.activeAccount?.currency || "USD", duration, duration_unit:"t",
+    underlying_symbol: state.symbol
+  };
+  if(contractType.startsWith("DIGIT")) command.barrier = $("#ticketBarrier").value;
+  wsSend(command).then(data=>{
+    if(data.error){ toast(data.error.message,"error"); return; }
+  }).catch(err=> toast(err.message,"error"));
+});
+
+$("#btnBuyContract").addEventListener("click", ()=>{
+  if(!state.lastProposal){ toast("Get a proposal first","error"); return; }
+  openConfirmModal("Confirm Manual Trade",
+    `<div class="field"><label>Ask Price</label><div style="font-family:var(--font-mono);font-size:15px;">${state.lastProposal.ask_price}</div></div>
+     <div class="hint">This places a real trade on your ${state.activeAccount?.account_type||'—'} account.</div>`,
+    ()=>{
+      wsSend({ buy: state.lastProposal.id, price: state.lastProposal.ask_price }).then(data=>{
+        $("#proposalResult").style.display = "none";
+        state.lastProposal = null;
+      }).catch(err=> toast(err.message,"error"));
+    });
+});
+
+/* ---------------------------------------------------------------------
+   SETTINGS TOGGLES
+   --------------------------------------------------------------------- */
+function wireSwitch(id, settingKey, defaultOn){
+  const el = $(id);
+  if(defaultOn) el.classList.add("on");
+  state.settings[settingKey] = defaultOn;
+  el.addEventListener("click", ()=>{
+    const isOn = el.classList.toggle("on");
+    state.settings[settingKey] = isOn;
+    logLine(`Setting "${settingKey}" set to ${isOn}`);
+  });
+}
+wireSwitch("#toggleAutoExec","autoExec", false);
+wireSwitch("#toggleMartingale","autoMartingale", true);
+wireSwitch("#toggleConfirmMartingale","confirmMartingale", true);
+wireSwitch("#toggleSound","sound", false);
+
+$("#riskMaxSteps").addEventListener("change", e=>{ state.settings.maxSteps = Number(e.target.value)||3; });
+
+$("#btnClearLog").addEventListener("click", ()=>{
+  state.trades = []; state.sessionPL = 0;
+  renderTradeLog(); renderDashboardStats();
+  toast("Trade log cleared","info");
+});
+
+$("#btnDisconnect").addEventListener("click", ()=>{
+  if(state.ws){
+    wsSend({forget_all:"ticks"}).catch(()=>{});
+    wsSend({forget_all:"proposal"}).catch(()=>{});
+    wsSend({forget_all:"balance"}).catch(()=>{});
+    state.activeAccount = null; // prevents auto-reconnect
+    setTimeout(()=>{ try{ state.ws.close(); }catch(e){} }, 300);
+  }
+  state.wsConnected = false;
+  setConnDot("offline");
+  $("#acctChip").style.display = "none";
+  $("#modePill").textContent = "No Account";
+  $("#modePill").className = "mode-pill demo";
+  $("#btnGetProposal").disabled = true;
+  disarmStrategy();
+  toast("Disconnected","info");
+  logLine("User disconnected — all subscriptions forgotten");
+});
+
+/* ---------------------------------------------------------------------
+   CONFIRM MODAL
+   --------------------------------------------------------------------- */
+let pendingConfirmAction = null;
+function openConfirmModal(title, bodyHtml, onConfirm){
+  $("#confirmModalTitle").textContent = title;
+  $("#confirmModalBody").innerHTML = bodyHtml;
+  pendingConfirmAction = onConfirm;
+  $("#confirmModal").classList.add("open");
+}
+$("#confirmModalCancel").addEventListener("click", ()=>{ $("#confirmModal").classList.remove("open"); pendingConfirmAction=null; });
+$("#confirmModalOk").addEventListener("click", ()=>{
+  $("#confirmModal").classList.remove("open");
+  if(pendingConfirmAction) pendingConfirmAction();
+  pendingConfirmAction = null;
+});
+
+/* ---------------------------------------------------------------------
+   RESIZE
+   --------------------------------------------------------------------- */
+window.addEventListener("resize", ()=>{ renderPriceCanvas(); renderLadder(); });
+
+logLine("OV2UN7 Nexus console initialized — awaiting account connection");
+showPage("dashboard");
+
+})();
+</script>
+
+</body>
+</html>
