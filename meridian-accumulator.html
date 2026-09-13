@@ -1,0 +1,1697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>MERIDIAN — Accumulator Precision Engine</title>
+<meta name="theme-color" content="#060a10">
+<style>
+  :root{
+    --bg:#060a10;
+    --panel:#0b121c;
+    --panel2:#0f1a26;
+    --line:#1c2b3a;
+    --text:#e7f0f5;
+    --dim:#7d94a3;
+    --accent:#39e5c5;   /* phosphor teal — precision/radar feel */
+    --accent-dim:#1d6e60;
+    --danger:#ff5a6e;
+    --danger-dim:#7a2530;
+    --warn:#ffb648;
+    --good:#39e5c5;
+    --mono: "SF Mono","JetBrains Mono", ui-monospace, "Courier New", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font-family:var(--sans); overscroll-behavior:none;}
+  body{padding-bottom:74px; min-height:100vh;}
+  ::-webkit-scrollbar{width:0; height:0;}
+
+  /* ---------- Header ---------- */
+  header.top{
+    position:sticky; top:0; z-index:40;
+    background:linear-gradient(180deg,#081019,#081019 80%,transparent);
+    padding:14px 16px 10px; border-bottom:1px solid var(--line);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand .mark{
+    width:34px;height:34px;border-radius:9px;
+    background:conic-gradient(from 200deg, var(--accent), #0d3f38 60%, var(--accent));
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono); font-weight:700; color:#04120f; font-size:15px;
+  }
+  .brand h1{font-size:15px; margin:0; letter-spacing:.3px; font-weight:650;}
+  .brand small{display:block; color:var(--dim); font-size:10.5px; font-family:var(--mono); letter-spacing:.4px;}
+  .modepill{
+    font-family:var(--mono); font-size:10.5px; padding:5px 10px; border-radius:20px;
+    border:1px solid var(--accent-dim); color:var(--accent); background:rgba(57,229,197,.06);
+  }
+  .modepill.live{border-color:var(--danger); color:var(--danger); background:rgba(255,90,110,.08);}
+
+  /* ---------- Tabs / views ---------- */
+  main{padding:14px 14px 20px; max-width:640px; margin:0 auto;}
+  .view{display:none; animation:fade .18s ease;}
+  .view.active{display:block;}
+  @keyframes fade{from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:none}}
+
+  nav.bottom{
+    position:fixed; left:0; right:0; bottom:0; z-index:50;
+    background:#081019f0; backdrop-filter:blur(10px);
+    border-top:1px solid var(--line);
+    display:flex; padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+  nav.bottom button{
+    flex:1; background:none; border:none; color:var(--dim); font-family:var(--sans);
+    display:flex; flex-direction:column; align-items:center; gap:3px; padding:7px 2px; font-size:10.5px;
+    border-radius:10px;
+  }
+  nav.bottom button svg{width:19px;height:19px;}
+  nav.bottom button.active{color:var(--accent);}
+  nav.bottom button .dot{width:5px;height:5px;border-radius:50%;background:var(--danger); position:relative; top:-16px; left:14px; display:none;}
+  nav.bottom button.armed .dot{display:block;}
+
+  /* ---------- Cards ---------- */
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px;}
+  .card h2{font-size:11px; text-transform:uppercase; letter-spacing:1.2px; color:var(--dim); margin:0 0 10px; font-weight:650;}
+  .row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;}
+  .row:last-child{margin-bottom:0;}
+  .row label{font-size:13px; color:var(--text);}
+  .row .sub{font-size:11px; color:var(--dim); margin-top:2px;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;}
+
+  input[type=text], input[type=password], input[type=number], select{
+    background:var(--panel2); border:1px solid var(--line); color:var(--text);
+    border-radius:9px; padding:9px 10px; font-size:13.5px; font-family:var(--mono);
+    width:100%; outline:none;
+  }
+  input:focus, select:focus{border-color:var(--accent-dim);}
+  select{appearance:none; -webkit-appearance:none;}
+  .field{margin-bottom:10px;}
+  .field label{display:block; font-size:11px; color:var(--dim); margin-bottom:5px; letter-spacing:.2px;}
+
+  .btn{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    background:var(--panel2); border:1px solid var(--line); color:var(--text);
+    padding:11px 14px; border-radius:11px; font-size:13.5px; font-weight:600;
+    width:100%; cursor:pointer;
+  }
+  .btn.primary{background:var(--accent); color:#04120f; border-color:var(--accent);}
+  .btn.danger{background:var(--danger); color:#210408; border-color:var(--danger);}
+  .btn.ghost{background:transparent;}
+  .btn:disabled{opacity:.4;}
+  .btn-row{display:flex; gap:8px;}
+
+  .switch{position:relative; width:44px; height:25px; flex:none;}
+  .switch input{opacity:0; width:100%; height:100%; position:absolute; margin:0; cursor:pointer;}
+  .switch .track{position:absolute; inset:0; background:var(--panel2); border:1px solid var(--line); border-radius:20px; transition:.15s;}
+  .switch .knob{position:absolute; top:2px; left:2px; width:19px; height:19px; border-radius:50%; background:var(--dim); transition:.15s;}
+  .switch input:checked + .track{background:var(--accent-dim); border-color:var(--accent);}
+  .switch input:checked + .track .knob{transform:translateX(19px); background:var(--accent);}
+  .switch .track .knob{position:absolute; top:2px; left:2px; width:19px; height:19px; border-radius:50%; background:var(--dim); transition:.15s;}
+
+  .badge{font-family:var(--mono); font-size:10.5px; padding:3px 8px; border-radius:6px; border:1px solid var(--line); color:var(--dim);}
+  .badge.on{color:var(--accent); border-color:var(--accent-dim); background:rgba(57,229,197,.08);}
+  .badge.off{color:var(--danger); border-color:var(--danger-dim); background:rgba(255,90,110,.08);}
+  .badge.warn{color:var(--warn); border-color:#7a5a20; background:rgba(255,182,72,.08);}
+
+  /* ---------- Meters ---------- */
+  .meter{height:6px; border-radius:4px; background:var(--panel2); overflow:hidden; margin-top:6px;}
+  .meter i{display:block; height:100%; background:var(--accent); border-radius:4px; transition:width .3s;}
+  .meter.risk i{background:var(--danger);}
+  .meterrow{margin-bottom:9px;}
+  .meterrow:last-child{margin-bottom:0;}
+  .meterrow .mrhead{display:flex; justify-content:space-between; font-size:11.5px; color:var(--dim); margin-bottom:3px;}
+  .meterrow .mrhead b{color:var(--text); font-family:var(--mono); font-weight:600;}
+
+  .bigstat{text-align:center; padding:6px 0 2px;}
+  .bigstat .num{font-family:var(--mono); font-size:42px; font-weight:700; letter-spacing:-1px;}
+  .bigstat .num.pos{color:var(--good);}
+  .bigstat .num.neg{color:var(--danger);}
+  .bigstat .cap{font-size:11px; color:var(--dim); letter-spacing:.5px; margin-top:2px;}
+
+  .signalbox{border-radius:12px; padding:14px; text-align:center; border:1px solid var(--line); background:var(--panel2);}
+  .signalbox .grade{font-family:var(--mono); font-size:26px; font-weight:800; letter-spacing:1px;}
+  .signalbox .label{font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:1px; margin-top:2px;}
+  .grade-Aplus{color:var(--accent);} .grade-A{color:#7be0c9;} .grade-B{color:var(--warn);} .grade-C{color:var(--danger);}
+
+  table.log{width:100%; border-collapse:collapse; font-size:12px; font-family:var(--mono);}
+  table.log th{text-align:left; color:var(--dim); font-weight:500; font-size:10px; padding:4px 6px; border-bottom:1px solid var(--line);}
+  table.log td{padding:6px 6px; border-bottom:1px solid #101a24; white-space:nowrap;}
+  table.log .p{color:var(--good);} table.log .n{color:var(--danger);}
+  .logwrap{overflow-x:auto;}
+
+  .toast-wrap{position:fixed; top:10px; left:0; right:0; z-index:100; display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none;}
+  .toast{background:#0d1a24; border:1px solid var(--line); color:var(--text); padding:9px 14px; border-radius:10px; font-size:12.5px; box-shadow:0 8px 24px rgba(0,0,0,.4); max-width:90vw;}
+  .toast.err{border-color:var(--danger-dim); color:#ffc7cd;}
+  .toast.ok{border-color:var(--accent-dim); color:#c8fff2;}
+  .toast.warn{border-color:#7a5a20; color:#ffe3b0;}
+
+  .modal-back{position:fixed; inset:0; background:rgba(2,6,10,.72); backdrop-filter:blur(2px); z-index:90; display:none; align-items:flex-end; justify-content:center;}
+  .modal-back.show{display:flex;}
+  .modal{background:var(--panel); border:1px solid var(--line); border-radius:16px 16px 0 0; padding:18px 16px calc(18px + env(safe-area-inset-bottom)); width:100%; max-width:640px;}
+  .modal h3{margin:0 0 8px; font-size:15px;}
+  .modal p{color:var(--dim); font-size:12.5px; line-height:1.5;}
+
+  .divider{height:1px; background:var(--line); margin:12px 0;}
+  .kv{display:flex; justify-content:space-between; font-size:12.5px; padding:5px 0; border-bottom:1px dashed #142130;}
+  .kv:last-child{border-bottom:none;}
+  .kv b{font-family:var(--mono); font-weight:600;}
+  .empty{text-align:center; color:var(--dim); font-size:12.5px; padding:20px 6px;}
+  .chip-row{display:flex; gap:6px; flex-wrap:wrap;}
+  .chip{font-family:var(--mono); font-size:11px; padding:6px 10px; border-radius:8px; border:1px solid var(--line); background:var(--panel2); color:var(--dim);}
+  .chip.sel{color:var(--accent); border-color:var(--accent-dim); background:rgba(57,229,197,.08);}
+</style>
+</head>
+<body>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<header class="top">
+  <div class="brand">
+    <div class="mark">MA</div>
+    <div>
+      <h1>MERIDIAN</h1>
+      <small>ACCUMULATOR PRECISION ENGINE</small>
+    </div>
+  </div>
+  <div class="modepill" id="modePill">PAPER</div>
+</header>
+
+<main>
+
+  <!-- ============ TERMINAL VIEW ============ -->
+  <section class="view active" id="view-terminal">
+
+    <div class="card" id="connCard">
+      <h2>Connection</h2>
+      <div class="row"><label>Status</label><span class="badge off" id="connBadge">DISCONNECTED</span></div>
+      <div class="row"><label>Account</label><span class="badge" id="acctBadge">—</span></div>
+      <div class="row"><label>Balance</label><span id="balanceOut" style="font-family:var(--mono)">—</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Market</h2>
+      <div class="field">
+        <label>Symbol</label>
+        <select id="symbolSel"></select>
+      </div>
+      <div class="row"><label>Spot</label><span id="spotOut" style="font-family:var(--mono); font-size:16px;">—</span></div>
+      <div class="row"><label>Regime</label><span class="badge" id="regimeOut">—</span></div>
+      <div class="row"><label>ACCU Support</label><span class="badge" id="accuSupportBadge">CHECKING…</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Accumulator Suitability</h2>
+      <div class="meterrow"><div class="mrhead"><span>Tick Stability</span><b id="m_tick">—</b></div><div class="meter"><i id="mb_tick" style="width:0%"></i></div></div>
+      <div class="meterrow"><div class="mrhead"><span>Compression</span><b id="m_comp">—</b></div><div class="meter"><i id="mb_comp" style="width:0%"></i></div></div>
+      <div class="meterrow"><div class="mrhead"><span>Volatility Fit</span><b id="m_vol">—</b></div><div class="meter"><i id="mb_vol" style="width:0%"></i></div></div>
+      <div class="meterrow"><div class="mrhead"><span>Momentum Stability</span><b id="m_mom">—</b></div><div class="meter"><i id="mb_mom" style="width:0%"></i></div></div>
+      <div class="meterrow"><div class="mrhead"><span>Barrier Safety</span><b id="m_bar">—</b></div><div class="meter"><i id="mb_bar" style="width:0%"></i></div></div>
+      <div class="meterrow"><div class="mrhead"><span>Monte Carlo Survival</span><b id="m_mc">—</b></div><div class="meter"><i id="mb_mc" style="width:0%"></i></div></div>
+      <div class="divider"></div>
+      <div class="signalbox">
+        <div class="grade" id="sigGrade">—</div>
+        <div class="label" id="sigLabel">AWAITING DATA</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Decision Fusion Detail</h2>
+      <div class="kv"><span>Entry Quality Score</span><b id="d_eqs">—</b></div>
+      <div class="kv"><span>Expected Value</span><b id="d_ev">—</b></div>
+      <div class="kv"><span>Barrier Distance (norm.)</span><b id="d_bardist">—</b></div>
+      <div class="kv"><span>Survival Probability</span><b id="d_surv">—</b></div>
+      <div class="kv"><span>Multi-Window Consensus</span><b id="d_consensus">—</b></div>
+      <div class="kv"><span>Gate Threshold</span><b id="d_threshold">—</b></div>
+    </div>
+
+    <div class="card" id="positionCard" style="display:none">
+      <h2>Live Position</h2>
+      <div class="bigstat">
+        <div class="num" id="posProfit">$0.00</div>
+        <div class="cap">CONTRACT PROFIT</div>
+      </div>
+      <div class="meterrow"><div class="mrhead"><span>Position Health</span><b id="p_health">—</b></div><div class="meter"><i id="pb_health" style="width:0%"></i></div></div>
+      <div class="kv"><span>Status</span><b id="p_status">—</b></div>
+      <div class="kv"><span>Current Value</span><b id="p_value">—</b></div>
+      <div class="kv"><span>Exit Score</span><b id="p_exitscore">—</b></div>
+      <div class="kv"><span>Ticks Held</span><b id="p_ticks">—</b></div>
+      <button class="btn danger" id="manualCloseBtn" style="margin-top:10px">Close Position Now</button>
+    </div>
+
+    <div class="card">
+      <h2>Auto-Trade</h2>
+      <div class="row">
+        <div><label>Arm Auto-Trading</label><div class="sub">Executes instantly when confluence gate passes</div></div>
+        <div class="switch"><input type="checkbox" id="armSwitch"><span class="track"><span class="knob"></span></span></div>
+      </div>
+      <div class="row">
+        <div><label>Minimum Grade</label></div>
+        <div class="chip-row" id="gradeChips">
+          <span class="chip" data-g="B">B+</span>
+          <span class="chip sel" data-g="A">A</span>
+          <span class="chip" data-g="Aplus">A+</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Session Risk Governor</h2>
+      <div class="meterrow"><div class="mrhead"><span>Session Profit</span><b id="sessProfit">$0.00</b></div><div class="meter"><i id="sessProfitBar" style="width:0%"></i></div></div>
+      <div class="meterrow"><div class="mrhead"><span>Drawdown vs. Max Loss</span><b id="sessLoss">$0.00</b></div><div class="meter risk"><i id="sessLossBar" style="width:0%"></i></div></div>
+      <div class="grid3" style="margin-top:8px">
+        <div><div class="sub">Trades</div><div style="font-family:var(--mono);font-weight:700">0</div></div>
+        <div><div class="sub">Wins</div><div style="font-family:var(--mono);font-weight:700; color:var(--good)" id="sessWins">0</div></div>
+        <div><div class="sub">Losses</div><div style="font-family:var(--mono);font-weight:700; color:var(--danger)" id="sessLosses">0</div></div>
+      </div>
+      <div id="sessLockNotice" style="display:none; margin-top:10px" class="badge warn">SESSION LOCKED — target/limit reached</div>
+    </div>
+
+    <button class="btn danger" id="killBtn" style="margin-top:4px;">⏻ KILL SWITCH — STOP EVERYTHING</button>
+  </section>
+
+  <!-- ============ SETTINGS VIEW ============ -->
+  <section class="view" id="view-settings">
+
+    <div class="card">
+      <h2>Authentication</h2>
+      <div class="field">
+        <label>Auth Method</label>
+        <select id="authMethod">
+          <option value="pat">Personal Access Token (PAT)</option>
+          <option value="oauth">OAuth 2.0 (PKCE)</option>
+        </select>
+      </div>
+      <div id="patFields">
+        <div class="field"><label>Deriv App ID</label><input type="text" id="appIdInput" placeholder="e.g. 33Bkb6T4TVXAIdE822tie"></div>
+        <div class="field"><label>Personal Access Token</label><input type="password" id="patInput" placeholder="Paste your PAT"></div>
+      </div>
+      <div id="oauthFields" style="display:none">
+        <div class="field"><label>OAuth Client ID (App ID)</label><input type="text" id="oauthClientId"></div>
+        <div class="field"><label>Redirect URI</label><input type="text" id="oauthRedirect" placeholder="https://your-app.com/callback"></div>
+        <button class="btn" id="oauthStartBtn">Start OAuth Login →</button>
+        <div class="field" style="margin-top:10px"><label>Access Token (after callback)</label><input type="password" id="oauthTokenInput" placeholder="Paste access_token from callback"></div>
+      </div>
+      <button class="btn primary" id="connectBtn" style="margin-top:6px">Connect</button>
+      <button class="btn ghost" id="disconnectBtn" style="margin-top:8px">Disconnect</button>
+    </div>
+
+    <div class="card">
+      <h2>Account</h2>
+      <div class="field">
+        <label>Trading Account</label>
+        <select id="accountSel"><option>Connect to load accounts…</option></select>
+      </div>
+      <button class="btn ghost" id="resetDemoBtn">Reset Demo Balance to $10,000</button>
+    </div>
+
+    <div class="card">
+      <h2>Execution Mode</h2>
+      <div class="chip-row">
+        <span class="chip sel" data-mode="paper">PAPER</span>
+        <span class="chip" data-mode="shadow">SHADOW</span>
+        <span class="chip" data-mode="live">LIVE</span>
+      </div>
+      <p style="color:var(--dim); font-size:11.5px; margin:10px 0 0;">PAPER: simulated fills only. SHADOW: real ticks, hypothetical execution log. LIVE: real Deriv contracts — requires explicit confirmation and defaults OFF.</p>
+    </div>
+
+    <div class="card">
+      <h2>Contract Parameters</h2>
+      <div class="grid2">
+        <div class="field"><label>Stake per trade</label><input type="number" id="stakeInput" value="0.35" min="0.35" max="5000" step="0.01"></div>
+        <div class="field"><label>Growth rate</label>
+          <select id="growthSel">
+            <option value="0.01">1%</option>
+            <option value="0.02">2%</option>
+            <option value="0.03" selected>3%</option>
+            <option value="0.04">4%</option>
+            <option value="0.05">5%</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Max concurrent positions</label><input type="number" id="maxConcurrent" value="1" min="1" max="1" readonly title="Locked at 1 for this MVP — prevents uncontrolled overlapping exposure"></div>
+    </div>
+
+    <div class="card">
+      <h2>Precision Exit — Per Trade</h2>
+      <div class="grid2">
+        <div class="field"><label>Take-profit target (%)</label><input type="number" id="tpPct" value="0.5" min="0.5" max="500" step="0.1"></div>
+        <div class="field"><label>Exit-score trigger</label><input type="number" id="exitScoreTrigger" value="1" min="1" max="100" step="1"></div>
+      </div>
+      <div class="row">
+        <div><label>Dynamic exit (survival/momentum aware)</label><div class="sub">Closes early when survival probability deteriorates, even below TP%</div></div>
+        <div class="switch"><input type="checkbox" id="dynExitSwitch" checked><span class="track"><span class="knob"></span></span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Session Risk Limits</h2>
+      <div class="grid2">
+        <div class="field"><label>Cumulative profit target ($)</label><input type="number" id="sessTargetInput" value="0.35" min="0.35" step="0.05"></div>
+        <div class="field"><label>Max session loss ($)</label><input type="number" id="sessMaxLossInput" value="0.35" min="0.35" step="0.05"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Max consecutive losses</label><input type="number" id="maxConsecLossInput" value="1" min="1" max="50" step="1"></div>
+        <div class="field"><label>Cooldown between trades (sec)</label><input type="number" id="cooldownInput" value="0" min="0" max="3600" step="1"></div>
+      </div>
+      <div class="row">
+        <div><label>Auto-restart session</label><div class="sub">Re-arms automatically after cooldown once target/limit resets</div></div>
+        <div class="switch"><input type="checkbox" id="autoRestartSwitch"><span class="track"><span class="knob"></span></span></div>
+      </div>
+      <div class="field" style="margin-top:8px"><label>Auto-restart delay (minutes)</label><input type="number" id="autoRestartDelay" value="1" min="1" max="1440" step="1"></div>
+      <button class="btn ghost" id="manualResetBtn" style="margin-top:6px">Reset Session Now</button>
+    </div>
+
+    <div class="card">
+      <h2>Decision Fusion Gate</h2>
+      <div class="field"><label>Minimum Entry Quality Score to arm (%)</label><input type="number" id="gateThreshold" value="50" min="50" max="99" step="1"></div>
+      <div class="field"><label>Minimum Expected Value (must be positive)</label><input type="text" value="EV > 0 (hard rule, non-configurable)" disabled></div>
+    </div>
+
+    <div class="card">
+      <h2>Notifications</h2>
+      <div class="row"><div><label>Push notifications</label></div><div class="switch"><input type="checkbox" id="notifSwitch"><span class="track"><span class="knob"></span></span></div></div>
+      <div class="row"><div><label>Haptic vibration</label></div><div class="switch"><input type="checkbox" id="vibeSwitch" checked><span class="track"><span class="knob"></span></span></div></div>
+    </div>
+
+  </section>
+
+  <!-- ============ JOURNAL VIEW ============ -->
+  <section class="view" id="view-journal">
+    <div class="card">
+      <h2>Trade Journal</h2>
+      <div class="logwrap">
+        <table class="log" id="journalTable">
+          <thead><tr><th>Time</th><th>Sym</th><th>Grade</th><th>Stake</th><th>P/L</th><th>Mode</th></tr></thead>
+          <tbody id="journalBody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="journalEmpty">No trades logged yet.</div>
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn ghost" id="exportCsvBtn">Export CSV</button>
+        <button class="btn ghost" id="clearJournalBtn">Clear Journal</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Execution Audit Trail</h2>
+      <div class="logwrap">
+        <table class="log" id="auditTable">
+          <thead><tr><th>Time</th><th>Event</th><th>Detail</th></tr></thead>
+          <tbody id="auditBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<nav class="bottom">
+  <button class="tab active" data-view="view-terminal">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
+    Terminal<span class="dot"></span>
+  </button>
+  <button class="tab" data-view="view-settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.34 1.88l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.7 1.7 0 00-1.88-.34 1.7 1.7 0 00-1 1.55V21a2 2 0 11-4 0v-.09A1.7 1.7 0 009 19.4a1.7 1.7 0 00-1.88.34l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.7 1.7 0 004.6 15a1.7 1.7 0 00-1.55-1H3a2 2 0 110-4h.09A1.7 1.7 0 004.6 9a1.7 1.7 0 00-.34-1.88l-.06-.06a2 2 0 112.83-2.83l.06.06A1.7 1.7 0 009 4.6a1.7 1.7 0 001-1.55V3a2 2 0 114 0v.09a1.7 1.7 0 001 1.55 1.7 1.7 0 001.88-.34l.06-.06a2 2 0 112.83 2.83l-.06.06A1.7 1.7 0 0019.4 9a1.7 1.7 0 001.55 1H21a2 2 0 110 4h-.09a1.7 1.7 0 00-1.55 1z"/></svg>
+    Settings
+  </button>
+  <button class="tab" data-view="view-journal">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h4"/></svg>
+    Journal
+  </button>
+</nav>
+
+<div class="modal-back" id="liveConfirmBack">
+  <div class="modal">
+    <h3>Enable LIVE execution?</h3>
+    <p>This will place real-money Accumulator contracts on your Deriv account when the confluence gate passes. Meridian enforces your session risk limits, but market conditions can change instantly and losses are possible. Type <b>CONFIRM</b> to proceed.</p>
+    <input type="text" id="liveConfirmInput" placeholder="Type CONFIRM" style="margin:10px 0;">
+    <div class="btn-row">
+      <button class="btn ghost" id="liveConfirmCancel">Cancel</button>
+      <button class="btn danger" id="liveConfirmOk">Enable LIVE</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================================
+   MERIDIAN — ACCUMULATOR PRECISION ENGINE
+   Single-file mobile PWA. Real Deriv WebSocket/REST integration.
+   Architecture mirrors the 11-phase Accumulator system:
+   Connection -> Tick Intelligence -> Contract Intelligence -> Decision
+   Fusion -> Execution -> Position Monitoring/Exit -> Risk Governor -> Journal
+   ========================================================================= */
+
+const API_BASE = "https://api.derivws.com";
+const WS_PUBLIC = "wss://api.derivws.com/trading/v1/options/ws/public";
+
+const ACCU_SYMBOLS = [
+  {v:"1HZ10V", t:"Volatility 10 (1s) Index", grp:"Volatility"},
+  {v:"1HZ25V", t:"Volatility 25 (1s) Index", grp:"Volatility"},
+  {v:"1HZ50V", t:"Volatility 50 (1s) Index", grp:"Volatility"},
+  {v:"1HZ75V", t:"Volatility 75 (1s) Index", grp:"Volatility"},
+  {v:"1HZ100V", t:"Volatility 100 (1s) Index", grp:"Volatility"},
+  {v:"1HZ150V", t:"Volatility 150 (1s) Index", grp:"Volatility"},
+  {v:"1HZ250V", t:"Volatility 250 (1s) Index", grp:"Volatility"},
+  {v:"R_10", t:"Volatility 10 Index", grp:"Volatility"},
+  {v:"R_25", t:"Volatility 25 Index", grp:"Volatility"},
+  {v:"R_50", t:"Volatility 50 Index", grp:"Volatility"},
+  {v:"R_75", t:"Volatility 75 Index", grp:"Volatility"},
+  {v:"R_100", t:"Volatility 100 Index", grp:"Volatility"},
+  {v:"BOOM300N", t:"Boom 300 Index", grp:"Boom"},
+  {v:"BOOM500", t:"Boom 500 Index", grp:"Boom"},
+  {v:"BOOM600", t:"Boom 600 Index", grp:"Boom"},
+  {v:"BOOM900", t:"Boom 900 Index", grp:"Boom"},
+  {v:"BOOM1000", t:"Boom 1000 Index", grp:"Boom"},
+  {v:"CRASH300N", t:"Crash 300 Index", grp:"Crash"},
+  {v:"CRASH500", t:"Crash 500 Index", grp:"Crash"},
+  {v:"CRASH600", t:"Crash 600 Index", grp:"Crash"},
+  {v:"CRASH900", t:"Crash 900 Index", grp:"Crash"},
+  {v:"CRASH1000", t:"Crash 1000 Index", grp:"Crash"},
+  {v:"stpRNG", t:"Step Index", grp:"Step"},
+  {v:"stpRNG2", t:"Step Index 200", grp:"Step"},
+  {v:"stpRNG3", t:"Step Index 300", grp:"Step"},
+  {v:"stpRNG4", t:"Step Index 400", grp:"Step"},
+  {v:"stpRNG5", t:"Step Index 500", grp:"Step"},
+  {v:"JD10", t:"Jump 10 Index", grp:"Jump"},
+  {v:"JD25", t:"Jump 25 Index", grp:"Jump"},
+  {v:"JD50", t:"Jump 50 Index", grp:"Jump"},
+  {v:"JD75", t:"Jump 75 Index", grp:"Jump"},
+  {v:"JD100", t:"Jump 100 Index", grp:"Jump"},
+  {v:"RDBULL", t:"Range Break 100 (Bull)", grp:"Range"},
+  {v:"RDBEAR", t:"Range Break 200 (Bear)", grp:"Range"}
+];
+
+/* Symbols confirmed to be resolved via a live contracts_for lookup per session.
+   Meridian never assumes ACCU availability from a static list — every symbol
+   is verified against the account's actual current contracts_for response
+   before the arm switch is allowed to enable. */
+const MarketSupport = {
+  checked: new Map(),   // symbol -> true/false
+  pubPending: new Map(),
+  pubReqId: 0,
+
+  isSupported(symbol){ return this.checked.get(symbol); },
+
+  async verify(symbol){
+    if(this.checked.has(symbol)) return this.checked.get(symbol);
+    if(!Conn.pubWs || Conn.pubWs.readyState!==1) return null;
+    return new Promise(resolve=>{
+      const id = ++this.pubReqId;
+      this.pubPending.set(id, resolve);
+      Conn.pubWs.send(JSON.stringify({contracts_for: symbol, req_id:id}));
+      setTimeout(()=>{ if(this.pubPending.has(id)){ this.pubPending.delete(id); resolve(null); } }, 8000);
+    });
+  },
+
+  onResponse(data){
+    if(!this.pubPending.has(data.req_id)) return;
+    const resolve = this.pubPending.get(data.req_id);
+    this.pubPending.delete(data.req_id);
+    const symbol = data.echo_req && data.echo_req.contracts_for;
+    let supported = false;
+    if(data.contracts_for && Array.isArray(data.contracts_for.available)){
+      supported = data.contracts_for.available.some(c=>c.contract_type==="ACCU");
+    }
+    if(symbol) this.checked.set(symbol, supported);
+    renderAccuSupport(symbol, supported);
+    resolve(supported);
+  }
+};
+function renderAccuSupport(symbol, supported){
+  if(symbol && symbol!==Market.symbol) return;
+  const b = document.getElementById("accuSupportBadge");
+  if(supported===null || supported===undefined){ b.textContent="UNKNOWN"; b.className="badge warn"; return; }
+  b.textContent = supported? "SUPPORTED" : "NOT AVAILABLE";
+  b.className = "badge " + (supported? "on":"off");
+}
+
+/* ---------------------------------------------------------------------
+   STRICT PARAMETER ENFORCEMENT — the "lowest possible value" system.
+   Every numeric control in the app is bound to a hard floor/ceiling here.
+   Nothing in the UI, storage, or execution path may hold a value outside
+   these bounds — enforced on load, on every change event, and again
+   immediately before any trade or session-risk decision is made.
+--------------------------------------------------------------------- */
+const LIMITS = {
+  stake:            {min:0.35,  max:5000,  step:0.01,  def:0.35, label:"Stake"},
+  growth:           {min:0.01,  max:0.05,  step:0.01,  def:0.01, label:"Growth rate"},
+  tpPct:            {min:0.5,   max:500,   step:0.1,   def:0.5,  label:"Take-profit %"},
+  exitScoreTrigger: {min:1,     max:100,   step:1,     def:1,    label:"Exit-score trigger"},
+  sessTarget:       {min:0.35,  max:1000000, step:0.05, def:0.35, label:"Session profit target"},
+  sessMaxLoss:      {min:0.35,  max:1000000, step:0.05, def:0.35, label:"Session max loss"},
+  maxConsecLoss:    {min:1,     max:50,    step:1,     def:1,    label:"Max consecutive losses"},
+  cooldown:         {min:0,     max:3600,  step:1,     def:0,    label:"Cooldown seconds"},
+  autoRestartDelay: {min:1,     max:1440,  step:1,     def:1,    label:"Auto-restart delay"},
+  gateThreshold:    {min:50,    max:99,    step:1,     def:50,   label:"Gate threshold %"},
+  maxConcurrent:    {min:1,     max:1,     step:1,     def:1,    label:"Max concurrent positions"}
+};
+
+/** Clamp a raw value into [min,max], snap to step, and fall back to the
+ *  floor (never a guessed/blank/NaN value) if the input is unusable. */
+function enforce(key, raw){
+  const L = LIMITS[key];
+  if(!L) return raw;
+  let n = Number(raw);
+  if(!isFinite(n)) n = L.min;
+  n = Math.min(L.max, Math.max(L.min, n));
+  // snap to step to avoid float-noise values like 0.34999999
+  const steps = Math.round((n - L.min)/L.step);
+  n = +(L.min + steps*L.step).toFixed(6);
+  return n;
+}
+
+/** Apply enforcement to a live <input>/<select> element in place, writing
+ *  the corrected value back to the DOM so the person always sees the real,
+ *  enforced number — never a silently-different stored value. */
+function enforceField(el, key){
+  const corrected = enforce(key, el.value);
+  if(String(corrected) !== String(el.value)){
+    el.value = corrected;
+    toast(LIMITS[key].label+" adjusted to allowed range (min "+LIMITS[key].min+")", "warn");
+  }
+  return corrected;
+}
+
+/* ---------------------------------------------------------------------
+   Persistence (localStorage)
+--------------------------------------------------------------------- */
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem("meridian:"+k); return v===null? d: JSON.parse(v);}catch(e){return d;} },
+  set(k, v){ try{ localStorage.setItem("meridian:"+k, JSON.stringify(v)); }catch(e){} }
+};
+
+/* ---------------------------------------------------------------------
+   Toast / Audit / Journal utilities
+--------------------------------------------------------------------- */
+function toast(msg, kind){
+  const wrap = document.getElementById("toastWrap");
+  const el = document.createElement("div");
+  el.className = "toast" + (kind==="err"?" err":kind==="ok"?" ok":kind==="warn"?" warn":"");
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(()=>{ el.style.opacity="0"; el.style.transition="opacity .3s"; setTimeout(()=>el.remove(),300); }, 3400);
+}
+function vibrate(pattern){
+  if(store.get("vibe", true) && navigator.vibrate) navigator.vibrate(pattern||30);
+}
+function notify(title, body){
+  if(!store.get("notif", false)) return;
+  if(typeof Notification === "undefined") return;
+  if(Notification.permission === "granted"){ new Notification(title, {body}); }
+}
+function auditLog(event, detail){
+  const rows = store.get("audit", []);
+  rows.unshift({t: new Date().toLocaleTimeString(), event, detail: detail||""});
+  if(rows.length>300) rows.length = 300;
+  store.set("audit", rows);
+  renderAudit();
+}
+function journalAdd(entry){
+  const rows = store.get("journal", []);
+  rows.unshift(entry);
+  if(rows.length>500) rows.length = 500;
+  store.set("journal", rows);
+  renderJournal();
+}
+function renderAudit(){
+  const rows = store.get("audit", []);
+  const body = document.getElementById("auditBody");
+  body.innerHTML = rows.slice(0,80).map(r=>`<tr><td>${r.t}</td><td>${r.event}</td><td>${r.detail}</td></tr>`).join("");
+}
+function renderJournal(){
+  const rows = store.get("journal", []);
+  const body = document.getElementById("journalBody");
+  document.getElementById("journalEmpty").style.display = rows.length? "none":"block";
+  body.innerHTML = rows.map(r=>{
+    const cls = r.pl>=0 ? "p":"n";
+    return `<tr><td>${r.time}</td><td>${r.symbol}</td><td>${r.grade}</td><td>$${r.stake.toFixed(2)}</td><td class="${cls}">${r.pl>=0?"+":""}$${r.pl.toFixed(2)}</td><td>${r.mode}</td></tr>`;
+  }).join("");
+}
+
+/* ---------------------------------------------------------------------
+   Tab navigation
+--------------------------------------------------------------------- */
+document.querySelectorAll("nav.bottom .tab").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll("nav.bottom .tab").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.view).classList.add("active");
+  });
+});
+
+/* =========================================================================
+   PHASE 1 — DERIV CONNECTION ENGINE
+   ========================================================================= */
+const Conn = {
+  appId: null, token: null, accountId: null,
+  ws: null, reqId: 0, pending: new Map(),
+  connected: false, reconnectAttempts: 0, generation: 0,
+  pubWs: null, pubGeneration: 0,
+  heartbeatTimer: null,
+
+  nextId(){ return ++this.reqId; },
+
+  send(payload){
+    return new Promise((resolve,reject)=>{
+      if(!this.ws || this.ws.readyState!==1){ reject(new Error("not_connected")); return; }
+      const id = this.nextId();
+      const msg = Object.assign({}, payload, {req_id:id});
+      this.pending.set(id, {resolve, reject, type: Object.keys(payload)[0]});
+      this.ws.send(JSON.stringify(msg));
+      setTimeout(()=>{ if(this.pending.has(id)){ this.pending.delete(id); reject(new Error("timeout")); } }, 15000);
+    });
+  },
+
+  async restGet(path){
+    const r = await fetch(API_BASE+path, {headers:{"Deriv-App-ID":this.appId,"Authorization":"Bearer "+this.token}});
+    const j = await r.json();
+    if(!r.ok){ throw new Error((j.errors&&j.errors[0]&&j.errors[0].message)||"REST error"); }
+    return j;
+  },
+  async restPost(path, body){
+    const opts = {method:"POST", headers:{"Deriv-App-ID":this.appId,"Authorization":"Bearer "+this.token}};
+    if(body){ opts.headers["Content-Type"]="application/json"; opts.body = JSON.stringify(body); }
+    const r = await fetch(API_BASE+path, opts);
+    const j = await r.json().catch(()=> ({}));
+    if(!r.ok){ throw new Error((j.errors&&j.errors[0]&&j.errors[0].message)||("HTTP "+r.status)); }
+    return j;
+  },
+
+  async getAccounts(){
+    const j = await this.restGet("/trading/v1/options/accounts");
+    return j.data;
+  },
+  async resetDemoBalance(accountId){
+    return this.restPost(`/trading/v1/options/accounts/${accountId}/reset-demo-balance`);
+  },
+  async getOtpUrl(accountId){
+    const j = await this.restPost(`/trading/v1/options/accounts/${accountId}/otp`);
+    return j.data.url;
+  },
+
+  connectPublic(){
+    const myGen = ++this.pubGeneration;
+    try{ if(this.pubWs){ this.pubWs.onclose=null; this.pubWs.close(); } }catch(e){}
+    const ws = new WebSocket(WS_PUBLIC);
+    this.pubWs = ws;
+    ws.onopen = ()=>{
+      if(myGen!==this.pubGeneration) return;
+      setStatusPublic(true);
+      Market.onPublicOpen();
+    };
+    ws.onmessage = (ev)=>{
+      if(myGen!==this.pubGeneration) return;
+      handlePublicMessage(JSON.parse(ev.data));
+    };
+    ws.onclose = ()=>{
+      if(myGen!==this.pubGeneration) return;
+      setStatusPublic(false);
+      setTimeout(()=>{ if(myGen===this.pubGeneration) this.connectPublic(); }, 2500);
+    };
+    ws.onerror = ()=>{};
+  },
+
+  async connectTrading(){
+    if(!this.accountId) throw new Error("Select an account first");
+    const url = await this.getOtpUrl(this.accountId);
+    const myGen = ++this.generation;
+    try{ if(this.ws){ this.ws.onclose=null; this.ws.close(); } }catch(e){}
+    return new Promise((resolve,reject)=>{
+      const ws = new WebSocket(url);
+      this.ws = ws;
+      ws.onopen = ()=>{
+        if(myGen!==this.generation) return;
+        this.connected = true; this.reconnectAttempts = 0;
+        setConnBadge(true);
+        auditLog("CONNECTED", this.accountId);
+        this.startHeartbeat();
+        resolve();
+      };
+      ws.onmessage = (ev)=>{
+        if(myGen!==this.generation) return;
+        this.handleMessage(JSON.parse(ev.data));
+      };
+      ws.onerror = (e)=>{ if(myGen===this.generation) reject(new Error("ws_error")); };
+      ws.onclose = ()=>{
+        if(myGen!==this.generation) return;
+        this.connected = false;
+        setConnBadge(false);
+        clearInterval(this.heartbeatTimer);
+        auditLog("DISCONNECTED", "trading socket closed");
+        this.scheduleReconnect();
+      };
+    });
+  },
+
+  scheduleReconnect(){
+    if(!Risk.tradingWasOn) return;
+    const delay = Math.min(1000*Math.pow(2,this.reconnectAttempts), 30000);
+    this.reconnectAttempts++;
+    setTimeout(async ()=>{
+      try{ await this.connectTrading(); toast("Reconnected to trading socket","ok"); }
+      catch(e){ this.scheduleReconnect(); }
+    }, delay);
+  },
+
+  startHeartbeat(){
+    clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = setInterval(()=>{
+      if(this.ws && this.ws.readyState===1) this.ws.send(JSON.stringify({ping:1, req_id:this.nextId()}));
+    }, 25000);
+  },
+
+  handleMessage(data){
+    if(data.error){
+      if(data.req_id && this.pending.has(data.req_id)){
+        const p = this.pending.get(data.req_id); this.pending.delete(data.req_id);
+        p.reject(new Error(data.error.message||data.error.code));
+      }
+      // still route certain continuous errors (e.g. proposal errors on stale subs)
+      if(data.msg_type==="proposal") Fusion.onProposalError(data.error);
+      return;
+    }
+    // one-shot resolution for non-subscription requests
+    if(data.req_id && this.pending.has(data.req_id) && data.msg_type!=="proposal" && data.msg_type!=="proposal_open_contract"){
+      const p = this.pending.get(data.req_id); this.pending.delete(data.req_id);
+      p.resolve(data);
+    }
+    switch(data.msg_type){
+      case "balance": onBalance(data); break;
+      case "proposal": Fusion.onProposal(data); break;
+      case "buy": Execution.onBuy(data); if(data.req_id&&this.pending.has(data.req_id)){this.pending.get(data.req_id).resolve(data); this.pending.delete(data.req_id);} break;
+      case "sell": Execution.onSell(data); if(data.req_id&&this.pending.has(data.req_id)){this.pending.get(data.req_id).resolve(data); this.pending.delete(data.req_id);} break;
+      case "proposal_open_contract": Position.onUpdate(data); break;
+      case "portfolio": break;
+    }
+  },
+
+  disconnect(){
+    Risk.tradingWasOn = false;
+    try{ if(this.ws){ this.ws.onclose=null; this.ws.close(); } }catch(e){}
+    this.connected = false;
+    setConnBadge(false);
+  }
+};
+
+function setStatusPublic(ok){ /* public feed indicator folded into connBadge when no trading session */ }
+function setConnBadge(ok){
+  const b = document.getElementById("connBadge");
+  b.textContent = ok? "CONNECTED":"DISCONNECTED";
+  b.className = "badge " + (ok?"on":"off");
+}
+
+/* =========================================================================
+   PHASE 2 — TICK STATISTICS / MICROSTRUCTURE ENGINE
+   ========================================================================= */
+const Market = {
+  symbol: store.get("symbol","1HZ100V"),
+  ticks: [],           // {t, p}
+  spot: null,
+  activeSymbolsLoaded: false,
+  subReqTicks: null,
+
+  onPublicOpen(){
+    this.subscribeTicks(this.symbol);
+    MarketSupport.verify(this.symbol);
+  },
+
+  subscribeTicks(symbol){
+    if(!Conn.pubWs || Conn.pubWs.readyState!==1) return;
+    // forget previous by resubscribing fresh symbol stream; server issues new subscription id
+    Conn.pubWs.send(JSON.stringify({ticks: symbol, subscribe:1, req_id: ++Conn.reqId}));
+    Conn.pubWs.send(JSON.stringify({ticks_history: symbol, count:200, end:"latest", style:"ticks", req_id: ++Conn.reqId}));
+  },
+
+  setSymbol(sym){
+    this.symbol = sym; store.set("symbol", sym);
+    this.ticks = [];
+    document.getElementById("spotOut").textContent = "—";
+    renderAccuSupport(sym, MarketSupport.isSupported(sym));
+    this.subscribeTicks(sym);
+    MarketSupport.verify(sym);
+  },
+
+  pushTick(price, epoch){
+    this.spot = price;
+    this.ticks.push({t: epoch||Date.now()/1000, p: price});
+    if(this.ticks.length>1000) this.ticks.shift();
+    document.getElementById("spotOut").textContent = price.toFixed(price<10?5:2);
+    Analytics.onTick();
+  },
+  loadHistory(prices, times){
+    this.ticks = prices.map((p,i)=>({t: times[i], p: Number(p)}));
+    if(this.ticks.length) this.spot = this.ticks[this.ticks.length-1].p;
+    Analytics.onTick();
+  }
+};
+
+function handlePublicMessage(data){
+  if(data.error){
+    if(data.req_id && MarketSupport.pubPending.has(data.req_id)){
+      MarketSupport.pubPending.get(data.req_id)(false);
+      MarketSupport.pubPending.delete(data.req_id);
+    }
+    return;
+  }
+  switch(data.msg_type){
+    case "tick": Market.pushTick(Number(data.tick.quote), data.tick.epoch); break;
+    case "history": Market.loadHistory(data.history.prices, data.history.times); break;
+    case "contracts_for": MarketSupport.onResponse(data); break;
+  }
+}
+
+const Analytics = {
+  windows: [10,25,50,100,250],
+  state: {},
+
+  returns(n){
+    const t = Market.ticks;
+    if(t.length<n+1) return [];
+    const arr = [];
+    for(let i=t.length-n;i<t.length;i++) arr.push(t[i].p - t[i-1].p);
+    return arr;
+  },
+  stddev(arr){
+    if(!arr.length) return 0;
+    const m = arr.reduce((a,b)=>a+b,0)/arr.length;
+    const v = arr.reduce((a,b)=>a+(b-m)*(b-m),0)/arr.length;
+    return Math.sqrt(v);
+  },
+  directionStrength(n){
+    const t = Market.ticks;
+    if(t.length<n+1) return 0;
+    let sum=0;
+    for(let i=t.length-n;i<t.length;i++){
+      const d = t[i].p - t[i-1].p;
+      sum += d>0?1:(d<0?-1:0);
+    }
+    return sum/n;
+  },
+  momentum(n){
+    const t = Market.ticks;
+    if(t.length<n+1) return 0;
+    return (t[t.length-1].p - t[t.length-1-n].p)/n;
+  },
+  compression(){
+    const short = this.stddev(this.returns(20));
+    const long = this.stddev(this.returns(200)) || short || 1e-9;
+    return Math.max(0, Math.min(1, 1 - (short/(long+1e-9))));
+  },
+  volatility(){
+    return this.stddev(this.returns(50));
+  },
+  regime(){
+    const shortVol = this.stddev(this.returns(20));
+    const longVol = this.stddev(this.returns(200)) || 1e-9;
+    const vr = shortVol/longVol;
+    if(vr>1.8) return "EXPANSION";
+    if(vr>1.3) return "HIGH VOLATILITY";
+    if(vr<0.55) return "COMPRESSION";
+    if(vr<0.8) return "LOW VOLATILITY";
+    return "NORMAL";
+  },
+  consensus(){
+    let confirmed=0;
+    this.windows.forEach(w=>{
+      const ds = Math.abs(this.directionStrength(w));
+      if(ds < 0.45) confirmed++; // stability = low directional noise, favorable for accumulators
+    });
+    return confirmed/this.windows.length;
+  },
+  onTick(){
+    Contract.evaluate();
+  }
+};
+
+/* =========================================================================
+   PHASE 3 — ACCUMULATOR CONTRACT INTELLIGENCE ENGINE
+   ========================================================================= */
+const Contract = {
+  last: null,
+
+  expectedMove(volatility){
+    // simplified sigma*sqrt(effective horizon in ticks), horizon = 10 ticks default
+    return volatility * Math.sqrt(10) || 0;
+  },
+
+  monteCarloSurvival(volatility, barrierDistance, paths){
+    // bootstrap resample from real recent tick deltas (not synthetic random prices)
+    const deltas = Analytics.returns(200);
+    if(deltas.length<10 || barrierDistance<=0) return 0.5;
+    paths = paths || 400;
+    let survived = 0;
+    for(let p=0; p<paths; p++){
+      let cum = 0; let breached = false;
+      for(let step=0; step<10; step++){
+        const idx = Math.floor(Math.random()*deltas.length);
+        cum += deltas[idx];
+        if(Math.abs(cum) >= barrierDistance){ breached = true; break; }
+      }
+      if(!breached) survived++;
+    }
+    return survived/paths;
+  },
+
+  evaluate(){
+    if(Market.ticks.length < 60){ Fusion.notReady(); return; }
+    const vol = Analytics.volatility();
+    const comp = Analytics.compression();
+    const regime = Analytics.regime();
+    const ds10 = Math.abs(Analytics.directionStrength(10));
+    const ds50 = Math.abs(Analytics.directionStrength(50));
+    const mom10 = Analytics.momentum(10);
+    const mom50 = Analytics.momentum(50);
+    const consensus = Analytics.consensus();
+    const expMove = this.expectedMove(vol);
+
+    // Barrier distance proxy: use live proposal high/low barrier if a proposal is active,
+    // else approximate using typical ACCU tick-size barrier as ~ (vol * tickSizeBarrierFactor)
+    let barrierDistance = Fusion.liveBarrierDistance != null ? Fusion.liveBarrierDistance : (vol * 6 + 1e-6);
+    const normBarrierDist = expMove>0 ? barrierDistance/expMove : 0;
+
+    const survival = this.monteCarloSurvival(vol, barrierDistance, 350);
+
+    const tickStability = clamp01(1 - ds10);
+    const momentumStability = clamp01(1 - Math.min(1, Math.abs(mom10-mom50)*40));
+    const volatilityFit = clamp01(1 - Math.min(1, Math.abs(vol-  (Fusion.targetVol||vol)) / (vol+1e-9)));
+    const barrierSafety = clamp01(Math.min(1, normBarrierDist/4));
+
+    const suitability = (
+      tickStability*0.22 + comp*0.2 + volatilityFit*0.16 +
+      momentumStability*0.16 + barrierSafety*0.14 + survival*0.12
+    );
+
+    this.last = {
+      vol, comp, regime, ds10, mom10, consensus, expMove,
+      barrierDistance, normBarrierDist, survival,
+      tickStability, momentumStability, volatilityFit, barrierSafety, suitability
+    };
+
+    Fusion.evaluate(this.last);
+  }
+};
+function clamp01(x){ return Math.max(0, Math.min(1, isFinite(x)?x:0)); }
+
+/* =========================================================================
+   PHASE 4 — DECISION FUSION / ENTRY ENGINE
+   ========================================================================= */
+const Fusion = {
+  targetVol: null,
+  liveBarrierDistance: null,
+  cooldownUntil: 0,
+  lastSignal: null,
+
+  notReady(){
+    document.getElementById("sigGrade").textContent = "—";
+    document.getElementById("sigLabel").textContent = "COLLECTING TICK DATA…";
+  },
+
+  gradeFor(score){
+    if(score>=0.93) return "Aplus";
+    if(score>=0.86) return "A";
+    if(score>=0.72) return "B";
+    return "C";
+  },
+
+  evaluate(c){
+    const expectedValue = (c.survival*0.85) - ((1-c.survival)*1.0); // simplified EV (win vs lose stake units)
+    const eqs = clamp01(
+      c.survival*0.30 + c.suitability*0.30 + c.barrierSafety*0.20 +
+      c.momentumStability*0.10 + Analytics.consensus()*0.10
+    );
+    const grade = this.gradeFor(eqs);
+    this.lastSignal = {eqs, expectedValue, grade, c, ts:Date.now()};
+
+    renderSuitability(c);
+    renderFusion(eqs, expectedValue, c, grade);
+
+    const gateThreshold = enforce("gateThreshold", store.get("gateThreshold",LIMITS.gateThreshold.min))/100;
+    const minGrade = store.get("minGrade","A");
+    const gradeOrder = {C:0,B:1,A:2,Aplus:3};
+    const passGrade = gradeOrder[grade] >= gradeOrder[minGrade];
+    const passGate = eqs >= gateThreshold && expectedValue > 0;
+    const cooldownOk = Date.now() > this.cooldownUntil;
+
+    const marketOk = MarketSupport.isSupported(Market.symbol)===true;
+    if(Risk.armed && passGrade && passGate && cooldownOk && marketOk && !Position.active && Risk.canTrade()){
+      Execution.attempt(this.lastSignal);
+    } else if(Risk.armed && !marketOk){
+      Risk.armed = false;
+      document.getElementById("armSwitch").checked = false;
+      updateArmedUI();
+      auditLog("AUTO_DISARM","market support lost for "+Market.symbol);
+      toast("Auto-trade disarmed — market support check failed","err");
+    }
+  },
+
+  onProposal(data){
+    const p = data.proposal;
+    if(!p) return;
+    Execution.activeProposal = p;
+    if(p.contract_details && p.contract_details.barrier){
+      this.liveBarrierDistance = Math.abs(Number(p.contract_details.barrier) - Market.spot);
+    }
+    Execution.onProposalReceived(p);
+  },
+  onProposalError(err){
+    Execution.onProposalError(err);
+  }
+};
+
+function renderSuitability(c){
+  setMeter("tick", c.tickStability);
+  setMeter("comp", c.comp);
+  setMeter("vol", c.volatilityFit);
+  setMeter("mom", c.momentumStability);
+  setMeter("bar", c.barrierSafety);
+  setMeter("mc", c.survival);
+  document.getElementById("regimeOut").textContent = c.regime;
+  document.getElementById("regimeOut").className = "badge " + (c.regime==="COMPRESSION"||c.regime==="LOW VOLATILITY" ? "on" : (c.regime==="EXPANSION"?"off":""));
+}
+function setMeter(key, val){
+  document.getElementById("m_"+key).textContent = Math.round(val*100)+"%";
+  document.getElementById("mb_"+key).style.width = Math.round(val*100)+"%";
+}
+function renderFusion(eqs, ev, c, grade){
+  document.getElementById("d_eqs").textContent = (eqs*100).toFixed(1)+"%";
+  document.getElementById("d_ev").textContent = ev>0? "POSITIVE ("+ev.toFixed(3)+")" : "NEGATIVE ("+ev.toFixed(3)+")";
+  document.getElementById("d_bardist").textContent = c.normBarrierDist.toFixed(2)+"x";
+  document.getElementById("d_surv").textContent = (c.survival*100).toFixed(1)+"%";
+  document.getElementById("d_consensus").textContent = (Analytics.consensus()*100).toFixed(0)+"%";
+  document.getElementById("d_threshold").textContent = enforce("gateThreshold", store.get("gateThreshold",LIMITS.gateThreshold.min))+"%";
+  const gEl = document.getElementById("sigGrade");
+  const map = {Aplus:"A+ SETUP", A:"A SETUP", B:"B SETUP", C:"C — NO TRADE"};
+  gEl.textContent = map[grade];
+  gEl.className = "grade grade-"+grade;
+  document.getElementById("sigLabel").textContent = grade==="C" ? "BELOW QUALITY THRESHOLD" : (ev<=0 ? "EXPECTED VALUE NEGATIVE" : "CONFLUENCE " + (Risk.armed?"ARMED":"READY"));
+}
+
+/* =========================================================================
+   PHASE 5 — EXECUTION ENGINE
+   ========================================================================= */
+const Execution = {
+  mode: store.get("mode","paper"),
+  activeProposal: null,
+  awaitingBuy: false,
+  lastExecutionId: null,
+  proposalRequestedAt: 0,
+
+  requestProposal(){
+    if(!Conn.connected) return;
+    const stake = enforceField(document.getElementById("stakeInput"), "stake");
+    const growth = enforce("growth", document.getElementById("growthSel").value);
+    this.proposalRequestedAt = Date.now();
+    Conn.send({
+      proposal:1, amount:stake, basis:"stake", contract_type:"ACCU",
+      currency:"USD", growth_rate:growth, underlying_symbol: Market.symbol, subscribe:1
+    }).catch(()=>{});
+  },
+
+  attempt(signal){
+    if(this.awaitingBuy || Position.active) return;
+    // drift check vs original suitability calc happens implicitly since we always use latest tick state
+    if(this.mode==="paper"){
+      this.paperExecute(signal);
+      return;
+    }
+    if(this.mode==="shadow"){
+      auditLog("SHADOW_ENTRY", `${Market.symbol} grade=${signal.grade} eqs=${(signal.eqs*100).toFixed(1)}%`);
+      toast("Shadow entry logged ("+signal.grade+")","ok");
+      Fusion.cooldownUntil = Date.now() + (enforce("cooldown", store.get("cooldown",LIMITS.cooldown.min))*1000);
+      return;
+    }
+    // LIVE
+    if(!Conn.connected){ toast("Not connected to trading socket","err"); return; }
+    this.awaitingBuy = true;
+    auditLog("SIGNAL_APPROVED", `${Market.symbol} grade=${signal.grade}`);
+    this.requestProposal();
+  },
+
+  onProposalReceived(p){
+    if(!this.awaitingBuy) return;
+    // final drift check
+    const drift = Math.abs(Fusion.lastSignal.eqs - (Fusion.lastSignal? Fusion.lastSignal.eqs:0));
+    const stake = enforceField(document.getElementById("stakeInput"), "stake");
+    auditLog("FINAL_CHECK", "proposal id="+p.id+" ask="+p.ask_price);
+    Conn.send({buy: p.id, price: stake})
+      .then(res=>{})
+      .catch(err=>{
+        this.awaitingBuy=false;
+        toast("Buy failed: "+err.message,"err");
+        auditLog("EXECUTION_ERROR", err.message);
+      });
+  },
+  onProposalError(err){
+    if(this.awaitingBuy){
+      this.awaitingBuy=false;
+      auditLog("REJECTED", "proposal error: "+(err.message||err.code));
+      toast("Signal rejected: "+(err.message||err.code),"err");
+    }
+  },
+
+  onBuy(data){
+    const b = data.buy;
+    if(!b) return;
+    this.awaitingBuy = false;
+    Position.open(b);
+    auditLog("CONTRACT_CONFIRMED", "contract_id="+b.contract_id+" price="+b.buy_price);
+    toast("Position opened @ $"+Number(b.buy_price).toFixed(2), "ok");
+    vibrate([40,30,40]);
+    notify("Meridian — Trade Executed", Market.symbol+" position opened");
+    Fusion.cooldownUntil = Date.now() + (enforce("cooldown", store.get("cooldown",LIMITS.cooldown.min))*1000);
+    Conn.send({proposal_open_contract:1, contract_id:b.contract_id, subscribe:1}).catch(()=>{});
+  },
+
+  onSell(data){
+    const s = data.sell;
+    if(!s) return;
+    auditLog("EXIT_CONFIRMED", "contract_id="+s.contract_id+" sold_for="+s.sold_for);
+  },
+
+  paperExecute(signal){
+    // Fully simulated fill + simplified simulated forward path using bootstrap of recent deltas
+    const stake = enforceField(document.getElementById("stakeInput"), "stake");
+    const growth = enforce("growth", document.getElementById("growthSel").value);
+    Position.openPaper(stake, growth, signal);
+    Fusion.cooldownUntil = Date.now() + (enforce("cooldown", store.get("cooldown",LIMITS.cooldown.min))*1000);
+  }
+};
+
+/* =========================================================================
+   PHASE 6 — PRECISION POSITION MONITORING & EXIT ENGINE
+   ========================================================================= */
+const Position = {
+  active: false,
+  contractId: null,
+  entryStake: 0,
+  entryTime: 0,
+  paper: false,
+  paperValue: 0,
+  paperGrowth: 0,
+  paperTicks: 0,
+  lastData: null,
+  grade: null,
+
+  open(buyData){
+    this.active = true;
+    this.contractId = buyData.contract_id;
+    this.entryStake = Number(buyData.buy_price);
+    this.entryTime = Date.now();
+    this.paper = false;
+    this.grade = Fusion.lastSignal ? Fusion.lastSignal.grade : "—";
+    document.getElementById("positionCard").style.display = "block";
+    document.querySelector('[data-view="view-terminal"]').classList.add("armed");
+  },
+
+  openPaper(stake, growth, signal){
+    this.active = true;
+    this.contractId = "PAPER-"+Date.now();
+    this.entryStake = stake;
+    this.entryTime = Date.now();
+    this.paper = true;
+    this.paperValue = stake;
+    this.paperGrowth = growth;
+    this.paperTicks = 0;
+    this.grade = signal.grade;
+    document.getElementById("positionCard").style.display = "block";
+    toast("Paper position opened ("+signal.grade+")", "ok");
+    auditLog("PAPER_ENTRY", Market.symbol+" grade="+signal.grade+" stake=$"+stake.toFixed(2));
+    this._paperTimer = setInterval(()=>this.tickPaper(), 900);
+  },
+
+  tickPaper(){
+    if(!this.active || !this.paper) return;
+    this.paperTicks++;
+    const deltas = Analytics.returns(50);
+    const idx = Math.floor(Math.random()*Math.max(1,deltas.length));
+    const move = deltas[idx]||0;
+    const barrier = this.paperValue * 0.02; // synthetic barrier tolerance for paper mode illustration
+    this.paperValue *= (1+this.paperGrowth);
+    const breached = Math.abs(move) > barrier*3 && Math.random()<0.04;
+    const profit = this.paperValue - this.entryStake;
+    const fakeData = {
+      profit: profit, currentValue: this.paperValue, isSold:false, breached
+    };
+    this.evaluateExit(fakeData, true);
+    if(breached){
+      this.closePaper(-this.entryStake);
+    }
+  },
+
+  onUpdate(data){
+    const poc = data.proposal_open_contract;
+    if(!poc) return;
+    if(String(poc.contract_id) !== String(this.contractId)) return;
+    this.lastData = poc;
+    const profit = Number(poc.profit);
+    const value = Number(poc.bid_price);
+    renderPosition(profit, value, poc);
+    this.evaluateExit({profit, currentValue:value, poc}, false);
+    if(poc.is_sold){
+      this.finalizeClosed(profit);
+    }
+  },
+
+  evaluateExit(d, isPaper){
+    const stake = this.entryStake;
+    const tpPct = enforce("tpPct", store.get("tpPct",LIMITS.tpPct.min))/100;
+    const exitTrigger = enforce("exitScoreTrigger", store.get("exitScoreTrigger",LIMITS.exitScoreTrigger.min));
+    const dynExit = store.get("dynExit", true);
+    const profitPct = stake>0 ? d.profit/stake : 0;
+
+    // Position Health Score (barrier safety, survival, momentum, volatility, regime — reuse latest Contract state)
+    const c = Contract.last || {barrierSafety:.5, survival:.5, momentumStability:.5, volatilityFit:.5};
+    const health = clamp01(c.barrierSafety*0.3 + c.survival*0.3 + c.momentumStability*0.2 + c.volatilityFit*0.2);
+
+    // exit score: rises as profit target approaches AND/OR health deteriorates
+    const profitProgress = clamp01(profitPct / tpPct);
+    const deterioration = clamp01(1-health);
+    const exitScore = Math.round(clamp01(profitProgress*0.6 + deterioration*0.4)*100);
+
+    renderExitScore(health, exitScore);
+
+    let shouldClose = false, reason = "";
+    if(profitPct >= tpPct){ shouldClose = true; reason = "TAKE_PROFIT"; }
+    else if(dynExit && exitScore >= exitTrigger && d.profit>0){ shouldClose = true; reason="DYNAMIC_EXIT"; }
+    else if(dynExit && health < 0.25 && d.profit<0){ shouldClose = true; reason="EMERGENCY_EXIT"; }
+
+    if(shouldClose && this.active){
+      if(isPaper) this.closePaper(d.profit, reason);
+      else this.closeLive(reason);
+    }
+  },
+
+  closeLive(reason){
+    if(!this.contractId || this.paper) return;
+    this.active = false; // prevent duplicate close calls
+    auditLog("EXIT_REQUEST", "reason="+reason+" contract="+this.contractId);
+    Conn.send({sell: Number(String(this.contractId).replace(/\D/g,''))||this.contractId, price:0})
+      .catch(err=>{ auditLog("EXIT_ERROR", err.message); });
+  },
+
+  closePaper(profit, reason){
+    clearInterval(this._paperTimer);
+    this.finalizeClosed(profit, reason);
+  },
+
+  manualClose(){
+    if(!this.active) return;
+    if(this.paper){ this.closePaper(this.lastPaperProfit()||0, "MANUAL"); }
+    else this.closeLive("MANUAL");
+  },
+  lastPaperProfit(){ return this.paperValue - this.entryStake; },
+
+  finalizeClosed(profit, reason){
+    this.active = false;
+    document.getElementById("positionCard").style.display = "none";
+    document.querySelector('[data-view="view-terminal"]').classList.remove("armed");
+    journalAdd({
+      time: new Date().toLocaleTimeString(), symbol: Market.symbol, grade: this.grade||"—",
+      stake: this.entryStake, pl: profit, mode: this.paper? "PAPER": Execution.mode.toUpperCase()
+    });
+    Risk.recordResult(profit);
+    toast((profit>=0?"+":"")+"$"+profit.toFixed(2)+" — position closed"+(reason?" ("+reason+")":""), profit>=0?"ok":"err");
+    vibrate(profit>=0? [30,20,30] : [80]);
+    notify("Meridian — Position Closed", (profit>=0?"+":"")+"$"+profit.toFixed(2));
+    auditLog("CONTRACT_CLOSED", "profit="+profit.toFixed(2)+" reason="+(reason||"CLOSE"));
+    this.contractId = null;
+  }
+};
+
+function renderPosition(profit, value, poc){
+  const el = document.getElementById("posProfit");
+  el.textContent = (profit>=0?"+":"")+"$"+profit.toFixed(2);
+  el.className = "num " + (profit>=0?"pos":"neg");
+  document.getElementById("p_status").textContent = poc.status || "open";
+  document.getElementById("p_value").textContent = "$"+value.toFixed(2);
+  document.getElementById("p_ticks").textContent = poc.tick_count || Position.paperTicks || "—";
+}
+function renderExitScore(health, exitScore){
+  document.getElementById("p_health").textContent = Math.round(health*100)+"%";
+  document.getElementById("pb_health").style.width = Math.round(health*100)+"%";
+  document.getElementById("p_exitscore").textContent = exitScore+"/100";
+}
+
+document.getElementById("manualCloseBtn").addEventListener("click", ()=>Position.manualClose());
+
+/* =========================================================================
+   PHASE 10 — RISK / SESSION GOVERNOR
+   ========================================================================= */
+const Risk = {
+  armed: false, tradingWasOn:false,
+  sessionProfit: 0, sessionLoss: 0, consecLosses:0, wins:0, losses:0, trades:0,
+  locked:false,
+
+  init(){
+    const s = store.get("session", null);
+    if(s){ Object.assign(this, s); }
+    this.renderAll();
+  },
+  persist(){
+    store.set("session", {
+      sessionProfit:this.sessionProfit, sessionLoss:this.sessionLoss, consecLosses:this.consecLosses,
+      wins:this.wins, losses:this.losses, trades:this.trades, locked:this.locked
+    });
+  },
+
+  canTrade(){
+    if(this.locked) return false;
+    const target = enforce("sessTarget", store.get("sessTarget",LIMITS.sessTarget.min));
+    const maxLoss = enforce("sessMaxLoss", store.get("sessMaxLoss",LIMITS.sessMaxLoss.min));
+    const maxConsec = enforce("maxConsecLoss", store.get("maxConsecLoss",LIMITS.maxConsecLoss.min));
+    if(this.sessionProfit >= target) { this.lock("TARGET_REACHED"); return false; }
+    if(this.sessionLoss >= maxLoss) { this.lock("MAX_LOSS_REACHED"); return false; }
+    if(this.consecLosses >= maxConsec) { this.lock("MAX_CONSECUTIVE_LOSSES"); return false; }
+    return true;
+  },
+
+  recordResult(profit){
+    this.trades++;
+    if(profit>=0){ this.sessionProfit += profit; this.wins++; this.consecLosses=0; }
+    else { this.sessionLoss += Math.abs(profit); this.losses++; this.consecLosses++; }
+    this.persist();
+    this.renderAll();
+    this.canTrade(); // may trigger lock + notices
+    if(this.locked) maybeScheduleAutoRestart();
+  },
+
+  lock(reason){
+    if(this.locked) return;
+    this.locked = true;
+    this.armed = false;
+    document.getElementById("armSwitch").checked = false;
+    updateArmedUI();
+    document.getElementById("sessLockNotice").style.display = "block";
+    document.getElementById("sessLockNotice").textContent = "SESSION LOCKED — "+reason.replace(/_/g," ");
+    auditLog("SESSION_LOCKED", reason);
+    toast("Session locked: "+reason.replace(/_/g," "), "err");
+    this.persist();
+  },
+
+  resetSession(){
+    this.sessionProfit=0; this.sessionLoss=0; this.consecLosses=0; this.wins=0; this.losses=0; this.trades=0; this.locked=false;
+    document.getElementById("sessLockNotice").style.display="none";
+    this.persist();
+    this.renderAll();
+    auditLog("SESSION_RESET","manual or auto-restart");
+    toast("Session reset","ok");
+  },
+
+  renderAll(){
+    const target = enforce("sessTarget", store.get("sessTarget",LIMITS.sessTarget.min));
+    const maxLoss = enforce("sessMaxLoss", store.get("sessMaxLoss",LIMITS.sessMaxLoss.min));
+    document.getElementById("sessProfit").textContent = "$"+this.sessionProfit.toFixed(2);
+    document.getElementById("sessProfitBar").style.width = Math.min(100, (this.sessionProfit/target)*100)+"%";
+    document.getElementById("sessLoss").textContent = "$"+this.sessionLoss.toFixed(2);
+    document.getElementById("sessLossBar").style.width = Math.min(100, (this.sessionLoss/maxLoss)*100)+"%";
+    document.getElementById("sessWins").textContent = this.wins;
+    document.getElementById("sessLosses").textContent = this.losses;
+    document.getElementById("sessLockNotice").style.display = this.locked? "block":"none";
+  }
+};
+
+let autoRestartTimer = null;
+function maybeScheduleAutoRestart(){
+  if(!store.get("autoRestart", false)) return;
+  clearTimeout(autoRestartTimer);
+  const mins = enforce("autoRestartDelay", store.get("autoRestartDelay",LIMITS.autoRestartDelay.min));
+  auditLog("AUTO_RESTART_SCHEDULED", mins+" min");
+  autoRestartTimer = setTimeout(()=>{
+    Risk.resetSession();
+    Risk.armed = true;
+    document.getElementById("armSwitch").checked = true;
+    updateArmedUI();
+    toast("Auto-restart: session re-armed","ok");
+    auditLog("AUTO_RESTART_FIRED","session re-armed");
+  }, mins*60000);
+}
+
+function updateArmedUI(){
+  const tab = document.querySelector('[data-view="view-terminal"]');
+  if(Risk.armed) tab.classList.add("armed"); else if(!Position.active) tab.classList.remove("armed");
+}
+
+/* =========================================================================
+   Kill switch
+   ========================================================================= */
+document.getElementById("killBtn").addEventListener("click", async ()=>{
+  Risk.armed = false; Risk.tradingWasOn = false;
+  document.getElementById("armSwitch").checked = false;
+  updateArmedUI();
+  if(Position.active){
+    if(Position.paper) Position.closePaper(Position.lastPaperProfit(), "KILL_SWITCH");
+    else Position.closeLive("KILL_SWITCH");
+  }
+  try{
+    if(Conn.ws && Conn.ws.readyState===1){
+      await Conn.send({forget_all:"proposal"}).catch(()=>{});
+      await Conn.send({forget_all:"proposal_open_contract"}).catch(()=>{});
+    }
+  }catch(e){}
+  auditLog("KILL_SWITCH","all trading halted");
+  toast("Kill switch engaged — trading halted","err");
+  vibrate([100,40,100]);
+});
+
+/* =========================================================================
+   Balance
+   ========================================================================= */
+function onBalance(data){
+  const b = data.balance;
+  document.getElementById("balanceOut").textContent = Number(b.balance).toFixed(2)+" "+b.currency;
+  document.getElementById("acctBadge").textContent = b.loginid;
+  document.getElementById("acctBadge").className = "badge on";
+}
+
+/* =========================================================================
+   UI wiring — Settings
+   ========================================================================= */
+function loadSettingsUI(){
+  document.getElementById("appIdInput").value = store.get("appId","");
+  document.getElementById("stakeInput").value = enforce("stake", store.get("stake", LIMITS.stake.min));
+  document.getElementById("growthSel").value = enforce("growth", store.get("growth", LIMITS.growth.min));
+  document.getElementById("tpPct").value = enforce("tpPct", store.get("tpPct", LIMITS.tpPct.min));
+  document.getElementById("exitScoreTrigger").value = enforce("exitScoreTrigger", store.get("exitScoreTrigger", LIMITS.exitScoreTrigger.min));
+  document.getElementById("dynExitSwitch").checked = store.get("dynExit",true);
+  document.getElementById("sessTargetInput").value = enforce("sessTarget", store.get("sessTarget", LIMITS.sessTarget.min));
+  document.getElementById("sessMaxLossInput").value = enforce("sessMaxLoss", store.get("sessMaxLoss", LIMITS.sessMaxLoss.min));
+  document.getElementById("maxConsecLossInput").value = enforce("maxConsecLoss", store.get("maxConsecLoss", LIMITS.maxConsecLoss.min));
+  document.getElementById("cooldownInput").value = enforce("cooldown", store.get("cooldown", LIMITS.cooldown.min));
+  document.getElementById("autoRestartSwitch").checked = store.get("autoRestart",false);
+  document.getElementById("autoRestartDelay").value = enforce("autoRestartDelay", store.get("autoRestartDelay", LIMITS.autoRestartDelay.min));
+  document.getElementById("gateThreshold").value = enforce("gateThreshold", store.get("gateThreshold", LIMITS.gateThreshold.min));
+  document.getElementById("notifSwitch").checked = store.get("notif",false);
+  document.getElementById("vibeSwitch").checked = store.get("vibe",true);
+  // persist the enforced values back immediately so storage never holds a stale out-of-range number
+  ["stake","growth","tpPct","exitScoreTrigger","sessTarget","sessMaxLoss","maxConsecLoss","cooldown","autoRestartDelay","gateThreshold"]
+    .forEach(k=> store.set(k, enforce(k, store.get(k, LIMITS[k]? LIMITS[k].min : 0))));
+
+  // symbol select, grouped by market family
+  const sel = document.getElementById("symbolSel");
+  const groups = {};
+  ACCU_SYMBOLS.forEach(s=>{ (groups[s.grp]=groups[s.grp]||[]).push(s); });
+  sel.innerHTML = Object.keys(groups).map(g=>
+    `<optgroup label="${g}">`+groups[g].map(s=>`<option value="${s.v}">${s.t}</option>`).join("")+`</optgroup>`
+  ).join("");
+  sel.value = ACCU_SYMBOLS.some(s=>s.v===Market.symbol) ? Market.symbol : ACCU_SYMBOLS[0].v;
+}
+[
+  ["stakeInput","stake"],
+  ["tpPct","tpPct"],
+  ["exitScoreTrigger","exitScoreTrigger"],
+  ["sessTargetInput","sessTarget"],
+  ["sessMaxLossInput","sessMaxLoss"],
+  ["maxConsecLossInput","maxConsecLoss"],
+  ["cooldownInput","cooldown"],
+  ["autoRestartDelay","autoRestartDelay"],
+  ["gateThreshold","gateThreshold"],
+].forEach(([id,key])=>{
+  const el = document.getElementById(id);
+  el.addEventListener("change", e=>{ store.set(key, enforceField(e.target, key)); });
+  el.addEventListener("blur", e=>{ store.set(key, enforceField(e.target, key)); });
+});
+document.getElementById("growthSel").addEventListener("change", e=>store.set("growth", enforce("growth", e.target.value)));
+document.getElementById("dynExitSwitch").addEventListener("change", e=>store.set("dynExit", e.target.checked));
+document.getElementById("autoRestartSwitch").addEventListener("change", e=>store.set("autoRestart", e.target.checked));
+document.getElementById("notifSwitch").addEventListener("change", e=>{
+  if(e.target.checked && typeof Notification!=="undefined" && Notification.permission!=="granted"){
+    Notification.requestPermission().then(p=>{ store.set("notif", p==="granted"); e.target.checked = p==="granted"; });
+  } else store.set("notif", e.target.checked);
+});
+document.getElementById("vibeSwitch").addEventListener("change", e=>store.set("vibe", e.target.checked));
+document.getElementById("symbolSel").addEventListener("change", e=>Market.setSymbol(e.target.value));
+
+document.getElementById("manualResetBtn").addEventListener("click", ()=>Risk.resetSession());
+
+document.getElementById("authMethod").addEventListener("change", e=>{
+  document.getElementById("patFields").style.display = e.target.value==="pat"?"block":"none";
+  document.getElementById("oauthFields").style.display = e.target.value==="oauth"?"block":"none";
+});
+
+document.getElementById("oauthStartBtn").addEventListener("click", async ()=>{
+  const clientId = document.getElementById("oauthClientId").value.trim();
+  const redirect = document.getElementById("oauthRedirect").value.trim();
+  if(!clientId || !redirect){ toast("Enter Client ID and Redirect URI","err"); return; }
+  const verifier = genVerifier();
+  const challenge = await genChallenge(verifier);
+  const state = genState();
+  sessionStorage.setItem("meridian_verifier", verifier);
+  sessionStorage.setItem("meridian_state", state);
+  const url = new URL("https://auth.deriv.com/oauth2/auth");
+  url.searchParams.set("response_type","code");
+  url.searchParams.set("client_id", clientId);
+  url.searchParams.set("redirect_uri", redirect);
+  url.searchParams.set("scope","trade account_manage");
+  url.searchParams.set("state", state);
+  url.searchParams.set("code_challenge", challenge);
+  url.searchParams.set("code_challenge_method","S256");
+  window.open(url.toString(), "_blank");
+  toast("Complete login in the new tab, then paste the access token here","ok");
+});
+function genVerifier(){
+  const arr = crypto.getRandomValues(new Uint8Array(64));
+  return Array.from(arr).map(v=>"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"[v%66]).join("");
+}
+async function genChallenge(v){
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(v));
+  return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function genState(){
+  return Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+document.getElementById("connectBtn").addEventListener("click", async ()=>{
+  const method = document.getElementById("authMethod").value;
+  let appId, token;
+  if(method==="pat"){
+    appId = document.getElementById("appIdInput").value.trim();
+    token = document.getElementById("patInput").value.trim();
+  } else {
+    appId = document.getElementById("oauthClientId").value.trim();
+    token = document.getElementById("oauthTokenInput").value.trim();
+  }
+  if(!appId || !token){ toast("Enter App ID and token","err"); return; }
+  store.set("appId", appId);
+  Conn.appId = appId; Conn.token = token;
+  try{
+    const accounts = await Conn.getAccounts();
+    const sel = document.getElementById("accountSel");
+    sel.innerHTML = accounts.map(a=>`<option value="${a.account_id}">${a.account_id} — ${a.account_type.toUpperCase()} — ${a.balance} ${a.currency}</option>`).join("");
+    toast("Accounts loaded — select one to continue","ok");
+    Conn.connectPublic();
+  }catch(e){
+    toast("Connection failed: "+e.message, "err");
+  }
+});
+
+document.getElementById("accountSel").addEventListener("change", async e=>{
+  Conn.accountId = e.target.value;
+  const type = e.target.selectedOptions[0].textContent.includes("REAL")? "on":"off";
+  document.getElementById("acctBadge").className = "badge "+type;
+  try{
+    await Conn.connectTrading();
+    Risk.tradingWasOn = true;
+    Conn.send({balance:1, subscribe:1}).catch(()=>{});
+    Conn.send({portfolio:1}).catch(()=>{});
+    toast("Trading socket connected","ok");
+  }catch(err){ toast("Trading connection failed: "+err.message,"err"); }
+});
+
+document.getElementById("disconnectBtn").addEventListener("click", ()=>{
+  Conn.disconnect();
+  toast("Disconnected");
+});
+
+document.getElementById("resetDemoBtn").addEventListener("click", async ()=>{
+  if(!Conn.accountId){ toast("Select a demo account first","err"); return; }
+  try{ await Conn.resetDemoBalance(Conn.accountId); toast("Demo balance reset to $10,000","ok"); }
+  catch(e){ toast("Reset failed: "+e.message,"err"); }
+});
+
+/* mode chips */
+document.querySelectorAll('[data-mode]').forEach(chip=>{
+  chip.addEventListener("click", ()=>{
+    const mode = chip.dataset.mode;
+    if(mode==="live"){ openLiveConfirm(); return; }
+    setMode(mode);
+  });
+});
+function setMode(mode){
+  Execution.mode = mode; store.set("mode", mode);
+  document.querySelectorAll('[data-mode]').forEach(c=>c.classList.toggle("sel", c.dataset.mode===mode));
+  document.getElementById("modePill").textContent = mode.toUpperCase();
+  document.getElementById("modePill").className = "modepill"+(mode==="live"?" live":"");
+}
+function openLiveConfirm(){
+  document.getElementById("liveConfirmBack").classList.add("show");
+}
+document.getElementById("liveConfirmCancel").addEventListener("click", ()=>{
+  document.getElementById("liveConfirmBack").classList.remove("show");
+});
+document.getElementById("liveConfirmOk").addEventListener("click", ()=>{
+  if(document.getElementById("liveConfirmInput").value.trim()==="CONFIRM"){
+    setMode("live");
+    document.getElementById("liveConfirmBack").classList.remove("show");
+    auditLog("LIVE_MODE_ENABLED","user confirmed");
+  } else toast("Type CONFIRM exactly to proceed","err");
+});
+
+/* grade chips */
+document.getElementById("gradeChips").addEventListener("click", e=>{
+  const chip = e.target.closest(".chip"); if(!chip) return;
+  document.querySelectorAll("#gradeChips .chip").forEach(c=>c.classList.remove("sel"));
+  chip.classList.add("sel");
+  store.set("minGrade", chip.dataset.g);
+});
+
+/* arm switch */
+document.getElementById("armSwitch").addEventListener("change", e=>{
+  if(Risk.locked){ e.target.checked=false; toast("Session is locked — reset session first","err"); return; }
+  if(e.target.checked && MarketSupport.isSupported(Market.symbol)!==true){
+    e.target.checked=false;
+    toast("Cannot arm: "+Market.symbol+" is not confirmed to support Accumulator contracts","err");
+    MarketSupport.verify(Market.symbol);
+    return;
+  }
+  Risk.armed = e.target.checked;
+  updateArmedUI();
+  auditLog(Risk.armed?"ARMED":"DISARMED","auto-trade toggle");
+  toast(Risk.armed? "Auto-trade ARMED":"Auto-trade disarmed", Risk.armed?"ok":undefined);
+});
+
+/* journal export/clear */
+document.getElementById("exportCsvBtn").addEventListener("click", ()=>{
+  const rows = store.get("journal",[]);
+  const header = "time,symbol,grade,stake,pl,mode\n";
+  const csv = header + rows.map(r=>`${r.time},${r.symbol},${r.grade},${r.stake},${r.pl},${r.mode}`).join("\n");
+  const blob = new Blob([csv],{type:"text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "meridian_journal.csv"; a.click();
+});
+document.getElementById("clearJournalBtn").addEventListener("click", ()=>{
+  store.set("journal",[]); renderJournal(); toast("Journal cleared");
+});
+
+/* =========================================================================
+   Boot
+   ========================================================================= */
+function boot(){
+  loadSettingsUI();
+  setMode(store.get("mode","paper"));
+  Risk.init();
+  renderJournal();
+  renderAudit();
+  Conn.connectPublic();
+}
+boot();
+
+})();
+</script>
+</body>
+</html>

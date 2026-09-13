@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>DerivMLE — Meta-Learning Trading Terminal</title>
 <meta name="theme-color" content="#0f0f0f">
-<link rel="manifest" href='data:application/json;charset=utf-8,{"name":"DerivMLE","short_name":"DerivMLE","display":"standalone","background_color":"%23faf9f6","theme_color":"%230f0f0f","start_url":"."}'>
+<link rel="manifest" href='data:application/json;charset=utf-8,{"name":"DerivMLE","short_name":"DerivMLE","display":"standalone","background_color":"%23faf9f6","theme_color":"%230f0f0f"}'>
 <style>
 :root{
   --color-bg:#faf9f6;
@@ -665,18 +665,23 @@ document.querySelectorAll('.tab').forEach(tab=>{
    SYMBOL PICKER
    ========================================================================= */
 const symbolRow = document.getElementById('symbolRow');
-CONFIG.SYMBOLS.forEach((s,i)=>{
-  const chip = document.createElement('div');
-  chip.className = 'symbol-chip' + (i===0?' active':'');
-  chip.textContent = s.label;
-  chip.dataset.code = s.code;
-  chip.addEventListener('click', ()=>{
-    document.querySelectorAll('.symbol-chip').forEach(c=>c.classList.remove('active'));
-    chip.classList.add('active');
-    switchSymbol(s.code);
+
+function buildSymbolChips(list){
+  symbolRow.innerHTML = '';
+  list.forEach((s,i)=>{
+    const chip = document.createElement('div');
+    chip.className = 'symbol-chip' + (s.code===S.activeSymbol ? ' active' : (i===0 && !list.some(x=>x.code===S.activeSymbol) ? ' active' : ''));
+    chip.textContent = s.label;
+    chip.dataset.code = s.code;
+    chip.addEventListener('click', ()=>{
+      document.querySelectorAll('.symbol-chip').forEach(c=>c.classList.remove('active'));
+      chip.classList.add('active');
+      switchSymbol(s.code);
+    });
+    symbolRow.appendChild(chip);
   });
-  symbolRow.appendChild(chip);
-});
+}
+buildSymbolChips(CONFIG.SYMBOLS); // static fallback list, used until live active_symbols arrives (or in simulation mode)
 
 function switchSymbol(code){
   S.activeSymbol = code;
@@ -684,8 +689,54 @@ function switchSymbol(code){
   S.signalCreatedAt = null;
   renderTape();
   if(S.connMode==='live'){
-    DataSource.subscribeTicks(code, onTick);
+    if(S.ws && S.ws.readyState===1) S.ws.send(JSON.stringify({forget_all:'ticks', req_id:nextId()}));
+    LiveDataSource.subscribeTicks(code, onTick);
+  } else if(S.connMode==='sim'){
+    SimulatedDataSource.subscribeTicks(code, onTick);
   }
+}
+
+/* Rebuilds the symbol picker from Deriv's own active_symbols response so we
+   never offer (or subscribe to) a symbol the feed doesn't actually support —
+   hardcoding symbol codes is what caused "Symbol 1HZ10V is invalid" errors. */
+function onActiveSymbols(list){
+  if(S._onActiveSymbolsReceived){ S._onActiveSymbolsReceived(); S._onActiveSymbolsReceived = null; }
+
+  console.log('active_symbols raw response (first 5):', list.slice(0,5));
+  console.log('active_symbols total count:', list.length, '— distinct markets:', [...new Set(list.map(s=>s.market))]);
+
+  // Primary filter: Deriv's documented shape for synthetic indices.
+  let volatility = list
+    .filter(s => s.market==='synthetic_index')
+    .map(s => ({code: s.underlying_symbol, label: s.underlying_symbol_name || s.underlying_symbol}));
+
+  // Safety net: if the market field doesn't match what we expect (API
+  // variance, brief vs full payload differences, etc.), fall back to
+  // matching known synthetic-index code patterns directly so a naming/field
+  // mismatch doesn't leave the picker stuck on the static fallback list.
+  if(volatility.length===0){
+    volatility = list
+      .filter(s => /^(R_\d+|1HZ\d+V|RDBULL|RDBEAR|BOOM\d+|CRASH\d+|JD\d+)$/i.test(s.underlying_symbol||''))
+      .map(s => ({code: s.underlying_symbol, label: s.underlying_symbol_name || s.underlying_symbol}));
+  }
+
+  volatility.sort((a,b)=> a.code.localeCompare(b.code));
+
+  if(volatility.length===0){
+    console.warn('No synthetic-index symbols found in active_symbols response — keeping static fallback list. See the logged raw response above to see what Deriv actually returned.');
+    return;
+  }
+
+  buildSymbolChips(volatility);
+
+  const stillValid = volatility.some(s=>s.code===S.activeSymbol);
+  const chosen = stillValid ? S.activeSymbol : volatility[0].code;
+  if(!stillValid){
+    S.activeSymbol = chosen;
+    S.digits = [];
+    S.signalCreatedAt = null;
+  }
+  LiveDataSource.subscribeTicks(chosen, onTick);
 }
 
 /* =========================================================================
@@ -731,7 +782,7 @@ const LiveDataSource = {
             const delay = Math.min(1000*Math.pow(2, liveReconnectAttempts), 30000);
             setTimeout(()=>{
               LiveDataSource.connect().then(()=>{
-                LiveDataSource.subscribeTicks(S.activeSymbol, onTick);
+                LiveDataSource.requestActiveSymbols();
               }).catch(()=>{});
             }, delay);
           } else if(liveReconnectAttempts >= LIVE_MAX_RECONNECT_ATTEMPTS){
@@ -752,6 +803,23 @@ const LiveDataSource = {
     S.ws.send(JSON.stringify({ticks:symbol, subscribe:1, req_id:nextId()}));
     S.ws.send(JSON.stringify({ticks_history:symbol, adjust_start_time:1, count:500, end:'latest', style:'ticks', req_id:nextId()}));
     S._tickCb = cb;
+  },
+  /* Asks Deriv which symbols actually exist before subscribing to any of
+     them — hardcoding symbol codes is what caused "Symbol 1HZ10V is
+     invalid" errors, since not every code is guaranteed available on every
+     feed/account. Falls back to the static default symbol if no response
+     arrives in time, so the app never stalls waiting on this. */
+  requestActiveSymbols(){
+    if(!S.ws || S.ws.readyState!==1) return;
+    let handled = false;
+    const fallback = setTimeout(()=>{
+      if(handled) return;
+      handled = true;
+      console.warn('active_symbols response timed out — subscribing to default symbol directly.');
+      LiveDataSource.subscribeTicks(S.activeSymbol, onTick);
+    }, 5000);
+    S._onActiveSymbolsReceived = ()=>{ handled = true; clearTimeout(fallback); };
+    S.ws.send(JSON.stringify({active_symbols:'brief', req_id:nextId()}));
   }
 };
 
@@ -768,12 +836,39 @@ function restHeaders(includeContentType){
   return h;
 }
 
+/* Deriv's REST endpoints don't always return a JSON body on error —
+   sometimes it's plain text (e.g. a gateway-level 401 before the request
+   ever reaches app-level JSON error formatting). Calling res.json() on
+   that throws a confusing "Unexpected token" parse error that masks the
+   real problem, so always read as text first and parse only if it looks
+   like JSON. */
+async function safeParseResponse(res){
+  const raw = await res.text();
+  try{
+    return {json: JSON.parse(raw), raw};
+  }catch(e){
+    return {json: null, raw};
+  }
+}
+function extractRestErrorMessage(parsed, res){
+  if(parsed.json && parsed.json.errors && parsed.json.errors[0]){
+    return parsed.json.errors[0].message + (parsed.json.errors[0].code ? ' ('+parsed.json.errors[0].code+')' : '');
+  }
+  if(parsed.raw && parsed.raw.trim()){
+    return parsed.raw.trim().slice(0,200); // plain-text body — show it directly
+  }
+  return `HTTP ${res.status} — no error detail returned`;
+}
+
 async function fetchTradingAccount(){
   const res = await fetch(CONFIG.REST_BASE + '/trading/v1/options/accounts', {headers: restHeaders(false)});
-  const body = await res.json();
+  const parsed = await safeParseResponse(res);
   if(!res.ok){
-    const msg = (body.errors && body.errors[0] && body.errors[0].message) || 'Failed to fetch accounts';
-    throw new Error(msg);
+    throw new Error(extractRestErrorMessage(parsed, res));
+  }
+  const body = parsed.json;
+  if(!body){
+    throw new Error('Accounts endpoint returned an unexpected (non-JSON) response.');
   }
   const accounts = Array.isArray(body.data) ? body.data : [body.data];
   if(!accounts.length) throw new Error('No trading accounts found for this token.');
@@ -812,13 +907,15 @@ async function getTradingWsUrl(){
     CONFIG.REST_BASE + '/trading/v1/options/accounts/' + S.accountId + '/otp',
     {method:'POST', headers: restHeaders(false)}
   );
-  const body = await res.json();
+  const parsed = await safeParseResponse(res);
   if(!res.ok){
-    const msg = (body.errors && body.errors[0] && body.errors[0].message) || 'OTP request failed';
-    throw new Error(msg);
+    throw new Error(extractRestErrorMessage(parsed, res));
+  }
+  if(!parsed.json){
+    throw new Error('OTP endpoint returned an unexpected (non-JSON) response.');
   }
   // OTP is short-lived — caller must connect immediately, never cache this URL.
-  return body.data.url;
+  return parsed.json.data.url;
 }
 
 function routeMessage(data){
@@ -829,6 +926,8 @@ function routeMessage(data){
     const times = data.history.times || [];
     prices.forEach((p,i)=> handleRawTick(p, times[i], true));
     render();
+  } else if(data.msg_type === 'active_symbols' && data.active_symbols){
+    onActiveSymbols(data.active_symbols);
   }
 }
 
@@ -846,7 +945,6 @@ const SimulatedDataSource = {
   }
 };
 
-const DataSource = { connect:()=>{}, subscribeTicks:()=>{} };
 
 function setConn(mode){
   S.connMode = mode;
@@ -872,7 +970,7 @@ document.getElementById('connectBtn').addEventListener('click', ()=>{
   // Market data uses Deriv's fixed public feed app and needs no credentials —
   // it connects the same way regardless of what's in the App ID / token fields.
   LiveDataSource.connect().then(()=>{
-    LiveDataSource.subscribeTicks(S.activeSymbol, onTick);
+    LiveDataSource.requestActiveSymbols();
   }).catch(e=>{
     alert('Market data connection failed: '+e.message);
     console.error(e);
@@ -883,7 +981,13 @@ document.getElementById('connectBtn').addEventListener('click', ()=>{
     refreshLiveBalance().then(()=>{
       console.log('Trading account ready:', S.accountId, S.accountType);
     }).catch(e=>{
-      alert('Could not resolve a trading account from that App ID / token: '+e.message);
+      alert('Could not resolve a trading account: '+e.message+'\n\n'+
+        'Ticks are still streaming fine — this only affects live trade execution. '+
+        'A 401 here means Deriv rejected the App ID/token pair itself, not something this app can work around. Check:\n'+
+        '• The token hasn\'t expired or been revoked on the dashboard\n'+
+        '• The token was generated under this exact App ID (tokens are usually bound to one app)\n'+
+        '• The token has the "trade" and "account_manage" scopes\n'+
+        '• You\'re not accidentally reusing an App ID/token from a different Deriv environment');
     });
   } else if(S.patToken && !S.appId){
     alert('A PAT token was entered but no App ID — add your trading App ID too, or trading calls will be rejected.');

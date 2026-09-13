@@ -333,7 +333,7 @@ select option{background:var(--bg2);}
   <div class="card" id="accountPickerCard" style="display:none;">
     <div class="card-title" style="margin-bottom:8px;"><span class="ico">⊙</span> Select Account</div>
     <div id="accountList"></div>
-    <button class="btn full" style="margin-top:8px;" onclick="createDemoAccount()">+ Create Demo Account</button>
+    <button class="btn full" id="createDemoBtn" style="margin-top:8px;" onclick="createDemoAccount()">+ Create Demo Account</button>
   </div>
 
   <div class="card risk-card">
@@ -345,8 +345,13 @@ select option{background:var(--bg2);}
 <!-- ================= PARAMETERS VIEW ================= -->
 <div class="view" id="view-params">
 
-  <div class="card">
-    <div class="card-title" style="margin-bottom:10px;"><span class="ico">⚙</span> Trade Parameters</div>
+  <div class="card" id="paramsLockBanner" style="display:none;border-color:#4a3512;background:#1a1406;">
+    <div class="card-title" style="color:var(--amber);"><span class="ico">🔒</span> Parameters Locked</div>
+    <div class="hint">The engine is currently ARMED or a cycle transition is in progress. All trade, martingale, P&amp;L, risk and weight controls are locked to prevent race conditions with a running strategy. Disarm the engine to edit.</div>
+  </div>
+
+  <div class="card param-card" id="paramsFieldset0">
+  <div class="card-title" style="margin-bottom:10px;"><span class="ico">⚙</span> Trade Parameters</div>
     <div class="field"><label>Symbol</label>
       <select id="cfgSymbol">
         <option value="1HZ10V">Volatility 10 (1s) Index</option>
@@ -369,8 +374,11 @@ select option{background:var(--bg2);}
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-title" style="margin-bottom:10px;"><span class="ico">↻</span> Smart Adaptive Martingale</div>
+  <div class="card param-card">
+    <div class="card-head">
+      <div class="card-title"><span class="ico">↻</span> Smart Adaptive Martingale</div>
+      <button class="btn small ghost" onclick="openReset('martingale')">Reset</button>
+    </div>
     <div class="switch-row">
       <div><b style="font-size:12px;">Adaptive Mode</b><div class="hint">Progression driven by confidence + volatility, not fixed doubling</div></div>
       <label class="switch"><input type="checkbox" id="cfgMgAdaptive" checked><span class="slider"></span></label>
@@ -386,7 +394,7 @@ select option{background:var(--bg2);}
     <div class="hint">Progression is scaled down when fused confidence drops and paused entirely when Volatility Stability Engine flags instability.</div>
   </div>
 
-  <div class="card">
+  <div class="card param-card">
     <div class="card-title" style="margin-bottom:10px;"><span class="ico">$</span> P&amp;L Parameters</div>
     <div class="two-col">
       <div class="field"><label>Take Profit / Trade (USD)</label><input type="number" id="cfgTpTrade" value="0" min="0" step="0.01" placeholder="0 = off"></div>
@@ -399,8 +407,11 @@ select option{background:var(--bg2);}
     <div class="hint">Hitting session TP or SL disarms the engine automatically and logs the event.</div>
   </div>
 
-  <div class="card risk-card">
-    <div class="card-title"><span class="ico">⚠</span> Risk Parameters</div>
+  <div class="card risk-card param-card">
+    <div class="card-head">
+      <div class="card-title"><span class="ico">⚠</span> Risk Parameters</div>
+      <button class="btn small ghost" onclick="openReset('risk')">Reset</button>
+    </div>
     <div class="two-col">
       <div class="field"><label>Daily Drawdown Cap (USD)</label><input type="number" id="cfgDailyDrawdown" value="25" min="0" step="0.5"></div>
       <div class="field"><label>Max Concurrent Trades</label><input type="number" id="cfgMaxConcurrent" value="1" min="1" max="5"></div>
@@ -413,7 +424,25 @@ select option{background:var(--bg2);}
     <div class="hint"><b>riskGatePass()</b> enforces all of the above as the mandatory final gate before every buy() call. No trade bypasses this gate.</div>
   </div>
 
-  <div class="card">
+  <div class="card param-card">
+    <div class="card-title" style="margin-bottom:10px;"><span class="ico">↺</span> Auto Reset &amp; Restart Cycle</div>
+    <div class="switch-row">
+      <div><b style="font-size:12px;">Auto-Restart on Target Hit</b><div class="hint">When Session Take-Profit or Session Stop-Loss is reached: block new entries, wait for open contracts to settle, reset session-scoped counters, then re-arm automatically.</div></div>
+      <label class="switch"><input type="checkbox" id="cfgAutoRestart" checked><span class="slider"></span></label>
+    </div>
+    <div class="two-col" style="margin-top:8px;">
+      <div class="field"><label>Cooldown Before Restart (seconds)</label><input type="number" id="cfgCycleCooldown" value="60" min="5" step="5"></div>
+      <div class="field"><label>Max Cycles / Day</label><input type="number" id="cfgMaxCycles" value="6" min="1" max="50"></div>
+    </div>
+    <div class="hint">Daily Drawdown Cap trips are <b>never</b> auto-restarted — that is a hard stop requiring manual re-arm. Cycle count resets automatically at local midnight.</div>
+    <div class="chip-row">
+      <span class="chip" id="cycleStatusChip">Cycle 0 / <span id="cycleMaxLbl">6</span></span>
+      <span class="chip" id="cycleCountdownChip" style="display:none;"></span>
+    </div>
+    <button class="btn small ghost" style="margin-top:8px;" onclick="openReset('cycle')">Reset Cycle Counter</button>
+  </div>
+
+  <div class="card param-card">
     <div class="card-title" style="margin-bottom:8px;"><span class="ico">▤</span> Engine Weights (Confidence Fusion)</div>
     <div id="weightSliders"></div>
     <div class="hint">Weights are learned online by the Meta-Learning Engine but can be pinned manually here.</div>
@@ -573,6 +602,7 @@ const State = {
   sessionPnl: 0, todayPnl: 0, peakEquity: 0, drawdown: 0,
   dailyLossAccum: 0,
   pausedUntil: 0,
+  cyclePending: false, cycleCooldownTimer: null, cycleCount: 0,
 
   trades: [],           // in-memory mirror of IndexedDB trade journal
   openContracts: new Map(), // contract_id -> trade record ref
@@ -594,6 +624,7 @@ const Config = loadPersisted('aiva_config', {
   tpTrade: 0, slTrade: 0, tpSession: 20, slSession: 15,
   dailyDrawdown: 25, maxConcurrent: 1, consecLossPause: 4, stakeCeiling: 40, pauseSeconds: 120,
   autoLearn: true,
+  autoRestart: true, cycleCooldown: 60, maxCycles: 6,
 });
 
 /* ---------------------------------------------------------------------
@@ -1024,27 +1055,130 @@ function decisionEngine(fused, regimeResult, volResult, riskOk) {
 function riskAssess() {
   const now = Date.now();
   const reasons = [];
+  const codes = [];
   let pass = true;
 
-  if (now < State.pausedUntil) { pass = false; reasons.push(`Paused until ${new Date(State.pausedUntil).toLocaleTimeString()}`); }
-  if (State.consecutiveLosses >= Config.consecLossPause) { pass = false; reasons.push('Consecutive loss cap reached'); }
-  if (Config.dailyDrawdown > 0 && State.dailyLossAccum >= Config.dailyDrawdown) { pass = false; reasons.push('Daily drawdown cap reached'); }
-  if (Config.tpSession > 0 && State.sessionPnl >= Config.tpSession) { pass = false; reasons.push('Session take-profit reached'); }
-  if (Config.slSession > 0 && State.sessionPnl <= -Config.slSession) { pass = false; reasons.push('Session stop-loss reached'); }
-  if (State.openContracts.size >= Config.maxConcurrent) { pass = false; reasons.push('Max concurrent trades reached'); }
-  if (State.inFlight) { pass = false; reasons.push('Trade already in-flight'); }
-  if (State.balance !== null && State.balance <= 0) { pass = false; reasons.push('Zero/negative balance'); }
+  if (State.cyclePending) { pass = false; reasons.push('Cycle transition in progress'); codes.push('cycle_pending'); }
+  if (now < State.pausedUntil) { pass = false; reasons.push(`Paused until ${new Date(State.pausedUntil).toLocaleTimeString()}`); codes.push('cooldown_pause'); }
+  if (State.consecutiveLosses >= Config.consecLossPause) { pass = false; reasons.push('Consecutive loss cap reached'); codes.push('consec_loss'); }
+  if (Config.dailyDrawdown > 0 && State.dailyLossAccum >= Config.dailyDrawdown) { pass = false; reasons.push('Daily drawdown cap reached (hard stop)'); codes.push('daily_drawdown'); }
+  if (Config.tpSession > 0 && State.sessionPnl >= Config.tpSession) { pass = false; reasons.push('Session take-profit reached'); codes.push('session_tp'); }
+  if (Config.slSession > 0 && State.sessionPnl <= -Config.slSession) { pass = false; reasons.push('Session stop-loss reached'); codes.push('session_sl'); }
+  if (State.openContracts.size >= Config.maxConcurrent) { pass = false; reasons.push('Max concurrent trades reached'); codes.push('max_concurrent'); }
+  if (State.inFlight) { pass = false; reasons.push('Trade already in-flight'); codes.push('in_flight'); }
+  if (State.balance !== null && State.balance <= 0) { pass = false; reasons.push('Zero/negative balance'); codes.push('zero_balance'); }
+  if (Config.maxCycles > 0 && State.cycleCount >= Config.maxCycles) { pass = false; reasons.push('Max cycles/day reached (hard stop)'); codes.push('max_cycles'); }
 
   const projectedStake = computeMartingaleStake();
-  if (projectedStake > Config.stakeCeiling) { pass = false; reasons.push('Stake exceeds ceiling'); }
+  if (projectedStake > Config.stakeCeiling) { pass = false; reasons.push('Stake exceeds ceiling'); codes.push('stake_ceiling'); }
 
-  return { pass, reasons, projectedStake };
+  return { pass, reasons, codes, projectedStake };
 }
 function riskGatePass() { return riskAssess().pass; }
 
 function tripPause(reasonMsg) {
   State.pausedUntil = Date.now() + Config.pauseSeconds * 1000;
   log('warn', `Risk pause engaged: ${reasonMsg}. Resumes at ${new Date(State.pausedUntil).toLocaleTimeString()}.`);
+}
+
+/* ---------------------------------------------------------------------
+   12b. AUTO RESET & RESTART CYCLE ENGINE
+   Phase 1: target hit -> block new entries (cyclePending=true), let any
+            open contract settle naturally (no forced sell).
+   Phase 2: once flat -> reset session-scoped counters, log, start
+            cooldown countdown, then re-arm automatically on the SAME
+            connection (WebSocket + subscriptions stay live throughout).
+   Hard stops (daily_drawdown, max_cycles) NEVER auto-restart.
+--------------------------------------------------------------------- */
+function checkCycleTrigger() {
+  if (State.cyclePending || State.cycleCooldownTimer) return; // already cycling
+  const risk = riskAssess();
+  if (risk.pass) return;
+  const isCycleTrigger = risk.codes.includes('session_tp') || risk.codes.includes('session_sl');
+  const isHardStop = risk.codes.includes('daily_drawdown') || risk.codes.includes('max_cycles');
+  if (isHardStop) {
+    if (State.armed) {
+      State.armed = false;
+      document.getElementById('armSwitch').checked = false;
+      log('err', `⛔ HARD STOP: ${risk.reasons.join('; ')}. Engine disarmed — manual re-arm required.`);
+      updateDashboard();
+      applyControlLocks();
+    }
+    return;
+  }
+  if (isCycleTrigger && State.armed) {
+    beginCyclePhase1(risk.codes.includes('session_tp') ? 'session_tp' : 'session_sl');
+  }
+}
+
+function beginCyclePhase1(reasonCode) {
+  State.cyclePending = true;
+  const label = reasonCode === 'session_tp' ? 'Session Take-Profit' : 'Session Stop-Loss';
+  log('warn', `🎯 ${label} reached (${fmt(State.sessionPnl)}). Phase 1: blocking new entries, waiting for ${State.openContracts.size} open contract(s) to settle...`);
+  updateDashboard();
+  pollCyclePhase1Settle();
+}
+function pollCyclePhase1Settle() {
+  if (State.openContracts.size > 0) { setTimeout(pollCyclePhase1Settle, 1000); return; }
+  beginCyclePhase2();
+}
+function beginCyclePhase2() {
+  log('info', 'Phase 2: resetting session-scoped counters (P&L, martingale, consecutive losses). Connection stays live.');
+  State.sessionPnl = 0; State.peakEquity = 0; State.drawdown = 0;
+  State.mgLevel = 0; State.consecutiveLosses = 0; State.pendingRecovery = null;
+  State.cycleCount = (State.cycleCount || 0) + 1;
+  persist('aiva_cycle_state', { cycleCount: State.cycleCount, day: todayKey() });
+  updateDashboard();
+  renderTradeLog();
+
+  State.cyclePending = false;
+
+  if (!Config.autoRestart) {
+    State.armed = false;
+    document.getElementById('armSwitch').checked = false;
+    log('warn', 'Auto-Restart disabled — engine left DISARMED after cycle reset. Re-arm manually when ready.');
+    applyControlLocks();
+    return;
+  }
+  if (Config.maxCycles > 0 && State.cycleCount >= Config.maxCycles) {
+    State.armed = false;
+    document.getElementById('armSwitch').checked = false;
+    log('err', `⛔ Max cycles/day (${Config.maxCycles}) reached. Engine disarmed — resumes tomorrow or on manual override.`);
+    applyControlLocks();
+    updateDashboard();
+    return;
+  }
+
+  let remaining = Config.cycleCooldown;
+  const chip = document.getElementById('cycleCountdownChip');
+  chip.style.display = 'inline-block';
+  const tick = () => {
+    chip.textContent = `Restarting in ${remaining}s...`;
+    if (remaining <= 0) {
+      clearInterval(State.cycleCooldownTimer);
+      State.cycleCooldownTimer = null;
+      chip.style.display = 'none';
+      if (State.tradeWs && State.tradeWs.readyState === WebSocket.OPEN) {
+        State.armed = true;
+        document.getElementById('armSwitch').checked = true;
+        log('ok', `♻ Auto-restart complete — Cycle ${State.cycleCount}/${Config.maxCycles || '∞'} — engine RE-ARMED on same connection.`);
+      } else {
+        log('err', 'Auto-restart aborted: trade WebSocket not connected. Reconnect and re-arm manually.');
+      }
+      applyControlLocks();
+      updateDashboard();
+      return;
+    }
+    remaining--;
+  };
+  tick();
+  State.cycleCooldownTimer = setInterval(tick, 1000);
+}
+function todayKey() { const d = new Date(); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; }
+function loadCycleState() {
+  const saved = loadPersisted('aiva_cycle_state', { cycleCount: 0, day: todayKey() });
+  if (saved.day !== todayKey()) { State.cycleCount = 0; persist('aiva_cycle_state', { cycleCount: 0, day: todayKey() }); }
+  else State.cycleCount = saved.cycleCount || 0;
 }
 
 /* ---------------------------------------------------------------------
@@ -1137,6 +1271,7 @@ async function proposeAndBuy(contractType) {
     State.openContracts.set(contractId, tradeRecord);
     renderTradeLog();
     updateDashboard();
+    applyControlLocks();
 
     log('trade', `BOUGHT ${contractType} #${contractId} price=${buyPrice}`);
 
@@ -1145,6 +1280,7 @@ async function proposeAndBuy(contractType) {
     log('err', 'Trade execution failed: ' + e.message);
   } finally {
     State.inFlight = false;
+    applyControlLocks();
   }
 }
 
@@ -1189,10 +1325,21 @@ function performanceEvaluationOnClose(record) {
   if (Config.autoLearn) metaLearningUpdate(record);
 
   const risk = riskAssess();
-  if (!risk.pass) tripPause(risk.reasons.join('; '));
+  if (!risk.pass) {
+    if (risk.codes.includes('session_tp') || risk.codes.includes('session_sl') ||
+        risk.codes.includes('daily_drawdown') || risk.codes.includes('max_cycles')) {
+      checkCycleTrigger();
+    } else if (risk.codes.includes('consec_loss')) {
+      tripPause(risk.reasons.join('; '));
+      resetMartingaleState();
+    } else {
+      tripPause(risk.reasons.join('; '));
+    }
+  }
 
   renderTradeLog();
   updateDashboard();
+  applyControlLocks();
   maybeContinuePipeline();
 }
 
@@ -1361,8 +1508,16 @@ function updateDashboard() {
   document.getElementById('statRecoveries').textContent = recTotal;
   document.getElementById('statRecoveryWinRate').textContent = recTotal > 0 ? ((recWon / recTotal) * 100).toFixed(0) + '%' : '0%';
 
-  document.getElementById('armedChip').textContent = State.armed ? 'ARMED' : 'DISARMED';
+  let armedLabel = State.armed ? 'ARMED' : 'DISARMED';
+  if (State.cyclePending) armedLabel = 'CYCLING…';
+  document.getElementById('armedChip').textContent = armedLabel;
   document.getElementById('armedChip').className = 'chip' + (State.armed ? ' on badge-armed' : '');
+
+  const cycleChip = document.getElementById('cycleStatusChip');
+  if (cycleChip) {
+    cycleChip.innerHTML = `Cycle ${State.cycleCount || 0} / <span id="cycleMaxLbl">${Config.maxCycles || '∞'}</span>`;
+    cycleChip.className = 'chip' + (Config.maxCycles > 0 && State.cycleCount >= Config.maxCycles ? ' on' : '');
+  }
 }
 
 function renderTradeLog() {
@@ -1534,18 +1689,103 @@ function confirmRealGuard() {
 }
 
 /* ---------------------------------------------------------------------
+   20b. STRICT CONFIG VALIDATION
+   Nothing is persisted or applied unless every field passes its bound
+   check. On failure, saveConfig() is fully rejected (no partial apply).
+--------------------------------------------------------------------- */
+const VALIDATION_RULES = [
+  ['cfgBaseStake', 0.35, 1000, 'Base Stake'],
+  ['cfgDuration', 1, 10, 'Duration'],
+  ['cfgConfThreshold', 50, 99, 'Confidence Threshold'],
+  ['cfgMgBaseMult', 1.01, 10, 'Martingale Base Multiplier'],
+  ['cfgMgMaxMult', 1.01, 10, 'Martingale Max Multiplier'],
+  ['cfgMgMaxLevels', 1, 20, 'Max Martingale Levels'],
+  ['cfgMgConfFloor', 0, 99, 'Martingale Confidence Floor'],
+  ['cfgTpTrade', 0, 100000, 'Take Profit / Trade'],
+  ['cfgSlTrade', 0, 100000, 'Stop Loss / Trade'],
+  ['cfgTpSession', 0, 100000, 'Session Take Profit'],
+  ['cfgSlSession', 0, 100000, 'Session Stop Loss'],
+  ['cfgDailyDrawdown', 0, 100000, 'Daily Drawdown Cap'],
+  ['cfgMaxConcurrent', 1, 10, 'Max Concurrent Trades'],
+  ['cfgConsecLossPause', 1, 50, 'Consecutive Loss Pause'],
+  ['cfgStakeCeiling', 0.35, 100000, 'Stake Ceiling'],
+  ['cfgPauseSeconds', 5, 86400, 'Pause Duration'],
+  ['cfgCycleCooldown', 5, 86400, 'Cycle Cooldown'],
+  ['cfgMaxCycles', 1, 1000, 'Max Cycles/Day'],
+];
+function validateConfigForm() {
+  const errors = [];
+  VALIDATION_RULES.forEach(([id, min, max, label]) => {
+    const el = document.getElementById(id);
+    const v = Number(el.value);
+    if (el.value === '' || Number.isNaN(v)) errors.push(`${label}: must be a number`);
+    else if (v < min || v > max) errors.push(`${label}: must be between ${min} and ${max}`);
+  });
+  const baseMult = Number(document.getElementById('cfgMgBaseMult').value);
+  const maxMult = Number(document.getElementById('cfgMgMaxMult').value);
+  if (baseMult > maxMult) errors.push('Martingale Base Multiplier cannot exceed Max Multiplier');
+  const stakeCeil = Number(document.getElementById('cfgStakeCeiling').value);
+  const baseStake = Number(document.getElementById('cfgBaseStake').value);
+  if (baseStake > stakeCeil) errors.push('Base Stake cannot exceed Stake Ceiling');
+  return { valid: errors.length === 0, errors };
+}
+
+/* ---------------------------------------------------------------------
+   20c. UI CONTROL ENFORCEMENT — lock/unlock and reset-button gating
+--------------------------------------------------------------------- */
+function applyControlLocks() {
+  const locked = State.armed || State.cyclePending || !!State.cycleCooldownTimer;
+  document.getElementById('paramsLockBanner').style.display = locked ? 'block' : 'none';
+  document.querySelectorAll('.param-card input, .param-card select').forEach(el => { el.disabled = locked; });
+  const saveBtn = document.querySelector('button[onclick="saveConfig()"]');
+  if (saveBtn) saveBtn.disabled = locked;
+
+  // Reset buttons that touch state the running engine depends on are gated while armed/cycling
+  // or while contracts are open (prevents corrupting an in-flight trade's bookkeeping).
+  const busy = locked || State.openContracts.size > 0 || State.inFlight;
+  ['tradelog', 'all', 'martingale', 'risk', 'trades'].forEach(target => {
+    document.querySelectorAll(`button[onclick="openReset('${target}')"]`).forEach(btn => { btn.disabled = busy; });
+  });
+  // Account selection / auth actions are locked while armed to prevent socket swap under a live strategy
+  document.querySelectorAll('#authPatPane input, #authOAuthPane input, #authPatPane button, #authOAuthPane button, #accountList button, #createDemoBtn')
+    .forEach(el => { el.disabled = State.armed; });
+
+  const killBtn = document.querySelector('.kill-fab');
+  if (killBtn) killBtn.style.opacity = (State.armed || State.openContracts.size > 0) ? '1' : '.55';
+}
+
+/* ---------------------------------------------------------------------
    21. ARM / KILL SWITCH
 --------------------------------------------------------------------- */
 function toggleArm(on) {
+  if (on && State.cyclePending) { log('warn', 'Cannot arm: cycle transition in progress.'); document.getElementById('armSwitch').checked = false; return; }
   if (on && !State.selectedAccount) { log('warn', 'Select an account before arming.'); document.getElementById('armSwitch').checked = false; return; }
   if (on && (!State.tradeWs || State.tradeWs.readyState !== WebSocket.OPEN)) { log('warn', 'Trade WebSocket not connected.'); document.getElementById('armSwitch').checked = false; return; }
+  if (on) {
+    const v = validateConfigForm();
+    if (!v.valid) {
+      log('err', 'Cannot arm — invalid parameters: ' + v.errors.join('; '));
+      document.getElementById('armSwitch').checked = false;
+      switchView('params');
+      return;
+    }
+    const risk = riskAssess();
+    if (!risk.pass) {
+      log('warn', 'Cannot arm — risk gate currently blocked: ' + risk.reasons.join('; '));
+      document.getElementById('armSwitch').checked = false;
+      return;
+    }
+  }
   State.armed = on;
   log(on ? 'ok' : 'warn', on ? 'Auto trading engine ARMED.' : 'Auto trading engine DISARMED.');
   updateDashboard();
+  applyControlLocks();
 }
 function killSwitch() {
   State.armed = false;
   document.getElementById('armSwitch').checked = false;
+  if (State.cycleCooldownTimer) { clearInterval(State.cycleCooldownTimer); State.cycleCooldownTimer = null; document.getElementById('cycleCountdownChip').style.display = 'none'; }
+  State.cyclePending = false;
   if (State.tradeWs && State.tradeWs.readyState === WebSocket.OPEN) {
     State.tradeWs.send(JSON.stringify({ forget_all: 'proposal', req_id: nextReqId() }));
     State.tradeWs.send(JSON.stringify({ forget_all: 'proposal_open_contract', req_id: nextReqId() }));
@@ -1556,12 +1796,22 @@ function killSwitch() {
   State.inFlight = false; State.pendingRecovery = null;
   log('err', '⛔ KILL SWITCH TRIGGERED — all engines disarmed, subscriptions forgotten.');
   updateDashboard();
+  applyControlLocks();
 }
 
 /* ---------------------------------------------------------------------
    22. CONFIG SAVE
 --------------------------------------------------------------------- */
 function saveConfig() {
+  if (State.armed || State.cyclePending || State.cycleCooldownTimer) {
+    log('err', 'Cannot save parameters while ARMED or mid-cycle. Disarm the engine first.');
+    return;
+  }
+  const v = validateConfigForm();
+  if (!v.valid) {
+    log('err', 'Parameters REJECTED — fix the following: ' + v.errors.join('; '));
+    return;
+  }
   Config.symbol = document.getElementById('cfgSymbol').value;
   Config.baseStake = Number(document.getElementById('cfgBaseStake').value);
   Config.duration = Number(document.getElementById('cfgDuration').value);
@@ -1585,9 +1835,13 @@ function saveConfig() {
   Config.stakeCeiling = Number(document.getElementById('cfgStakeCeiling').value);
   Config.pauseSeconds = Number(document.getElementById('cfgPauseSeconds').value);
   Config.autoLearn = document.getElementById('cfgAutoLearn').checked;
+  Config.autoRestart = document.getElementById('cfgAutoRestart').checked;
+  Config.cycleCooldown = Number(document.getElementById('cfgCycleCooldown').value);
+  Config.maxCycles = Number(document.getElementById('cfgMaxCycles').value);
 
   persist('aiva_config', Config);
-  log('ok', 'Parameters saved.');
+  log('ok', 'Parameters saved and validated.');
+  document.getElementById('cycleMaxLbl').textContent = Config.maxCycles;
 
   if (State.publicWsState === 'open') subscribeMarketData(Config.symbol);
 }
@@ -1612,6 +1866,10 @@ function loadConfigIntoForm() {
   document.getElementById('cfgStakeCeiling').value = Config.stakeCeiling;
   document.getElementById('cfgPauseSeconds').value = Config.pauseSeconds;
   document.getElementById('cfgAutoLearn').checked = Config.autoLearn;
+  document.getElementById('cfgAutoRestart').checked = Config.autoRestart;
+  document.getElementById('cfgCycleCooldown').value = Config.cycleCooldown;
+  document.getElementById('cfgMaxCycles').value = Config.maxCycles;
+  document.getElementById('cycleMaxLbl').textContent = Config.maxCycles;
 }
 
 /* ---------------------------------------------------------------------
@@ -1640,9 +1898,18 @@ const RESET_TARGETS = {
   syslog: { label: 'System Logs', desc: 'Clears the on-screen system log console.' },
   martingale: { label: 'Martingale State', desc: 'Resets martingale level, pending recovery, and consecutive losses.' },
   risk: { label: 'Risk State', desc: 'Clears active pause timers and daily drawdown accumulator.' },
-  all: { label: 'FULL FACTORY RESET', desc: 'Wipes trade journal, all stats, martingale state, risk state, weights, and config back to defaults. Account connection is preserved.' },
+  cycle: { label: 'Cycle Counter', desc: 'Resets the daily auto-restart cycle counter back to 0.' },
+  all: { label: 'FULL FACTORY RESET', desc: 'Wipes trade journal, all stats, martingale state, risk state, cycle state, weights, and config back to defaults. Account connection is preserved.' },
 };
 function openReset(target) {
+  if (State.armed || State.cyclePending || State.cycleCooldownTimer) {
+    log('warn', `Reset blocked: engine is ARMED or mid-cycle. Disarm before resetting ${RESET_TARGETS[target].label}.`);
+    return;
+  }
+  if ((target === 'tradelog' || target === 'all') && (State.openContracts.size > 0 || State.inFlight)) {
+    log('warn', `Reset blocked: ${State.openContracts.size} contract(s) still open / trade in-flight. Wait for settlement.`);
+    return;
+  }
   resetTarget = target;
   const t = RESET_TARGETS[target];
   document.getElementById('resetTargetLabel').textContent = t.label;
@@ -1653,6 +1920,8 @@ function openReset(target) {
 function closeReset() { document.getElementById('resetModalBg').classList.remove('show'); resetTarget = null; }
 async function executeReset() {
   if (document.getElementById('resetConfirmInput').value.trim() !== 'CONFIRM') { log('warn', 'Confirmation text mismatch.'); return; }
+  // Re-validate lock state at execution time too (defense in depth against stale UI)
+  if (State.armed || State.cyclePending || State.cycleCooldownTimer) { log('err', 'Reset aborted: engine state changed to ARMED/CYCLING mid-confirmation.'); closeReset(); return; }
   switch (resetTarget) {
     case 'pnl':
       State.sessionPnl = 0; State.todayPnl = 0; State.peakEquity = 0; State.drawdown = 0; State.dailyLossAccum = 0;
@@ -1677,12 +1946,19 @@ async function executeReset() {
     case 'risk':
       State.pausedUntil = 0; State.dailyLossAccum = 0;
       break;
+    case 'cycle':
+      State.cycleCount = 0;
+      persist('aiva_cycle_state', { cycleCount: 0, day: todayKey() });
+      break;
     case 'all':
       await dbClearTrades();
       State.trades = []; State.openContracts.clear();
       State.sessionPnl = 0; State.todayPnl = 0; State.peakEquity = 0; State.drawdown = 0; State.dailyLossAccum = 0;
       State.consecutiveLosses = 0; State.mgLevel = 0; State.pendingRecovery = null; State.pausedUntil = 0;
       State.recoveriesTotal = 0; State.recoveriesWon = 0;
+      State.cycleCount = 0; State.cyclePending = false;
+      if (State.cycleCooldownTimer) { clearInterval(State.cycleCooldownTimer); State.cycleCooldownTimer = null; document.getElementById('cycleCountdownChip').style.display = 'none'; }
+      persist('aiva_cycle_state', { cycleCount: 0, day: todayKey() });
       State.weights = { deviation: 0.20, over2: 0.25, recovery: 0.20, volatility: 0.15, entropy: 0.20 };
       persist('aiva_weights', State.weights);
       Object.assign(Config, {
@@ -1690,6 +1966,7 @@ async function executeReset() {
         mgAdaptive: true, mgBaseMult: 1.9, mgMaxMult: 2.4, mgMaxLevels: 5, mgConfFloor: 70,
         tpTrade: 0, slTrade: 0, tpSession: 20, slSession: 15,
         dailyDrawdown: 25, maxConcurrent: 1, consecLossPause: 4, stakeCeiling: 40, pauseSeconds: 120, autoLearn: true,
+        autoRestart: true, cycleCooldown: 60, maxCycles: 6,
       });
       persist('aiva_config', Config);
       loadConfigIntoForm();
@@ -1699,6 +1976,7 @@ async function executeReset() {
   }
   log('warn', `Reset executed: ${RESET_TARGETS[resetTarget].label}`);
   updateDashboard();
+  applyControlLocks();
   closeReset();
 }
 
@@ -1710,10 +1988,12 @@ async function bootstrap() {
   State.trades = (await dbGetAllTrades()).sort((a, b) => b.time - a.time);
   const savedWeights = loadPersisted('aiva_weights', State.weights);
   State.weights = savedWeights;
+  loadCycleState();
   loadConfigIntoForm();
   renderWeightSliders();
   renderTradeLog();
   updateDashboard();
+  applyControlLocks();
   ensurePublicWs();
   log('info', 'AIVA Quant terminal initialized. Connect an account to arm live trading.');
 }

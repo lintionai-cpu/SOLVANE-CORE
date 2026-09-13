@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0A0D11">
+<title>TRIVEX — Tri-Engine Trading Terminal</title>
+<style>
+:root{
+  --bg:#0A0D11; --panel:#11161C; --panel2:#161C24; --line:#232B35;
+  --text:#E7EDF3; --sub:#8A97A6; --dim:#5C6772;
+  --emerald:#34D399; --emerald-d:#1F8F6B; --copper:#E8946B; --copper-d:#B96B47;
+  --red:#F0576B; --red-d:#9C2E3E; --amber:#F2C464; --blue:#5FA8D3;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+  --sans:'Sora',system-ui,-apple-system,sans-serif;
+  --radius:10px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);height:100%;overscroll-behavior:none;}
+body{padding-bottom:64px;}
+@font-face{font-family:'Sora';src:local('Sora');}
+input,select,button,textarea{font-family:var(--sans);color:var(--text);}
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-thumb{background:#2A333E;border-radius:4px;}
+
+.topbar{position:sticky;top:0;z-index:50;background:linear-gradient(180deg,#0D1117,#0A0D11 90%);border-bottom:1px solid var(--line);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;}
+.brand{display:flex;align-items:center;gap:8px;}
+.brand-mark{width:26px;height:26px;border-radius:7px;background:conic-gradient(from 210deg,var(--emerald),var(--copper),var(--emerald));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#06110D;}
+.brand-name{font-weight:700;font-size:15px;letter-spacing:.2px;}
+.brand-sub{font-size:9.5px;color:var(--dim);margin-top:-2px;}
+.conn-pill{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--sub);padding:5px 10px;border:1px solid var(--line);border-radius:20px;background:#0D1218;}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--dim);}
+.dot.live{background:var(--emerald);box-shadow:0 0 6px var(--emerald);}
+.dot.bad{background:var(--red);box-shadow:0 0 6px var(--red);}
+.dot.warn{background:var(--amber);}
+
+.wrap{padding:12px 12px 30px;max-width:720px;margin:0 auto;}
+.view{display:none;}
+.view.active{display:block;animation:fade .15s ease;}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:13px 14px;margin-bottom:10px;}
+.card h3{margin:0 0 10px;font-size:12.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--sub);font-weight:600;display:flex;align-items:center;justify-content:space-between;}
+.card h3 .tag{font-size:9.5px;padding:2px 7px;border-radius:6px;background:#0D1218;border:1px solid var(--line);color:var(--dim);text-transform:none;letter-spacing:0;}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.field{margin-bottom:9px;}
+.field label{display:block;font-size:10.5px;color:var(--sub);margin-bottom:4px;}
+.field input,.field select{width:100%;background:#0D1218;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:13.5px;font-family:var(--mono);}
+.field input:focus,.field select:focus{outline:none;border-color:var(--emerald-d);}
+.field .hint{font-size:9.5px;color:var(--dim);margin-top:3px;}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+
+.btn{border:none;border-radius:9px;padding:11px 14px;font-weight:700;font-size:13px;cursor:pointer;width:100%;transition:transform .08s;}
+.btn:active{transform:scale(.97);}
+.btn-primary{background:var(--emerald);color:#06150F;}
+.btn-danger{background:var(--red);color:#1A0508;}
+.btn-ghost{background:#161D25;color:var(--text);border:1px solid var(--line);}
+.btn-copper{background:var(--copper);color:#1B0D05;}
+.btn-sm{padding:7px 10px;font-size:11.5px;width:auto;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+
+.switch{position:relative;width:42px;height:24px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.slider{position:absolute;inset:0;background:#232B35;border-radius:24px;cursor:pointer;transition:.15s;}
+.slider:before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;background:#8A97A6;border-radius:50%;transition:.15s;}
+input:checked + .slider{background:var(--emerald-d);}
+input:checked + .slider:before{transform:translateX(18px);background:#DFFFF3;}
+
+.statgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+.stat{background:#0D1218;border:1px solid var(--line);border-radius:9px;padding:10px;}
+.stat .lbl{font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;}
+.stat .val{font-family:var(--mono);font-size:18px;font-weight:700;margin-top:3px;}
+.pos{color:var(--emerald);} .neg{color:var(--red);} .neu{color:var(--amber);}
+
+.enginecard{border-left:3px solid var(--line);}
+.enginecard.on{border-left-color:var(--emerald);}
+.badge{font-size:9.5px;padding:2px 8px;border-radius:20px;font-weight:700;}
+.badge.on{background:rgba(52,211,153,.12);color:var(--emerald);}
+.badge.off{background:rgba(140,150,160,.12);color:var(--dim);}
+.badge.watch{background:rgba(242,196,100,.14);color:var(--amber);}
+
+.logline{font-family:var(--mono);font-size:11px;padding:5px 0;border-bottom:1px solid #171D24;display:flex;gap:8px;}
+.logline .t{color:var(--dim);flex-shrink:0;}
+.logline.info{color:var(--sub);}
+.logline.success{color:var(--emerald);}
+.logline.warn{color:var(--amber);}
+.logline.error{color:var(--red);}
+.logline.trade{color:var(--blue);}
+#logbox{max-height:52vh;overflow-y:auto;}
+
+.tabs{position:fixed;bottom:0;left:0;right:0;z-index:60;background:#0B0F14;border-top:1px solid var(--line);display:flex;padding:5px 4px calc(5px + env(safe-area-inset-bottom));}
+.tab{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;color:var(--dim);font-size:9.5px;font-weight:600;border-radius:8px;}
+.tab.active{color:var(--emerald);background:rgba(52,211,153,.08);}
+.tab svg{width:19px;height:19px;}
+
+.modal-bg{position:fixed;inset:0;background:rgba(4,6,8,.72);z-index:100;display:none;align-items:flex-end;justify-content:center;}
+.modal-bg.show{display:flex;}
+.modal{background:var(--panel2);border:1px solid var(--line);border-radius:16px 16px 0 0;padding:18px;width:100%;max-width:720px;}
+.modal h4{margin:0 0 8px;font-size:15px;}
+.modal p{font-size:12.5px;color:var(--sub);line-height:1.5;}
+
+.toastbox{position:fixed;top:56px;left:0;right:0;z-index:90;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;}
+.toast{background:#12181F;border:1px solid var(--line);border-radius:9px;padding:8px 14px;font-size:11.5px;box-shadow:0 6px 20px rgba(0,0,0,.4);max-width:90%;}
+.toast.success{border-color:var(--emerald-d);color:var(--emerald);}
+.toast.error{border-color:var(--red-d);color:var(--red);}
+.toast.warn{border-color:#8a6b26;color:var(--amber);}
+
+.segmented{display:flex;background:#0D1218;border:1px solid var(--line);border-radius:9px;padding:3px;}
+.segmented button{flex:1;background:none;border:none;color:var(--sub);padding:7px 4px;font-size:11px;border-radius:7px;font-weight:600;}
+.segmented button.active{background:var(--emerald-d);color:#06150F;}
+
+.pillbtn{border:1px solid var(--line);background:#0D1218;color:var(--sub);border-radius:20px;padding:6px 12px;font-size:10.5px;font-weight:600;}
+.pillbtn.active{border-color:var(--emerald-d);color:var(--emerald);background:rgba(52,211,153,.08);}
+
+.armbar{position:sticky;bottom:64px;z-index:40;padding:8px 0 2px;}
+.warn-strip{background:rgba(240,87,107,.08);border:1px solid var(--red-d);color:var(--red);font-size:11px;padding:8px 10px;border-radius:8px;margin-bottom:10px;}
+.tiny{font-size:10px;color:var(--dim);}
+hr.sep{border:none;border-top:1px solid var(--line);margin:10px 0;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark">TX</div>
+    <div>
+      <div class="brand-name">TRIVEX</div>
+      <div class="brand-sub">Tri-Engine Trading Terminal</div>
+    </div>
+  </div>
+  <div class="conn-pill" id="connPill"><span class="dot" id="connDot"></span><span id="connText">Disconnected</span></div>
+</div>
+
+<div class="toastbox" id="toastbox"></div>
+
+<div class="wrap">
+
+  <!-- ================= DASHBOARD ================= -->
+  <div class="view active" id="view-dashboard">
+
+    <div class="card" id="authCard">
+      <h3>Connection <span class="tag" id="modeTag">DEMO</span></h3>
+      <div class="field">
+        <label>Deriv App ID</label>
+        <input id="inAppId" placeholder="e.g. 33Bkb6T4TVXAIdE822tie" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>API Token (PAT) — kept in memory only, never stored</label>
+        <input id="inToken" type="password" placeholder="Paste your Personal Access Token" autocomplete="off">
+      </div>
+      <div class="grid2">
+        <button class="btn btn-ghost" id="btnConnectPublic">Connect Market Feed</button>
+        <button class="btn btn-primary" id="btnConnectTrade">Connect Account</button>
+      </div>
+      <div class="tiny" style="margin-top:8px" id="acctLine">No account connected.</div>
+    </div>
+
+    <div class="card">
+      <h3>Account Stats</h3>
+      <div class="statgrid">
+        <div class="stat"><div class="lbl">Balance</div><div class="val" id="stBalance">—</div></div>
+        <div class="stat"><div class="lbl">Currency / Login ID</div><div class="val" style="font-size:13px" id="stLogin">—</div></div>
+        <div class="stat"><div class="lbl">Account Type</div><div class="val" style="font-size:13px" id="stAcctType">—</div></div>
+        <div class="stat"><div class="lbl">Session Runtime</div><div class="val" style="font-size:13px" id="stRuntime">00:00:00</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>PNL Stats <span class="tag">Session</span></h3>
+      <div class="statgrid">
+        <div class="stat"><div class="lbl">Total P/L</div><div class="val" id="pnlTotal">0.00</div></div>
+        <div class="stat"><div class="lbl">Today's Net</div><div class="val" id="pnlToday">0.00</div></div>
+        <div class="stat"><div class="lbl">Peak Equity</div><div class="val" id="pnlPeak">0.00</div></div>
+        <div class="stat"><div class="lbl">Drawdown</div><div class="val" id="pnlDD">0.00</div></div>
+      </div>
+      <canvas id="equityCurve" height="70" style="width:100%;margin-top:10px;"></canvas>
+    </div>
+
+    <div class="card">
+      <h3>Trade Stats</h3>
+      <div class="statgrid">
+        <div class="stat"><div class="lbl">Total Trades</div><div class="val" id="trTotal">0</div></div>
+        <div class="stat"><div class="lbl">Win Rate</div><div class="val" id="trWinRate">0%</div></div>
+        <div class="stat"><div class="lbl">Wins / Losses</div><div class="val" id="trWL" style="font-size:16px">0 / 0</div></div>
+        <div class="stat"><div class="lbl">Consecutive Losses</div><div class="val" id="trStreak">0</div></div>
+      </div>
+      <hr class="sep">
+      <div id="engineStatsRows"></div>
+    </div>
+
+    <div class="card">
+      <h3>Reset</h3>
+      <p class="tiny">Clears trade log, dashboard stats and equity curve. Configuration, engines and risk settings are kept.</p>
+      <button class="btn btn-danger" id="btnResetStats">Reset Trade Logs &amp; Stats</button>
+    </div>
+
+  </div>
+
+  <!-- ================= ENGINES ================= -->
+  <div class="view" id="view-engines">
+
+    <div class="card" style="border-left:3px solid var(--copper)">
+      <h3>Global Trade Parameters</h3>
+      <div class="field">
+        <label>Symbol Pool Note</label>
+        <div class="tiny">Each engine trades its own symbol below. Only one contract is open at a time across all engines (enforced by Risk Gate) to prevent overlap.</div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <span style="font-size:12.5px">Master Auto-Trading</span>
+        <label class="switch"><input type="checkbox" id="masterSwitch"><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <!-- ENGINE 1 -->
+    <div class="card enginecard" id="cardE1">
+      <h3>Engine 1 — AlgoTrend RSI/SMA <span class="badge off" id="badgeE1">OFF</span></h3>
+      <div class="row" style="margin-bottom:10px">
+        <span style="font-size:12px" class="tiny">RSI(period) crossing SMA(close) trend-follow. CALL when RSI cools from overbought / warms from oversold above SMA; PUT mirrored below SMA.</span>
+        <label class="switch"><input type="checkbox" id="enE1"><span class="slider"></span></label>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Symbol</label>
+          <select id="e1Symbol">
+            <option value="R_75">Volatility 75 Index</option>
+            <option value="R_100">Volatility 100 Index</option>
+            <option value="R_50">Volatility 50 Index</option>
+            <option value="1HZ100V">Volatility 100 (1s)</option>
+          </select>
+        </div>
+        <div class="field"><label>Stake (base)</label><input id="e1Stake" type="number" step="0.01" min="0.35" value="0.55"></div>
+        <div class="field"><label>Duration (ticks)</label><input id="e1Duration" type="number" min="1" value="5"></div>
+        <div class="field"><label>RSI Period</label><input id="e1RsiPeriod" type="number" min="2" value="14"></div>
+        <div class="field"><label>SMA Period</label><input id="e1SmaPeriod" type="number" min="2" value="20"></div>
+        <div class="field"><label>Overbought / Oversold</label><input id="e1Bands" value="75 / 25"></div>
+      </div>
+      <div class="tiny">Bands are fixed at 75 (overbought) and 25 (oversold), extreme confirm at 97 / 3 — matches source strategy tuning.</div>
+    </div>
+
+    <!-- ENGINE 2 -->
+    <div class="card enginecard" id="cardE2">
+      <h3>Engine 2 — Digit Percentile <span class="badge off" id="badgeE2">OFF</span></h3>
+      <div class="row" style="margin-bottom:10px">
+        <span class="tiny">Tracks even/odd digit frequency over a rolling tick window. Trades the dominant side once its percentile clears the threshold (mean-reversion fade of the skew).</span>
+        <label class="switch"><input type="checkbox" id="enE2"><span class="slider"></span></label>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Symbol</label>
+          <select id="e2Symbol">
+            <option value="1HZ10V" selected>Volatility 10 (1s)</option>
+            <option value="R_10">Volatility 10 Index</option>
+            <option value="1HZ25V">Volatility 25 (1s)</option>
+          </select>
+        </div>
+        <div class="field"><label>Stake (base)</label><input id="e2Stake" type="number" step="0.01" min="0.35" value="0.55"></div>
+        <div class="field"><label>Duration (ticks)</label><input id="e2Duration" type="number" min="1" value="5"></div>
+        <div class="field"><label>Sample Window (ticks)</label><input id="e2Window" type="number" min="50" value="1000"></div>
+        <div class="field"><label>Trigger Percentile %</label><input id="e2Threshold" type="number" min="50" max="99" value="55"></div>
+        <div class="field"><label>Min Samples Before Trading</label><input id="e2MinSamples" type="number" min="20" value="120"></div>
+      </div>
+    </div>
+
+    <!-- ENGINE 3 -->
+    <div class="card enginecard" id="cardE3">
+      <h3>Engine 3 — Digit Pattern <span class="badge off" id="badgeE3">OFF</span></h3>
+      <div class="row" style="margin-bottom:10px">
+        <span class="tiny">Watches for N consecutive last-digits of the same parity, then trades the opposite parity, expecting the streak to break.</span>
+        <label class="switch"><input type="checkbox" id="enE3"><span class="slider"></span></label>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Symbol</label>
+          <select id="e3Symbol">
+            <option value="R_100" selected>Volatility 100 Index</option>
+            <option value="R_25">Volatility 25 Index</option>
+            <option value="1HZ50V">Volatility 50 (1s)</option>
+          </select>
+        </div>
+        <div class="field"><label>Stake (base)</label><input id="e3Stake" type="number" step="0.01" min="0.35" value="0.5"></div>
+        <div class="field"><label>Duration (ticks)</label><input id="e3Duration" type="number" min="1" value="10"></div>
+        <div class="field"><label>Streak Length</label><input id="e3Streak" type="number" min="2" value="3"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ================= MARTINGALE ================= -->
+  <div class="view" id="view-martingale">
+    <div class="card">
+      <h3>Smart Martingale Control</h3>
+      <p class="tiny">Applies independently per engine. Stake resets to base on any win. On loss, stake is scaled by the multiplier up to the max level, then holds or halts per your choice below.</p>
+    </div>
+
+    <div id="martingaleRows"></div>
+
+    <div class="card">
+      <h3>Global Martingale Safety</h3>
+      <div class="field">
+        <label>On Max Level Reached</label>
+        <select id="mgOnMax">
+          <option value="hold">Hold at max stake and keep trading</option>
+          <option value="reset" selected>Reset to base stake and keep trading</option>
+          <option value="halt">Halt engine until manually re-armed</option>
+        </select>
+      </div>
+      <div class="row">
+        <span style="font-size:12.5px">Reset martingale on session start</span>
+        <label class="switch"><input type="checkbox" id="mgResetOnStart" checked><span class="slider"></span></label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= RISK ================= -->
+  <div class="view" id="view-risk">
+
+    <div class="card">
+      <h3>Profit &amp; Loss Parameters — Session (Global)</h3>
+      <div class="grid2">
+        <div class="field"><label>Session Target Profit</label><input id="riskTargetProfit" type="number" step="0.01" value="10"></div>
+        <div class="field"><label>Session Max Loss</label><input id="riskMaxLoss" type="number" step="0.01" value="20"></div>
+      </div>
+      <div class="tiny">When target profit is reached, all engines pause. When max loss is reached, all trading halts and requires manual re-arm.</div>
+    </div>
+
+    <div class="card">
+      <h3>Profit &amp; Loss Parameters — Per Trade</h3>
+      <div class="grid2">
+        <div class="field"><label>Max Stake per Trade</label><input id="riskMaxStake" type="number" step="0.01" value="50"></div>
+        <div class="field"><label>Min Stake per Trade</label><input id="riskMinStake" type="number" step="0.01" value="0.35"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Risk Parameters</h3>
+      <div class="grid2">
+        <div class="field"><label>Max Concurrent Trades</label><input id="riskMaxConcurrent" type="number" value="1" min="1" max="1" disabled></div>
+        <div class="field"><label>Max Consecutive Losses</label><input id="riskMaxConsecLoss" type="number" value="5"></div>
+        <div class="field"><label>Cooldown After Loss (sec)</label><input id="riskCooldown" type="number" value="5"></div>
+        <div class="field"><label>Daily Loss Limit</label><input id="riskDailyLoss" type="number" step="0.01" value="30"></div>
+      </div>
+      <div class="tiny">Concurrent trades are locked to 1 to keep the three engines strictly in sync and prevent overlapping exposure.</div>
+    </div>
+
+    <div class="card">
+      <h3>Kill Switch</h3>
+      <p class="tiny">Immediately stops all engines, cancels pending actions and unsubscribes trade streams. Does not close already-settled contracts.</p>
+      <button class="btn btn-danger" id="btnKillSwitch">Engage Kill Switch</button>
+      <div class="tiny" style="margin-top:8px" id="killStatus">Kill switch armed and idle.</div>
+    </div>
+
+  </div>
+
+  <!-- ================= LOGS ================= -->
+  <div class="view" id="view-logs">
+    <div class="card">
+      <h3>System Logs <span class="tag" id="logCount">0</span></h3>
+      <div class="row" style="margin-bottom:8px">
+        <div class="segmented" style="flex:1">
+          <button class="active" data-filter="all">All</button>
+          <button data-filter="trade">Trades</button>
+          <button data-filter="warn">Warnings</button>
+          <button data-filter="error">Errors</button>
+        </div>
+      </div>
+      <div id="logbox"></div>
+    </div>
+    <div class="card">
+      <button class="btn btn-ghost" id="btnClearLogs">Clear System Logs</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-view="dashboard">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+    Dashboard
+  </button>
+  <button class="tab" data-view="engines">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.24.63.79 1.06 1.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    Engines
+  </button>
+  <button class="tab" data-view="martingale">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 3h-6v6"/></svg>
+    Martingale
+  </button>
+  <button class="tab" data-view="risk">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/></svg>
+    Risk
+  </button>
+  <button class="tab" data-view="logs">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h4"/></svg>
+    Logs
+  </button>
+</div>
+
+<div class="modal-bg" id="confirmModal">
+  <div class="modal">
+    <h4 id="confirmTitle">Confirm Action</h4>
+    <p id="confirmBody">Are you sure?</p>
+    <div id="confirmExtra"></div>
+    <div class="grid2" style="margin-top:12px">
+      <button class="btn btn-ghost" id="confirmCancel">Cancel</button>
+      <button class="btn btn-danger" id="confirmOk">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   TRIVEX — constants & persisted config
+========================================================= */
+const LS_CONFIG = "trivex_config_v1";
+const LS_STATS  = "trivex_stats_v1";
+const PING_INTERVAL = 25000;
+
+const DEFAULT_CONFIG = {
+  appId:"",
+  engines:{
+    e1:{enabled:false, symbol:"R_75", stake:0.55, duration:5, rsiPeriod:14, smaPeriod:20},
+    e2:{enabled:false, symbol:"1HZ10V", stake:0.55, duration:5, window:1000, threshold:55, minSamples:120},
+    e3:{enabled:false, symbol:"R_100", stake:0.5, duration:10, streak:3}
+  },
+  martingale:{
+    e1:{multiplier:2.0, maxLevel:5},
+    e2:{multiplier:2.0, maxLevel:5},
+    e3:{multiplier:2.0, maxLevel:5},
+    onMax:"reset", resetOnStart:true
+  },
+  risk:{
+    targetProfit:10, maxLoss:20, maxStake:50, minStake:0.35,
+    maxConcurrent:1, maxConsecLoss:5, cooldown:5, dailyLoss:30
+  },
+  master:false
+};
+
+function loadConfig(){
+  try{
+    const raw = localStorage.getItem(LS_CONFIG);
+    if(!raw) return structuredClone(DEFAULT_CONFIG);
+    const parsed = JSON.parse(raw);
+    return Object.assign(structuredClone(DEFAULT_CONFIG), parsed, {
+      engines: Object.assign(structuredClone(DEFAULT_CONFIG.engines), parsed.engines||{}),
+      martingale: Object.assign(structuredClone(DEFAULT_CONFIG.martingale), parsed.martingale||{}),
+      risk: Object.assign(structuredClone(DEFAULT_CONFIG.risk), parsed.risk||{})
+    });
+  }catch(e){ return structuredClone(DEFAULT_CONFIG); }
+}
+function saveConfig(){ localStorage.setItem(LS_CONFIG, JSON.stringify(CFG)); }
+
+const DEFAULT_STATS = {
+  trades:[], totalPnl:0, todayPnl:0, todayDate:new Date().toDateString(),
+  peakEquity:0, equityCurve:[0],
+  wins:0, losses:0, consecLosses:0,
+  perEngine:{ e1:{wins:0,losses:0,pnl:0,trades:0}, e2:{wins:0,losses:0,pnl:0,trades:0}, e3:{wins:0,losses:0,pnl:0,trades:0} }
+};
+function loadStats(){
+  try{
+    const raw = localStorage.getItem(LS_STATS);
+    if(!raw) return structuredClone(DEFAULT_STATS);
+    const p = JSON.parse(raw);
+    if(p.todayDate !== new Date().toDateString()){ p.todayPnl = 0; p.todayDate = new Date().toDateString(); }
+    return Object.assign(structuredClone(DEFAULT_STATS), p, {perEngine: Object.assign(structuredClone(DEFAULT_STATS.perEngine), p.perEngine||{})});
+  }catch(e){ return structuredClone(DEFAULT_STATS); }
+}
+function saveStats(){ localStorage.setItem(LS_STATS, JSON.stringify(STATS)); }
+
+let CFG = loadConfig();
+let STATS = loadStats();
+
+/* =========================================================
+   Runtime state
+========================================================= */
+const RT = {
+  appId:"", token:"", accountId:"", currency:"", loginid:"", accountType:"",
+  publicWs:null, publicGen:0, publicOpen:false,
+  tradeWs:null, tradeGen:0, tradeOpen:false,
+  publicReqId:0, tradeReqId:0,
+  publicPending:new Map(), tradePending:new Map(),
+  ticks:{}, // symbol -> array of {quote, digit, epoch}
+  subscribedSymbols:new Set(),
+  killed:false,
+  sessionHalted:false,
+  activeContract:null, // {contractId, engineKey, stake}
+  cooldownUntil:0,
+  startTime:Date.now(),
+  martState:{ e1:{level:0}, e2:{level:0}, e3:{level:0} },
+  reconnectTimer:null,
+};
+
+/* =========================================================
+   Utilities
+========================================================= */
+function $(id){ return document.getElementById(id); }
+function n(v){ return Number(v); }
+function fmt(v,d){ d=d===undefined?2:d; const x=Number(v); return isNaN(x)?"—":x.toFixed(d); }
+function nowStr(){ const d=new Date(); return d.toTimeString().slice(0,8); }
+function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
+
+function toast(msg,type){
+  type = type || "info";
+  const box = $("toastbox");
+  const el = document.createElement("div");
+  el.className = "toast " + (type==="error"?"error":type==="warn"?"warn":type==="success"?"success":"");
+  el.textContent = msg;
+  box.appendChild(el);
+  setTimeout(()=>{ el.style.opacity="0"; el.style.transition="opacity .3s"; setTimeout(()=>el.remove(),300); }, 3200);
+}
+
+function log(msg, level){
+  level = level || "info";
+  const entry = { t: nowStr(), msg, level };
+  LOGS.push(entry);
+  if(LOGS.length > 500) LOGS.shift();
+  renderLogs();
+}
+const LOGS = [];
+let logFilter = "all";
+function renderLogs(){
+  const box = $("logbox");
+  const filtered = logFilter==="all" ? LOGS : LOGS.filter(l=>l.level===logFilter || (logFilter==="warn"&&l.level==="error"));
+  box.innerHTML = filtered.slice().reverse().map(l=>{
+    return `<div class="logline ${l.level}"><span class="t">${l.t}</span><span>${escapeHtml(l.msg)}</span></div>`;
+  }).join("");
+  $("logCount").textContent = LOGS.length;
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+function confirmDialog(title, body, onOk){
+  $("confirmTitle").textContent = title;
+  $("confirmBody").textContent = body;
+  $("confirmModal").classList.add("show");
+  const ok = $("confirmOk");
+  const cancel = $("confirmCancel");
+  function cleanup(){ ok.removeEventListener("click", okHandler); cancel.removeEventListener("click", cancelHandler); $("confirmModal").classList.remove("show"); }
+  function okHandler(){ cleanup(); onOk(); }
+  function cancelHandler(){ cleanup(); }
+  ok.addEventListener("click", okHandler);
+  cancel.addEventListener("click", cancelHandler);
+}
+
+/* =========================================================
+   Tabs / navigation
+========================================================= */
+document.querySelectorAll(".tab").forEach(tab=>{
+  tab.addEventListener("click", ()=>{
+    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+    document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+    tab.classList.add("active");
+    $("view-"+tab.dataset.view).classList.add("active");
+  });
+});
+document.querySelectorAll(".segmented button").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    document.querySelectorAll(".segmented button").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    logFilter = b.dataset.filter;
+    renderLogs();
+  });
+});
+
+/* =========================================================
+   WebSocket plumbing (public market data + trade account)
+========================================================= */
+function nextPublicReqId(){ return ++RT.publicReqId; }
+function nextTradeReqId(){ return ++RT.tradeReqId; }
+
+function connectPublic(){
+  const gen = ++RT.publicGen;
+  if(RT.publicWs){ try{ RT.publicWs.close(); }catch(e){} }
+  updateConnPill("connecting");
+  const ws = new WebSocket("wss://api.derivws.com/trading/v1/options/ws/public");
+  RT.publicWs = ws;
+  ws.onopen = ()=>{
+    if(gen !== RT.publicGen) return;
+    RT.publicOpen = true;
+    log("Public market feed connected.", "success");
+    updateConnPill();
+    startPublicHeartbeat(gen);
+    requestActiveSymbols();
+    resubscribeAllTicks();
+  };
+  ws.onmessage = (ev)=>{
+    if(gen !== RT.publicGen) return;
+    handlePublicMessage(JSON.parse(ev.data));
+  };
+  ws.onerror = ()=>{ if(gen===RT.publicGen) log("Public feed socket error.", "error"); };
+  ws.onclose = ()=>{
+    if(gen !== RT.publicGen) return;
+    RT.publicOpen = false;
+    updateConnPill();
+    log("Public market feed disconnected — reconnecting.", "warn");
+    scheduleReconnect(connectPublic, gen, "publicGen");
+  };
+}
+
+function startPublicHeartbeat(gen){
+  const iv = setInterval(()=>{
+    if(gen !== RT.publicGen){ clearInterval(iv); return; }
+    if(RT.publicWs && RT.publicWs.readyState===1) RT.publicWs.send(JSON.stringify({ping:1}));
+  }, PING_INTERVAL);
+}
+
+function scheduleReconnect(fn, gen, genKey){
+  setTimeout(()=>{ if(RT[genKey]===gen && !RT.killed) fn(); }, 2500);
+}
+
+function requestActiveSymbols(){
+  sendPublic({active_symbols:"brief"});
+}
+
+function resubscribeAllTicks(){
+  RT.subscribedSymbols.forEach(sym=>{
+    sendPublic({ticks:sym, subscribe:1});
+  });
+}
+
+function ensureTickSubscription(sym){
+  if(RT.subscribedSymbols.has(sym)) return;
+  RT.subscribedSymbols.add(sym);
+  if(!RT.ticks[sym]) RT.ticks[sym] = [];
+  if(RT.publicOpen) sendPublic({ticks:sym, subscribe:1});
+}
+
+function sendPublic(cmd){
+  if(!RT.publicWs || RT.publicWs.readyState!==1) return;
+  const req_id = nextPublicReqId();
+  RT.publicWs.send(JSON.stringify(Object.assign({}, cmd, {req_id})));
+}
+
+function handlePublicMessage(data){
+  if(data.error){
+    log("Market feed error ["+data.error.code+"]: "+data.error.message, "error");
+    return;
+  }
+  if(data.msg_type === "tick" && data.tick){
+    const sym = data.tick.symbol;
+    const quote = n(data.tick.quote);
+    const digit = lastDigit(quote, data.tick.pip_size);
+    const arr = RT.ticks[sym] || (RT.ticks[sym]=[]);
+    arr.push({quote, digit, epoch:data.tick.epoch});
+    if(arr.length > 1500) arr.shift();
+    onTick(sym);
+  }
+}
+
+function lastDigit(quote, pipSize){
+  const decimals = pipSize ? Math.max(0, Math.round(-Math.log10(pipSize))) : 2;
+  const str = quote.toFixed(decimals);
+  return Number(str.slice(-1));
+}
+
+/* ---------- Trade account socket (OTP flow) ---------- */
+async function connectTradeAccount(){
+  const appId = $("inAppId").value.trim();
+  const token = $("inToken").value.trim();
+  if(!appId || !token){ toast("Enter both App ID and API Token.", "error"); return; }
+  RT.appId = appId; RT.token = token; CFG.appId = appId; saveConfig();
+
+  try{
+    log("Fetching Options accounts...", "info");
+    const accRes = await fetch("https://api.derivws.com/trading/v1/options/accounts", {
+      headers:{ "Authorization":"Bearer "+token, "Deriv-App-ID":appId }
+    });
+    const accJson = await accRes.json();
+    if(!accRes.ok){
+      const msg = (accJson.errors && accJson.errors[0] && accJson.errors[0].message) || "Failed to fetch accounts";
+      throw new Error(msg);
+    }
+    let accounts = accJson.data;
+    if(!Array.isArray(accounts)) accounts = [accounts];
+    if(!accounts.length){
+      log("No Options accounts found — creating a demo account.", "warn");
+      const createRes = await fetch("https://api.derivws.com/trading/v1/options/accounts", {
+        method:"POST",
+        headers:{ "Authorization":"Bearer "+token, "Deriv-App-ID":appId, "Content-Type":"application/json" },
+        body: JSON.stringify({currency:"USD", group:"row", account_type:"demo"})
+      });
+      const createJson = await createRes.json();
+      accounts = Array.isArray(createJson.data) ? createJson.data : [createJson.data];
+    }
+    const account = accounts.find(a=>a.account_type==="demo") || accounts[0];
+    RT.accountId = account.account_id;
+    RT.currency = account.currency;
+    RT.loginid = account.account_id;
+    RT.accountType = account.account_type;
+    $("modeTag").textContent = account.account_type.toUpperCase();
+    updateAccountLine(account);
+    await openTradeSocket();
+  }catch(err){
+    log("Account connection failed: "+err.message, "error");
+    toast("Connection failed: "+err.message, "error");
+    updateConnPill();
+  }
+}
+
+async function openTradeSocket(){
+  const gen = ++RT.tradeGen;
+  try{
+    const otpRes = await fetch(`https://api.derivws.com/trading/v1/options/accounts/${RT.accountId}/otp`, {
+      method:"POST",
+      headers:{ "Authorization":"Bearer "+RT.token, "Deriv-App-ID":RT.appId }
+    });
+    const otpJson = await otpRes.json();
+    if(!otpRes.ok){
+      const msg = (otpJson.errors && otpJson.errors[0] && otpJson.errors[0].message) || "OTP request failed";
+      throw new Error(msg);
+    }
+    const wsUrl = otpJson.data.url;
+    if(gen !== RT.tradeGen) return;
+    if(RT.tradeWs){ try{ RT.tradeWs.close(); }catch(e){} }
+    const ws = new WebSocket(wsUrl);
+    RT.tradeWs = ws;
+    ws.onopen = ()=>{
+      if(gen !== RT.tradeGen) return;
+      RT.tradeOpen = true;
+      log("Trading account connected ("+RT.accountId+").", "success");
+      toast("Account connected: "+RT.accountId, "success");
+      updateConnPill();
+      startTradeHeartbeat(gen);
+      sendTrade({balance:1, subscribe:1});
+      sendTrade({portfolio:1});
+    };
+    ws.onmessage = (ev)=>{ if(gen===RT.tradeGen) handleTradeMessage(JSON.parse(ev.data)); };
+    ws.onerror = ()=>{ if(gen===RT.tradeGen) log("Trade socket error.", "error"); };
+    ws.onclose = ()=>{
+      if(gen !== RT.tradeGen) return;
+      RT.tradeOpen = false;
+      updateConnPill();
+      log("Trade socket closed — requesting fresh OTP and reconnecting.", "warn");
+      setTimeout(()=>{ if(RT.tradeGen===gen && !RT.killed) openTradeSocket(); }, 2500);
+    };
+  }catch(err){
+    log("Trade socket setup failed: "+err.message, "error");
+    toast(err.message, "error");
+  }
+}
+
+function startTradeHeartbeat(gen){
+  const iv = setInterval(()=>{
+    if(gen !== RT.tradeGen){ clearInterval(iv); return; }
+    if(RT.tradeWs && RT.tradeWs.readyState===1) RT.tradeWs.send(JSON.stringify({ping:1}));
+  }, PING_INTERVAL);
+}
+
+function sendTrade(cmd, onResp){
+  if(!RT.tradeWs || RT.tradeWs.readyState!==1){ log("Trade socket not ready — command dropped.", "error"); return; }
+  const req_id = nextTradeReqId();
+  if(onResp) RT.tradePending.set(req_id, onResp);
+  RT.tradeWs.send(JSON.stringify(Object.assign({}, cmd, {req_id})));
+}
+
+function handleTradeMessage(data){
+  if(data.req_id && RT.tradePending.has(data.req_id)){
+    const cb = RT.tradePending.get(data.req_id);
+    RT.tradePending.delete(data.req_id);
+    cb(data);
+  }
+  if(data.error){
+    log("Trade API error ["+data.error.code+"]: "+data.error.message, "error");
+  }
+  if(data.msg_type==="balance" && data.balance){
+    RT.currency = data.balance.currency || RT.currency;
+    $("stBalance").textContent = fmt(data.balance.balance,2)+" "+RT.currency;
+  }
+  if(data.msg_type==="proposal_open_contract" && data.proposal_open_contract){
+    handleContractUpdate(data.proposal_open_contract);
+  }
+}
+
+function updateAccountLine(account){
+  $("acctLine").textContent = "Connected: "+account.account_id+" ("+account.account_type+", "+account.currency+")";
+  $("stLogin").textContent = account.account_id;
+  $("stAcctType").textContent = account.account_type.toUpperCase();
+  $("stBalance").textContent = fmt(account.balance,2)+" "+account.currency;
+}
+
+function updateConnPill(state){
+  const dot = $("connDot"), text = $("connText");
+  if(state==="connecting"){ dot.className="dot warn"; text.textContent="Connecting..."; return; }
+  if(RT.tradeOpen){ dot.className="dot live"; text.textContent="Account Live"; }
+  else if(RT.publicOpen){ dot.className="dot warn"; text.textContent="Market Only"; }
+  else { dot.className="dot bad"; text.textContent="Disconnected"; }
+}
+
+/* =========================================================
+   Engine parameter binding
+========================================================= */
+const ENGINE_INPUT_MAP = {
+  e1:{enabled:"enE1", symbol:"e1Symbol", stake:"e1Stake", duration:"e1Duration", rsiPeriod:"e1RsiPeriod", smaPeriod:"e1SmaPeriod"},
+  e2:{enabled:"enE2", symbol:"e2Symbol", stake:"e2Stake", duration:"e2Duration", window:"e2Window", threshold:"e2Threshold", minSamples:"e2MinSamples"},
+  e3:{enabled:"enE3", symbol:"e3Symbol", stake:"e3Stake", duration:"e3Duration", streak:"e3Streak"}
+};
+
+function hydrateEngineInputs(){
+  Object.keys(ENGINE_INPUT_MAP).forEach(key=>{
+    const map = ENGINE_INPUT_MAP[key], cfg = CFG.engines[key];
+    Object.keys(map).forEach(prop=>{
+      const el = $(map[prop]);
+      if(prop==="enabled") el.checked = !!cfg.enabled;
+      else el.value = cfg[prop];
+    });
+  });
+  $("masterSwitch").checked = !!CFG.master;
+}
+
+function bindEngineInputs(){
+  Object.keys(ENGINE_INPUT_MAP).forEach(key=>{
+    const map = ENGINE_INPUT_MAP[key], cfg = CFG.engines[key];
+    Object.keys(map).forEach(prop=>{
+      const el = $(map[prop]);
+      el.addEventListener("change", ()=>{
+        if(prop==="enabled"){
+          cfg.enabled = el.checked;
+          if(el.checked) ensureTickSubscription(cfg.symbol);
+          updateEngineBadge(key);
+          log("Engine "+key.toUpperCase()+" turned "+(el.checked?"ON":"OFF")+".", "trade");
+        } else if(prop==="symbol"){
+          cfg.symbol = el.value;
+          ensureTickSubscription(el.value);
+        } else {
+          cfg[prop] = Number(el.value);
+        }
+        saveConfig();
+      });
+    });
+  });
+  $("masterSwitch").addEventListener("change", (e)=>{
+    CFG.master = e.target.checked;
+    saveConfig();
+    log("Master auto-trading "+(CFG.master?"ARMED":"DISARMED")+".", CFG.master?"success":"warn");
+    if(CFG.master){
+      Object.keys(CFG.engines).forEach(k=>{ if(CFG.engines[k].enabled) ensureTickSubscription(CFG.engines[k].symbol); });
+    }
+  });
+}
+
+function updateEngineBadge(key){
+  const badge = $("badge"+key.toUpperCase().replace("E","E"));
+  const card = $("card"+key.toUpperCase().replace("E","E"));
+}
+function refreshEngineBadges(){
+  ["e1","e2","e3"].forEach(k=>{
+    const idx = k.toUpperCase();
+    const badge = $("badge"+idx), card = $("card"+idx);
+    const en = CFG.engines[k].enabled;
+    badge.textContent = en ? "ON" : "OFF";
+    badge.className = "badge " + (en?"on":"off");
+    card.classList.toggle("on", en);
+  });
+}
+
+/* =========================================================
+   Martingale rows (dynamic UI)
+========================================================= */
+function renderMartingaleRows(){
+  const names = {e1:"Engine 1 — AlgoTrend", e2:"Engine 2 — Percentile", e3:"Engine 3 — Pattern"};
+  const box = $("martingaleRows");
+  box.innerHTML = Object.keys(names).map(k=>{
+    const m = CFG.martingale[k];
+    return `<div class="card">
+      <h3>${names[k]} <span class="tag">Level ${RT.martState[k].level}/${m.maxLevel}</span></h3>
+      <div class="grid2">
+        <div class="field"><label>Multiplier on Loss</label><input type="number" step="0.1" min="1" value="${m.multiplier}" data-mg="${k}" data-prop="multiplier"></div>
+        <div class="field"><label>Max Martingale Level</label><input type="number" min="1" value="${m.maxLevel}" data-mg="${k}" data-prop="maxLevel"></div>
+      </div>
+      <div class="tiny">Base stake: ${CFG.engines[k].stake} · Current stake: <b>${fmt(currentStake(k),2)}</b></div>
+    </div>`;
+  }).join("");
+  box.querySelectorAll("input[data-mg]").forEach(inp=>{
+    inp.addEventListener("change", ()=>{
+      const k = inp.dataset.mg, prop = inp.dataset.prop;
+      CFG.martingale[k][prop] = Number(inp.value);
+      saveConfig();
+      renderMartingaleRows();
+    });
+  });
+}
+
+function currentStake(engineKey){
+  const cfg = CFG.engines[engineKey], mg = CFG.martingale[engineKey];
+  const level = RT.martState[engineKey].level;
+  let stake = cfg.stake * Math.pow(mg.multiplier, level);
+  stake = clamp(stake, CFG.risk.minStake, CFG.risk.maxStake);
+  return Math.round(stake*100)/100;
+}
+
+function applyMartingaleResult(engineKey, won){
+  const mg = CFG.martingale[engineKey];
+  const st = RT.martState[engineKey];
+  if(won){
+    st.level = 0;
+  } else {
+    st.level++;
+    if(st.level > mg.maxLevel){
+      if(mg.onMax==="reset") st.level = 0;
+      else if(mg.onMax==="halt"){ CFG.engines[engineKey].enabled = false; saveConfig(); refreshEngineBadges(); log("Engine "+engineKey.toUpperCase()+" halted — martingale max level reached.", "error"); }
+      else st.level = mg.maxLevel; // hold
+    }
+  }
+  renderMartingaleRows();
+}
+
+$("mgOnMax").addEventListener("change", e=>{ CFG.martingale.onMax = e.target.value; saveConfig(); });
+$("mgResetOnStart").addEventListener("change", e=>{ CFG.martingale.resetOnStart = e.target.checked; saveConfig(); });
+
+/* =========================================================
+   Risk parameter binding
+========================================================= */
+function hydrateRiskInputs(){
+  $("riskTargetProfit").value = CFG.risk.targetProfit;
+  $("riskMaxLoss").value = CFG.risk.maxLoss;
+  $("riskMaxStake").value = CFG.risk.maxStake;
+  $("riskMinStake").value = CFG.risk.minStake;
+  $("riskMaxConsecLoss").value = CFG.risk.maxConsecLoss;
+  $("riskCooldown").value = CFG.risk.cooldown;
+  $("riskDailyLoss").value = CFG.risk.dailyLoss;
+  $("mgOnMax").value = CFG.martingale.onMax;
+  $("mgResetOnStart").checked = CFG.martingale.resetOnStart;
+}
+[["riskTargetProfit","targetProfit"],["riskMaxLoss","maxLoss"],["riskMaxStake","maxStake"],
+ ["riskMinStake","minStake"],["riskMaxConsecLoss","maxConsecLoss"],["riskCooldown","cooldown"],
+ ["riskDailyLoss","dailyLoss"]].forEach(([id,prop])=>{
+  $(id).addEventListener("change", e=>{ CFG.risk[prop] = Number(e.target.value); saveConfig(); log("Risk parameter '"+prop+"' set to "+e.target.value+".", "info"); });
+});
+
+$("btnKillSwitch").addEventListener("click", ()=>{
+  confirmDialog("Engage Kill Switch", "This immediately halts all engines and stops new trades for this session. Continue?", ()=>{
+    RT.killed = true;
+    CFG.master = false;
+    Object.keys(CFG.engines).forEach(k=>CFG.engines[k].enabled=false);
+    saveConfig();
+    hydrateEngineInputs();
+    refreshEngineBadges();
+    sendPublic({forget_all:"ticks"});
+    if(RT.tradeOpen) sendTrade({forget_all:"proposal"});
+    $("killStatus").textContent = "Kill switch ENGAGED at "+nowStr()+". Reload or reconnect to resume.";
+    log("KILL SWITCH ENGAGED — all engines stopped.", "error");
+    toast("Kill switch engaged.", "error");
+  });
+});
+
+/* =========================================================
+   Engine 1 — AlgoTrend (RSI + SMA)
+========================================================= */
+function computeRSI(closes, period){
+  if(closes.length < period+1) return null;
+  let gains=0, losses=0;
+  for(let i=closes.length-period; i<closes.length; i++){
+    const diff = closes[i]-closes[i-1];
+    if(diff>=0) gains+=diff; else losses-=diff;
+  }
+  const avgGain = gains/period, avgLoss = losses/period;
+  if(avgLoss===0) return 100;
+  const rs = avgGain/avgLoss;
+  return 100 - (100/(1+rs));
+}
+function computeSMA(closes, period){
+  if(closes.length < period) return null;
+  const slice = closes.slice(-period);
+  return slice.reduce((a,b)=>a+b,0)/period;
+}
+
+function engine1Evaluate(sym){
+  const cfg = CFG.engines.e1;
+  if(!cfg.enabled || cfg.symbol!==sym) return null;
+  const ticks = RT.ticks[sym]||[];
+  const closes = ticks.map(t=>t.quote);
+  const rsi = computeRSI(closes, cfg.rsiPeriod);
+  const sma = computeSMA(closes, cfg.smaPeriod);
+  if(rsi===null || sma===null) return null;
+  const lastPrice = closes[closes.length-1];
+  if(lastPrice > sma){
+    if(rsi < 75 && rsi > 60) return "CALL";
+    if(rsi > 97) return "PUT";
+  } else if(lastPrice < sma){
+    if(rsi > 25 && rsi < 40) return "PUT";
+    if(rsi < 3) return "CALL";
+  }
+  return null;
+}
+
+/* =========================================================
+   Engine 2 — Digit Percentile
+========================================================= */
+function engine2Evaluate(sym){
+  const cfg = CFG.engines.e2;
+  if(!cfg.enabled || cfg.symbol!==sym) return null;
+  const ticks = RT.ticks[sym]||[];
+  if(ticks.length < cfg.minSamples) return null;
+  const window = ticks.slice(-cfg.window);
+  let even=0, odd=0;
+  window.forEach(t=>{ if(t.digit%2===0) even++; else odd++; });
+  const total = even+odd;
+  const evenPct = (even/total)*100;
+  const oddPct = (odd/total)*100;
+  if(evenPct >= cfg.threshold) return "DIGITEVEN";
+  if(oddPct >= cfg.threshold) return "DIGITODD";
+  return null;
+}
+
+/* =========================================================
+   Engine 3 — Digit Pattern (streak fade)
+========================================================= */
+function engine3Evaluate(sym){
+  const cfg = CFG.engines.e3;
+  if(!cfg.enabled || cfg.symbol!==sym) return null;
+  const ticks = RT.ticks[sym]||[];
+  if(ticks.length < cfg.streak) return null;
+  const recent = ticks.slice(-cfg.streak);
+  const parities = recent.map(t=>t.digit%2);
+  const allSame = parities.every(p=>p===parities[0]);
+  if(!allSame) return null;
+  // fade the streak: if streak is even digits, trade odd next, and vice versa
+  return parities[0]===0 ? "DIGITODD" : "DIGITEVEN";
+}
+
+/* =========================================================
+   Tick router → engine evaluation → trade gate
+========================================================= */
+function onTick(sym){
+  drawEquitySparkline(); // cheap refresh, harmless
+  if(RT.killed || !CFG.master || RT.sessionHalted) return;
+  if(RT.activeContract) return; // one trade at a time (risk gate)
+  if(Date.now() < RT.cooldownUntil) return;
+  if(!RT.tradeOpen){ return; } // need live account to trade
+
+  const signal1 = engine1Evaluate(sym);
+  if(signal1){ fireTrade("e1", signal1, CFG.engines.e1); return; }
+  const signal2 = engine2Evaluate(sym);
+  if(signal2){ fireTrade("e2", signal2, CFG.engines.e2); return; }
+  const signal3 = engine3Evaluate(sym);
+  if(signal3){ fireTrade("e3", signal3, CFG.engines.e3); return; }
+}
+
+function riskGateBlocking(){
+  if(STATS.consecLosses >= CFG.risk.maxConsecLoss){
+    return "Max consecutive losses ("+CFG.risk.maxConsecLoss+") reached.";
+  }
+  if(STATS.todayPnl <= -Math.abs(CFG.risk.dailyLoss)){
+    return "Daily loss limit reached.";
+  }
+  if(STATS.totalPnl <= -Math.abs(CFG.risk.maxLoss)){
+    return "Session max loss reached.";
+  }
+  if(STATS.totalPnl >= Math.abs(CFG.risk.targetProfit)){
+    return "Session target profit reached.";
+  }
+  return null;
+}
+
+function fireTrade(engineKey, contractType, cfg){
+  const block = riskGateBlocking();
+  if(block){
+    if(!RT.sessionHalted){
+      RT.sessionHalted = true;
+      log("Risk gate closed trading: "+block, "warn");
+      toast(block, "warn");
+    }
+    return;
+  }
+  const stake = currentStake(engineKey);
+  const isDigit = contractType==="DIGITEVEN" || contractType==="DIGITODD";
+  const params = {
+    proposal:1,
+    amount: stake,
+    basis:"stake",
+    contract_type: contractType,
+    currency: RT.currency || "USD",
+    duration: cfg.duration,
+    duration_unit:"t",
+    underlying_symbol: cfg.symbol
+  };
+  log("Signal ["+engineKey.toUpperCase()+"] "+contractType+" on "+cfg.symbol+" @ stake "+fmt(stake,2), "trade");
+  sendTrade(params, (resp)=>{
+    if(resp.error){ log("Proposal rejected: "+resp.error.message, "error"); return; }
+    if(!resp.proposal){ return; }
+    const proposalId = resp.proposal.id;
+    const askPrice = n(resp.proposal.ask_price);
+    RT.activeContract = { engineKey, contractType, stake, symbol:cfg.symbol, pending:true };
+    sendTrade({buy: proposalId, price: askPrice}, (buyResp)=>{
+      if(buyResp.error){
+        log("Buy failed: "+buyResp.error.message, "error");
+        RT.activeContract = null;
+        return;
+      }
+      const contractId = buyResp.buy.contract_id;
+      RT.activeContract.contractId = contractId;
+      RT.activeContract.buyPrice = n(buyResp.buy.buy_price);
+      RT.activeContract.pending = false;
+      log("Contract bought — ID "+contractId+", price "+fmt(RT.activeContract.buyPrice,2), "success");
+      sendTrade({proposal_open_contract:1, contract_id: contractId, subscribe:1});
+    });
+  });
+}
+
+function handleContractUpdate(poc){
+  if(!RT.activeContract || RT.activeContract.contractId !== poc.contract_id) return;
+  if(n(poc.is_sold) === 1 || n(poc.is_expired) === 1){
+    const engineKey = RT.activeContract.engineKey;
+    const buyPrice = RT.activeContract.buyPrice;
+    const sellPrice = poc.sell_price!=null ? n(poc.sell_price) : n(poc.bid_price);
+    const pnl = Math.round((sellPrice - buyPrice) * 100) / 100;
+    const won = pnl > 0;
+    recordTrade(engineKey, RT.activeContract, pnl, won);
+    applyMartingaleResult(engineKey, won);
+    RT.cooldownUntil = won ? Date.now() : Date.now() + (CFG.risk.cooldown*1000);
+    RT.activeContract = null;
+    sendTrade({forget_all:"proposal_open_contract"});
+  }
+}
+
+/* =========================================================
+   Stats / dashboard rendering
+========================================================= */
+function recordTrade(engineKey, contract, pnl, won){
+  const entry = {
+    time: new Date().toISOString(), engine: engineKey, symbol: contract.symbol,
+    type: contract.contractType, stake: contract.stake, pnl, won
+  };
+  STATS.trades.push(entry);
+  if(STATS.trades.length > 2000) STATS.trades.shift();
+  STATS.totalPnl = Math.round((STATS.totalPnl + pnl)*100)/100;
+  STATS.todayPnl = Math.round((STATS.todayPnl + pnl)*100)/100;
+  STATS.equityCurve.push(STATS.totalPnl);
+  if(STATS.equityCurve.length > 200) STATS.equityCurve.shift();
+  STATS.peakEquity = Math.max(STATS.peakEquity, STATS.totalPnl);
+  if(won){ STATS.wins++; STATS.consecLosses=0; } else { STATS.losses++; STATS.consecLosses++; }
+  const pe = STATS.perEngine[engineKey];
+  pe.trades++; pe.pnl = Math.round((pe.pnl+pnl)*100)/100;
+  if(won) pe.wins++; else pe.losses++;
+  saveStats();
+  renderDashboard();
+  log((won?"WIN ":"LOSS ")+engineKey.toUpperCase()+" "+contract.type+" P/L "+fmt(pnl,2), won?"success":"error");
+  toast((won?"Win: +":"Loss: ")+fmt(pnl,2)+" "+RT.currency, won?"success":"error");
+}
+
+function renderDashboard(){
+  $("pnlTotal").textContent = fmt(STATS.totalPnl,2);
+  $("pnlTotal").className = "val " + (STATS.totalPnl>0?"pos":STATS.totalPnl<0?"neg":"");
+  $("pnlToday").textContent = fmt(STATS.todayPnl,2);
+  $("pnlToday").className = "val " + (STATS.todayPnl>0?"pos":STATS.todayPnl<0?"neg":"");
+  $("pnlPeak").textContent = fmt(STATS.peakEquity,2);
+  const dd = Math.round((STATS.peakEquity - STATS.totalPnl)*100)/100;
+  $("pnlDD").textContent = fmt(dd,2);
+  $("pnlDD").className = "val " + (dd>0?"neg":"");
+
+  const total = STATS.wins+STATS.losses;
+  $("trTotal").textContent = total;
+  $("trWinRate").textContent = total? Math.round((STATS.wins/total)*100)+"%" : "0%";
+  $("trWL").textContent = STATS.wins+" / "+STATS.losses;
+  $("trStreak").textContent = STATS.consecLosses;
+  $("trStreak").className = "val " + (STATS.consecLosses>=CFG.risk.maxConsecLoss?"neg":"");
+
+  const names = {e1:"AlgoTrend", e2:"Percentile", e3:"Pattern"};
+  $("engineStatsRows").innerHTML = Object.keys(names).map(k=>{
+    const pe = STATS.perEngine[k];
+    const wr = pe.trades? Math.round((pe.wins/pe.trades)*100) : 0;
+    return `<div class="row" style="padding:6px 0;font-size:12px;border-bottom:1px solid #171D24">
+      <span>${names[k]}</span>
+      <span class="tiny">${pe.trades} trades · ${wr}% WR</span>
+      <span class="${pe.pnl>0?'pos':pe.pnl<0?'neg':''}" style="font-family:var(--mono)">${fmt(pe.pnl,2)}</span>
+    </div>`;
+  }).join("");
+
+  drawEquitySparkline();
+}
+
+function drawEquitySparkline(){
+  const canvas = $("equityCurve");
+  if(!canvas || !canvas.getContext) return;
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width = canvas.clientWidth * 2;
+  const h = canvas.height = 70*2;
+  ctx.clearRect(0,0,w,h);
+  const data = STATS.equityCurve.length>1 ? STATS.equityCurve : [0,0];
+  const min = Math.min(...data), max = Math.max(...data);
+  const range = (max-min)||1;
+  ctx.beginPath();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = STATS.totalPnl>=0 ? "#34D399" : "#F0576B";
+  data.forEach((v,i)=>{
+    const x = (i/(data.length-1||1))*w;
+    const y = h - ((v-min)/range)*h*0.85 - h*0.075;
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+}
+
+function updateRuntimeClock(){
+  const secs = Math.floor((Date.now()-RT.startTime)/1000);
+  const hh = String(Math.floor(secs/3600)).padStart(2,"0");
+  const mm = String(Math.floor((secs%3600)/60)).padStart(2,"0");
+  const ss = String(secs%60).padStart(2,"0");
+  $("stRuntime").textContent = `${hh}:${mm}:${ss}`;
+}
+setInterval(updateRuntimeClock, 1000);
+
+/* =========================================================
+   Reset function
+========================================================= */
+$("btnResetStats").addEventListener("click", ()=>{
+  confirmDialog("Reset Trade Logs & Stats", "This clears all trade history, PNL stats and the equity curve. This cannot be undone. Configuration and engine settings are kept.", ()=>{
+    STATS = structuredClone(DEFAULT_STATS);
+    saveStats();
+    RT.martState = { e1:{level:0}, e2:{level:0}, e3:{level:0} };
+    RT.sessionHalted = false;
+    renderDashboard();
+    renderMartingaleRows();
+    log("Trade logs and dashboard stats reset by user.", "warn");
+    toast("Stats reset.", "success");
+  });
+});
+$("btnClearLogs").addEventListener("click", ()=>{
+  confirmDialog("Clear System Logs", "Remove all log entries from this session?", ()=>{
+    LOGS.length = 0;
+    renderLogs();
+    toast("Logs cleared.", "success");
+  });
+});
+
+/* =========================================================
+   Wire connection buttons
+========================================================= */
+$("btnConnectPublic").addEventListener("click", ()=>{
+  RT.killed = false;
+  connectPublic();
+});
+$("btnConnectTrade").addEventListener("click", ()=>{
+  RT.killed = false;
+  if(!RT.publicOpen) connectPublic();
+  connectTradeAccount();
+});
+
+/* =========================================================
+   Init
+========================================================= */
+function init(){
+  $("inAppId").value = CFG.appId || "";
+  hydrateEngineInputs();
+  hydrateRiskInputs();
+  refreshEngineBadges();
+  renderMartingaleRows();
+  renderDashboard();
+  renderLogs();
+  bindEngineInputs();
+  log("TRIVEX terminal initialized. Enter App ID + Token and connect to begin.", "info");
+  updateConnPill();
+  window.addEventListener("resize", drawEquitySparkline);
+}
+init();
+
+})();
+</script>
+</body>
+</html>

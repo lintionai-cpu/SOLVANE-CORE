@@ -1,0 +1,1593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>LDP-D5 AI — Digit Analytics Terminal</title>
+<meta name="theme-color" content="#0A0E14">
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiTERQLUQ1IEFJIiwic2hvcnRfbmFtZSI6IkxEUC1ENSIsInN0YXJ0X3VybCI6Ii4iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3IiOiIjMEEwRTE0IiwidGhlbWVfY29sb3IiOiIjMEEwRTE0In0=">
+<style>
+:root{
+  --bg:#0A0E14; --bg2:#0F1420; --panel:#121826; --panel2:#161d2e;
+  --line:#232b3d; --line2:#2b3550;
+  --ink:#E7ECF5; --ink-dim:#8A93A8; --ink-faint:#5A6580;
+  --amber:#E8A33D; --amber-dim:#8a6a2e;
+  --teal:#3ED6C4; --teal-dim:#1f6b62;
+  --red:#F0556B; --red-dim:#7a2b36;
+  --violet:#8B7CF6;
+  --mono: "IBM Plex Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  --sans: "Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+  --radius:10px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  -webkit-tap-highlight-color:transparent; overscroll-behavior:none;}
+body{padding-bottom:env(safe-area-inset-bottom); font-size:14px;}
+::selection{background:var(--teal-dim);}
+a{color:inherit;}
+button{font-family:var(--sans);cursor:pointer;}
+input,select{font-family:var(--mono);}
+
+/* ---------- top bar ---------- */
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:10px;
+  padding:10px 14px;background:linear-gradient(180deg,#0D111A,rgba(13,17,26,.85));
+  border-bottom:1px solid var(--line);backdrop-filter:blur(8px);}
+.brand{display:flex;align-items:center;gap:9px;flex:1;min-width:0;}
+.brand-mark{width:30px;height:30px;border-radius:8px;background:
+  conic-gradient(from 220deg,var(--teal),var(--violet),var(--amber),var(--teal));
+  display:flex;align-items:center;justify-content:center;font-family:var(--mono);
+  font-weight:700;font-size:12px;color:#0A0E14;flex-shrink:0;}
+.brand-txt{display:flex;flex-direction:column;line-height:1.15;min-width:0;}
+.brand-txt b{font-size:14.5px;letter-spacing:.2px;}
+.brand-txt span{font-size:10px;color:var(--ink-faint);font-family:var(--mono);text-transform:uppercase;
+  letter-spacing:.06em; white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mode-pill{font-family:var(--mono);font-size:10.5px;font-weight:600;padding:5px 9px;border-radius:20px;
+  border:1px solid var(--line2);white-space:nowrap;letter-spacing:.03em;}
+.mode-pill.paper{color:var(--teal);border-color:var(--teal-dim);background:rgba(62,214,196,.08);}
+.mode-pill.live{color:var(--red);border-color:var(--red-dim);background:rgba(240,85,107,.1);animation:pulseLive 1.6s infinite;}
+@keyframes pulseLive{0%,100%{box-shadow:0 0 0 0 rgba(240,85,107,.35)}50%{box-shadow:0 0 0 5px rgba(240,85,107,0)}}
+.icon-btn{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--panel);
+  color:var(--ink-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.icon-btn.on{color:var(--teal);border-color:var(--teal-dim);}
+
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ink-faint);flex-shrink:0;}
+.dot.up{background:var(--teal);box-shadow:0 0 6px var(--teal);}
+.dot.down{background:var(--red);}
+.dot.warn{background:var(--amber);}
+
+/* ---------- layout ---------- */
+.wrap{max-width:1180px;margin:0 auto;padding:12px 12px 90px;}
+.grid{display:grid;grid-template-columns:1fr;gap:10px;}
+@media(min-width:900px){ .grid{grid-template-columns: 1.05fr .95fr;} }
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:13px 14px;}
+.card h3{margin:0 0 10px;font-size:11px;letter-spacing:.08em;color:var(--ink-faint);
+  font-weight:600;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;}
+.card h3 .sub{font-family:var(--mono);color:var(--ink-dim);font-weight:500;text-transform:none;letter-spacing:0;font-size:10.5px;}
+
+/* connection row */
+.connrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:118px;}
+.field label{font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.06em;}
+.field input,.field select{background:var(--bg2);border:1px solid var(--line);color:var(--ink);
+  padding:8px 9px;border-radius:7px;font-size:12.5px;width:100%;}
+.field input:focus,.field select:focus{outline:none;border-color:var(--teal-dim);}
+.btn{padding:9px 14px;border-radius:8px;border:1px solid var(--line2);background:var(--panel2);
+  color:var(--ink);font-size:12.5px;font-weight:600;white-space:nowrap;}
+.btn.primary{background:var(--teal);border-color:var(--teal);color:#062522;}
+.btn.danger{background:var(--red);border-color:var(--red);color:#2a0710;}
+.btn.ghost{background:transparent;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn:active{transform:translateY(1px);}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.hint{font-size:10.5px;color:var(--ink-faint);line-height:1.5;margin-top:6px;}
+
+/* price ticker */
+.priceline{display:flex;align-items:baseline;gap:10px;margin-bottom:2px;flex-wrap:wrap;}
+.price-big{font-family:var(--mono);font-size:30px;font-weight:600;letter-spacing:-.5px;}
+.price-big .ld{color:var(--amber);}
+.price-meta{font-family:var(--mono);font-size:11px;color:var(--ink-dim);display:flex;gap:12px;flex-wrap:wrap;}
+canvas.spark{width:100%;height:52px;display:block;}
+
+/* digit matrix */
+.digitgrid{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;}
+.dcell{position:relative;background:var(--bg2);border:1px solid var(--line);border-radius:8px;
+  padding:7px 2px 6px;text-align:center;overflow:hidden;}
+.dcell .d{font-family:var(--mono);font-size:15px;font-weight:700;}
+.dcell .p{font-family:var(--mono);font-size:9.5px;color:var(--ink-dim);margin-top:2px;}
+.dcell .bar{position:absolute;left:0;bottom:0;height:3px;background:var(--teal);width:0%;}
+.dcell.hot{border-color:var(--amber-dim);}
+.dcell.hot .bar{background:var(--amber);}
+.dcell.last{border-color:var(--teal);box-shadow:0 0 0 1px var(--teal) inset;}
+
+/* window table */
+.wintable{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;}
+.wintable th{text-align:right;color:var(--ink-faint);font-weight:500;padding:4px 5px;border-bottom:1px solid var(--line);}
+.wintable th:first-child{text-align:left;}
+.wintable td{text-align:right;padding:4px 5px;border-bottom:1px solid var(--line);color:var(--ink-dim);}
+.wintable td:first-child{text-align:left;color:var(--ink);}
+.wintable tr:last-child td{border-bottom:none;}
+
+/* signal panel */
+.signal-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.status-badge{font-family:var(--mono);font-weight:700;font-size:13px;padding:6px 12px;border-radius:8px;letter-spacing:.03em;}
+.status-badge.NO_TRADE{color:var(--ink-dim);background:var(--bg2);border:1px solid var(--line);}
+.status-badge.READY{color:#06251f;background:var(--teal);}
+.status-badge.WATCH{color:#2a1e05;background:var(--amber);}
+.score-ring{width:58px;height:58px;flex-shrink:0;}
+.reasonlist{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:5px;}
+.reasonlist li{font-size:11.5px;color:var(--ink-dim);padding-left:14px;position:relative;line-height:1.4;}
+.reasonlist li::before{content:"—";position:absolute;left:0;color:var(--ink-faint);}
+.reasonlist.reject li::before{content:"×";color:var(--red);}
+.statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;}
+.statbox{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:8px 9px;}
+.statbox .l{font-size:9.5px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em;}
+.statbox .v{font-family:var(--mono);font-size:15px;font-weight:600;margin-top:2px;}
+.rank-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11.5px;}
+.rank-row:last-child{border-bottom:none;}
+.rank-row .name{width:66px;flex-shrink:0;font-weight:600;}
+.rank-row .barwrap{flex:1;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden;}
+.rank-row .barfill{height:100%;background:var(--teal);}
+.rank-row .val{width:44px;text-align:right;color:var(--ink-dim);flex-shrink:0;}
+.rank-row.best{background:rgba(62,214,196,.06);border-radius:6px;padding-left:5px;}
+.rank-row.best .barfill{background:var(--amber);}
+
+/* trade panel */
+.tp-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.toggle{display:flex;align-items:center;justify-content:space-between;background:var(--bg2);
+  border:1px solid var(--line);border-radius:8px;padding:9px 11px;}
+.toggle .t{font-size:12px;}
+.toggle .t small{display:block;color:var(--ink-faint);font-size:10px;margin-top:1px;}
+.switch{width:38px;height:21px;border-radius:12px;background:var(--line2);position:relative;flex-shrink:0;border:none;}
+.switch::after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:var(--ink-dim);
+  top:2px;left:2px;transition:.15s;}
+.switch.on{background:var(--teal-dim);}
+.switch.on::after{left:19px;background:var(--teal);}
+.switch.on.danger-on{background:var(--red-dim);}
+.switch.on.danger-on::after{background:var(--red);}
+
+.journal{max-height:230px;overflow-y:auto;font-family:var(--mono);font-size:11px;}
+.jrow{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);}
+.jrow:last-child{border-bottom:none;}
+.jrow .win{color:var(--teal);} .jrow .loss{color:var(--red);} .jrow .pending{color:var(--amber);} .jrow .error{color:var(--ink-faint);font-style:italic;}
+.log{max-height:150px;overflow-y:auto;font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);
+  line-height:1.6;}
+.log b{color:var(--ink-dim);}
+
+.tabbar{position:fixed;bottom:0;left:0;right:0;display:flex;background:#0D111A;border-top:1px solid var(--line);
+  z-index:60;padding-bottom:env(safe-area-inset-bottom);}
+.tabbtn{flex:1;padding:10px 4px 8px;text-align:center;color:var(--ink-faint);font-size:10px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;}
+.tabbtn.active{color:var(--teal);}
+.tabbtn svg{width:19px;height:19px;}
+.section{display:none;}
+.section.active{display:block;}
+@media(min-width:900px){ .tabbar{display:none;} .section{display:block !important;} .wrap{padding-bottom:24px;} }
+
+.modal-bg{position:fixed;inset:0;background:rgba(5,7,12,.72);display:none;align-items:center;justify-content:center;
+  z-index:100;padding:20px;backdrop-filter:blur(3px);}
+.modal-bg.show{display:flex;}
+.modal{background:var(--panel);border:1px solid var(--line2);border-radius:14px;padding:20px;max-width:400px;width:100%;}
+.modal h4{margin:0 0 8px;font-size:15px;color:var(--red);}
+.modal p{font-size:12.5px;color:var(--ink-dim);line-height:1.5;}
+.modal input{width:100%;background:var(--bg2);border:1px solid var(--line);color:var(--ink);padding:10px;
+  border-radius:7px;margin:10px 0;font-size:13px;text-align:center;letter-spacing:.05em;}
+
+.toast-stack{position:fixed;top:56px;right:10px;left:10px;z-index:90;display:flex;flex-direction:column;
+  gap:6px;align-items:flex-end;pointer-events:none;}
+.toast{pointer-events:auto;background:var(--panel2);border:1px solid var(--line2);border-left:3px solid var(--teal);
+  padding:9px 12px;border-radius:8px;font-size:11.5px;max-width:320px;box-shadow:0 6px 18px rgba(0,0,0,.4);
+  animation:toastin .2s ease-out;}
+.toast.err{border-left-color:var(--red);}
+.toast.warn{border-left-color:var(--amber);}
+@keyframes toastin{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
+
+::-webkit-scrollbar{width:6px;height:6px;} ::-webkit-scrollbar-thumb{background:var(--line2);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark">D5</div>
+    <div class="brand-txt">
+      <b>LDP‑D5 AI</b>
+      <span id="symLabel">Digit Analytics Terminal · not connected</span>
+    </div>
+  </div>
+  <span class="dot" id="connDot"></span>
+  <span class="mode-pill paper" id="modePill">PAPER</span>
+  <button class="icon-btn" id="notifBtn" title="Notifications">🔔</button>
+</div>
+
+<div class="toast-stack" id="toasts"></div>
+
+<div class="wrap">
+<div class="grid">
+
+<!-- ================= LEFT COLUMN ================= -->
+<div>
+
+  <!-- CONNECT -->
+  <div class="section active" data-tab="connect">
+  <div class="card" style="margin-bottom:10px;">
+    <h3>Connection <span class="sub" id="connSub">idle</span></h3>
+    <div class="connrow">
+      <div class="field"><label>Symbol</label>
+        <select id="symbolSel">
+          <option value="1HZ100V">Volatility 100 (1s)</option>
+          <option value="1HZ50V">Volatility 50 (1s)</option>
+          <option value="1HZ25V">Volatility 25 (1s)</option>
+          <option value="1HZ10V">Volatility 10 (1s)</option>
+          <option value="R_100">Volatility 100</option>
+          <option value="R_50">Volatility 50</option>
+          <option value="R_25">Volatility 25</option>
+          <option value="R_10">Volatility 10</option>
+        </select>
+      </div>
+      <div class="field"><label>Deriv App ID</label><input id="appIdIn" placeholder="e.g. 1089"></div>
+    </div>
+    <div class="connrow" style="margin-top:8px;">
+      <div class="field"><label>API Token (PAT) — optional, for trading</label><input id="tokenIn" type="password" placeholder="leave blank for analytics-only"></div>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <button class="btn primary" id="connectBtn">Connect market feed</button>
+      <button class="btn ghost" id="authBtn" disabled>Authorize account</button>
+      <button class="btn danger" id="disconnectBtn" style="display:none;">Disconnect</button>
+    </div>
+    <div class="hint">Market data streams from Deriv's public WebSocket — no token required. Add a Personal Access Token only if you intend to place trades. Credentials are kept in memory for this session only; nothing is sent anywhere except Deriv's API.</div>
+  </div>
+
+  <div class="card" id="acctCard" style="display:none;margin-bottom:10px;">
+    <h3>Account</h3>
+    <div class="row" id="acctRow"></div>
+  </div>
+  </div>
+
+  <!-- Price -->
+  <div class="card" style="margin-bottom:10px;">
+    <h3>Live Price <span class="sub" id="tickRate">— t/min</span></h3>
+    <div class="priceline">
+      <div class="price-big" id="priceBig">— <span class="ld" id="ldSpan"></span></div>
+    </div>
+    <div class="price-meta">
+      <span id="precisionMeta">precision: —</span>
+      <span id="dirMeta">dir: —</span>
+      <span id="speedMeta">speed: —</span>
+      <span id="latMeta">latency: —</span>
+    </div>
+    <canvas class="spark" id="spark"></canvas>
+  </div>
+
+  <!-- Digit matrix -->
+  <div class="card" style="margin-bottom:10px;">
+    <h3>Digit Distribution <span class="sub" id="matrixWin">window 100</span></h3>
+    <div class="digitgrid" id="digitGrid"></div>
+    <div class="row" style="margin-top:9px;gap:5px;" id="winPicker"></div>
+  </div>
+
+  <!-- windows table -->
+  <div class="card">
+    <h3>Multi‑Window Agreement</h3>
+    <table class="wintable" id="winTable">
+      <thead><tr><th>Window</th><th>Over5</th><th>Under5</th><th>Entropy</th><th>n</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- ================= RIGHT COLUMN ================= -->
+<div>
+
+  <!-- Signal -->
+  <div class="section" data-tab="signal">
+  <div class="card" style="margin-bottom:10px;">
+    <h3>Signal Engine <span class="sub" id="regimeTag">regime: —</span></h3>
+    <div class="signal-head">
+      <span class="status-badge NO_TRADE" id="statusBadge">NO_TRADE</span>
+      <svg class="score-ring" viewBox="0 0 36 36">
+        <path d="M18 2 a16 16 0 0 1 0 32 a16 16 0 0 1 0 -32" fill="none" stroke="#232b3d" stroke-width="3"/>
+        <path id="scoreArc" d="M18 2 a16 16 0 0 1 0 32 a16 16 0 0 1 0 -32" fill="none" stroke="#3ED6C4" stroke-width="3"
+          stroke-dasharray="0 100" stroke-linecap="round"/>
+        <text x="18" y="21" text-anchor="middle" font-size="9" fill="#E7ECF5" font-family="monospace" id="scoreTxt">0</text>
+      </svg>
+    </div>
+    <div class="statgrid">
+      <div class="statbox"><div class="l">Contract</div><div class="v" id="stContract">—</div></div>
+      <div class="statbox"><div class="l">Probability</div><div class="v" id="stProb">—</div></div>
+      <div class="statbox"><div class="l">Confidence</div><div class="v" id="stConf">—</div></div>
+      <div class="statbox"><div class="l">Model Agreement</div><div class="v" id="stAgree">—</div></div>
+      <div class="statbox"><div class="l">Statistical Edge</div><div class="v" id="stEdge">—</div></div>
+      <div class="statbox"><div class="l">Expected Value</div><div class="v" id="stEV">—</div></div>
+    </div>
+    <ul class="reasonlist" id="reasonList"></ul>
+  </div>
+
+  <div class="card" style="margin-bottom:10px;">
+    <h3>Contract Ranking</h3>
+    <div id="rankList"></div>
+  </div>
+  </div>
+
+  <!-- Trade -->
+  <div class="section" data-tab="trade">
+  <div class="card" style="margin-bottom:10px;">
+    <h3>Execution</h3>
+    <div class="toggle" style="margin-bottom:8px;">
+      <div class="t">Auto‑trade qualified signals<small>Executes BEST_CANDIDATE automatically</small></div>
+      <button class="switch" id="autoSwitch"></button>
+    </div>
+    <div class="toggle" style="margin-bottom:8px;">
+      <div class="t">Live execution<small>PAPER MODE — LIVE EXECUTION DISABLED by default</small></div>
+      <button class="switch" id="liveSwitch"></button>
+    </div>
+    <div class="tp-grid" style="margin-top:4px;">
+      <div class="field"><label>Stake</label><input id="stakeIn" type="number" value="1" min="0.35" step="0.01"></div>
+      <div class="field"><label>Duration (ticks)</label><input id="durIn" type="number" value="1" min="1" step="1"></div>
+      <div class="field"><label>Min score to trade</label><input id="minScoreIn" type="number" value="72" min="0" max="100"></div>
+      <div class="field"><label>Max consecutive losses</label><input id="maxLossIn" type="number" value="4" min="1"></div>
+      <div class="field"><label>Session stop‑loss</label><input id="slIn" type="number" value="20" min="0"></div>
+      <div class="field"><label>Session take‑profit</label><input id="tpIn" type="number" value="30" min="0"></div>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <button class="btn primary" id="manualExec" disabled>Execute best candidate now</button>
+      <button class="btn danger" id="killBtn">Kill switch</button>
+    </div>
+    <div class="hint" id="riskHint">Risk engine armed · paper mode.</div>
+  </div>
+
+  <div class="card" style="margin-bottom:10px;">
+    <h3>Session <span class="sub" id="sessPnlTag">P/L 0.00</span></h3>
+    <div class="statgrid">
+      <div class="statbox"><div class="l">Trades</div><div class="v" id="sTrades">0</div></div>
+      <div class="statbox"><div class="l">Win rate</div><div class="v" id="sWinRate">—</div></div>
+      <div class="statbox"><div class="l">Profit factor</div><div class="v" id="sPF">—</div></div>
+      <div class="statbox"><div class="l">Consec. loss</div><div class="v" id="sConsec">0</div></div>
+      <div class="statbox"><div class="l">Balance</div><div class="v" id="sBal">—</div></div>
+      <div class="statbox"><div class="l">Brier score</div><div class="v" id="sBrier">—</div></div>
+      <div class="statbox"><div class="l">Execution errors</div><div class="v" id="sErrors">0</div></div>
+    </div>
+    <button class="btn ghost" id="resetSessionBtn" style="margin-top:10px;width:100%;">Reset session stats</button>
+  </div>
+  </div>
+
+  <!-- Journal -->
+  <div class="section" data-tab="journal">
+  <div class="card" style="margin-bottom:10px;">
+    <h3>Trade Journal <span class="sub" id="journalCount">0 entries</span></h3>
+    <div class="journal" id="journalList"></div>
+    <div class="row" style="margin-top:9px;">
+      <button class="btn ghost" id="exportBtn">Export CSV</button>
+      <button class="btn ghost" id="clearJournalBtn">Clear journal</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>System Log</h3>
+    <div class="log" id="sysLog"></div>
+  </div>
+  </div>
+
+</div>
+</div>
+</div>
+
+<div class="tabbar">
+  <button class="tabbtn active" data-tab="connect">📡<span>Feed</span></button>
+  <button class="tabbtn" data-tab="signal">🎯<span>Signal</span></button>
+  <button class="tabbtn" data-tab="trade">⚙️<span>Trade</span></button>
+  <button class="tabbtn" data-tab="journal">📓<span>Journal</span></button>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-bg" id="confirmModal">
+  <div class="modal">
+    <h4>Enable live execution?</h4>
+    <p>This switches from paper trading to <b>real contract execution</b> on your Deriv account using the token you provided. Real money will be placed on contracts the signal engine selects. This cannot be undone silently — you can turn it off any time from the Trade tab.</p>
+    <p>Type <b>CONFIRM</b> to proceed.</p>
+    <input id="confirmInput" placeholder="CONFIRM" autocapitalize="off" autocomplete="off">
+    <div class="row" style="justify-content:flex-end;">
+      <button class="btn ghost" id="confirmCancel">Cancel</button>
+      <button class="btn danger" id="confirmOk">Enable live execution</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================================================
+   LDP-D5 AI — Digit Analytics & Trading Terminal
+   Real statistical pipeline: Tick -> Digit -> Rolling Windows -> Distribution/Transition/
+   Streak/Entropy/Regime/Bayesian -> Fusion -> EV -> Ranking -> Validation -> Risk -> Execution
+   No Math.random() is used anywhere in prediction, scoring or EV logic.
+   ========================================================================================= */
+
+const LOCAL_KEY = 'ldp_d5_ai_state_v1';
+const WINDOWS = [10,25,50,100,250,500,1000];
+const MAX_HISTORY = 1000;
+
+/* ---------------- tiny event bus ---------------- */
+const Bus = (()=>{ const m={}; return {
+  on(ev,fn){ (m[ev]=m[ev]||[]).push(fn); },
+  emit(ev,data){ (m[ev]||[]).forEach(fn=>{ try{fn(data);}catch(e){ log('ERR '+ev+': '+e.message);} }); }
+};})();
+
+/* ---------------- logger ---------------- */
+function log(msg){
+  const el = document.getElementById('sysLog');
+  const t = new Date().toLocaleTimeString();
+  const d = document.createElement('div');
+  d.innerHTML = `<b>${t}</b> ${escapeHtml(msg)}`;
+  el.prepend(d);
+  while(el.children.length>200) el.removeChild(el.lastChild);
+}
+function escapeHtml(s){ return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+function toast(msg,type){
+  const stack = document.getElementById('toasts');
+  const el = document.createElement('div');
+  el.className = 'toast'+(type?' '+type:'');
+  el.textContent = msg;
+  stack.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 4200);
+  if(document.getElementById('notifBtn').classList.contains('on') && 'Notification' in window && Notification.permission==='granted'){
+    try{ new Notification('LDP-D5 AI', {body:msg}); }catch(e){}
+  }
+}
+
+/* =========================================================================================
+   STATE MANAGER
+   ========================================================================================= */
+const AppState = {
+  connection:{ connected:false, authorized:false, latency:0, lastHeartbeat:null, account:null, balance:null, currency:null },
+  market:{ symbol:null, price:null, precision:null, lastDigit:null, tickTime:null, tickSpeed:null, direction:null },
+  digits:{ history:[] },
+  risk:{ tradingEnabled:true, consecutiveLosses:0, sessionPnL:0, wins:0, losses:0, trades:0, brierSum:0, brierN:0, autoTrade:false, live:false, killed:false },
+  learning:{ modelWeights:{ frequency:0.20, transition:0.15, momentum:0.15, streak:0.10, entropy:0.10, regime:0.10, bayesian:0.20 } },
+  journal:[]
+};
+
+function saveLocal(){
+  try{
+    localStorage.setItem(LOCAL_KEY, JSON.stringify({
+      risk:{ autoTrade:AppState.risk.autoTrade, sessionPnL:AppState.risk.sessionPnL, wins:AppState.risk.wins,
+             losses:AppState.risk.losses, trades:AppState.risk.trades, consecutiveLosses:AppState.risk.consecutiveLosses,
+             brierSum:AppState.risk.brierSum, brierN:AppState.risk.brierN },
+      learning: AppState.learning,
+      journal: AppState.journal.slice(-300),
+      settings:{ stake:$('stakeIn').value, dur:$('durIn').value, minScore:$('minScoreIn').value,
+                 maxLoss:$('maxLossIn').value, sl:$('slIn').value, tp:$('tpIn').value, symbol:$('symbolSel').value }
+    }));
+  }catch(e){}
+}
+function loadLocal(){
+  try{
+    const raw = localStorage.getItem(LOCAL_KEY);
+    if(!raw) return;
+    const d = JSON.parse(raw);
+    if(d.risk) Object.assign(AppState.risk, d.risk, {live:false, killed:false, tradingEnabled:true});
+    if(d.learning) Object.assign(AppState.learning, d.learning);
+    if(d.journal) AppState.journal = d.journal;
+    if(d.settings){
+      $('stakeIn').value=d.settings.stake??1; $('durIn').value=d.settings.dur??1;
+      $('minScoreIn').value=d.settings.minScore??72; $('maxLossIn').value=d.settings.maxLoss??4;
+      $('slIn').value=d.settings.sl??20; $('tpIn').value=d.settings.tp??30;
+      if(d.settings.symbol) $('symbolSel').value=d.settings.symbol;
+    }
+  }catch(e){}
+}
+function $(id){ return document.getElementById(id); }
+
+/* =========================================================================================
+   DIGIT ENGINE — precision-aware last digit extraction
+   ========================================================================================= */
+const DigitEngine = {
+  extractLastDigit(quoteStr, precision){
+    // quoteStr must be the exact string representation from the API (preserves trailing zeros)
+    let s = String(quoteStr);
+    if(!s.includes('.')){
+      if(precision>0) return 0; // integer quote at given precision -> trailing implied zero
+      return parseInt(s[s.length-1],10);
+    }
+    const [, dec=''] = s.split('.');
+    const padded = dec.padEnd(precision,'0');
+    const ch = padded[precision-1] ?? padded[padded.length-1] ?? '0';
+    return parseInt(ch,10);
+  }
+};
+
+/* =========================================================================================
+   TICK BUFFER — rolling incremental digit history
+   ========================================================================================= */
+const TickBuffer = {
+  push(digit){
+    AppState.digits.history.push(digit);
+    if(AppState.digits.history.length>MAX_HISTORY) AppState.digits.history.shift();
+  },
+  last(n){ const h=AppState.digits.history; return h.slice(Math.max(0,h.length-n)); },
+  size(){ return AppState.digits.history.length; }
+};
+
+/* =========================================================================================
+   DISTRIBUTION ENGINE
+   ========================================================================================= */
+function distribution(arr){
+  const counts = {}; for(let i=0;i<10;i++) counts[i]=0;
+  arr.forEach(d=>counts[d]++);
+  const total = arr.length || 1;
+  const probs = {}; for(let i=0;i<10;i++) probs[i]= counts[i]/total;
+  return {counts, probs, total: arr.length};
+}
+
+/* =========================================================================================
+   TRANSITION ENGINE — 10x10 matrix with Laplace smoothing
+   ========================================================================================= */
+function transitionMatrix(arr){
+  const M = Array.from({length:10},()=>Array(10).fill(0));
+  const rowTotals = Array(10).fill(0);
+  for(let i=1;i<arr.length;i++){
+    M[arr[i-1]][arr[i]]++; rowTotals[arr[i-1]]++;
+  }
+  const ALPHA = 1; // additive smoothing
+  const P = Array.from({length:10},(_,i)=> Array.from({length:10},(_,j)=> (M[i][j]+ALPHA)/(rowTotals[i]+10*ALPHA)));
+  return {M,P,rowTotals};
+}
+
+/* =========================================================================================
+   STREAK ENGINE
+   ========================================================================================= */
+function streakInfo(arr){
+  if(arr.length<2) return {currentDigitStreak:0, overStreak:0, underStreak:0, lastDigit:arr[arr.length-1]??null};
+  let cds=1; for(let i=arr.length-1;i>0;i--){ if(arr[i]===arr[i-1]) cds++; else break; }
+  const isOver = d=>d>5, isUnder = d=>d<5;
+  let os=0; for(let i=arr.length-1;i>=0;i--){ if(isOver(arr[i])) os++; else break; }
+  let us=0; for(let i=arr.length-1;i>=0;i--){ if(isUnder(arr[i])) us++; else break; }
+  return {currentDigitStreak:cds, overStreak:os, underStreak:us, lastDigit:arr[arr.length-1]};
+}
+
+/* =========================================================================================
+   ENTROPY ENGINE
+   ========================================================================================= */
+function entropyOf(probs){
+  let H=0;
+  for(let i=0;i<10;i++){ const p=probs[i]; if(p>0) H += -p*Math.log2(p); }
+  return H / Math.log2(10);
+}
+
+/* =========================================================================================
+   REGIME ENGINE — rule based
+   ========================================================================================= */
+function classifyRegime(entropyN, tickSpeedMs, streaks){
+  if(streaks.currentDigitStreak>=4) return 'DIGIT_CONCENTRATION';
+  if(entropyN>0.97) return 'DIGIT_DISPERSION';
+  if(entropyN<0.85) return 'UNSTABLE';
+  if(tickSpeedMs!=null && tickSpeedMs<600) return 'FAST_TICKING';
+  if(tickSpeedMs!=null && tickSpeedMs>1800) return 'SLOW_TICKING';
+  return 'NORMAL';
+}
+
+/* =========================================================================================
+   BAYESIAN ENGINE — Beta-Binomial posterior for a binary event (e.g. digit==target)
+   ========================================================================================= */
+function bayesianPosterior(successCount, total, priorAlpha, priorBeta){
+  const a = priorAlpha + successCount;
+  const b = priorBeta + (total - successCount);
+  const posterior = a/(a+b);
+  const reliability = Math.min(1, total/100); // more samples -> more reliable
+  return {prior: priorAlpha/(priorAlpha+priorBeta), posterior, a, b, sampleSize: total, reliability};
+}
+
+/* =========================================================================================
+   PREDICTION ENGINE — builds per-model outputs for DIFFERS d and OVER5/UNDER5
+   ========================================================================================= */
+function buildModels(){
+  const full = AppState.digits.history;
+  if(full.length<20) return null;
+
+  const windowsData = {};
+  WINDOWS.forEach(w=>{
+    if(full.length< Math.min(w,20)) return;
+    const arr = TickBuffer.last(w);
+    windowsData[w] = { arr, dist: distribution(arr) };
+  });
+
+  const primaryW = WINDOWS.filter(w=>windowsData[w]).slice(-1)[0] || null; // largest available window
+  if(!primaryW) return null;
+  const arr100 = windowsData[100] ? windowsData[100].arr : windowsData[primaryW].arr;
+  const trans = transitionMatrix(arr100.length>30?arr100:TickBuffer.last(Math.max(50,full.length)));
+  const streaks = streakInfo(full);
+  const distFull = distribution(arr100);
+  const H = entropyOf(distFull.probs);
+  const lastDigit = full[full.length-1];
+  const regime = classifyRegime(H, AppState.market.tickSpeed, streaks);
+
+  // per-target model outputs (targets 0-9 for DIFFERS, and OVER5/UNDER5 as aggregate)
+  const targets = {};
+  for(let d=0; d<10; d++){
+    // frequency model: probability next digit == d, from largest reliable window
+    const freqSamples = [];
+    WINDOWS.forEach(w=>{ if(windowsData[w]) freqSamples.push({w, p:windowsData[w].dist.probs[d], n:windowsData[w].dist.total}); });
+    const freqAgg = weightedByRecency(freqSamples);
+
+    // transition model: P(next=d | last=lastDigit)
+    const transP = (lastDigit!=null) ? trans.P[lastDigit][d] : 0.1;
+    const transReliability = Math.min(1, trans.rowTotals[lastDigit||0]/40);
+
+    // momentum: deviation of short window vs long window for this digit
+    const shortP = windowsData[10] ? windowsData[10].dist.probs[d] : freqAgg.p;
+    const longP = windowsData[Math.max(...Object.keys(windowsData).map(Number))] ? windowsData[Math.max(...Object.keys(windowsData).map(Number))].dist.probs[d] : freqAgg.p;
+    const momentum = clamp01(0.5 + (shortP-longP)*2);
+
+    // streak: data-driven — use the empirical immediate-repeat rate from the observed transition
+    // matrix diagonal instead of a hardcoded constant. This ties the "streak" model to actual history
+    // rather than an assumed 90% baseline dressed up as a feature.
+    const diagCount = (lastDigit!=null && trans.M[lastDigit]) ? trans.M[lastDigit][lastDigit] : 0;
+    const diagTotal = (lastDigit!=null) ? (trans.rowTotals[lastDigit]||0) : 0;
+    const empiricalRepeatRate = (diagCount+1)/(diagTotal+10); // Laplace-smoothed repeat probability
+    const streakP = d===lastDigit ? clamp01(1-empiricalRepeatRate) : clamp01(1-((1-empiricalRepeatRate)/9));
+
+    // entropy: high entropy -> distribution closer to uniform 0.1 for each digit differs
+    const entropyP = 0.9*H + 0.1*(1-Math.abs(freqAgg.p-0.1)*5);
+
+    // regime: NORMAL/DISPERSION favor stats trust; CONCENTRATION/UNSTABLE reduce it
+    const regimeTrust = {NORMAL:0.85, DIGIT_DISPERSION:0.9, DIGIT_CONCENTRATION:0.55, UNSTABLE:0.45, FAST_TICKING:0.75, SLOW_TICKING:0.7}[regime] ?? 0.7;
+    const regimeP = 1 - freqAgg.p*(1-regimeTrust); // pulls differs prob toward regimeTrust when freq disagrees
+
+    // bayesian posterior for "differs from d" = 1 - P(digit==d)
+    const eqCount = arr100.filter(x=>x===d).length;
+    const bayes = bayesianPosterior(arr100.length-eqCount, arr100.length, 9, 1); // prior belief differs~90%
+
+    const differsP_frequency = clamp01(1-freqAgg.p);
+    const differsP_transition = clamp01(1-transP);
+    const differsP_momentum = clamp01(1-((1-momentum)*freqAgg.p + momentum*(1-freqAgg.p))); // momentum nudges away from freq
+    const differsP_streak = clamp01(streakP);
+    const differsP_entropy = clamp01(entropyP);
+    const differsP_regime = clamp01(regimeP);
+    const differsP_bayes = clamp01(bayes.posterior);
+
+    const models = [
+      {model:'frequency', p:differsP_frequency, reliability: Math.min(1, freqAgg.n/150), sampleSize:freqAgg.n},
+      {model:'transition', p:differsP_transition, reliability: transReliability, sampleSize:trans.rowTotals[lastDigit||0]},
+      {model:'momentum', p:differsP_momentum, reliability: windowsData[10]?0.6:0.3, sampleSize: windowsData[10]?10:0},
+      {model:'streak', p:differsP_streak, reliability: 0.5, sampleSize: streaks.currentDigitStreak},
+      {model:'entropy', p:differsP_entropy, reliability: 0.55, sampleSize: arr100.length},
+      {model:'regime', p:differsP_regime, reliability: regimeTrust, sampleSize: arr100.length},
+      {model:'bayesian', p:differsP_bayes, reliability: bayes.reliability, sampleSize: bayes.sampleSize}
+    ];
+    targets['DIFFERS_'+d] = fuse(models, 'DIFFERS', d, 0.9);
+  }
+
+  // OVER5 / UNDER5 — computed as two INDEPENDENT aggregates, never as complements of each other.
+  // OVER5  = P(digit in {6,7,8,9})
+  // UNDER5 = P(digit in {0,1,2,3,4})
+  // Digit 5 belongs to neither and is intentionally excluded from both (matches Deriv's own
+  // DIGITOVER/DIGITUNDER barrier=5 contract definitions). 1 - OVER5 would silently fold digit 5
+  // into UNDER5 and was a real bug in the previous build — fixed here.
+  {
+    const OVER_DIGITS=[6,7,8,9], UNDER_DIGITS=[0,1,2,3,4];
+    const largestW = Math.max(...Object.keys(windowsData).map(Number));
+
+    const overFreq  = weightedByRecency(WINDOWS.filter(w=>windowsData[w]).map(w=>({w, p: sumProbs(windowsData[w].dist.probs,OVER_DIGITS),  n:windowsData[w].dist.total})));
+    const underFreq = weightedByRecency(WINDOWS.filter(w=>windowsData[w]).map(w=>({w, p: sumProbs(windowsData[w].dist.probs,UNDER_DIGITS), n:windowsData[w].dist.total})));
+
+    const overShort  = windowsData[10]? sumProbs(windowsData[10].dist.probs,OVER_DIGITS)  : overFreq.p;
+    const overLong   = windowsData[largestW]? sumProbs(windowsData[largestW].dist.probs,OVER_DIGITS)  : overFreq.p;
+    const underShort = windowsData[10]? sumProbs(windowsData[10].dist.probs,UNDER_DIGITS) : underFreq.p;
+    const underLong  = windowsData[largestW]? sumProbs(windowsData[largestW].dist.probs,UNDER_DIGITS) : underFreq.p;
+    const overMomentum  = clamp01(0.4+(overShort-overLong)*2);
+    const underMomentum = clamp01(0.5+(underShort-underLong)*2);
+
+    const overStreakP  = clamp01(0.4 + Math.min(streaks.overStreak,6)*0.02 - Math.min(streaks.underStreak,6)*0.02);
+    const underStreakP = clamp01(0.5 + Math.min(streaks.underStreak,6)*0.02 - Math.min(streaks.overStreak,6)*0.02);
+
+    const overEntropyP  = clamp01(0.4 + (H-0.9)*0.3);
+    const underEntropyP = clamp01(0.5 + (H-0.9)*0.3);
+
+    const regimeTrust2 = {NORMAL:0.8, DIGIT_DISPERSION:0.85, DIGIT_CONCENTRATION:0.5, UNSTABLE:0.45, FAST_TICKING:0.7, SLOW_TICKING:0.7}[regime] ?? 0.7;
+    const overRegimeP  = 0.4 + (overFreq.p-0.4)*regimeTrust2;
+    const underRegimeP = 0.5 + (underFreq.p-0.5)*regimeTrust2;
+
+    const overCount  = arr100.filter(d=>d>5 && d<=9).length;
+    const underCount = arr100.filter(d=>d<5).length;
+    const bayesOver  = bayesianPosterior(overCount,  arr100.length, 4, 6); // prior 4/10=0.4, matches 4-digit OVER set
+    const bayesUnder = bayesianPosterior(underCount, arr100.length, 5, 5); // prior 5/10=0.5, matches 5-digit UNDER set
+
+    const transOverP  = (lastDigit!=null) ? OVER_DIGITS.reduce((s,d)=>s+trans.P[lastDigit][d],0)  : 0.4;
+    const transUnderP = (lastDigit!=null) ? UNDER_DIGITS.reduce((s,d)=>s+trans.P[lastDigit][d],0) : 0.5;
+    const transReliability2 = Math.min(1, trans.rowTotals[lastDigit||0]/40);
+
+    const overModels = [
+      {model:'frequency', p:overFreq.p, reliability: Math.min(1, overFreq.n/150), sampleSize:overFreq.n},
+      {model:'transition', p:transOverP, reliability: transReliability2, sampleSize: trans.rowTotals[lastDigit||0]},
+      {model:'momentum', p:overMomentum, reliability: windowsData[10]?0.6:0.3, sampleSize: windowsData[10]?10:0},
+      {model:'streak', p:overStreakP, reliability:0.5, sampleSize: Math.max(streaks.overStreak,streaks.underStreak)},
+      {model:'entropy', p:overEntropyP, reliability:0.5, sampleSize: arr100.length},
+      {model:'regime', p:overRegimeP, reliability: regimeTrust2, sampleSize: arr100.length},
+      {model:'bayesian', p:bayesOver.posterior, reliability: bayesOver.reliability, sampleSize: bayesOver.sampleSize}
+    ];
+    targets['OVER5'] = fuse(overModels,'OVER5',null,0.4);
+
+    const underModels = [
+      {model:'frequency', p:underFreq.p, reliability: Math.min(1, underFreq.n/150), sampleSize:underFreq.n},
+      {model:'transition', p:transUnderP, reliability: transReliability2, sampleSize: trans.rowTotals[lastDigit||0]},
+      {model:'momentum', p:underMomentum, reliability: windowsData[10]?0.6:0.3, sampleSize: windowsData[10]?10:0},
+      {model:'streak', p:underStreakP, reliability:0.5, sampleSize: Math.max(streaks.overStreak,streaks.underStreak)},
+      {model:'entropy', p:underEntropyP, reliability:0.5, sampleSize: arr100.length},
+      {model:'regime', p:underRegimeP, reliability: regimeTrust2, sampleSize: arr100.length},
+      {model:'bayesian', p:bayesUnder.posterior, reliability: bayesUnder.reliability, sampleSize: bayesUnder.sampleSize}
+    ];
+    targets['UNDER5'] = fuse(underModels,'UNDER5',null,0.5);
+  }
+
+  return {targets, regime, entropy:H, streaks, lastDigit, distFull, windowsData, trans};
+}
+
+function sumProbs(probs, idxs){ return idxs.reduce((s,i)=>s+probs[i],0); }
+function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+function weightedByRecency(samples){
+  // smaller windows weighted slightly higher (more recent regime-sensitive) but larger windows more reliable;
+  // combine via sample-size-weighted average, which is statistically defensible (more data -> more weight)
+  if(!samples.length) return {p:0.1, n:0};
+  let num=0, den=0;
+  samples.forEach(s=>{ const w = Math.sqrt(s.n||1); num += s.p*w; den += w; });
+  return {p: den? num/den : 0.1, n: samples.reduce((s,x)=>s+(x.n||0),0)};
+}
+
+/* =========================================================================================
+   FUSION ENGINE
+   ========================================================================================= */
+function fuse(models, contract, target, baseline){
+  // baseline = the contract's theoretical break-even-ignoring probability under a uniform digit
+  // assumption (DIFFERS=0.9, OVER5=0.4, UNDER5=0.5). "Edge" is measured against THIS, not a flat
+  // 50%, so a DIFFERS candidate sitting at its 90% baseline is correctly reported as ~zero edge
+  // rather than being mistaken for a huge advantage over a coinflip.
+  baseline = baseline ?? 0.5;
+  const W = AppState.learning.modelWeights;
+  let wsum=0, num=0, relSum=0;
+  models.forEach(m=>{
+    const base = W[m.model] ?? 0.1;
+    const w = base * (0.35 + 0.65*m.reliability); // low-reliability models contribute less
+    wsum += w; num += w*m.p; relSum += m.reliability;
+  });
+  const probability = wsum? clamp01(num/wsum) : baseline;
+  const mean = models.reduce((s,m)=>s+m.p,0)/models.length;
+  const variance = models.reduce((s,m)=>s+Math.pow(m.p-mean,2),0)/models.length;
+  const dispersion = Math.sqrt(variance);
+  const meanReliability = relSum/models.length;
+  // agreement combines low dispersion AND the average reliability of the models that agree —
+  // several unreliable models converging is weaker evidence than several reliable ones agreeing.
+  const agreement = clamp01((1 - dispersion*2.5) * (0.5 + 0.5*meanReliability));
+  const confidence = clamp01(probability*0.55 + agreement*0.45);
+  const edgeRaw = probability - baseline; // signed, relative to the contract's real baseline
+  const edge = clamp01(0.5 + edgeRaw*2.5); // 0..1, 0.5 = at baseline, >0.5 = edge above baseline
+  const sampleSize = Math.max(...models.map(m=>m.sampleSize||0));
+  return {contract, target, probability, baseline, edgeRaw, confidence, agreement, edge, dispersion, sampleSize, models};
+}
+
+/* =========================================================================================
+   EXPECTED VALUE ENGINE — uses real proposal payout when available, else EV_UNAVAILABLE
+   ========================================================================================= */
+const ProposalCache = {}; // key: contractType|target -> {payout, askPrice, ts}
+const EV_MAX_AGE_MS = 6000; // proposals refresh every ~4s; anything older than this is stale, not usable
+function computeEV(contract, target, probability, stake){
+  const key = contract+'|'+(target??'');
+  const q = ProposalCache[key];
+  if(!q) return {status:'EV_UNAVAILABLE', ev:null};
+  if((Date.now()-q.ts) > EV_MAX_AGE_MS) return {status:'EV_STALE', ev:null};
+  // EV = P(win) x net profit if win  -  P(loss) x stake risked (ask price is what's actually staked)
+  const profitIfWin = q.payout - q.askPrice;
+  const ev = probability*profitIfWin - (1-probability)*q.askPrice;
+  return {status:'OK', ev, payout:q.payout, askPrice:q.askPrice};
+}
+
+/* =========================================================================================
+   SCORING + RANKING + VALIDATION
+   ========================================================================================= */
+function scoreOf(fused, ev, regime){
+  // Weights below are intentionally non-overlapping: agreement is used exactly once (transition
+  // and momentum quality were previously derived as pure copies of agreement, which silently
+  // triple-counted the same signal). EV_UNAVAILABLE/STALE are penalized, not given a flat filler
+  // score, since "we don't know EV" and "EV is mediocre" are different states.
+  const probQ = fused.probability*100;
+  const edgeQ = fused.edge*100;
+  const agreeQ = fused.agreement*100;
+  const regimeQ = {NORMAL:80, DIGIT_DISPERSION:85, DIGIT_CONCENTRATION:50, UNSTABLE:35, FAST_TICKING:70, SLOW_TICKING:70}[regime] ?? 60;
+  const entropyQ = clamp01(1-fused.dispersion*2)*100;
+  const evQ = ev.status==='OK' ? clamp01((ev.ev+1)/2)*100 : (ev.status==='EV_STALE'?15:0);
+  let score = probQ*0.35 + edgeQ*0.25 + agreeQ*0.15 + regimeQ*0.10 + entropyQ*0.05 + evQ*0.10;
+  return Math.max(0, Math.min(100, score));
+}
+
+function validate(fused, score, ev, minScore){
+  const reasons=[]; const rejections=[];
+  if(fused.sampleSize<40){ rejections.push('Insufficient sample size ('+fused.sampleSize+')'); }
+  else reasons.push('Sufficient data ('+fused.sampleSize+' samples)');
+  if(fused.probability<0.55){ rejections.push('Probability below minimum threshold'); }
+  else reasons.push('Probability supports target ('+(fused.probability*100).toFixed(1)+'%)');
+  if(ev.status!=='OK'){ rejections.push('Live proposal/EV not available for this candidate ('+ev.status+')'); }
+  else reasons.push('Expected value confirmed from live proposal ('+(ev.ev>=0?'+':'')+ev.ev.toFixed(3)+')');
+  if(fused.agreement<0.45){ rejections.push('Model disagreement too high'); }
+  else reasons.push('Model agreement acceptable ('+(fused.agreement*100).toFixed(0)+'%)');
+  if(score<minScore){ rejections.push('Score below configured minimum ('+score.toFixed(1)+' < '+minScore+')'); }
+  else reasons.push('Score qualifies ('+score.toFixed(1)+')');
+  if(AppState.risk.killed){ rejections.push('Kill switch engaged'); }
+  if(AppState.risk.consecutiveLosses >= Number($('maxLossIn').value||99)){ rejections.push('Consecutive loss limit reached'); }
+  if(!AppState.connection.connected){ rejections.push('No market connection'); }
+  return {reasons, rejections, pass: rejections.length===0};
+}
+
+/* =========================================================================================
+   RENDER PIPELINE
+   ========================================================================================= */
+let activeWindow = 100;
+function renderDigitGrid(){
+  const grid = $('digitGrid'); grid.innerHTML='';
+  const arr = TickBuffer.last(activeWindow);
+  const dist = distribution(arr);
+  const maxP = Math.max(...Object.values(dist.probs), 0.0001);
+  const lastDigit = AppState.digits.history[AppState.digits.history.length-1];
+  for(let d=0; d<10; d++){
+    const p = dist.probs[d];
+    const cell = document.createElement('div');
+    cell.className = 'dcell'+(p===maxP&&dist.total>0?' hot':'')+(d===lastDigit?' last':'');
+    cell.innerHTML = `<div class="d">${d}</div><div class="p">${(p*100).toFixed(1)}%</div><div class="bar" style="width:${(p*100).toFixed(0)}%"></div>`;
+    grid.appendChild(cell);
+  }
+  $('matrixWin').textContent = 'window '+activeWindow+' · n='+dist.total;
+}
+function renderWinPicker(){
+  const wrap = $('winPicker'); wrap.innerHTML='';
+  WINDOWS.forEach(w=>{
+    const b = document.createElement('button');
+    b.className='btn ghost'; b.style.padding='5px 9px'; b.style.fontSize='10.5px';
+    if(w===activeWindow){ b.style.background='var(--teal-dim)'; b.style.color='#08211d'; b.style.borderColor='var(--teal)'; }
+    b.textContent=w;
+    b.onclick=()=>{ activeWindow=w; renderDigitGrid(); };
+    wrap.appendChild(b);
+  });
+}
+function renderWinTable(models){
+  const tbody = document.querySelector('#winTable tbody'); tbody.innerHTML='';
+  WINDOWS.forEach(w=>{
+    const arr = TickBuffer.last(w);
+    if(arr.length<Math.min(w,10)) return;
+    const dist = distribution(arr);
+    const over = sumProbs(dist.probs,[6,7,8,9]);
+    const under = 1-over;
+    const H = entropyOf(dist.probs);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${w}</td><td>${(over*100).toFixed(1)}%</td><td>${(under*100).toFixed(1)}%</td><td>${H.toFixed(3)}</td><td>${dist.total}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+let lastDecision = null;
+function renderSignal(pred){
+  if(!pred){
+    $('statusBadge').className='status-badge NO_TRADE'; $('statusBadge').textContent='NO_TRADE';
+    $('reasonList').className='reasonlist reject';
+    $('reasonList').innerHTML = '<li>Insufficient tick history — collecting data…</li>';
+    setScoreArc(0);
+    return;
+  }
+  const minScore = Number($('minScoreIn').value||70);
+  // rank all targets
+  const entries = Object.entries(pred.targets).map(([key,f])=>{
+    const contract = f.contract, target=f.target;
+    const stake = Number($('stakeIn').value||1);
+    const ev = computeEV(contract, target, f.probability, stake);
+    const score = scoreOf(f, ev, pred.regime);
+    const v = validate(f, score, ev, minScore);
+    return {key, f, ev, score, v, contract, target};
+  }).sort((a,b)=>b.score-a.score);
+
+  const qualified = entries.filter(e=>e.v.pass);
+  const best = qualified[0] || null;
+  lastDecision = best ? {
+    status: best.score>=minScore+8 ? 'READY' : 'WATCH',
+    contract: best.contract, target: best.target, probability: best.f.probability, confidence: best.f.confidence,
+    statisticalEdge: best.f.edgeRaw, baseline: best.f.baseline, expectedValue: best.ev.status==='OK'?best.ev.ev:null, score: best.score,
+    regime: pred.regime, modelAgreement: best.f.agreement, sampleSize: best.f.sampleSize,
+    reasons: best.v.reasons, rejectionReasons: [], timestamp: Date.now()
+  } : {
+    status:'NO_TRADE', contract:null, reasons:[], rejectionReasons: entries[0]? entries[0].v.rejections : ['No candidates evaluated'], timestamp: Date.now()
+  };
+
+  $('regimeTag').textContent = 'regime: '+pred.regime;
+  const badge = $('statusBadge');
+  badge.className = 'status-badge '+lastDecision.status; badge.textContent = lastDecision.status;
+  setScoreArc(lastDecision.score||0);
+
+  $('stContract').textContent = lastDecision.contract ? (lastDecision.contract+(lastDecision.target!=null?' '+lastDecision.target:'')) : '—';
+  $('stProb').textContent = lastDecision.probability!=null ? (lastDecision.probability*100).toFixed(1)+'%' : '—';
+  $('stConf').textContent = lastDecision.confidence!=null ? (lastDecision.confidence*100).toFixed(1)+'%' : '—';
+  $('stAgree').textContent = lastDecision.modelAgreement!=null ? (lastDecision.modelAgreement*100).toFixed(0)+'%' : '—';
+  $('stEdge').textContent = lastDecision.statisticalEdge!=null ? (lastDecision.statisticalEdge>=0?'+':'')+(lastDecision.statisticalEdge*100).toFixed(1)+'pp vs '+(lastDecision.baseline*100).toFixed(0)+'% baseline' : '—';
+  $('stEV').textContent = lastDecision.expectedValue!=null ? (lastDecision.expectedValue>=0?'+':'')+lastDecision.expectedValue.toFixed(3) : 'EV_UNAVAILABLE';
+
+  const rl = $('reasonList');
+  if(lastDecision.status==='NO_TRADE'){
+    rl.className='reasonlist reject';
+    rl.innerHTML = (lastDecision.rejectionReasons||['No qualified candidate']).map(r=>`<li>${escapeHtml(r)}</li>`).join('');
+  }else{
+    rl.className='reasonlist';
+    rl.innerHTML = lastDecision.reasons.map(r=>`<li>${escapeHtml(r)}</li>`).join('');
+  }
+
+  const rankWrap = $('rankList'); rankWrap.innerHTML='';
+  entries.slice(0,12).forEach((e,i)=>{
+    const row = document.createElement('div');
+    row.className='rank-row'+(best && e.key===best.key?' best':'');
+    const label = e.contract+(e.target!=null?' '+e.target:'');
+    row.innerHTML = `<div class="name">${label}</div><div class="barwrap"><div class="barfill" style="width:${e.score.toFixed(0)}%"></div></div><div class="val">${e.score.toFixed(0)}</div>`;
+    rankWrap.appendChild(row);
+  });
+
+  $('manualExec').disabled = !(best);
+  // auto-trade
+  if(best && lastDecision.status==='READY'){
+    maybeAutoExecute(best);
+  }
+}
+
+function setScoreArc(score){
+  const circ = 100; // path length approximated as percentage via dasharray trick
+  const arc = document.getElementById('scoreArc');
+  arc.setAttribute('stroke-dasharray', (score) + ' 100');
+  const color = score>=80?'#3ED6C4':score>=60?'#E8A33D':'#F0556B';
+  arc.setAttribute('stroke', color);
+  document.getElementById('scoreTxt').textContent = Math.round(score);
+}
+
+/* =========================================================================================
+   RISK / SESSION RENDER
+   ========================================================================================= */
+function renderSession(){
+  const r = AppState.risk;
+  $('sTrades').textContent = r.trades;
+  $('sWinRate').textContent = r.trades? ((r.wins/r.trades)*100).toFixed(1)+'%' : '—';
+  const grossWin = AppState.journal.filter(j=>j.result==='win').reduce((s,j)=>s+j.pnl,0);
+  const grossLoss = Math.abs(AppState.journal.filter(j=>j.result==='loss').reduce((s,j)=>s+j.pnl,0));
+  $('sPF').textContent = grossLoss>0 ? (grossWin/grossLoss).toFixed(2) : (grossWin>0?'∞':'—');
+  $('sConsec').textContent = r.consecutiveLosses;
+  $('sBal').textContent = AppState.connection.balance!=null ? Number(AppState.connection.balance).toFixed(2)+' '+(AppState.connection.currency||'') : '—';
+  $('sBrier').textContent = r.brierN? (r.brierSum/r.brierN).toFixed(4) : '—';
+  $('sErrors').textContent = r.errors||0;
+  $('sessPnlTag').textContent = 'P/L '+(r.sessionPnL>=0?'+':'')+r.sessionPnL.toFixed(2);
+  $('riskHint').textContent = (r.killed?'KILL SWITCH ENGAGED · ':'') + (AppState.risk.live?'LIVE MODE — REAL CONTRACT EXECUTION':'PAPER MODE — LIVE EXECUTION DISABLED');
+}
+
+function renderJournal(){
+  const list = $('journalList'); list.innerHTML='';
+  AppState.journal.slice().reverse().forEach(j=>{
+    const row = document.createElement('div'); row.className='jrow';
+    const cls = j.result==='win'?'win':j.result==='loss'?'loss':j.result==='error'?'error':'pending';
+    const valTxt = j.result==='pending'?'…':j.result==='error'?'ERR':(j.pnl>=0?'+':'')+j.pnl.toFixed(2);
+    row.innerHTML = `<span>${new Date(j.ts).toLocaleTimeString()} · ${j.contract}${j.target!=null?' '+j.target:''} · ${j.mode}</span><span class="${cls}">${valTxt}</span>`;
+    list.appendChild(row);
+  });
+  $('journalCount').textContent = AppState.journal.length+' entries';
+}
+
+/* =========================================================================================
+   SPARKLINE
+   ========================================================================================= */
+const priceHistory = [];
+function drawSpark(){
+  const c = $('spark'); const ctx = c.getContext('2d');
+  const w = c.clientWidth||300, h=52;
+  c.width = w*devicePixelRatio; c.height = h*devicePixelRatio;
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  ctx.clearRect(0,0,w,h);
+  const data = priceHistory.slice(-120);
+  if(data.length<2) return;
+  const min = Math.min(...data), max = Math.max(...data);
+  const range = (max-min)||1;
+  ctx.beginPath();
+  data.forEach((v,i)=>{
+    const x = (i/(data.length-1))*w;
+    const y = h - ((v-min)/range)*h*0.85 - h*0.075;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle = data[data.length-1]>=data[0] ? '#3ED6C4' : '#F0556B';
+  ctx.lineWidth = 1.6; ctx.stroke();
+}
+
+/* =========================================================================================
+   DERIV CONNECTION
+   ========================================================================================= */
+let publicWs=null, tradeWs=null, reqId=1, reconnectAttempts=0, publicGen=0, tradeGen=0;
+let lastTickAt=0, tickIntervals=[];
+const pending = new Map(); // reqId -> {resolve, reject}
+
+function nextReq(){ return ++reqId; }
+function wsSend(ws, obj){
+  const id = nextReq(); const msg = {...obj, req_id:id};
+  return new Promise((resolve,reject)=>{
+    pending.set(id,{resolve,reject});
+    try{ ws.send(JSON.stringify(msg)); }catch(e){ pending.delete(id); reject(e); }
+    setTimeout(()=>{ if(pending.has(id)){ pending.delete(id); reject(new Error('timeout: '+Object.keys(obj)[0])); } }, 12000);
+  });
+}
+
+function connectPublic(){
+  const gen = ++publicGen;
+  publicWs = new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');
+  publicWs.onopen = ()=>{
+    if(gen!==publicGen) return;
+    AppState.connection.connected = true; reconnectAttempts=0;
+    $('connDot').className='dot up'; $('connSub').textContent='connected · public feed';
+    log('Public market feed connected.');
+    subscribeSymbol($('symbolSel').value);
+    startHeartbeat(publicWs);
+  };
+  publicWs.onmessage = (ev)=>{ let data; try{ data=JSON.parse(ev.data); }catch(e){ log('Malformed public WS payload ignored.'); return; } handlePublicMessage(data); };
+  publicWs.onerror = ()=>{ log('Public WS error.'); };
+  publicWs.onclose = ()=>{
+    if(gen!==publicGen) return;
+    AppState.connection.connected=false; $('connDot').className='dot warn';
+    $('connSub').textContent='reconnecting…';
+    scheduleReconnect();
+  };
+}
+function scheduleReconnect(){
+  reconnectAttempts++;
+  const delay = Math.min(1000*Math.pow(2,reconnectAttempts), 30000);
+  log('Reconnecting in '+(delay/1000).toFixed(1)+'s (attempt '+reconnectAttempts+')');
+  setTimeout(()=>{ if(!AppState.connection.connected) connectPublic(); }, delay);
+}
+function startHeartbeat(ws){
+  const gen = ws===publicWs?publicGen:tradeGen;
+  const iv = setInterval(()=>{
+    if(ws.readyState!==1 || (ws===publicWs&&gen!==publicGen) || (ws===tradeWs&&gen!==tradeGen)){ clearInterval(iv); return; }
+    const t0=Date.now();
+    wsSend(ws,{ping:1}).then(()=>{ AppState.connection.latency = Date.now()-t0; $('latMeta').textContent='latency: '+AppState.connection.latency+'ms'; }).catch(()=>{});
+  }, 25000);
+}
+
+let activeSymbol = null;
+function subscribeSymbol(symbol){
+  activeSymbol = symbol;
+  $('symLabel').textContent = symbol+' · streaming ticks';
+  wsSend(publicWs,{ticks:symbol, subscribe:1}).catch(e=>log('Subscribe error: '+e.message));
+}
+
+function handlePublicMessage(data){
+  if(data.req_id && pending.has(data.req_id)){
+    const {resolve,reject} = pending.get(data.req_id); pending.delete(data.req_id);
+    if(data.error) reject(new Error(data.error.message)); else resolve(data);
+  }
+  if(data.error){ log('API error: '+data.error.code+' — '+data.error.message); return; }
+  if(data.msg_type==='tick' && data.tick){
+    onTick(data.tick);
+  }
+  if(data.msg_type==='proposal' && data.proposal){
+    // cache for EV engine, keyed by contract type context if passthrough provided
+    if(data.echo_req && data.echo_req.passthrough && data.echo_req.passthrough.key){
+      ProposalCache[data.echo_req.passthrough.key] = {
+        payout: Number(data.proposal.payout), askPrice: Number(data.proposal.ask_price), ts: Date.now()
+      };
+    }
+  }
+}
+
+function onTick(tick){
+  const now = Date.now();
+  if(lastTickAt){ tickIntervals.push(now-lastTickAt); if(tickIntervals.length>30) tickIntervals.shift(); }
+  lastTickAt = now;
+  const avgInterval = tickIntervals.length? tickIntervals.reduce((a,b)=>a+b,0)/tickIntervals.length : null;
+  AppState.market.tickSpeed = avgInterval;
+
+  const quoteStr = String(tick.quote);
+  const pipSize = tick.pip_size!=null? Number(tick.pip_size) : null;
+  const precision = pipSize!=null ? Math.max(0, -Math.floor(Math.log10(pipSize))) : (quoteStr.includes('.')?quoteStr.split('.')[1].length:0);
+  AppState.market.precision = precision;
+  const digit = DigitEngine.extractLastDigit(quoteStr, precision);
+  const prevPrice = AppState.market.price;
+  AppState.market.price = Number(tick.quote);
+  AppState.market.direction = prevPrice!=null ? (AppState.market.price>prevPrice?'up':AppState.market.price<prevPrice?'down':'flat') : null;
+  AppState.market.lastDigit = digit;
+  AppState.market.tickTime = tick.epoch;
+
+  TickBuffer.push(digit);
+  priceHistory.push(AppState.market.price); if(priceHistory.length>200) priceHistory.shift();
+
+  // UI: price
+  const [ip, dp=''] = quoteStr.split('.');
+  const dpPadded = dp.padEnd(precision,'0');
+  $('priceBig').innerHTML = ip+(dpPadded?('.'+dpPadded.slice(0,-1)+`<span class="ld">${dpPadded.slice(-1)}</span>`):'');
+  $('ldSpan').textContent='';
+  $('precisionMeta').textContent = 'precision: '+precision;
+  $('dirMeta').innerHTML = 'dir: '+ (AppState.market.direction==='up'?'<span style="color:var(--teal)">▲</span>':AppState.market.direction==='down'?'<span style="color:var(--red)">▼</span>':'—');
+  $('speedMeta').textContent = 'speed: '+(avgInterval?Math.round(avgInterval)+'ms':'—');
+  $('tickRate').textContent = avgInterval ? Math.round(60000/avgInterval)+' t/min' : '— t/min';
+  drawSpark();
+  renderDigitGrid();
+
+  refreshProposalsThrottled();
+
+  const pred = buildModels();
+  renderSignal(pred);
+  renderWinTable(pred);
+
+  checkOpenContracts();
+}
+
+/* throttled real proposal fetch for EV engine (only if authorized+trading intent).
+   IMPORTANT: cache keys here must exactly match computeEV()'s key format: contract+'|'+(target??'').
+   A previous build used 'DIFFERS_7|7' here vs 'DIFFERS|7' in computeEV, so DIFFERS proposals were
+   cached under a key that was never read back — EV was silently EV_UNAVAILABLE for every DIFFERS
+   candidate. Fixed by generating keys the same way in both places. */
+let lastProposalFetch = 0;
+function refreshProposalsThrottled(){
+  const now = Date.now();
+  if(now-lastProposalFetch < 4000) return;
+  if(!AppState.connection.authorized || !tradeWs || tradeWs.readyState!==1) return;
+  lastProposalFetch = now;
+  const stake = Number($('stakeIn').value||1);
+  const dur = Number($('durIn').value||1);
+  const sym = activeSymbol;
+  const lastDigit = AppState.market.lastDigit;
+
+  const candidates = [
+    {type:'DIGITOVER', barrier:'5', key:'OVER5|'},
+    {type:'DIGITUNDER', barrier:'5', key:'UNDER5|'},
+  ];
+  if(lastDigit!=null) candidates.push({type:'DIGITDIFF', barrier:String(lastDigit), key:'DIFFERS|'+lastDigit});
+  // also price the currently lowest-frequency digit over the most recent window — the digit
+  // statistically least likely to repeat is the natural best DIFFERS candidate, and it may not
+  // be lastDigit.
+  const recent = TickBuffer.last(100);
+  if(recent.length>=30){
+    const dist = distribution(recent);
+    let minDigit=0, minP=1;
+    for(let d=0; d<10; d++){ if(dist.probs[d]<minP){ minP=dist.probs[d]; minDigit=d; } }
+    if(minDigit!==lastDigit) candidates.push({type:'DIGITDIFF', barrier:String(minDigit), key:'DIFFERS|'+minDigit});
+  }
+
+  candidates.forEach(c=>{
+    wsSend(tradeWs,{
+      proposal:1, amount:stake, basis:'stake', contract_type:c.type, currency: AppState.connection.currency||'USD',
+      duration:dur, duration_unit:'t', underlying_symbol:sym, barrier:c.barrier,
+      passthrough:{key:c.key}
+    }).then(r=>{
+      if(r.proposal) ProposalCache[c.key] = {payout:Number(r.proposal.payout), askPrice:Number(r.proposal.ask_price), ts:Date.now()};
+    }).catch(()=>{});
+  });
+}
+
+/* =========================================================================================
+   AUTHORIZATION / TRADING WEBSOCKET (OTP flow)
+   ========================================================================================= */
+async function authorizeAccount(){
+  const token = $('tokenIn').value.trim();
+  const appId = $('appIdIn').value.trim();
+  if(!token){ toast('Enter a Personal Access Token to authorize an account.','warn'); return; }
+  if(!appId){ toast('Enter your Deriv App ID.','warn'); return; }
+  $('authBtn').disabled=true; $('authBtn').textContent='Authorizing…';
+  try{
+    const accRes = await fetch('https://api.derivws.com/trading/v1/options/accounts',{
+      headers:{'Authorization':'Bearer '+token, 'Deriv-App-ID':appId}
+    });
+    const accJson = await accRes.json();
+    if(!accRes.ok) throw new Error((accJson.errors&&accJson.errors[0]&&accJson.errors[0].message)||'Failed to fetch accounts');
+    const accounts = Array.isArray(accJson.data)? accJson.data : [accJson.data];
+    if(!accounts.length) throw new Error('No Options trading accounts found on this token.');
+    const account = accounts.find(a=>a.account_type==='demo') || accounts[0];
+
+    const otpRes = await fetch(`https://api.derivws.com/trading/v1/options/accounts/${account.account_id}/otp`,{
+      method:'POST', headers:{'Authorization':'Bearer '+token,'Deriv-App-ID':appId}
+    });
+    const otpJson = await otpRes.json();
+    if(!otpRes.ok) throw new Error((otpJson.errors&&otpJson.errors[0]&&otpJson.errors[0].message)||'OTP request failed');
+    const wsUrl = otpJson.data.url;
+
+    tradeGen++; const gen = tradeGen;
+    tradeWs = new WebSocket(wsUrl);
+    tradeWs.onopen = ()=>{
+      if(gen!==tradeGen) return;
+      AppState.connection.authorized = true;
+      AppState.connection.account = account.account_id;
+      AppState.connection.currency = account.currency;
+      log('Trading WebSocket authorized: '+account.account_id+' ('+account.account_type+')');
+      toast('Authorized '+account.account_id+' ('+account.account_type+')');
+      wsSend(tradeWs,{balance:1, subscribe:1}).catch(()=>{});
+      startHeartbeat(tradeWs);
+      renderAccountCard(account);
+      $('authBtn').textContent='Re-authorize';
+    };
+    tradeWs.onmessage = (ev)=>{ let data; try{ data=JSON.parse(ev.data); }catch(e){ log('Malformed trade WS payload ignored.'); return; } handleTradeMessage(data); };
+    tradeWs.onerror = ()=>log('Trade WS error.');
+    tradeWs.onclose = ()=>{
+      if(gen!==tradeGen) return;
+      AppState.connection.authorized=false;
+      log('Trading WebSocket closed.');
+    };
+  }catch(e){
+    toast('Authorization failed: '+e.message,'err'); log('Auth error: '+e.message);
+  }finally{
+    $('authBtn').disabled=false;
+    if(!AppState.connection.authorized) $('authBtn').textContent='Authorize account';
+  }
+}
+
+function renderAccountCard(account){
+  $('acctCard').style.display='block';
+  $('acctRow').innerHTML = `<span class="statbox" style="padding:6px 10px;">${account.account_id}</span>
+    <span class="statbox" style="padding:6px 10px;">${account.account_type.toUpperCase()}</span>
+    <span class="statbox" style="padding:6px 10px;" id="acctBal">${account.balance} ${account.currency}</span>`;
+}
+
+const openContracts = new Map(); // contract_id -> stable tradeId (NOT a journal array index)
+function handleTradeMessage(data){
+  if(data.req_id && pending.has(data.req_id)){
+    const {resolve,reject} = pending.get(data.req_id); pending.delete(data.req_id);
+    if(data.error) reject(new Error(data.error.message)); else resolve(data);
+  }
+  if(data.error){ log('Trade API error: '+data.error.code+' — '+data.error.message); toast(data.error.message,'err'); return; }
+  if(data.msg_type==='balance' && data.balance){
+    AppState.connection.balance = Number(data.balance.balance);
+    AppState.connection.currency = data.balance.currency;
+    const el = document.getElementById('acctBal'); if(el) el.textContent = data.balance.balance+' '+data.balance.currency;
+    renderSession();
+  }
+  if(data.msg_type==='proposal_open_contract' && data.proposal_open_contract){
+    const c = data.proposal_open_contract;
+    if(Number(c.is_sold)===1){
+      const tradeId = openContracts.get(c.contract_id);
+      if(tradeId!=null) settleJournalEntry(tradeId, Number(c.profit)>=0?'win':'loss', Number(c.profit));
+      openContracts.delete(c.contract_id);
+    }
+  }
+}
+
+function checkOpenContracts(){ /* subscriptions push updates; nothing to poll */ }
+
+/* =========================================================================================
+   EXECUTION (paper + live) — with a hard execution lock + idempotent, ID-based settlement
+   ========================================================================================= */
+let tradeInFlight = false;      // prevents overlapping/concurrent executions
+let lastAutoExecKey = null;     // last (contract+target) auto-executed
+let lastAutoExecAt = 0;
+const AUTO_EXEC_COOLDOWN_MS = 5000; // minimum time between auto-executions of the SAME signal
+let tradeSeq = 0;
+function newTradeId(){ return 't_'+(++tradeSeq)+'_'+Date.now(); }
+
+function sanitizeStake(raw){
+  const n = Number(raw);
+  if(!isFinite(n) || isNaN(n)) return null;
+  return Math.min(Math.max(n, 0.35), 1000); // hard ceiling — no unbounded/negative/NaN stakes
+}
+function sanitizeDuration(raw){
+  const n = Math.round(Number(raw));
+  if(!isFinite(n) || isNaN(n) || n<1) return null;
+  return Math.min(n, 100);
+}
+
+async function executeSignal(entry){
+  if(tradeInFlight){ log('Execution skipped — a trade is already in flight.'); return; }
+  const stake = sanitizeStake($('stakeIn').value);
+  const dur = sanitizeDuration($('durIn').value);
+  if(stake==null || dur==null){ toast('Invalid stake or duration — trade not sent.','err'); return; }
+
+  tradeInFlight = true;
+  try{
+    const isDiffers = entry.contract==='DIFFERS';
+    const contract_type = isDiffers? 'DIGITDIFF' : (entry.contract==='OVER5'?'DIGITOVER':'DIGITUNDER');
+    const barrier = isDiffers? String(entry.target) : '5';
+    const mode = AppState.risk.live? 'LIVE':'PAPER';
+    const tradeId = newTradeId();
+
+    const journalEntry = {id:tradeId, ts:Date.now(), contract:entry.contract, target:entry.target, mode, result:'pending',
+      pnl:0, stake, probability:entry.f.probability, confidence:entry.f.confidence, score:entry.score};
+    AppState.journal.push(journalEntry);
+    renderJournal(); saveLocal();
+
+    if(mode==='PAPER'){
+      // Paper mode resolves against the next REAL observed tick, not synthetic randomness. Payout
+      // uses the live cached proposal for this exact contract when available (same source EV uses),
+      // and only falls back to an illustrative ratio — clearly labelled as such — when no proposal
+      // has been fetched yet for this candidate.
+      const key = entry.contract+'|'+(entry.target??'');
+      const cached = ProposalCache[key];
+      const payoutRatio = (cached && cached.askPrice>0) ? (cached.payout/cached.askPrice) : null;
+      pendingPaperResolutions.push({id:tradeId, contract_type, barrier, stake, prob:entry.f.probability, payoutRatio});
+      toast('Paper trade placed: '+entry.contract+(entry.target!=null?' '+entry.target:'')+' @ stake '+stake);
+      log('PAPER trade: '+contract_type+' barrier='+barrier+(payoutRatio?' (live payout ratio '+payoutRatio.toFixed(2)+')':' (illustrative payout ratio — no live proposal cached yet)'));
+      return;
+    }
+
+    if(!AppState.connection.authorized || !tradeWs || tradeWs.readyState!==1){
+      toast('Cannot execute live trade — account not authorized.','err');
+      settleJournalEntry(tradeId,'error',0,true,'Account not authorized at execution time');
+      return;
+    }
+    try{
+      const propRes = await wsSend(tradeWs,{
+        proposal:1, amount:stake, basis:'stake', contract_type, currency:AppState.connection.currency||'USD',
+        duration:dur, duration_unit:'t', underlying_symbol:activeSymbol, barrier
+      });
+      const proposalId = propRes.proposal.id;
+      const askPrice = Number(propRes.proposal.ask_price);
+      const buyRes = await wsSend(tradeWs,{buy:proposalId, price:askPrice});
+      const contractId = buyRes.buy.contract_id;
+      openContracts.set(contractId, tradeId);
+      wsSend(tradeWs,{proposal_open_contract:1, contract_id:contractId, subscribe:1}).catch(()=>{});
+      toast('LIVE trade executed: '+entry.contract+(entry.target!=null?' '+entry.target:'')+' · contract '+contractId);
+      log('LIVE buy: contract_id='+contractId+' price='+askPrice);
+    }catch(e){
+      // A failed proposal/buy request is an EXECUTION ERROR, not a trading loss. It must not move
+      // win rate, P/L, or the consecutive-loss counter — those only reflect real settled outcomes.
+      toast('Live execution failed: '+e.message,'err'); log('Execution error: '+e.message);
+      settleJournalEntry(tradeId,'error',0,true,e.message);
+    }
+  } finally {
+    tradeInFlight = false;
+  }
+}
+
+const pendingPaperResolutions = [];
+function resolvePaperTrades(newDigit){
+  if(newDigit==null) return;
+  for(let i=pendingPaperResolutions.length-1;i>=0;i--){
+    const p = pendingPaperResolutions[i];
+    let win;
+    if(p.contract_type==='DIGITOVER') win = newDigit>5;
+    else if(p.contract_type==='DIGITUNDER') win = newDigit<5;
+    else win = newDigit!==Number(p.barrier);
+    // use the real cached payout ratio captured at trade time when available; otherwise fall back
+    // to an explicitly illustrative ratio (never presented as real economics).
+    const payoutRatio = p.payoutRatio || 1.9;
+    const pnl = win ? +(p.stake*(payoutRatio-1)).toFixed(2) : -p.stake;
+    settleJournalEntry(p.id, win?'win':'loss', pnl, false, null, p.prob);
+    pendingPaperResolutions.splice(i,1);
+  }
+}
+
+// resolves a journal entry by its stable id (never an array index). Idempotent: settling an
+// already-settled entry twice, or one that no longer exists (e.g. journal was cleared), is a no-op.
+// result: 'win' | 'loss' | 'error'  — 'error' (failed API request) never touches win/loss/consecutive
+// loss counters, only trade attempt bookkeeping, so execution failures can't masquerade as losses.
+function settleJournalEntry(tradeId, result, pnl, silent, errorMsg, probabilityAtEntry){
+  const j = AppState.journal.find(x=>x.id===tradeId);
+  if(!j || j.result!=='pending') return; // idempotency guard
+  j.result = result; j.pnl = pnl; if(errorMsg) j.error = errorMsg;
+
+  if(result==='error'){
+    AppState.risk.errors = (AppState.risk.errors||0)+1;
+    renderJournal(); renderSession(); saveLocal();
+    if(!silent) toast('Execution error · '+j.contract+(j.target!=null?' '+j.target:'')+' — not counted as a loss','warn');
+    return;
+  }
+
+  AppState.risk.trades++;
+  if(result==='win'){ AppState.risk.wins++; AppState.risk.consecutiveLosses=0; }
+  else if(result==='loss'){ AppState.risk.losses++; AppState.risk.consecutiveLosses++; }
+  AppState.risk.sessionPnL += pnl;
+
+  const prob = probabilityAtEntry ?? j.probability ?? 0.5;
+  const outcome = result==='win'?1:0;
+  AppState.risk.brierSum += Math.pow(prob-outcome,2);
+  AppState.risk.brierN += 1;
+
+  renderJournal(); renderSession(); saveLocal();
+  if(!silent) toast((result==='win'?'Win ':'Loss ')+(pnl>=0?'+':'')+pnl.toFixed(2)+' · '+j.contract+(j.target!=null?' '+j.target:''), result==='loss'?'warn':undefined);
+  checkStopConditions();
+}
+
+function checkStopConditions(){
+  const maxLoss = Number($('maxLossIn').value||99);
+  const sl = Number($('slIn').value||0);
+  const tp = Number($('tpIn').value||0);
+  if(AppState.risk.consecutiveLosses>=maxLoss){ engageKill('Max consecutive losses reached'); }
+  if(sl>0 && AppState.risk.sessionPnL <= -Math.abs(sl)){ engageKill('Session stop-loss reached'); }
+  if(tp>0 && AppState.risk.sessionPnL >= Math.abs(tp)){ engageKill('Session take-profit reached'); }
+}
+
+function engageKill(reason){
+  if(AppState.risk.killed) return;
+  AppState.risk.killed = true; AppState.risk.autoTrade=false; AppState.risk.tradingEnabled=false;
+  $('autoSwitch').classList.remove('on');
+  toast('Kill switch engaged: '+reason,'err'); log('KILL SWITCH: '+reason);
+
+  // A kill switch that only unsubscribes leaves any already-open LIVE contract running until
+  // expiry — that is not a real stop. Actively attempt to sell every tracked open contract at
+  // market ('price':0 = sell at market), THEN drop the subscriptions.
+  if(tradeWs && tradeWs.readyState===1){
+    if(openContracts.size>0){
+      log('Kill switch: attempting to close '+openContracts.size+' open live contract(s)…');
+      for(const contractId of openContracts.keys()){
+        wsSend(tradeWs,{sell:contractId, price:0}).then(r=>{
+          log('Sold contract '+contractId+' for '+(r.sell?r.sell.sold_for:'?'));
+        }).catch(e=>{
+          log('Could not sell contract '+contractId+' ('+e.message+') — it may settle naturally at expiry.');
+        });
+      }
+    }
+    wsSend(tradeWs,{forget_all:'proposal_open_contract'}).catch(()=>{});
+    wsSend(tradeWs,{forget_all:'proposal'}).catch(()=>{});
+  }
+  renderSession();
+}
+
+function maybeAutoExecute(best){
+  if(!AppState.risk.autoTrade) return;
+  if(!canArm()) return;
+  const key = best.contract+'|'+(best.target??'');
+  const now = Date.now();
+  // execution lock: the same signal cannot be re-fired every tick just because it stays READY.
+  // Require either a different candidate, or the cooldown window to have elapsed.
+  if(key===lastAutoExecKey && (now-lastAutoExecAt) < AUTO_EXEC_COOLDOWN_MS) return;
+  if(tradeInFlight) return;
+  lastAutoExecKey = key; lastAutoExecAt = now;
+  executeSignal(best);
+}
+
+// canArm() is the single authoritative execution gate — every other check in the codebase should
+// route through this rather than re-implementing its own subset of conditions.
+function canArm(){
+  if(AppState.risk.killed) return false;
+  if(!AppState.risk.tradingEnabled) return false;
+  if(!AppState.connection.connected) return false;
+  if(AppState.risk.live && !AppState.connection.authorized) return false;
+  if(tradeInFlight) return false;
+  const maxLoss = Number($('maxLossIn').value||99);
+  if(AppState.risk.consecutiveLosses >= maxLoss) return false;
+  const sl = Number($('slIn').value||0);
+  const tp = Number($('tpIn').value||0);
+  if(sl>0 && AppState.risk.sessionPnL <= -Math.abs(sl)) return false;
+  if(tp>0 && AppState.risk.sessionPnL >= Math.abs(tp)) return false;
+  return true;
+}
+
+/* =========================================================================================
+   UI WIRING
+   ========================================================================================= */
+function initTabs(){
+  document.querySelectorAll('.tabbtn').forEach(btn=>{
+    btn.onclick=()=>{
+      document.querySelectorAll('.tabbtn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.section[data-tab="'+btn.dataset.tab+'"]').forEach(s=>s.classList.add('active'));
+    };
+  });
+}
+
+function initEvents(){
+  $('connectBtn').onclick = ()=>{
+    if(publicWs) { publicWs.close(); }
+    connectPublic();
+    $('connectBtn').style.display='none'; $('disconnectBtn').style.display='inline-block';
+    $('authBtn').disabled=false;
+  };
+  $('disconnectBtn').onclick = ()=>{
+    publicGen++; tradeGen++;
+    if(publicWs) publicWs.close(); if(tradeWs) tradeWs.close();
+    AppState.connection.connected=false; AppState.connection.authorized=false;
+    $('connDot').className='dot'; $('connSub').textContent='disconnected';
+    $('connectBtn').style.display='inline-block'; $('disconnectBtn').style.display='none';
+  };
+  $('authBtn').onclick = authorizeAccount;
+
+  $('symbolSel').onchange = ()=>{
+    if(publicWs && publicWs.readyState===1){
+      wsSend(publicWs,{forget_all:'ticks'}).catch(()=>{});
+      TickBuffer_clear();
+      subscribeSymbol($('symbolSel').value);
+    }
+    saveLocal();
+  };
+
+  $('autoSwitch').onclick = ()=>{
+    AppState.risk.autoTrade = !AppState.risk.autoTrade;
+    $('autoSwitch').classList.toggle('on', AppState.risk.autoTrade);
+    saveLocal();
+  };
+  $('liveSwitch').onclick = ()=>{
+    if(!AppState.risk.live){
+      if(!AppState.connection.authorized){ toast('Authorize an account before enabling live execution.','warn'); return; }
+      $('confirmModal').classList.add('show'); $('confirmInput').value='';
+    }else{
+      AppState.risk.live=false; $('liveSwitch').classList.remove('on','danger-on');
+      $('modePill').className='mode-pill paper'; $('modePill').textContent='PAPER';
+      renderSession();
+    }
+  };
+  $('confirmCancel').onclick = ()=> $('confirmModal').classList.remove('show');
+  $('confirmOk').onclick = ()=>{
+    if($('confirmInput').value.trim()!=='CONFIRM'){ toast('Type CONFIRM exactly to proceed.','warn'); return; }
+    AppState.risk.live = true; $('liveSwitch').classList.add('on','danger-on');
+    $('modePill').className='mode-pill live'; $('modePill').textContent='LIVE';
+    $('confirmModal').classList.remove('show');
+    toast('Live execution enabled. Real trades will be placed.','warn');
+    renderSession();
+  };
+
+  $('manualExec').onclick = ()=>{
+    if(!canArm()){ toast('Execution blocked by risk engine (kill switch, session limits, or trading disabled).','warn'); return; }
+    const pred = buildModels(); if(!pred) return;
+    const stake = Number($('stakeIn').value||1);
+    const entries = Object.entries(pred.targets).map(([key,f])=>{
+      const ev = computeEV(f.contract, f.target, f.probability, stake);
+      const score = scoreOf(f, ev, pred.regime);
+      const v = validate(f, score, ev, Number($('minScoreIn').value||70));
+      return {key,f,ev,score,v,contract:f.contract,target:f.target};
+    }).sort((a,b)=>b.score-a.score);
+    const best = entries.find(e=>e.v.pass);
+    if(best) executeSignal(best); else toast('No qualified candidate to execute.','warn');
+  };
+
+  $('killBtn').onclick = ()=>{
+    if(AppState.risk.killed){
+      AppState.risk.killed=false; AppState.risk.tradingEnabled=true;
+      toast('Kill switch reset. Trading re-enabled.'); renderSession();
+    } else engageKill('Manual kill switch');
+  };
+
+  $('resetSessionBtn').onclick = ()=>{
+    Object.assign(AppState.risk, {consecutiveLosses:0, sessionPnL:0, wins:0, losses:0, trades:0, errors:0, brierSum:0, brierN:0, killed:false, tradingEnabled:true});
+    pendingPaperResolutions.length = 0; openContracts.clear();
+    renderSession(); saveLocal(); toast('Session stats reset.');
+  };
+  $('clearJournalBtn').onclick = ()=>{
+    // Journal and session counters are the same source of truth — clearing one without the other
+    // was a real inconsistency bug. Clearing the journal also resets the counters derived from it
+    // and drops any trades still awaiting settlement, so nothing can later try to settle against
+    // an entry that no longer exists.
+    AppState.journal=[];
+    pendingPaperResolutions.length = 0; openContracts.clear();
+    Object.assign(AppState.risk, {consecutiveLosses:0, sessionPnL:0, wins:0, losses:0, trades:0, errors:0, brierSum:0, brierN:0});
+    renderJournal(); renderSession(); saveLocal();
+  };
+  $('exportBtn').onclick = ()=>{
+    const rows = ['timestamp,contract,target,mode,result,pnl,stake,probability,confidence,score'];
+    AppState.journal.forEach(j=> rows.push([new Date(j.ts).toISOString(), j.contract, j.target??'', j.mode, j.result, j.pnl, j.stake, j.probability, j.confidence, j.score].join(',')));
+    const blob = new Blob([rows.join('\n')],{type:'text/csv'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='ldp_d5_journal.csv'; a.click();
+  };
+
+  $('notifBtn').onclick = async ()=>{
+    if(!('Notification' in window)){ toast('Notifications not supported on this device.'); return; }
+    if(Notification.permission!=='granted'){
+      const p = await Notification.requestPermission();
+      if(p!=='granted'){ toast('Notification permission denied.'); return; }
+    }
+    $('notifBtn').classList.toggle('on');
+  };
+
+  [ 'stakeIn','durIn','minScoreIn','maxLossIn','slIn','tpIn' ].forEach(id=>{
+    $(id).addEventListener('change', saveLocal);
+  });
+
+  window.addEventListener('resize', drawSpark);
+}
+
+function TickBuffer_clear(){ AppState.digits.history=[]; priceHistory.length=0; }
+
+/* hook into onTick to resolve paper trades using the *next* observed digit after placement */
+const origOnTick = onTick;
+onTick = function(tick){
+  origOnTick(tick);
+  resolvePaperTrades(AppState.market.lastDigit);
+};
+
+/* =========================================================================================
+   BOOT
+   ========================================================================================= */
+function boot(){
+  loadLocal();
+  initTabs(); initEvents();
+  renderDigitGrid(); renderWinPicker(); renderSession(); renderJournal();
+  $('autoSwitch').classList.toggle('on', !!AppState.risk.autoTrade);
+  log('LDP-D5 AI initialized. Paper mode active. Connect the market feed to begin.');
+}
+document.addEventListener('DOMContentLoaded', boot);
+
+})();
+</script>
+</body>
+</html>
