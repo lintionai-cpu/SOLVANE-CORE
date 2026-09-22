@@ -1,0 +1,1787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0e14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>TOUCHEDGE AI — Touch / No Touch Decision Engine</title>
+<style>
+/* ============================================================
+   TOUCHEDGE AI — Design System
+   Dark quantitative trading terminal · mobile-first
+   ============================================================ */
+:root{
+  --bg:#070b12; --bg2:#0a0f18; --card:#101827; --card2:#151f31; --card3:#1b2740;
+  --border:#1d2a40; --border2:#2a3a58;
+  --text:#e8eef7; --muted:#7e8ca6; --muted2:#54627e;
+  --green:#22c55e; --green-d:#14532d; --red:#ef4444; --red-d:#5b1d1d;
+  --amber:#f5a623; --blue:#4d9fff; --cyan:#22d3ee; --violet:#a78bfa;
+  --accent:#19e3b1;
+  --rad:14px; --rad-s:9px;
+  --shadow:0 6px 24px rgba(0,0,0,.45);
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;
+  --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:15px;line-height:1.45;min-height:100vh;overscroll-behavior-y:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select{font-family:inherit;font-size:14px;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rad-s);padding:10px 12px;width:100%;outline:none}
+input:focus,select:focus{border-color:var(--accent)}
+.hidden{display:none!important}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:8px}
+
+/* ---------- Top bar ---------- */
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:10px;padding:10px 14px;
+  background:rgba(7,11,18,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.brand{display:flex;flex-direction:column;line-height:1.05}
+.brand b{font-size:16px;letter-spacing:.4px}
+.brand b span{color:var(--accent)}
+.brand small{font-size:9.5px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase}
+.conn{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-left:auto}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--red);box-shadow:0 0 8px currentColor;flex:none}
+.dot.on{background:var(--green);color:var(--green)} .dot.warn{background:var(--amber);color:var(--amber)}
+.spot-pill{font-family:var(--mono);font-size:15px;font-weight:700;background:var(--card2);border:1px solid var(--border);
+  padding:5px 11px;border-radius:20px;white-space:nowrap}
+.spot-pill.up{color:var(--green)} .spot-pill.dn{color:var(--red)}
+.icon-btn{width:38px;height:38px;border-radius:10px;background:var(--card2);border:1px solid var(--border);
+  display:grid;place-items:center;color:var(--muted);flex:none}
+.icon-btn.on{color:var(--accent);border-color:var(--accent)}
+
+/* ---------- Shell layout ---------- */
+.shell{display:block;max-width:1180px;margin:0 auto;padding:12px 12px 90px}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--rad);padding:14px;margin-bottom:12px}
+.panel h3{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.panel h3 .tag{margin-left:auto;font-size:9px;background:var(--card3);padding:2px 8px;border-radius:10px;letter-spacing:.5px}
+@media(min-width:1024px){
+  .shell{display:grid;grid-template-columns:265px minmax(0,1fr) 310px;gap:14px;padding-bottom:24px}
+  .side-left{grid-column:1}.main-col{grid-column:2;min-width:0}.side-right{grid-column:3}
+  .panel{margin-bottom:14px}
+}
+
+/* ---------- Signal card ---------- */
+.signal-card{background:linear-gradient(160deg,#101b2c,#0c1322);border:1px solid var(--border2);border-radius:var(--rad);
+  padding:18px 16px;text-align:center;position:relative;overflow:hidden;margin-bottom:12px}
+.signal-card::before{content:"";position:absolute;inset:0 0 auto;height:3px;background:var(--muted2)}
+.signal-card.trade::before{background:var(--accent)}
+.signal-card.notrade::before{background:var(--amber)}
+.bias-label{font-size:12px;letter-spacing:2px;color:var(--muted);text-transform:uppercase}
+.bias-value{font-size:30px;font-weight:800;letter-spacing:.5px;margin:4px 0 2px}
+.bias-value.bull{color:var(--green)} .bias-value.bear{color:var(--red)} .bias-value.neut{color:var(--muted)}
+.conf-row{display:flex;justify-content:center;align-items:baseline;gap:8px;margin:8px 0}
+.conf-num{font-size:44px;font-weight:800;font-family:var(--mono)}
+.conf-grade{font-size:13px;font-weight:700;padding:3px 10px;border-radius:8px;background:var(--card3);border:1px solid var(--border2)}
+.grade-Ap{background:rgba(25,227,177,.15);color:var(--accent);border-color:rgba(25,227,177,.4)}
+.grade-A{background:rgba(34,197,94,.15);color:var(--green);border-color:rgba(34,197,94,.4)}
+.grade-B{background:rgba(245,166,35,.15);color:var(--amber);border-color:rgba(245,166,35,.4)}
+.grade-C{background:rgba(77,159,255,.13);color:var(--blue);border-color:rgba(77,159,255,.35)}
+.grade-NT{background:var(--card3);color:var(--muted)}
+.contract-chip{display:inline-flex;align-items:center;gap:9px;background:var(--card3);border:1px solid var(--border2);
+  border-radius:12px;padding:9px 18px;margin:8px 0;font-size:19px;font-weight:800}
+.contract-chip .dir{font-size:23px}
+.contract-chip.up{color:var(--green)} .contract-chip.dn{color:var(--red)}
+.sig-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+.sig-cell{background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:10px;padding:8px 4px}
+.sig-cell small{display:block;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.sig-cell b{font-family:var(--mono);font-size:13.5px}
+.verdict{margin-top:12px;font-size:15px;font-weight:800;letter-spacing:1.4px;padding:10px;border-radius:10px}
+.verdict.ok{background:rgba(25,227,177,.12);color:var(--accent);border:1px solid rgba(25,227,177,.35)}
+.verdict.no{background:rgba(245,166,35,.1);color:var(--amber);border:1px solid rgba(245,166,35,.3)}
+.verdict.wait{background:var(--card3);color:var(--muted);border:1px solid var(--border)}
+.no-reason{font-size:12px;color:var(--muted);margin-top:8px;max-width:420px;margin-left:auto;margin-right:auto}
+.reasons-box{text-align:left;font-size:11.5px;margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}
+.reasons-box div{color:var(--muted)} .reasons-box div b{color:var(--text);font-weight:600}
+.r-pos::before{content:"+ ";color:var(--green);font-weight:800}
+.r-neg::before{content:"− ";color:var(--red);font-weight:800}
+.r-warn{color:var(--amber)!important}
+
+/* ---------- Factor rows ---------- */
+.factor{display:flex;align-items:center;justify-content:space-between;padding:7px 2px;border-bottom:1px dashed var(--border);font-size:13px}
+.factor:last-child{border-bottom:none}
+.factor span{color:var(--muted)}
+.factor b{font-weight:700;font-size:12.5px}
+.f-bull{color:var(--green)} .f-bear{color:var(--red)} .f-neut{color:var(--muted)} .f-warn{color:var(--amber)} .f-info{color:var(--blue)}
+.meter{height:5px;background:var(--bg2);border-radius:4px;overflow:hidden;margin:4px 0 2px}
+.meter i{display:block;height:100%;border-radius:4px;background:var(--muted2);transition:width .25s}
+.meter i.p{background:var(--green)} .meter i.n{background:var(--red)}
+
+/* ---------- Micro panel ---------- */
+.ticks-strip{display:flex;flex-wrap:wrap;gap:3px;margin:8px 0;font-family:var(--mono);font-size:13px}
+.ticks-strip span{width:20px;height:24px;display:grid;place-items:center;border-radius:5px;background:var(--bg2)}
+.ticks-strip .u{color:var(--green)} .ticks-strip .d{color:var(--red)}
+.micro-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.micro-stats>div{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:7px;text-align:center}
+.micro-stats small{display:block;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.micro-stats b{font-family:var(--mono);font-size:14px}
+
+/* ---------- Canvas ---------- */
+canvas.chart{width:100%;height:280px;display:block;border-radius:10px;background:var(--bg2)}
+canvas.spark{width:100%;height:64px;display:block;border-radius:8px;background:var(--bg2);margin-top:8px}
+.legend{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:10.5px;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+
+/* ---------- Controls ---------- */
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{border-radius:12px;padding:13px 10px;font-size:13px;font-weight:800;letter-spacing:.8px;
+  background:var(--card2);border:1px solid var(--border2);transition:transform .06s}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:linear-gradient(135deg,#0e9f7e,#19e3b1);color:#04241c;border:none}
+.btn.danger{background:linear-gradient(135deg,#b91c1c,#ef4444);color:#fff;border:none}
+.btn.ghost{border-style:dashed;color:var(--muted)}
+.btn:disabled{opacity:.45;pointer-events:none}
+.btn.full{grid-column:1/-1}
+.stop-btn{width:100%;padding:16px;font-size:16px;font-weight:900;letter-spacing:2px;border-radius:14px;
+  background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;box-shadow:0 4px 18px rgba(220,38,38,.35);margin-top:10px}
+.stop-btn:active{transform:scale(.98)}
+.bot-state{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--muted);margin-top:8px}
+.pulse{width:8px;height:8px;border-radius:50%;background:var(--muted2)}
+.pulse.on{background:var(--accent);animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(25,227,177,.5)}50%{box-shadow:0 0 0 7px rgba(25,227,177,0)}}
+
+/* ---------- Switch ---------- */
+.switch{position:relative;width:48px;height:27px;flex:none}
+.switch input{opacity:0;width:0;height:0;position:absolute}
+.switch i{position:absolute;inset:0;background:var(--card3);border:1px solid var(--border2);border-radius:20px;transition:.2s}
+.switch i::after{content:"";position:absolute;top:2.5px;left:3px;width:19px;height:19px;border-radius:50%;background:var(--muted);transition:.2s}
+.switch input:checked+i{background:rgba(25,227,177,.25);border-color:var(--accent)}
+.switch input:checked+i::after{left:24px;background:var(--accent)}
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 2px;border-bottom:1px solid var(--border)}
+.set-row:last-child{border-bottom:none}
+.set-row .lbl{font-size:13.5px}
+.set-row .lbl small{display:block;font-size:11px;color:var(--muted);margin-top:1px}
+.set-row input[type=number],.set-row input[type=text],.set-row input[type=password],.set-row select{width:110px;padding:7px 9px;text-align:right;font-family:var(--mono)}
+.set-row input.wide{width:100%;text-align:left;margin-top:6px}
+.set-group-title{font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--accent);margin:16px 2px 6px}
+
+/* ---------- Markets ---------- */
+.market-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(min-width:640px){.market-grid{grid-template-columns:repeat(3,1fr)}}
+.mkt{background:var(--card2);border:1px solid var(--border);border-radius:11px;padding:11px;text-align:left;transition:border-color .15s}
+.mkt b{font-size:13px;display:block}
+.mkt small{color:var(--muted);font-size:10.5px;font-family:var(--mono)}
+.mkt.sel{border-color:var(--accent);background:rgba(25,227,177,.07)}
+.mkt .quote{font-family:var(--mono);font-size:12px;margin-top:5px;color:var(--cyan)}
+
+/* ---------- Tables / lists ---------- */
+.tbl{width:100%;border-collapse:collapse;font-size:11.5px}
+.tbl th{color:var(--muted);font-weight:600;text-transform:uppercase;font-size:9.5px;letter-spacing:.6px;
+  text-align:left;padding:6px 6px;border-bottom:1px solid var(--border2);position:sticky;top:0;background:var(--card)}
+.tbl td{padding:7px 6px;border-bottom:1px solid var(--border);font-family:var(--mono);white-space:nowrap}
+.tbl td:first-child{font-family:var(--font)}
+.tbl-wrap{overflow:auto;max-height:420px;border-radius:8px}
+.badge{display:inline-block;padding:2px 8px;border-radius:7px;font-size:10px;font-weight:800;letter-spacing:.4px}
+.b-win{background:rgba(34,197,94,.15);color:var(--green)}
+.b-loss{background:rgba(239,68,68,.15);color:var(--red)}
+.b-pend{background:rgba(245,166,35,.15);color:var(--amber)}
+.b-info{background:rgba(77,159,255,.13);color:var(--blue)}
+.empty{color:var(--muted2);text-align:center;padding:22px 8px;font-size:12.5px}
+.trade-item{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--border);font-size:12.5px}
+.trade-item:last-child{border:none}
+.trade-item .tt{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.trade-item .amt{margin-left:auto;font-family:var(--mono);font-weight:700}
+
+/* ---------- Stats ---------- */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+@media(max-width:420px){.stat-grid{grid-template-columns:repeat(2,1fr)}}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:9px 6px;text-align:center}
+.stat small{display:block;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.stat b{font-family:var(--mono);font-size:15px}
+.stat b.pos{color:var(--green)} .stat b.neg{color:var(--red)}
+
+/* ---------- Log console ---------- */
+.logbox{background:#05080e;border:1px solid var(--border);border-radius:10px;padding:9px;font-family:var(--mono);
+  font-size:10.5px;height:190px;overflow:auto;line-height:1.6}
+.logbox .t{color:var(--muted2);margin-right:6px}
+.l-INFO{color:#9fb2cc}.l-DEBUG{color:#54627e}.l-WARN{color:var(--amber)}.l-ERROR{color:var(--red)}
+.l-TRADE{color:var(--accent)}.l-SIGNAL{color:var(--violet)}
+
+/* ---------- Bottom nav ---------- */
+.bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;background:rgba(8,12,20,.96);
+  backdrop-filter:blur(14px);border-top:1px solid var(--border);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+.bottomnav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;
+  color:var(--muted);font-size:9.5px;letter-spacing:.4px;border-radius:10px}
+.bottomnav button.on{color:var(--accent)}
+.bottomnav svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+@media(min-width:1024px){.bottomnav{display:none}.topbar{padding:12px 22px}}
+
+/* ---------- Toasts ---------- */
+#toasts{position:fixed;top:58px;left:50%;transform:translateX(-50%);z-index:100;display:flex;flex-direction:column;gap:8px;width:min(92vw,420px)}
+.toast{background:var(--card3);border:1px solid var(--border2);border-left:4px solid var(--blue);border-radius:10px;
+  padding:11px 14px;font-size:12.5px;box-shadow:var(--shadow);animation:tin .25s}
+.toast.ok{border-left-color:var(--green)} .toast.err{border-left-color:var(--red)} .toast.warn{border-left-color:var(--amber)}
+@keyframes tin{from{opacity:0;transform:translateY(-8px)}to{opacity:1}}
+.riskbar{display:flex;gap:8px;flex-wrap:wrap;font-size:10.5px;color:var(--muted);margin-top:6px}
+.riskbar span{background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:3px 8px}
+.boot-screen{position:fixed;inset:0;z-index:200;background:var(--bg);display:grid;place-items:center;text-align:center}
+.boot-screen .logo{font-size:34px;font-weight:900;letter-spacing:1px}
+.boot-screen .logo span{color:var(--accent)}
+.boot-screen small{color:var(--muted);letter-spacing:2px;text-transform:uppercase;font-size:10px}
+.boot-screen .bar{width:180px;height:3px;background:var(--card3);border-radius:3px;margin:18px auto 0;overflow:hidden}
+.boot-screen .bar i{display:block;height:100%;width:40%;background:var(--accent);border-radius:3px;animation:load 1s infinite}
+@keyframes load{0%{margin-left:-40%}100%{margin-left:100%}}
+.view{display:none}.view.on{display:block}
+@media(min-width:1024px){.view{display:block!important}.view.spacer{margin-top:0}}
+</style>
+</head>
+<body>
+<div class="boot-screen" id="boot"><div><div class="logo">TOUCHEDGE<span> AI</span></div>
+<small>Microstructure Decision Engine</small><div class="bar"><i></i></div></div></div>
+
+<header class="topbar">
+  <div class="brand"><b>TOUCHEDGE<span> AI</span></b><small>Touch / No Touch Engine</small></div>
+  <div class="conn"><span class="dot" id="connDot"></span><span id="connTxt">OFFLINE</span></div>
+  <div class="spot-pill" id="spotPill">—</div>
+  <button class="icon-btn" id="soundBtn" title="Sound alerts">
+    <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path id="sndWaves" d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12"/></svg>
+  </button>
+</header>
+
+<div class="shell">
+  <!-- ============ LEFT: Markets + Bot controls ============ -->
+  <aside class="side-left">
+    <div class="panel" id="marketsAnchor">
+      <h3>Markets <span class="tag" id="mktCount">—</span></h3>
+      <div class="market-grid" id="marketGrid"></div>
+    </div>
+    <div class="panel">
+      <h3>Bot Controls</h3>
+      <div class="set-row"><div class="lbl">Auto Trade<small>Execute signals automatically</small></div>
+        <label class="switch"><input type="checkbox" id="swAuto"><i></i></label></div>
+      <div class="set-row"><div class="lbl">Paper Mode<small>Simulated execution (safe)</small></div>
+        <label class="switch"><input type="checkbox" id="swPaper" checked><i></i></label></div>
+      <div class="set-row"><div class="lbl">Live Trading<small>Real Deriv contracts</small></div>
+        <label class="switch"><input type="checkbox" id="swLive"><i></i></label></div>
+      <button class="stop-btn" id="btnStop">■ STOP BOT</button>
+      <div class="bot-state"><span class="pulse" id="botPulse"></span><span id="botStateTxt">Bot idle — analysis running</span></div>
+      <div class="riskbar" id="riskBar"></div>
+    </div>
+  </aside>
+
+  <!-- ============ CENTER: Main views ============ -->
+  <main class="main-col">
+    <!-- DASHBOARD -->
+    <section class="view on" id="v-dash">
+      <div class="panel" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <div><h3 style="margin:0">Market</h3><b id="dMarketName" style="font-size:15px">—</b></div>
+        <div style="text-align:right"><h3 style="margin:0">Session</h3><b id="dSession" style="font-size:15px" class="f-info">—</b></div>
+      </div>
+
+      <div class="signal-card" id="sigCard">
+        <div class="bias-label">Market Bias</div>
+        <div class="bias-value neut" id="biasVal">ANALYZING…</div>
+        <div class="conf-row"><span class="conf-num" id="confNum">—</span><span class="conf-grade grade-NT" id="confGrade">—</span></div>
+        <div class="contract-chip" id="contractChip"><span id="contractTxt">AWAITING DATA</span></div>
+        <div class="sig-grid">
+          <div class="sig-cell"><small>Barrier</small><b id="sBarrier">—</b></div>
+          <div class="sig-cell"><small>Distance</small><b id="sDist">—</b></div>
+          <div class="sig-cell"><small>Duration</small><b id="sDur">—</b></div>
+          <div class="sig-cell"><small>Barrier Score</small><b id="sBarScore">—</b></div>
+        </div>
+        <div class="verdict wait" id="verdict">COLLECTING MARKET DATA</div>
+        <div class="no-reason" id="noReason"></div>
+        <div class="reasons-box" id="reasonsBox"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Price Map <span class="tag" id="chartTag">1M · micro</span></h3>
+        <canvas class="chart" id="chart"></canvas>
+        <canvas class="spark" id="spark"></canvas>
+        <div class="legend">
+          <span><i style="background:#f5a623"></i>Prev High</span>
+          <span><i style="background:#4d9fff"></i>Touch Barrier</span>
+          <span><i style="background:#19e3b1"></i>Spot</span>
+          <span><i style="background:#54627e"></i>Prev Mid</span>
+          <span><i style="background:#a78bfa"></i>Prev Low</span>
+          <span><i style="background:#ef4444"></i>NoTouch Barrier</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Live Microstructure <span class="tag" id="microTag">— ticks</span></h3>
+        <div class="ticks-strip" id="ticksStrip"></div>
+        <div class="micro-stats">
+          <div><small>Up / Down</small><b id="msUpDown">—</b></div>
+          <div><small>Directional Strength</small><b id="msStrength">—</b></div>
+          <div><small>Micro Trend</small><b id="msTrend">—</b></div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="btn primary" id="btnAnalyze">⟳ ANALYZE NOW</button>
+        <button class="btn" id="btnTradeOnce">EXECUTE SIGNAL</button>
+        <button class="btn ghost full" id="btnForceNo">VIEW RAW METRICS</button>
+      </div>
+    </section>
+
+    <!-- SIGNALS -->
+    <section class="view" id="v-signals">
+      <div class="panel">
+        <h3>Signal History <span class="tag" id="sigCount">0</span></h3>
+        <div class="tbl-wrap"><table class="tbl"><thead><tr>
+          <th>Time</th><th>Bias</th><th>Contract</th><th>Barrier</th><th>Dur</th><th>Conf</th><th>Score</th><th>Verdict</th>
+        </tr></thead><tbody id="sigBody"></tbody></table></div>
+      </div>
+    </section>
+
+    <!-- TRADES -->
+    <section class="view" id="v-trades">
+      <div class="panel">
+        <h3>Open / Pending Positions <span class="tag" id="openCount">0</span></h3>
+        <div id="openTrades"></div>
+      </div>
+      <div class="panel">
+        <h3>Trade Log <span class="tag" id="tradeCount">0</span></h3>
+        <div class="tbl-wrap"><table class="tbl"><thead><tr>
+          <th>Time</th><th>Type</th><th>Entry</th><th>Barrier</th><th>Dur</th><th>Result</th><th>P/L</th>
+        </tr></thead><tbody id="tradeBody"></tbody></table></div>
+      </div>
+    </section>
+
+    <!-- ANALYTICS -->
+    <section class="view" id="v-analytics">
+      <div class="panel"><h3>Session Statistics</h3><div class="stat-grid" id="statGrid"></div></div>
+      <div class="panel"><h3>Performance Breakdown</h3><div id="breakdown"></div></div>
+      <div class="panel"><h3>Calibration Data <span class="tag" id="calCount">0</span></h3>
+        <div class="tbl-wrap"><table class="tbl"><thead><tr>
+          <th>Conf</th><th>Barrier d</th><th>Dur</th><th>State</th><th>Candle</th><th>Outcome</th>
+        </tr></thead><tbody id="calBody"></tbody></table></div></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="v-settings">
+      <div class="panel">
+        <h3>Connection</h3>
+        <div class="set-row"><div class="lbl">App ID<small>Deriv application ID (from developers.deriv.com — alphanumeric)</small></div><input type="text" id="inAppId" placeholder="e.g. 33Bkb6T4TVXAIdE822tie"></div>
+        <div class="set-row"><div class="lbl wide" style="flex:1">API Token<small>Live trading only — stored locally, never shared. Scope: trade+read</small>
+          <input type="password" class="wide" id="inToken" placeholder="Paste Deriv API token" autocomplete="off"></div></div>
+        <div class="set-row"><div class="lbl">Status</div><b id="authState" class="f-warn">Not authorized</b></div>
+      </div>
+
+      <div class="panel">
+        <h3>Analysis</h3>
+        <div class="set-row"><div class="lbl">Micro tick window<small>10 – 30 ticks</small></div><input type="number" id="inTickWin" min="10" max="30"></div>
+        <div class="set-row"><div class="lbl">Candle lookback<small>History depth</small></div><input type="number" id="inLookback" min="30" max="200"></div>
+        <div class="set-row"><div class="lbl">Min confidence<small>Trade threshold %</small></div><input type="number" id="inMinConf" min="50" max="95"></div>
+        <div class="set-row"><div class="lbl">Min barrier score<small>0 – 100</small></div><input type="number" id="inMinBar" min="40" max="100"></div>
+        <div class="set-row"><div class="lbl">Auto-trade tier<small>Min grade for auto</small></div>
+          <select id="inAutoTier"><option value="A+">A+ only</option><option value="A" selected>A and above</option><option value="B">B and above</option></select></div>
+      </div>
+
+      <div class="panel">
+        <h3>Duration Engine</h3>
+        <div class="set-row"><div class="lbl">Min ticks</div><input type="number" id="inMinTicks" min="5" max="10"></div>
+        <div class="set-row"><div class="lbl">Max ticks</div><input type="number" id="inMaxTicks" min="5" max="10"></div>
+        <div class="set-row"><div class="lbl">Signal lifetime<small>Ticks before stale</small></div><input type="number" id="inSigLife" min="1" max="5"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Risk Management</h3>
+        <div class="set-row"><div class="lbl">Stake (USD)<small>Per trade</small></div><input type="number" id="inStake" min="0.35" step="0.05"></div>
+        <div class="set-row"><div class="lbl">Max trades / session</div><input type="number" id="inMaxTrades" min="1" max="200"></div>
+        <div class="set-row"><div class="lbl">Max consecutive losses</div><input type="number" id="inMaxLoss" min="1" max="20"></div>
+        <div class="set-row"><div class="lbl">Daily loss limit<small>USD — auto stop</small></div><input type="number" id="inDayLoss" min="5"></div>
+        <div class="set-row"><div class="lbl">Cooldown after trade<small>Seconds</small></div><input type="number" id="inCdTrade" min="0" max="60"></div>
+        <div class="set-row"><div class="lbl">Cooldown after loss<small>Seconds</small></div><input type="number" id="inCdLoss" min="0" max="120"></div>
+        <div class="set-row"><div class="lbl">Auto-restart bot<small>After connection recovery</small></div>
+          <label class="switch"><input type="checkbox" id="swAutoRestart" checked><i></i></label></div>
+      </div>
+
+      <div class="panel">
+        <h3>Notifications</h3>
+        <div class="set-row"><div class="lbl">Push notifications<small>Browser / mobile OS</small></div>
+          <label class="switch"><input type="checkbox" id="swPush"><i></i></label></div>
+        <div class="set-row"><div class="lbl">Telegram alerts<small>Signal + result alerts</small></div>
+          <label class="switch"><input type="checkbox" id="swTg"><i></i></label></div>
+        <div class="set-row"><div class="lbl wide" style="flex:1">Telegram Bot Token<input type="password" class="wide" id="inTgToken" placeholder="123456:ABC..." autocomplete="off"></div></div>
+        <div class="set-row"><div class="lbl wide" style="flex:1">Telegram Chat ID<input type="text" class="wide" id="inTgChat" placeholder="123456789"></div></div>
+        <button class="btn full" id="btnTgTest" style="margin-top:8px">SEND TEST MESSAGE</button>
+      </div>
+
+      <div class="panel">
+        <h3>Data</h3>
+        <div class="set-row"><div class="lbl">Persistency<small>Settings auto-saved locally</small></div><b class="f-info">ACTIVE</b></div>
+        <div class="controls">
+          <button class="btn ghost" id="btnResetStats">RESET STATISTICS</button>
+          <button class="btn ghost" id="btnWipe">WIPE ALL DATA</button>
+          <button class="btn primary full" id="btnSave">SAVE SETTINGS</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ RIGHT: Factors + Stats + Log ============ -->
+  <aside class="side-right">
+    <div class="panel">
+      <h3>Decision Factors <span class="tag" id="fTotal">0</span></h3>
+      <div id="fCandle"></div>
+      <div class="meter"><i id="mBias"></i></div>
+    </div>
+    <div class="panel">
+      <h3>Session Snapshot</h3>
+      <div class="stat-grid" style="grid-template-columns:repeat(2,1fr)" id="sideStats"></div>
+    </div>
+    <div class="panel">
+      <h3>System Log <span class="tag" id="logCount">0</span></h3>
+      <div class="logbox" id="logBox"></div>
+    </div>
+  </aside>
+</div>
+
+<!-- ============ Bottom navigation ============ -->
+<nav class="bottomnav">
+  <button data-v="v-dash" class="on"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="10" rx="1.5"/><rect x="13" y="3" width="8" height="6" rx="1.5"/><rect x="13" y="11" width="8" height="10" rx="1.5"/><rect x="3" y="15" width="8" height="6" rx="1.5"/></svg>Dash</button>
+  <button data-a="marketsAnchor"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Markets</button>
+  <button data-v="v-signals"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>Signals</button>
+  <button data-v="v-trades"><svg viewBox="0 0 24 24"><path d="M7 7h11m0 0-3-3m3 3-3 3M17 17H6m0 0 3 3m-3-3 3-3"/></svg>Trades</button>
+  <button data-v="v-analytics"><svg viewBox="0 0 24 24"><path d="M4 19V5m0 14h16M8 15v-4m4 4V8m4 7v-6"/></svg>Stats</button>
+  <button data-v="v-settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 5 12a7 7 0 0 0 .1 1.2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5A7 7 0 0 0 19 12z"/></svg>Settings</button>
+</nav>
+
+<div id="toasts"></div>
+
+<script>
+"use strict";
+/* ================================================================
+   TOUCHEDGE AI — MVP single-file build
+   Modules: Config · Store · Logger · Alerts · Telegram · Connection
+   MarketData · CandleAnalyzer · MicroTrend · Momentum · MarketState
+   Bias · BarrierEngine · DecisionEngine · DurationEngine · Validator
+   RiskManager · ExecutionEngine · UI · App
+   ================================================================ */
+
+/* ============================ utils ============================ */
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const fmt = (n,d=2) => (n==null||isNaN(n)) ? "—" : Number(n).toFixed(d);
+const nowT = () => new Date().toLocaleTimeString("en-GB",{hour12:false});
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+/* infer decimal precision from a price / pip string */
+function decimalsOf(pip, spot){
+  if(pip){ const s = String(pip).replace(/0+$/,""); const i = s.indexOf("."); return i<0 ? 0 : s.length-i-1; }
+  if(spot==null) return 2;
+  const str = String(spot);
+  if(!str.includes(".")) return 0;
+  return clamp(str.split(".")[1].replace(/0+$/,"").length, 0, 4) || 2;
+}
+function roundTo(v, d){ const m = Math.pow(10,d); return Math.round(v*m)/m; }
+
+/* ============================ Config ============================ */
+const DEFAULTS = {
+  appId: "", token: "",
+  market: "R_75",
+  tickWindow: 25, candleLookback: 80,
+  minConfidence: 75, minBarrierScore: 70, autoTier: "A",
+  minTicks: 5, maxTicks: 10, signalLife: 3,
+  stake: 1, maxTrades: 20, maxConsecLosses: 3, dailyLossLimit: 50,
+  cooldownTrade: 3, cooldownLoss: 8, autoRestart: true,
+  sound: true, push: false, tg: false, tgToken: "", tgChat: "",
+  // decision-engine weights (must sum ~1)
+  wCandle:.15, wTwo:.10, wPrevHL:.15, wMicro:.25, wMomentum:.15, wState:.10, wBarrier:.10,
+  debug: false
+};
+const Config = {
+  d: {...DEFAULTS},
+  load(){ try{ const s = JSON.parse(localStorage.getItem("te_settings")||"{}"); this.d = {...DEFAULTS, ...s}; }catch(e){ this.d = {...DEFAULTS}; } },
+  save(){ localStorage.setItem("te_settings", JSON.stringify(this.d)); }
+};
+
+/* ============================ Store (persistency) ============================ */
+const Store = {
+  get(k, fb){ try{ const v = localStorage.getItem("te_"+k); return v==null ? fb : JSON.parse(v); }catch(e){ return fb; } },
+  set(k, v){ try{ localStorage.setItem("te_"+k, JSON.stringify(v)); }catch(e){} },
+  /* auto-reset session aggregates when the day rolls over */
+  daily(key, fb){
+    const today = new Date().toDateString();
+    const rec = this.get("daily_"+key, null);
+    if(!rec || rec.day !== today){ const fresh = {day: today, ...(typeof fb==="function"?fb():fb)}; this.set("daily_"+key, fresh); return fresh; }
+    return rec;
+  },
+  touchDaily(key, patch){
+    const rec = this.daily(key, patch); Object.assign(rec, patch); this.set("daily_"+key, rec); return rec;
+  }
+};
+
+/* ============================ Logger ============================ */
+const Logger = {
+  buf: Store.get("logs", []),
+  add(level, msg){
+    const line = {t: nowT(), lvl: level, msg: String(msg).slice(0,300)};
+    this.buf.push(line); if(this.buf.length > 220) this.buf.shift();
+    Store.set("logs", this.buf.slice(-60));
+    const box = $("logBox"); if(!box) return;
+    const div = document.createElement("div");
+    div.innerHTML = `<span class="t">${line.t}</span><span class="l-${level}">[${level}]</span> ${esc(msg)}`;
+    box.appendChild(div);
+    while(box.children.length > 260) box.removeChild(box.firstChild);
+    box.scrollTop = box.scrollHeight;
+    $("logCount").textContent = this.buf.length;
+  },
+  info(m){ this.add("INFO",m); }, debug(m){ if(Config.d.debug) this.add("DEBUG",m); },
+  warn(m){ this.add("WARN",m); }, error(m){ this.add("ERROR",m); },
+  trade(m){ this.add("TRADE",m); }, signal(m){ this.add("SIGNAL",m); }
+};
+
+/* ============================ Toasts ============================ */
+function toast(msg, type="info", ms=3800){
+  const t = document.createElement("div");
+  t.className = "toast " + (type==="info"?"":type);
+  t.textContent = msg;
+  $("toasts").appendChild(t);
+  setTimeout(()=>{ t.style.opacity="0"; t.style.transition="opacity .3s"; setTimeout(()=>t.remove(),300); }, ms);
+}
+
+/* ============================ AudioAlerts ============================ */
+const AudioAlerts = {
+  ctx: null,
+  beep(freq=880, dur=.12, type="sine", gain=.18){
+    if(!Config.d.sound) return;
+    try{
+      this.ctx = this.ctx || new (window.AudioContext||window.webkitAudioContext)();
+      const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+      o.type = type; o.frequency.value = freq;
+      g.gain.setValueAtTime(gain, this.ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(.0001, this.ctx.currentTime + dur);
+      o.connect(g); g.connect(this.ctx.destination);
+      o.start(); o.stop(this.ctx.currentTime + dur);
+    }catch(e){}
+  },
+  signal(){ this.beep(1040,.1); setTimeout(()=>this.beep(1560,.14),110); },
+  trade(){ this.beep(720,.1,"square",.12); },
+  win(){ this.beep(880,.12); setTimeout(()=>this.beep(1174,.12),120); setTimeout(()=>this.beep(1568,.2),240); },
+  loss(){ this.beep(330,.18,"sawtooth",.14); setTimeout(()=>this.beep(220,.25,"sawtooth",.14),170); },
+  alert(){ this.beep(1560,.09,"triangle"); setTimeout(()=>this.beep(1560,.09,"triangle"),140); }
+};
+
+/* ============================ Push (mobile notifications) ============================ */
+const Push = {
+  ok(){ return Config.d.push && ("Notification" in window) && Notification.permission === "granted"; },
+  async enable(){
+    if(!("Notification" in window)){ toast("This browser has no Notification API","warn"); return; }
+    const p = await Notification.requestPermission();
+    if(p === "granted"){ toast("Push notifications enabled","ok"); Logger.info("Push notifications granted"); }
+    else toast("Push permission denied","warn");
+  },
+  send(title, body){
+    if(this.ok()){ try{ new Notification(title, {body, silent:false, badge:"", icon:""}); }catch(e){} }
+  }
+};
+
+/* ============================ TelegramService ============================ */
+const Telegram = {
+  async send(text){
+    if(!Config.d.tg || !Config.d.tgToken || !Config.d.tgChat) return;
+    try{
+      const url = `https://api.telegram.org/bot${Config.d.tgToken}/sendMessage`;
+      const r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({chat_id: Config.d.tgChat, text, disable_web_page_preview:true})});
+      if(!r.ok) Logger.warn("Telegram send failed: HTTP " + r.status);
+    }catch(e){ Logger.warn("Telegram error: " + e.message); }
+  },
+  notifyEvent(kind, payload){
+    if(!Config.d.tg) return;
+    const map = {
+      signal:  `⚡ TOUCHEDGE AI — SIGNAL\n${payload}`,
+      trade:   `▶ TRADE EXECUTED\n${payload}`,
+      win:     `✅ WIN\n${payload}`,
+      loss:    `❌ LOSS\n${payload}`,
+      conn:    `🔗 CONNECTION\n${payload}`,
+      stop:    `■ BOT STOPPED\n${payload}`
+    };
+    this.send(map[kind] || payload);
+  }
+};
+
+/* ============================ DerivRest ============================
+   REST layer for the current Deriv Options API — account discovery + OTP
+   issuance. Never construct WebSocket auth manually; always fetch a fresh
+   OTP URL immediately before connecting the trade socket.               */
+const DerivRest = {
+  base: "https://api.derivws.com",
+  headers(){ return { "Authorization": `Bearer ${Config.d.token}`, "Deriv-App-ID": String(Config.d.appId) }; },
+  async _json(r){
+    let j = {}; try{ j = await r.json(); }catch(e){}
+    if(!r.ok){ const msg = j?.errors?.[0]?.message || `HTTP ${r.status}`; throw new Error(msg); }
+    return j;
+  },
+  async getAccounts(){
+    const r = await fetch(`${this.base}/trading/v1/options/accounts`, { headers: this.headers() });
+    const j = await this._json(r);
+    return Array.isArray(j.data) ? j.data : [j.data];
+  },
+  async getOtpUrl(accountId){
+    const r = await fetch(`${this.base}/trading/v1/options/accounts/${accountId}/otp`, { method:"POST", headers: this.headers() });
+    const j = await this._json(r);
+    return j.data.url;
+  }
+};
+
+/* ============================ ConnectionManager ============================
+   Dedicated WebSocket layer — never touches UI directly.
+   Three sockets, per the actual behavior of this gateway (verified live):
+     - pub   : wss://api.derivws.com/trading/v1/options/ws/public (no auth) —
+               only whitelists `active_symbols`; everything else there
+               returns "Unrecognised request".
+     - md    : wss://ws.derivws.com/websockets/v3?app_id=1089 (no auth) —
+               classic full-featured market-data gateway for ticks /
+               ticks_history / contracts_for. Uses Deriv's standard public
+               demo app_id (1089) — this is a *different* app-ID system from
+               the alphanumeric Deriv-App-ID used for the REST/OTP header
+               below, and the two must never be mixed on the same socket.
+     - trade : OTP-issued URL from DerivRest.getOtpUrl() — account-scoped ops
+   No `authorize` frame anywhere — auth happens entirely over REST + OTP.
+   Auto-reconnect w/ backoff, fresh OTP on every trade-socket reconnect.  */
+const SYSTEM_KEYS = ["active_symbols"];
+const MARKET_DATA_KEYS = ["ticks", "ticks_history", "contracts_for"];
+
+const Connection = {
+  pub: null, md: null, trade: null, status: "offline",
+  reqId: 0, pending: new Map(), subs: new Map(),
+  pubGen: 0, mdGen: 0, tradeGen: 0,
+  pubBackoff: 1000, mdBackoff: 1000, tradeBackoff: 1000,
+  pubTimer: null, mdTimer: null, tradeTimer: null,
+  pubPing: null, mdPing: null, tradePing: null,
+  accountId: null, authed: false,
+  handlers: { tick:null, ohlc:null, markets:null, contracts:null, proposal:null, buy:null, poc:null, balance:null, error:null },
+
+  connect(){
+    this.connectPublic();
+    this.connectMarketData();
+    this.connectTrade();
+  },
+
+  /* ---------- pub: system socket (active_symbols only) ---------- */
+  connectPublic(){
+    clearTimeout(this.pubTimer);
+    const gen = ++this.pubGen;
+    let sock;
+    try{ sock = new WebSocket("wss://api.derivws.com/trading/v1/options/ws/public"); }
+    catch(e){ return this.schedulePublicReconnect(); }
+    this.pub = sock;
+    sock.onopen = () => {
+      if(gen !== this.pubGen) return; // stale socket, self-abort
+      this.pubBackoff = 1000;
+      Logger.info("System socket connected");
+      this.pubPing = setInterval(()=>{ if(sock.readyState===1) this.send({ping:1}, null, 10000, sock); }, 25000);
+      this.refreshStatus();
+      if(!Config.d.token) App.onConnected();
+      if(Market.symbols.length) Market.loadMarkets(); // re-seed after reconnect
+    };
+    sock.onmessage = ev => { if(gen === this.pubGen) this.onMessage(ev); };
+    sock.onclose = () => { if(gen !== this.pubGen) return; clearInterval(this.pubPing); this.onPublicDrop(); };
+    sock.onerror = () => {};
+  },
+  onPublicDrop(){
+    if(this.status !== "offline"){ Logger.warn("System connection lost — reconnecting"); }
+    this.refreshStatus();
+    this.schedulePublicReconnect();
+  },
+  schedulePublicReconnect(){
+    clearTimeout(this.pubTimer);
+    this.pubTimer = setTimeout(()=>this.connectPublic(), this.pubBackoff);
+    this.pubBackoff = Math.min(this.pubBackoff * 1.6, 30000);
+  },
+
+  /* ---------- md: classic market-data socket (ticks/history/contracts_for) ---------- */
+  connectMarketData(){
+    clearTimeout(this.mdTimer);
+    const gen = ++this.mdGen;
+    this.setStatus("connecting");
+    let sock;
+    try{ sock = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=1089"); }
+    catch(e){ return this.scheduleMdReconnect(); }
+    this.md = sock;
+    sock.onopen = () => {
+      if(gen !== this.mdGen) return;
+      this.mdBackoff = 1000;
+      Logger.info("Market-data socket connected");
+      this.mdPing = setInterval(()=>{ if(sock.readyState===1) this.send({ping:1}, null, 10000, sock); }, 25000);
+      this.refreshStatus();
+      if(Config.d.market) Market.subscribeAll(); // re-subscribe after reconnect
+    };
+    sock.onmessage = ev => { if(gen === this.mdGen) this.onMessage(ev); };
+    sock.onclose = () => { if(gen !== this.mdGen) return; clearInterval(this.mdPing); this.onMdDrop(); };
+    sock.onerror = () => {};
+  },
+  onMdDrop(){
+    if(this.status !== "offline"){ Logger.warn("Market-data connection lost — reconnecting"); toast("Connection lost — reconnecting…","warn"); AudioAlerts.alert(); Telegram.notifyEvent("conn","Connection lost. Reconnecting…"); }
+    this.subs.clear();
+    this.refreshStatus();
+    App.onDisconnected();
+    this.scheduleMdReconnect();
+  },
+  scheduleMdReconnect(){
+    clearTimeout(this.mdTimer);
+    Logger.debug("Market-data reconnect in " + this.mdBackoff/1000 + "s");
+    this.mdTimer = setTimeout(()=>this.connectMarketData(), this.mdBackoff);
+    this.mdBackoff = Math.min(this.mdBackoff * 1.6, 30000);
+  },
+  refreshStatus(){
+    const pubOk = this.pub && this.pub.readyState === 1;
+    const mdOk = this.md && this.md.readyState === 1;
+    const tradeOk = !Config.d.token || (this.trade && this.trade.readyState === 1);
+    this.setStatus(pubOk && mdOk && tradeOk ? "online" : "connecting");
+  },
+
+  /* ---------- trade (OTP-authenticated) socket ---------- */
+  async connectTrade(){
+    clearTimeout(this.tradeTimer);
+    if(!Config.d.token){ this.authed = false; $("authState").textContent = "Not authorized"; $("authState").className="f-warn"; this.refreshStatus(); return; }
+    if(!Config.d.appId){ this.authed = false; $("authState").textContent = "Add your App ID in Settings"; $("authState").className="f-bear"; toast("App ID required for live/demo trading","warn"); return; }
+    const gen = ++this.tradeGen;
+    $("authState").textContent = "Connecting…"; $("authState").className = "f-warn";
+    try{
+      const accounts = await DerivRest.getAccounts();
+      if(gen !== this.tradeGen) return;
+      const wantType = Config.d.live ? "real" : "demo";
+      const acct = accounts.find(a => a.account_type === wantType && a.status === "active") || accounts.find(a => a.status === "active") || accounts[0];
+      if(!acct) throw new Error("No Options trading account found");
+      this.accountId = acct.account_id;
+      App.balance = acct.balance; App.currency = acct.currency;
+      const url = await DerivRest.getOtpUrl(acct.account_id);
+      if(gen !== this.tradeGen) return;
+      const sock = new WebSocket(url);
+      this.trade = sock;
+      sock.onopen = () => {
+        if(gen !== this.tradeGen) return;
+        this.tradeBackoff = 1000;
+        this.authed = true;
+        $("authState").textContent = "Authorized ✓ (" + acct.account_id + ")"; $("authState").className = "f-bull";
+        Logger.info("Trade socket authenticated: " + acct.account_id);
+        this.tradePing = setInterval(()=>{ if(sock.readyState===1) this.send({ping:1}, null, 10000, sock); }, 25000);
+        this.send({balance:1, subscribe:1}, b=>{ if(b.error) Logger.warn("Balance sub failed: "+b.error.message); }, 10000, sock);
+        this.refreshStatus();
+        App.onConnected();
+      };
+      sock.onmessage = ev => { if(gen === this.tradeGen) this.onMessage(ev); };
+      sock.onclose = () => { if(gen !== this.tradeGen) return; clearInterval(this.tradePing); this.onTradeDrop(); };
+      sock.onerror = () => {};
+    }catch(e){
+      if(gen !== this.tradeGen) return;
+      this.authed = false;
+      $("authState").textContent = "Auth failed — " + e.message; $("authState").className = "f-bear";
+      Logger.error("Trade auth failed: " + e.message);
+      this.scheduleTradeReconnect();
+    }
+  },
+  onTradeDrop(){
+    this.authed = false;
+    $("authState").textContent = "Reconnecting…"; $("authState").className = "f-warn";
+    this.refreshStatus();
+    this.scheduleTradeReconnect();
+  },
+  scheduleTradeReconnect(){
+    clearTimeout(this.tradeTimer);
+    Logger.debug("Trade reconnect in " + this.tradeBackoff/1000 + "s (fresh OTP)");
+    this.tradeTimer = setTimeout(()=>this.connectTrade(), this.tradeBackoff);
+    this.tradeBackoff = Math.min(this.tradeBackoff * 1.6, 30000);
+  },
+  /* called whenever the token or live/demo toggle changes in Settings */
+  reconnectTrade(){
+    this.tradeGen++; // invalidate any in-flight/open trade socket
+    if(this.trade){ try{ this.trade.close(); }catch(e){} this.trade = null; }
+    clearInterval(this.tradePing); clearTimeout(this.tradeTimer);
+    this.tradeBackoff = 1000;
+    this.connectTrade();
+  },
+
+  setStatus(s){
+    this.status = s;
+    const d = $("connDot"), t = $("connTxt");
+    if(d){ d.className = "dot" + (s==="online" ? " on" : s==="connecting"||s==="auth" ? " warn" : ""); }
+    if(t) t.textContent = s.toUpperCase();
+    document.title = (s==="online"?"● ":"○ ") + "TOUCHEDGE AI";
+  },
+
+  pickSocket(obj){
+    if(SYSTEM_KEYS.some(k => k in obj)) return this.pub;
+    if(MARKET_DATA_KEYS.some(k => k in obj)) return this.md;
+    return this.trade;
+  },
+
+  send(obj, cb, timeout=10000, forceSocket){
+    const sock = forceSocket || this.pickSocket(obj);
+    if(!sock || sock.readyState !== 1){ cb && cb({error:{message:"socket not open"}}); return null; }
+    obj.req_id = ++this.reqId;
+    if(cb){
+      this.pending.set(obj.req_id, cb);
+      setTimeout(()=>{ if(this.pending.has(obj.req_id)){ this.pending.delete(obj.req_id); cb({error:{message:"timeout"}}); } }, timeout);
+    }
+    sock.send(JSON.stringify(obj));
+    return obj.req_id;
+  },
+  onMessage(ev){
+    let m; try{ m = JSON.parse(ev.data); }catch(e){ Logger.warn("Malformed frame ignored"); return; }
+    if(m.error){
+      const cb = m.req_id && this.pending.get(m.req_id);
+      if(cb){ this.pending.delete(m.req_id); cb(m); }
+      Logger.warn("API error: " + m.error.message);
+      return;
+    }
+    if(m.req_id && this.pending.has(m.req_id)){
+      const cb = this.pending.get(m.req_id); this.pending.delete(m.req_id); cb(m);
+      if(m.msg_type === "buy") Logger.trade("Buy confirmed: " + JSON.stringify(m.buy).slice(0,140));
+    }
+    switch(m.msg_type){
+      case "tick": this.handlers.tick && this.handlers.tick(m.tick); break;
+      case "ohlc": this.handlers.ohlc && this.handlers.ohlc(m.ohlc); break;
+      case "active_symbols": this.handlers.markets && this.handlers.markets(m.active_symbols); break;
+      case "contracts_for": this.handlers.contracts && this.handlers.contracts(m.contracts_for); break;
+      case "proposal": this.handlers.proposal && this.handlers.proposal(m); break;
+      case "buy": this.handlers.buy && this.handlers.buy(m); break;
+      case "proposal_open_contract": this.handlers.poc && this.handlers.poc(m.proposal_open_contract); break;
+      case "balance": this.handlers.balance && this.handlers.balance(m.balance); break;
+    }
+  },
+  subscribe(obj, key, cb){ // dedupe guard — never double-subscribe the same stream
+    if(this.subs.has(key)){ Logger.debug("Sub dedupe: " + key); return; }
+    this.subs.set(key, true);
+    const o = {...obj, subscribe:1};
+    this.send(o, r=>{ if(r.error){ this.subs.delete(key); cb && cb(r); } else cb && cb(r); }, 15000);
+  }
+};
+
+/* ============================ MarketDataEngine ============================
+   Candle store + rolling tick buffer + symbol registry.                 */
+const Market = {
+  symbols: [], bySymbol: {}, candles: [], ticks: [], spot: null, prevSpot: null,
+  pipDecimals: 2, tickSubId: null, candleSubId: null,
+
+  loadMarkets(){
+    Connection.send({active_symbols:"brief"}, r=>{
+      if(r.error || !r.active_symbols){ Logger.warn("active_symbols failed"); return; }
+      this.symbols = r.active_symbols.filter(s => s.market === "synthetic_index" && s.exchange_is_open === 1);
+      this.bySymbol = {};
+      this.symbols.forEach(s => this.bySymbol[s.underlying_symbol] = s);
+      Logger.info(this.symbols.length + " synthetic markets loaded");
+      UI.renderMarkets();
+      if(!this.bySymbol[Config.d.market] && this.symbols.length) Config.d.market = this.symbols[0].underlying_symbol;
+      this.select(Config.d.market);
+    }, 20000);
+  },
+  select(symbol){
+    if(!this.bySymbol[symbol]) return;
+    Config.d.market = symbol; Config.save();
+    this.spot = this.prevSpot = null; this.ticks = []; this.candles = [];
+    $("dMarketName").textContent = this.bySymbol[symbol].underlying_symbol_name;
+    Logger.info("Market selected: " + this.bySymbol[symbol].underlying_symbol_name);
+    this.subscribeAll();
+  },
+  subscribeAll(){
+    const sym = Config.d.market;
+    this.pipDecimals = decimalsOf(this.bySymbol[sym] && this.bySymbol[sym].pip_size, null);
+    Connection.subscribe({ticks: sym}, "ticks_"+sym, r=>{ if(r.error) Logger.warn("tick sub failed: "+r.error.message); });
+    Connection.subscribe({ticks_history: sym, style:"candles", granularity:60, count:Config.d.candleLookback, adjust_start_time:1, end:"latest"}, "candles_"+sym, r=>{
+      if(r.error){ Logger.warn("candle history failed: "+r.error.message); return; }
+      if(r.candles) this.seedCandles(r.candles);
+    });
+    Connection.send({contracts_for: sym}, r=>{
+      if(r.error) return;
+      const has = t => r.contracts_for.available.some(c => c.contract_type === t);
+      App.contractsAvailable = { ONETOUCH: has("ONETOUCH"), NOTOUCH: has("NOTOUCH") };
+      Logger.debug("Contracts: " + JSON.stringify(App.contractsAvailable));
+    }, 15000);
+  },
+  seedCandles(list){
+    this.candles = list.map(c => this.decorate({o:+c.open,h:+c.high,l:+c.low,c:+c.close,t:+c.epoch}));
+    Logger.info("Candle history seeded: " + this.candles.length);
+    App.onMaterialChange();
+  },
+  decorate(cd){
+    cd.body = Math.abs(cd.c - cd.o);
+    cd.range = cd.h - cd.l;
+    cd.bodyRatio = cd.range > 0 ? cd.body/cd.range : 0;
+    cd.dir = cd.c > cd.o ? 1 : cd.c < cd.o ? -1 : 0;
+    cd.upWick = cd.range > 0 ? (cd.h - Math.max(cd.o,cd.c))/cd.range : 0;
+    cd.loWick = cd.range > 0 ? (Math.min(cd.o,cd.c) - cd.l)/cd.range : 0;
+    return cd;
+  },
+  onTick(tk){
+    const q = +tk.quote, t = +tk.epoch;
+    if(this.spot != null) this.prevSpot = this.spot;
+    this.spot = q;
+    this.ticks.push({q, t});
+    if(this.ticks.length > 500) this.ticks.shift();
+    App.onTick();
+  },
+  onOhlc(o){
+    const cd = {o:+o.open, h:+o.high, l:+o.low, c:+o.close, t:+o.epoch};
+    const last = this.candles[this.candles.length-1];
+    if(last && Math.floor(last.t/60) === Math.floor(cd.t/60)){
+      Object.assign(last, this.decorate(cd));
+    } else {
+      this.candles.push(this.decorate(cd));
+      if(this.candles.length > Config.d.candleLookback) this.candles.shift();
+      App.onCandleClose();
+    }
+  },
+  prevCandle(){ return this.candles.length >= 2 ? this.candles[this.candles.length-2] : null; },
+  avgRange(n=10){ const cs = this.candles.slice(-n-1,-1); if(!cs.length) return 0; return cs.reduce((a,c)=>a+c.range,0)/cs.length; }
+};
+
+/* ============================ CandleAnalyzer ============================ */
+const CandleAnalyzer = {
+  analyze(cd){
+    if(!cd) return {score:0, label:"NO DATA", cls:"f-neut"};
+    const relRange = Market.avgRange(10) > 0 ? cd.range / Market.avgRange(10) : 1;
+    let s = cd.dir * (15 + 15*cd.bodyRatio);
+    if(cd.dir > 0 && cd.loWick > 0.55) s *= 0.55;       // long lower wick on bull = rejection risk
+    if(cd.dir < 0 && cd.upWick > 0.55) s *= 0.55;
+    s = clamp(s, -30, 30);
+    const a = Math.abs(s);
+    const label = s > 20 ? "STRONG BULLISH" : s > 8 ? "BULLISH" : s < -20 ? "STRONG BEARISH" : s < -8 ? "BEARISH" : "NEUTRAL";
+    return {score: s, label, cls: s>8?"f-bull":s<-8?"f-bear":"f-neut", relRange, compression: relRange < 0.7, expansion: relRange > 1.35};
+  },
+  twoCandle(c1, c2){ // c1 = older, c2 = latest completed
+    if(!c1 || !c2) return {score:0, label:"NO DATA", cls:"f-neut"};
+    let s = 0, label;
+    if(c2.dir === c1.dir && c2.dir !== 0){ s = c2.dir * (8 + 6*c2.bodyRatio); label = c2.dir>0?"BULLISH CONTINUATION":"BEARISH CONTINUATION"; }
+    else if(c2.dir !== 0 && c1.dir !== 0 && c2.dir !== c1.dir){ s = c2.dir * 6; label = c2.dir>0?"BULLISH REVERSAL":"BEARISH REVERSAL"; }
+    else { label = "MIXED"; }
+    const comp = c1.range < Market.avgRange(10)*0.7 && c2.range < Market.avgRange(10)*0.7;
+    const exp  = c2.range > c1.range * 1.6;
+    if(comp){ s *= 0.4; label = "COMPRESSION"; }
+    if(exp){ s = clamp(s*1.3,-20,20); label += " + EXPANSION"; }
+    return {score: clamp(s,-20,20), label, cls: s>5?"f-bull":s<-5?"f-bear":"f-neut", compression: comp, expansion: exp};
+  }
+};
+
+/* ============================ MicroTrendEngine ============================ */
+const MicroTrend = {
+  analyze(){
+    const w = Config.d.tickWindow, tk = Market.ticks;
+    if(tk.length < 10) return {score:0, label:"GATHERING", cls:"f-neut", up:0, down:0, strength:0, hh:false, hl:false, lh:false, ll:false, avgMove:0};
+    const win = tk.slice(-w);
+    let up=0, down=0, moves=0;
+    for(let i=1;i<win.length;i++){ const d = win[i].q - win[i-1].q; if(d>0)up++; else if(d<0)down++; moves += Math.abs(d); }
+    const avgMove = moves/(win.length-1);
+    const half = Math.floor(win.length/2);
+    const h1 = win.slice(0,half), h2 = win.slice(half);
+    const hi = a => Math.max(...a.map(x=>x.q)), lo = a => Math.min(...a.map(x=>x.q));
+    const hh = hi(h2) > hi(h1), hl = lo(h2) > lo(h1), lh = hi(h2) < hi(h1), ll = lo(h2) < lo(h1);
+    /* short-term slope normalized by average per-tick movement */
+    const slope = avgMove > 0 ? (win[win.length-1].q - win[0].q) / (avgMove * win.length) : 0;
+    const net = (up - down)/win.length;                      // -1..1
+    let s = clamp(net*26 + slope*14, -30, 30);
+    /* consecutive run bonus */
+    let run=1; for(let i=win.length-1;i>0;i--){ const sgn = Math.sign(win[i].q-win[i-1].q); const psgn = Math.sign(win[i-1].q-(i>1?win[i-2].q:0)); if(sgn!==0 && sgn===psgn) run++; else break; }
+    if(run >= 5) s = clamp(s + Math.sign(s||1)*4, -30, 30);
+    const a = Math.abs(s);
+    const label = s>18?"MICRO_STRONG_UP":s>7?"MICRO_UP":s<-18?"MICRO_STRONG_DOWN":s<-7?"MICRO_DOWN":"MICRO_NEUTRAL";
+    return {score:s, label, cls: s>7?"f-bull":s<-7?"f-bear":"f-neut", up, down, strength: Math.round(win.length? Math.max(up,down)/(up+down||1)*100:0), hh, hl, lh, ll, avgMove, run};
+  }
+};
+
+/* ============================ MomentumEngine ============================ */
+const Momentum = {
+  analyze(){
+    const tk = Market.ticks, n = Math.min(25, tk.length-1);
+    if(n < 5) return {score:0, label:"—", cls:"f-neut", pts:0};
+    const mt = MicroTrend.lastAvgMove || 0;
+    const raw = tk[tk.length-1].q - tk[tk.length-1-n].q;
+    const denom = (mt>0 ? mt : Math.abs(raw)/n || 1e-9) * n;
+    const s = clamp((raw/denom)*20, -20, 20);
+    return {score:s, pts:raw, label: s>6?"POSITIVE":s<-6?"NEGATIVE":"FLAT", cls: s>6?"f-bull":s<-6?"f-bear":"f-neut"};
+  }
+};
+
+/* ============================ MarketStateEngine ============================ */
+const MarketState = {
+  classify(candle, two, micro, momentum){
+    const rel = candle.relRange || 1, ms = micro.score, mos = momentum.score;
+    const candleAligned = Math.sign(candle.score) === Math.sign(ms) && Math.abs(candle.score) > 6;
+    let state = "UNKNOWN", adj = 1;
+    if(Math.abs(candle.score) > 8 && Math.abs(ms) > 12 && Math.sign(candle.score) === Math.sign(ms) && rel > 1.05){
+      state = ms > 0 ? "TREND_UP" : "TREND_DOWN"; adj = 1;
+    } else if(candle.dir !== 0 && Math.sign(candle.score) === -Math.sign(ms) && Math.abs(ms) > 14 && rel > 1.15){
+      state = ms > 0 ? "REVERSAL_UP" : "REVERSAL_DOWN"; adj = 0.6;
+    } else if(rel < 0.72 && Math.abs(ms) < 8){
+      state = "COMPRESSION"; adj = 0.45;
+    } else if(Math.abs(ms) < 7 && Math.abs(mos) < 6){
+      state = "RANGE"; adj = 0.6;
+    } else if(Math.sign(candle.score) !== 0 && Math.sign(mos) !== 0 && Math.sign(candle.score) === -Math.sign(mos) && Math.abs(ms) > 10){
+      state = "CONFLICT"; adj = 0.15;
+    } else if(rel > 1.8 && Math.abs(mos) < 4){
+      state = "EXPANSION"; adj = 0.5;
+    } else if(Math.abs(ms) > 9){
+      state = ms > 0 ? "TREND_UP" : "TREND_DOWN"; adj = 0.85;
+    } else {
+      state = "UNSTABLE"; adj = 0.3;
+    }
+    const cls = state==="TREND_UP"?"f-bull":state==="TREND_DOWN"?"f-bear":["RANGE","COMPRESSION","EXPANSION"].includes(state)?"f-info":state==="UNKNOWN"?"f-neut":"f-warn";
+    return {state, adj, cls};
+  }
+};
+
+/* ============================ BiasEngine ============================ */
+const Bias = {
+  compute(parts){
+    const w = Config.d, W = w.wCandle + w.wTwo + w.wPrevHL + w.wMicro + w.wMomentum + w.wState;
+    const raw = parts.candle*w.wCandle + parts.two*w.wTwo + parts.prevHL*w.wPrevHL + parts.micro*w.wMicro + parts.momentum*w.wMomentum + parts.state*w.wState;
+    const score = clamp(raw/W * (100/26) * (parts.stateAdj!==undefined?parts.stateAdj:1), -100, 100); // scale ≈ -100..100
+    const a = Math.abs(score);
+    const label = score>=80?"VERY STRONG BULLISH":score>=60?"STRONG BULLISH":score>=40?"BULLISH":score>-40?"NEUTRAL":score>-60?"BEARISH":score>-80?"STRONG BEARISH":"VERY STRONG BEARISH";
+    return {score, label, cls: score>=40?"bull":score<=-40?"bear":"neut"};
+  }
+};
+
+/* ============================ BarrierEngine ============================
+   Evidence-based candidate barriers — never arbitrary.                  */
+const BarrierEngine = {
+  /* Generate evaluated candidates above & below spot. */
+  candidates(context){
+    const spot = Market.spot; if(spot == null) return {up:[], down:[]};
+    const {avgMove, microRange, prevRange, pip} = context;
+    const d = Market.pipDecimals;
+    if(avgMove <= 0) return {up:[], down:[]};
+    const minD = Math.max(avgMove*2.2, microRange*0.30, Math.pow(10,-d));
+    const maxD = Math.max(microRange*2.4, prevRange*0.9, minD*1.5);
+    const steps = 7, out = {up:[], down:[]};
+    const seenU = new Set(), seenD = new Set();
+    for(let i=0;i<steps;i++){
+      const dist = minD + (maxD-minD)*(i/(steps-1));
+      const bu = roundTo(spot + dist, d), bd = roundTo(spot - dist, d);
+      if(!seenU.has(bu)){ seenU.add(bu); out.up.push(this.evaluate(bu, +1, dist, context)); }
+      if(!seenD.has(bd)){ seenD.add(bd); out.down.push(this.evaluate(bd, -1, dist, context)); }
+    }
+    /* confluence: previous high / low as extra candidates (spec §61) */
+    const pc = Market.prevCandle();
+    if(pc){
+      if(pc.h > spot + minD*0.5 && !seenU.has(roundTo(pc.h,d))) out.up.push(this.evaluate(roundTo(pc.h,d), +1, pc.h-spot, context, true));
+      if(pc.l < spot - minD*0.5 && !seenD.has(roundTo(pc.l,d))) out.down.push(this.evaluate(roundTo(pc.l,d), -1, spot-pc.l, context, true));
+    }
+    out.up.sort((a,b)=>b.score-a.score); out.down.sort((a,b)=>b.score-a.score);
+    return out;
+  },
+  evaluate(barrier, side, dist, ctx, isRef){
+    const {avgMove, microRange, prevRange, bias, micro, momentum, stateAdj, pip} = ctx;
+    const expected = avgMove * 6;                    // realistic travel over a short tick run
+    let score = 0; const notes = [];
+    /* 1 · distance suitability (30) — touch wants reachable-but-not-trivial */
+    let ds;
+    if(dist < expected*0.55){ ds = 8; notes.push("very close to spot"); }
+    else if(dist <= expected*1.15){ ds = 30; notes.push("distance within recent movement envelope"); }
+    else if(dist <= expected*1.9){ ds = 22; notes.push("distance slightly beyond movement envelope"); }
+    else if(dist <= expected*3.0){ ds = 12; notes.push("far relative to recent movement"); }
+    else { ds = 4; notes.push("too far — low feasibility"); }
+    score += ds;
+    /* 2 · directional alignment (30) */
+    const align = clamp((bias.score/100)*side, -1, 1);
+    const as = Math.round((align*0.6 + (micro.score/30)*side*0.25 + (momentum.score/20)*side*0.15) * 30);
+    score += clamp(as, 0, 30);
+    if(as > 18) notes.push("aligned with micro trend & momentum");
+    /* 3 · reference confluence (15) */
+    const pc = Market.prevCandle(); let cs = 4;
+    if(pc){ const ref = side>0 ? pc.h : pc.l; if(Math.abs(barrier-ref) <= Math.max(avgMove*3, dist*0.12)){ cs = 15; notes.push("confluence with previous " + (side>0?"high":"low")); } }
+    score += isRef ? 15 : cs;
+    /* 4 · market state (15) */
+    score += Math.round(15 * (stateAdj !== undefined ? stateAdj : 0.5));
+    /* 5 · volatility stability (10) */
+    const volRatio = microRange > 0 ? dist/microRange : 0;
+    score += volRatio >= 0.25 && volRatio <= 2.2 ? 10 : 5;
+    score = clamp(Math.round(score), 0, 100);
+    return {barrier, side, dist, score, quality: score>=85?"OPTIMAL":score>=70?"VALID":score>=50?"FAR":dist<avgMove*1.4?"TOO_CLOSE":"TOO_FAR", notes};
+  },
+  best(list, minScore){ return list.find(c => c.score >= minScore) || null; }
+};
+
+/* ============================ DurationEngine ============================ */
+const DurationEngine = {
+  pick(biasAbs, microAbs, dist, expected, stateAdj){
+    const lo = Config.d.minTicks, hi = Config.d.maxTicks;
+    const closeness = expected > 0 ? dist/expected : 2;
+    let d, reason;
+    if(biasAbs >= 65 && microAbs >= 18 && closeness <= 0.9){ d = lo; reason = "strong momentum + close valid barrier → minimal window"; }
+    else if(biasAbs >= 50 && microAbs >= 12 && closeness <= 1.2){ d = lo+1; reason = "firm momentum, near barrier"; }
+    else if(biasAbs >= 40 && closeness <= 1.4){ d = clamp(lo+2, lo, hi); reason = "moderate momentum — standard window"; }
+    else if(biasAbs >= 30){ d = clamp(lo+3, lo, hi); reason = "moderate setup — extended window"; }
+    else { d = hi; reason = "slower movement — maximum window for opportunity"; }
+    if(stateAdj < 0.5) { d = clamp(d+1, lo, hi); reason += "; state weak — +1 tick buffer"; }
+    return {ticks: clamp(d, lo, hi), reason};
+  }
+};
+
+/* ============================ DecisionEngine ============================
+   Fusion + confidence + explicit NO TRADE with reasons.                 */
+const Decision = {
+  last: null, lastSignalKey: null,
+
+  build(){
+    const pc = Market.prevCandle();
+    const candle = CandleAnalyzer.analyze(pc);
+    const two = CandleAnalyzer.twoCandle(Market.candles[Market.candles.length-3], pc);
+    const micro = MicroTrend.analyze();
+    const momentum = Momentum.analyze();
+    const state = MarketState.classify(candle, two, micro, momentum);
+    MicroTrend.lastAvgMove = micro.avgMove;
+
+    /* spot position inside previous range → prevHL score (±15) */
+    let prevHL = 0, posLabel = "—";
+    if(pc && pc.range > 0 && Market.spot != null){
+      const loc = clamp((Market.spot - pc.l)/pc.range, -0.5, 1.5);
+      posLabel = loc>1.05?"ABOVE HIGH":loc>0.8?"NEAR HIGH":loc>0.55?"UPPER HALF":loc>0.45?"MIDPOINT":loc>0.2?"LOWER HALF":loc>-0.05?"NEAR LOW":"BELOW LOW";
+      prevHL = clamp((candle.dir || Math.sign(micro.score)) * ((loc-0.5)*2) * 15, -15, 15);
+    }
+    const statePart = (state.state==="TREND_UP"?12:state.state==="TREND_DOWN"?-12:state.state==="REVERSAL_UP"?8:state.state==="REVERSAL_DOWN"?-8:0);
+    const bias = Bias.compute({candle:candle.score, two:two.score, prevHL, micro:micro.score, momentum:momentum.score, state:statePart, stateAdj:state.adj});
+
+    /* barrier context */
+    const ticks = Market.ticks, w = Config.d.tickWindow;
+    const win = ticks.slice(-w);
+    const microRange = win.length ? Math.max(...win.map(x=>x.q)) - Math.min(...win.map(x=>x.q)) : 0;
+    const ctx = {avgMove: micro.avgMove || 1e-9, microRange, prevRange: pc ? pc.range : 0, bias, micro, momentum, stateAdj: state.adj, pip: Market.pipDecimals};
+    const cands = BarrierEngine.candidates(ctx);
+
+    /* score the four contract families */
+    const scoreFamily = (dir, type, candList) => {
+      /* TOUCH dir: wants alignment with dir. NOTOUCH opposite-side barrier: wants avoidance strength */
+      const dirStrength = clamp(bias.score/100 * dir, -1, 1);           // -1..1
+      const avoidStrength = clamp(-bias.score/100 * dir, -1, 1);
+      const base = type === "TOUCH" ? dirStrength : avoidStrength;
+      const cand = BarrierEngine.best(candList, 0);
+      if(!cand) return {conf:0, cand:null};
+      let conf = 35 + base*40;
+      conf += (cand.score/100)*25;
+      conf += (micro.strength/100 - 0.5) * (type==="TOUCH" ? (micro.score*dir>0?10:-14) : (micro.score*dir<0?10:-14));
+      if(state.state === "RANGE" || state.state === "COMPRESSION") conf += type==="NOTOUCH" ? 10 : -8;
+      if(["CONFLICT","UNSTABLE","UNKNOWN"].includes(state.state)) conf -= 30;
+      conf = clamp(Math.round(conf), 0, 100);
+      return {conf, cand};
+    };
+
+    const fTouchUp    = scoreFamily(+1, "TOUCH", cands.up);
+    const fTouchDown  = scoreFamily(-1, "TOUCH", cands.down);
+    const fNoTouchUp  = scoreFamily(-1, "NOTOUCH", cands.up);   // barrier above, we bet it is NOT hit
+    const fNoTouchDown= scoreFamily(+1, "NOTOUCH", cands.down);
+
+    const families = [
+      {type:"TOUCH",    dir:"UP",   ...fTouchUp},
+      {type:"TOUCH",    dir:"DOWN", ...fTouchDown},
+      {type:"NOTOUCH",  dir:"UP",   ...fNoTouchUp},
+      {type:"NOTOUCH",  dir:"DOWN", ...fNoTouchDown}
+    ].filter(f => f.cand).sort((a,b)=>b.conf-a.conf);
+
+    const best = families[0] || null;
+    let decision = "NO_TRADE", reasons = [], warnings = [], grade = "NO TRADE";
+
+    /* ---- conflict protection (spec §60) ---- */
+    const signs = [candle.score, micro.score, momentum.score].map(Math.sign).filter(s=>s!==0);
+    const conflict = new Set(signs).size >= 2 && ["CONFLICT","UNSTABLE"].includes(state.state);
+
+    if(!best){ reasons.push("No acceptable barrier found within configured range."); }
+    else if(conflict){
+      reasons.push(`SIGNAL CONFLICT — candle ${candle.label} vs micro ${micro.label} vs momentum ${momentum.label}, state ${state.state}.`);
+      warnings.push("Contradictory evidence — engine rejects forced entries.");
+    }
+    else if(!App.contractsAvailable[best.type === "TOUCH" ? "ONETOUCH" : "NOTOUCH"]){
+      reasons.push(best.type + " contracts unavailable on this market.");
+    }
+    else{
+      const dur = DurationEngine.pick(Math.abs(bias.score), Math.abs(micro.score), best.cand.dist, ctx.avgMove*6, state.adj);
+      grade = best.conf >= 85 ? "A+" : best.conf >= 78 ? "A" : best.conf >= 70 ? "B" : best.conf >= 60 ? "C" : "NO TRADE";
+      const tierRank = g => ({"A+":4,"A":3,"B":2,"C":1,"NO TRADE":0})[g];
+      const passesConf = best.conf >= Config.d.minConfidence;
+      const passesBar  = best.cand.score >= Config.d.minBarrierScore;
+      if(passesConf && passesBar){
+        decision = "TRADE";
+        reasons.push(`${best.type} ${best.dir} — ${best.conf}% confidence, barrier score ${best.cand.score}.`);
+        best.cand.notes.forEach(n => reasons.push("Barrier: " + n));
+        reasons.push("Duration: " + dur.reason);
+      } else {
+        if(!passesConf) reasons.push(`Confidence below threshold (${best.conf}% / ${Config.d.minConfidence}%).`);
+        if(!passesBar)  reasons.push(`Barrier quality below threshold (${best.cand.score} / ${Config.d.minBarrierScore}).`);
+        if(Math.abs(bias.score) < 25) reasons.push("Directional bias too weak — neutral market.");
+        if(["RANGE","COMPRESSION"].includes(state.state)) warnings.push("Ranging/compressed market reduces touch probability.");
+      }
+      best.dur = dur;
+    }
+
+    const tierOk = grade => ({"A+":4,"A":3,"B":2,"C":1,"NO TRADE":0})[grade] >= ({"A+":4,"A":3,"B":2})[Config.d.autoTier];
+
+    const sig = {
+      id: uid(),
+      market: Config.d.market,
+      ts: Date.now(),
+      spot: Market.spot, prevHigh: pc?pc.h:null, prevLow: pc?pc.l:null,
+      candleBias: candle.label, twoCandle: two.label, microTrend: micro.label,
+      momentum: momentum.label, marketState: state.state, posLabel,
+      bias: bias.score, biasLabel: bias.label,
+      contractType: best ? best.type : null, direction: best ? best.dir : null,
+      barrier: best ? best.cand.barrier : null, barrierDist: best ? best.cand.dist : null,
+      barrierScore: best ? best.cand.score : null,
+      durationTicks: best && best.dur ? best.dur.ticks : null, durReason: best && best.dur ? best.dur.reason : null,
+      confidence: best ? best.conf : 0, grade,
+      reasons, warnings, decision,
+      autoEligible: decision === "TRADE" && tierOk(grade),
+      families: families.map(f=>({t:f.type,d:f.dir,c:f.conf,bs:f.cand.score})),
+      ctx: {avgMove: ctx.avgMove, microRange, prevRange: ctx.prevRange, up: micro.up, down: micro.down, strength: micro.strength}
+    };
+    this.last = sig;
+    this.lastSignalKey = sig.contractType ? `${sig.market}|${sig.contractType}|${sig.direction}|${roundTo(sig.barrier, Market.pipDecimals)}` : null;
+    return sig;
+  }
+};
+
+/* ============================ TradeValidator ============================ */
+const Validator = {
+  check(sig){
+    if(Connection.status !== "online") return "Market disconnected";
+    if(Market.spot == null) return "No valid spot price";
+    if(!sig || sig.decision !== "TRADE") return "No active trade signal";
+    if(sig.contractType && !App.contractsAvailable[sig.contractType==="TOUCH"?"ONETOUCH":"NOTOUCH"]) return "Contract no longer available";
+    if(sig.ticksOld != null && sig.ticksOld > Config.d.signalLife) return "Signal stale — market moved on";
+    if(Risk.blocked()) return Risk.blockReason;
+    if(Decision.lastSignalKey && Decision.lastSignalKey === Risk.lastTradedKey) return "Duplicate signal blocked";
+    return null;
+  }
+};
+
+/* ============================ RiskManager + Cooldowns ============================ */
+const Risk = {
+  lastTradedKey: null, consecLosses: 0, cooldownUntil: 0, tradesSession: 0, stopped: false, stopReason: "",
+  blocked(){ return this.stopped || Date.now() < this.cooldownUntil || this.tradesSession >= Config.d.maxTrades || this.consecLosses >= Config.d.maxConsecLosses || this.dailyLoss() >= Config.d.dailyLossLimit; },
+  get blockReason(){
+    if(this.stopped) return this.stopReason || "Bot stopped by user";
+    if(Date.now() < this.cooldownUntil) return "Cooldown active (" + Math.ceil((this.cooldownUntil-Date.now())/1000) + "s)";
+    if(this.tradesSession >= Config.d.maxTrades) return "Max trades per session reached";
+    if(this.consecLosses >= Config.d.maxConsecLosses) return "Max consecutive losses reached — bot halted";
+    if(this.dailyLoss() >= Config.d.dailyLossLimit) return "Daily loss limit reached — bot halted";
+    return "Blocked";
+  },
+  dailyLoss(){ return Store.daily("loss", {lost:0}).lost; },
+  registerTrade(){
+    this.tradesSession++; this.lastTradedKey = Decision.lastSignalKey;
+    this.cooldownUntil = Date.now() + Config.d.cooldownTrade*1000;
+  },
+  registerResult(win, pl){
+    if(win){ this.consecLosses = 0; }
+    else {
+      this.consecLosses++;
+      this.cooldownUntil = Date.now() + Config.d.cooldownLoss*1000;
+      Store.touchDaily("loss", {lost: Store.daily("loss",{lost:0}).lost + Math.abs(Math.min(pl,0))});
+      if(this.consecLosses >= Config.d.maxConsecLosses){ this.halt("Max consecutive losses reached"); }
+      if(this.dailyLoss() >= Config.d.dailyLossLimit){ this.halt("Daily loss limit reached"); }
+    }
+  },
+  halt(reason){
+    this.stopped = true; this.stopReason = reason;
+    App.setAuto(false);
+    Logger.error("RISK HALT: " + reason); toast("■ BOT HALTED: " + reason, "err", 6000);
+    AudioAlerts.alert(); Telegram.notifyEvent("stop", reason);
+    UI.syncBotUI();
+  },
+  resume(){ this.stopped = false; this.stopReason=""; this.consecLosses = 0; this.tradesSession = 0; UI.syncBotUI(); },
+  resetSession(){ this.tradesSession = 0; this.consecLosses = 0; this.cooldownUntil = 0; }
+};
+
+/* ============================ ExecutionEngine ============================
+   Paper mode simulates fills & resolves on real ticks.
+   Live mode: proposal → validate → buy → monitor open contract.        */
+const Execution = {
+  open: [],           // open paper/live positions
+  history: Store.get("trades", []),
+  livePending: new Map(),
+
+  execute(sig, forced){
+    const err = Validator.check(sig);
+    if(err && !forced){ Logger.warn("Execution blocked: " + err); return false; }
+    if(!sig || sig.decision !== "TRADE"){ toast("No eligible signal to execute","warn"); return false; }
+    if(!Config.d.token && !Config.d.paper){ toast("Add API token or enable Paper Mode","warn"); return false; }
+
+    const pos = {
+      id: uid(), sigId: sig.id, market: sig.market,
+      type: sig.contractType, dir: sig.direction,
+      barrier: sig.barrier, duration: sig.durationTicks,
+      entry: Market.spot, stake: Config.d.stake,
+      ticksLeft: sig.durationTicks, mode: Config.d.paper ? "PAPER" : "LIVE",
+      status: "PENDING", openedAt: Date.now()
+    };
+    Risk.registerTrade();
+    if(pos.mode === "PAPER") this.open.push(pos);
+    else this.executeLive(pos, sig);
+    Logger.trade(`EXEC ${pos.mode} ${pos.type} ${pos.dir} @ ${fmt(pos.entry)} barrier ${fmt(pos.barrier)} ${pos.duration}t stake ${pos.stake}`);
+    toast(`${pos.mode}: ${pos.type} ${pos.dir} @ ${fmt(pos.barrier)} · ${pos.duration} ticks`, "ok");
+    AudioAlerts.trade();
+    Telegram.notifyEvent("trade", `${pos.type} ${pos.dir} · ${sig.market}\nBarrier: ${fmt(pos.barrier)} · ${pos.duration} ticks\nConf ${sig.confidence}% · Stake ${pos.stake}`);
+    App.signalFired = true;
+    UI.renderOpenTrades(); UI.renderRisk();
+    return true;
+  },
+
+  /* ---- LIVE path: proposal → buy → subscription ---- */
+  executeLive(pos, sig){
+    Connection.send({proposal:1, amount:pos.stake, basis:"stake", contract_type: pos.type==="TOUCH"?"ONETOUCH":"NOTOUCH",
+      currency: App.currency || "USD", duration:pos.duration, duration_unit:"t",
+      underlying_symbol:pos.market, barrier:String(pos.barrier), passthrough:{pid:pos.id}}, r=>{
+      if(r.error || !r.proposal){ Logger.error("Proposal failed: " + (r.error?r.error.message:"none")); toast("Proposal failed","err"); Risk.cooldownUntil = 0; return; }
+      const prop = r.proposal;
+      if(prop.ask_price > pos.stake*1.02){ Logger.warn("Ask price above stake — skipped"); return; }
+      Connection.send({buy: prop.id, price: prop.ask_price}, b=>{
+        if(b.error){ Logger.error("Buy failed: "+b.error.message); toast("Buy failed: "+b.error.message,"err"); return; }
+        pos.contractId = b.buy.contract_id; pos.status = "OPEN";
+        this.open.push(pos);
+        Logger.trade("Bought contract #" + pos.contractId + " payout " + b.buy.payout);
+        Connection.send({proposal_open_contract:1, contract_id: pos.contractId, subscribe:1}, p=>{
+          if(p.subscription && p.subscription.id) pos.pocSub = p.subscription.id;
+        }, 15000);
+      }, 15000);
+    }, 15000);
+  },
+
+  onPOC(c){
+    const pos = this.open.find(p => p.contractId === c.contract_id);
+    if(!pos || pos.status !== "OPEN") return;
+    if(c.is_sold || c.status === "sold"){
+      pos.status = "CLOSED";
+      const pl = (c.profit != null) ? +c.profit : 0;
+      this.close(pos, pl, (c.exit_spot != null ? +c.exit_spot : Market.spot));
+      if(pos.pocSub) Connection.send({forget: pos.pocSub});
+    }
+  },
+
+  /* ---- tick-driven resolution (paper + live safety net) ---- */
+  onTick(){
+    for(const pos of [...this.open]){
+      if(pos.status !== "OPEN" && pos.status !== "PENDING") continue;
+      if(pos.mode === "LIVE" && pos.contractId) continue;   // live resolves via POC stream
+      const q = Market.spot; if(q == null) continue;
+      if(pos.status === "PENDING"){ pos.status = "OPEN"; pos.entry = pos.entry ?? q; }
+      pos.ticksLeft--;
+      const touched = pos.dir === "UP" ? q >= pos.barrier : q <= pos.barrier;
+      if(pos.type === "TOUCH" && touched){
+        this.close(pos, pos.stake * 0.94, q, "barrier touched"); continue;
+      }
+      if(pos.type === "NOTOUCH" && touched){
+        this.close(pos, -pos.stake, q, "barrier hit"); continue;
+      }
+      if(pos.ticksLeft <= 0){
+        if(pos.type === "TOUCH") this.close(pos, -pos.stake, q, "expired untouched");
+        else this.close(pos, pos.stake * 0.94, q, "barrier avoided");
+      }
+    }
+  },
+
+  close(pos, pl, exit, why){
+    pos.status = "CLOSED"; pos.pl = +pl.toFixed(2); pos.exit = exit; pos.closedAt = Date.now(); pos.why = why;
+    this.open = this.open.filter(p => p !== pos);
+    const win = pos.pl > 0;
+    const rec = {t: nowT(), market: pos.market, type: pos.type, dir: pos.dir, mode: pos.mode,
+      entry: pos.entry, exit, barrier: pos.barrier, dur: pos.duration, pl: pos.pl, win, why, ts: pos.openedAt};
+    this.history.unshift(rec); if(this.history.length > 300) this.history.pop();
+    Store.set("trades", this.history.slice(0,120));
+    Risk.registerResult(win, pos.pl);
+    Logger.trade(`${win?"WIN":"LOSS"} ${pos.type} ${pos.dir} ${pos.mode} ${pos.pl>=0?"+":""}${pos.pl} (${why})`);
+    toast(`${win?"✅ WIN":"❌ LOSS"} ${pos.mode} ${pos.type} ${pos.dir}: ${pos.pl>=0?"+":""}${pos.pl} USD`, win?"ok":"err", 5000);
+    win ? AudioAlerts.win() : AudioAlerts.loss();
+    Telegram.notifyEvent(win?"win":"loss", `${pos.type} ${pos.dir} · ${pos.market}\nP/L: ${pos.pl>=0?"+":""}${pos.pl} USD (${why})`);
+    UI.renderTrades(); UI.renderStats(); UI.renderRisk();
+  },
+
+  forceCloseAll(why="Bot stopped"){
+    for(const pos of [...this.open]){
+      if(pos.status !== "OPEN") continue;
+      if(pos.mode === "LIVE" && pos.contractId){
+        // MUST actually sell the real contract — never fabricate a close for live money.
+        Connection.send({sell: pos.contractId, price: 0}, r=>{
+          if(r.error){
+            Logger.error(`Force-sell failed for #${pos.contractId}: ${r.error.message} — contract may still be OPEN on Deriv, check your portfolio manually`);
+            toast(`Could not close live contract #${pos.contractId} — check Deriv portfolio!`, "err", 10000);
+            pos.status = "UNKNOWN"; // never mark a live position CLOSED without confirmation
+            this.open = this.open.filter(p => p !== pos);
+            UI.renderOpenTrades();
+            return;
+          }
+          if(pos.pocSub) Connection.send({forget: pos.pocSub});
+          const soldFor = +r.sell.sold_for;
+          this.close(pos, soldFor - pos.stake, Market.spot, why);
+        }, 15000);
+      } else {
+        // PAPER positions have no real contract — simulated outcome is correct here.
+        this.close(pos, pos.type==="TOUCH" ? -pos.stake : pos.stake*0.94, Market.spot, why);
+      }
+    }
+  }
+};
+
+/* ============================ App orchestrator ============================ */
+const App = {
+  auto: false, contractsAvailable: {ONETOUCH:false, NOTOUCH:false},
+  currency: "USD", balance: null, signalFired: false,
+  tickCount: 0, analysisEvery: 1, lastSigLogged: null, bootedAt: Date.now(),
+
+  boot(){
+    Config.load();
+    UI.bindSettings(); UI.applySettingsToUI();
+    UI.bindNav(); UI.bindControls();
+    Connection.handlers.tick = t => Market.onTick(t);
+    Connection.handlers.ohlc = o => Market.onOhlc(o);
+    Connection.handlers.markets = null;
+    Connection.handlers.poc = c => Execution.onPOC(c);
+    Connection.handlers.balance = b => { App.balance = +b.balance; App.currency = b.currency; };
+    Connection.connect();
+    const boot = $("boot");
+    setTimeout(()=>{ boot.style.transition="opacity .4s"; boot.style.opacity="0"; setTimeout(()=>boot.remove(),400); }, 700);
+    Logger.info("TOUCHEDGE AI booted · MVP build");
+    this.persistLoop();
+  },
+  onConnected(){
+    Market.loadMarkets();
+    if(this._wasAuto && Config.d.autoRestart){ this._wasAuto = false; this.setAuto(true); Logger.info("Auto-restart: bot resumed after reconnect"); toast("Reconnected — bot auto-resumed","ok"); }
+    else toast("Connected to Deriv","ok");
+    Telegram.notifyEvent("conn","Connected to Deriv API");
+  },
+  onDisconnected(){
+    if(this.auto){ this._wasAuto = true; this.setAuto(false, true); }
+    Push.send("TOUCHEDGE AI — Connection lost","Attempting automatic reconnect…");
+  },
+  setAuto(on, silent){
+    if(on && Risk.stopped){ toast("Bot is halted: " + Risk.stopReason, "warn"); return; }
+    this.auto = on;
+    $("swAuto").checked = on;
+    $("botPulse").className = "pulse" + (on ? " on" : "");
+    $("botStateTxt").textContent = on ? "BOT ACTIVE — scanning for A-grade setups" : (Risk.stopped ? "HALTED: " + Risk.stopReason : "Bot idle — analysis running");
+    if(!silent){ Logger.info("Auto trade " + (on?"ENABLED":"disabled")); }
+    UI.renderRisk();
+  },
+  emergencyStop(){
+    this.setAuto(false, true);
+    Risk.halt("Manual STOP pressed");
+    Execution.forceCloseAll("Bot stopped");
+    Logger.error("EMERGENCY STOP executed by user");
+  },
+
+  onTick(){
+    this.tickCount++;
+    Execution.onTick();
+    const sig = Decision.last;
+    if(sig && sig.decision === "TRADE") sig.ticksOld = (sig.ticksOld||0) + 1;
+    /* controlled analysis cycle — every tick is cheap; signal re-log on material change */
+    const fresh = Decision.build();
+    this.maybeLogSignal(fresh);
+    if(this.auto && !this.signalFired && fresh.autoEligible && !Risk.blocked()){
+      const err = Validator.check(fresh);
+      if(!err){ if(Execution.execute(fresh)) {} }
+      else Logger.debug("Auto gate: " + err);
+    }
+    if(this.signalFired && Decision.lastSignalKey !== Risk.lastTradedKey) this.signalFired = false;
+    UI.renderLive(fresh);
+  },
+  onCandleClose(){ Logger.debug("Candle closed — bias recomputed"); UI.renderLive(Decision.last || Decision.build()); },
+  onMaterialChange(){ UI.renderLive(Decision.build()); },
+
+  maybeLogSignal(sig){
+    const key = sig.decision === "TRADE"
+      ? `T|${sig.contractType}|${sig.direction}|${sig.barrier}`
+      : `N|${sig.grade}|${Math.round(sig.confidence/5)}|${sig.marketState}`;
+    if(key === this.lastSigLogged) return;
+    this.lastSigLogged = key;
+    UI.logSignal(sig);
+    if(sig.decision === "TRADE"){
+      Logger.signal(`SIGNAL ${sig.contractType} ${sig.dir||sig.direction} conf ${sig.confidence}% grade ${sig.grade} barrier ${fmt(sig.barrier)}`);
+      AudioAlerts.signal();
+      Push.send("TOUCHEDGE AI — " + sig.grade + " signal", `${sig.contractType} ${sig.direction} · conf ${sig.confidence}% · ${sig.durationTicks} ticks`);
+      Telegram.notifyEvent("signal", `${sig.grade} · ${sig.contractType} ${sig.direction}\nConf: ${sig.confidence}% · Barrier: ${fmt(sig.barrier)}\nDur: ${sig.durationTicks} ticks · State: ${sig.marketState}`);
+    } else {
+      Logger.debug("NO TRADE: " + (sig.reasons[0]||"weak setup"));
+    }
+  },
+
+  persistLoop(){ setInterval(()=>{ Config.save(); }, 15000); }
+};
+
+/* ============================ UI ============================ */
+const UI = {
+  sigLog: Store.get("signals", []),
+  calLog: Store.get("calibration", []),
+
+  bindNav(){
+    document.querySelectorAll(".bottomnav button").forEach(b=>{
+      b.addEventListener("click", ()=>{
+        if(b.dataset.a){ const el = $(b.dataset.a); if(el) el.scrollIntoView({behavior:"smooth"}); return; }
+        document.querySelectorAll(".bottomnav button").forEach(x=>x.classList.toggle("on", x===b));
+        document.querySelectorAll(".view").forEach(v=>v.classList.remove("on"));
+        $(b.dataset.v).classList.add("on");
+        window.scrollTo({top:0});
+        if(b.dataset.v==="v-analytics") this.renderStats();
+        if(b.dataset.v==="v-trades"){ this.renderTrades(); this.renderOpenTrades(); }
+        if(b.dataset.v==="v-signals") this.renderSignals();
+      });
+    });
+  },
+  bindControls(){
+    $("btnStop").onclick = () => App.emergencyStop();
+    $("btnAnalyze").onclick = () => { const s = Decision.build(); App.maybeLogSignal(s); this.renderLive(s); toast("Analysis refreshed — " + (s.decision==="TRADE" ? s.grade+" setup" : "NO TRADE"), s.decision==="TRADE"?"ok":"warn"); };
+    $("btnTradeOnce").onclick = () => { const s = Decision.build(); if(!Execution.execute(s)) {} };
+    $("btnForceNo").onclick = () => {
+      const s = Decision.last; if(!s) return;
+      toast(`bias ${Math.round(s.bias)} · state ${s.marketState} · μRange ${fmt(s.ctx.microRange,4)} · avgMove ${fmt(s.ctx.avgMove,4)}`, "info", 6000);
+    };
+    $("soundBtn").onclick = () => { Config.d.sound = !Config.d.sound; Config.save(); this.syncToggles(); toast("Sound " + (Config.d.sound?"ON":"OFF")); };
+    $("swAuto").onchange = e => App.setAuto(e.target.checked);
+    $("swPaper").onchange = e => { Config.d.paper = e.target.checked; Config.save(); Logger.info("Paper mode " + (Config.d.paper?"ON (simulated)":"OFF")); this.syncToggles(); };
+    $("swLive").onchange = e => {
+      if(e.target.checked && !Config.d.token){ toast("Add your Deriv API token in Settings first","warn"); e.target.checked=false; return; }
+      if(e.target.checked && Config.d.paper){ Config.d.paper = false; $("swPaper").checked=false; }
+      Config.d.live = e.target.checked; Config.save(); this.syncToggles();
+      toast(e.target.checked ? "⚠ LIVE TRADING ARMED — real contracts" : "Live disarmed", e.target.checked?"warn":"ok", 5000);
+      Logger.warn("LIVE mode " + (e.target.checked?"ARMED":"off"));
+      Connection.reconnectTrade();
+    };
+  },
+  bindSettings(){
+    const d = Config.d, pairs = [["inAppId","appId"],["inToken","token"],["inTickWin","tickWindow"],["inLookback","candleLookback"],
+      ["inMinConf","minConfidence"],["inMinBar","minBarrierScore"],["inMinTicks","minTicks"],["inMaxTicks","maxTicks"],
+      ["inSigLife","signalLife"],["inStake","stake"],["inMaxTrades","maxTrades"],["inMaxLoss","maxConsecLosses"],
+      ["inDayLoss","dailyLossLimit"],["inCdTrade","cooldownTrade"],["inCdLoss","cooldownLoss"],["inAutoTier","autoTier"],
+      ["inTgToken","tgToken"],["inTgChat","tgChat"]];
+    pairs.forEach(([id,key])=>{ const el=$(id); el.value = d[key]; el.onchange = ()=>{ let v = el.type==="number" ? +el.value : el.value; if(key==="minTicks"||key==="maxTicks") v = clamp(v,5,10); Config.d[key]=v; Config.save(); Logger.debug("Setting " + key + " = " + v); if(key==="token"||key==="appId") Connection.reconnectTrade(); }; });
+    $("swPush").onchange = async e => { Config.d.push = e.target.checked; Config.save(); if(e.target.checked) await Push.enable(); };
+    $("swTg").onchange = e => { Config.d.tg = e.target.checked; Config.save(); if(e.target.checked && (!Config.d.tgToken || !Config.d.tgChat)) toast("Enter Telegram bot token + chat ID","warn"); };
+    $("swAutoRestart").onchange = e => { Config.d.autoRestart = e.target.checked; Config.save(); };
+    $("btnTgTest").onclick = () => { Telegram.send("TOUCHEDGE AI test — " + nowT()).then(()=>toast("Test message sent","ok")).catch(()=>toast("Telegram failed — check credentials","err")); };
+    $("btnResetStats").onclick = () => { Execution.history=[]; Store.set("trades",[]); this.sigLog=[]; Store.set("signals",[]); this.calLog=[]; Store.set("calibration",[]); Risk.resetSession(); this.renderAll(); toast("Statistics reset","ok"); };
+    $("btnWipe").onclick = () => { if(confirm("Wipe ALL stored data and settings?")){ localStorage.clear(); location.reload(); } };
+    $("btnSave").onclick = () => { Config.save(); toast("Settings saved & persisted","ok"); Logger.info("Settings saved"); };
+  },
+  applySettingsToUI(){
+    const d = Config.d;
+    $("swPaper").checked = d.paper !== false;
+    $("swLive").checked = !!d.live;
+    $("swPush").checked = !!d.push; $("swTg").checked = !!d.tg;
+    $("swAutoRestart").checked = d.autoRestart !== false;
+    this.syncToggles();
+  },
+  syncToggles(){
+    $("soundBtn").classList.toggle("on", Config.d.sound);
+    $("swLive").checked = !!Config.d.live;
+    const w = $("sndWaves"); if(w) w.style.opacity = Config.d.sound ? 1 : 0.15;
+  },
+  syncBotUI(){
+    $("botPulse").className = "pulse" + (App.auto ? " on" : "");
+    $("botStateTxt").textContent = App.auto ? "BOT ACTIVE — scanning for A-grade setups" : (Risk.stopped ? "HALTED: " + Risk.stopReason : "Bot idle — analysis running");
+  },
+
+  /* ---------- markets ---------- */
+  renderMarkets(){
+    const g = $("marketGrid"); g.innerHTML = "";
+    const list = Market.symbols.length ? Market.symbols : [];
+    $("mktCount").textContent = list.length + " synth";
+    list.forEach(s=>{
+      const b = document.createElement("button");
+      b.className = "mkt" + (s.underlying_symbol===Config.d.market ? " sel" : "");
+      b.innerHTML = `<b>${esc(s.underlying_symbol_name)}</b><small>${s.underlying_symbol}</small><div class="quote" data-q="${s.underlying_symbol}">—</div>`;
+      b.onclick = ()=>{ Market.select(s.underlying_symbol); this.renderMarkets(); };
+      g.appendChild(b);
+    });
+  },
+
+  /* ---------- live dashboard ---------- */
+  renderLive(sig){
+    if(!sig) return;
+    /* spot */
+    const pill = $("spotPill");
+    if(Market.spot != null){
+      pill.textContent = fmt(Market.spot, Market.pipDecimals);
+      pill.className = "spot-pill " + (Market.prevSpot==null ? "" : Market.spot>Market.prevSpot ? "up" : Market.spot<Market.prevSpot ? "dn" : "");
+      document.querySelectorAll(`[data-q]`).forEach(el=>{ if(el.dataset.q===Config.d.market) el.textContent = fmt(Market.spot, Market.pipDecimals); });
+    }
+    $("dSession").textContent = Risk.tradesSession + "/" + Config.d.maxTrades + " trades · " + Risk.consecLosses + " consec losses";
+    /* bias + confidence */
+    const bv = $("biasVal");
+    bv.textContent = sig.biasLabel || "—";
+    bv.className = "bias-value " + sig.bias.cls;
+    $("confNum").textContent = sig.decision==="TRADE" ? sig.confidence + "%" : (sig.grade==="NO TRADE" ? "—" : sig.confidence + "%");
+    const g = $("confGrade"); g.textContent = sig.grade + (sig.grade!=="NO TRADE" ? " SETUP" : "");
+    g.className = "conf-grade grade-" + (sig.grade==="A+"?"Ap":sig.grade[0]);
+    /* contract chip */
+    const chip = $("contractChip");
+    if(sig.decision==="TRADE"){
+      chip.style.display = "inline-flex";
+      chip.className = "contract-chip " + (sig.direction==="UP"?"up":"dn");
+      $("contractTxt").textContent = sig.contractType + " " + (sig.direction==="UP"?"↑":"↓");
+      $("sBarrier").textContent = fmt(sig.barrier, Market.pipDecimals);
+      $("sDist").textContent = fmt(sig.barrierDist, Market.pipDecimals);
+      $("sDur").textContent = sig.durationTicks + " TICKS";
+      $("sBarScore").textContent = sig.barrierScore + "/100";
+    } else {
+      chip.style.display = "none";
+      $("sBarrier").textContent = $("sDist").textContent = $("sDur").textContent = $("sBarScore").textContent = "—";
+    }
+    const v = $("verdict");
+    if(Risk.stopped){ v.className="verdict no"; v.textContent = "■ HALTED — " + Risk.stopReason; }
+    else if(sig.decision==="TRADE"){ v.className="verdict ok"; v.textContent = "TRADE ELIGIBLE — " + sig.grade + " SETUP"; }
+    else { v.className="verdict no"; v.textContent = "NO TRADE"; }
+    $("noReason").textContent = sig.reasons[0] || "";
+    $("reasonsBox").innerHTML = [
+      ...sig.reasons.slice(1,5).map(r=>`<div class="r-pos">${esc(r)}</div>`),
+      ...sig.warnings.map(w=>`<div class="r-warn">⚠ ${esc(w)}</div>`)
+    ].join("");
+    /* factors panel */
+    $("fTotal").textContent = "bias " + Math.round(sig.bias);
+    const F = (l,val,cls)=>`<div class="factor"><span>${l}</span><b class="${cls}">${val}</b></div>`;
+    $("fCandle").innerHTML =
+      F("Previous Candle", sig.candleBias, sig.candleBias.includes("BULL")?"f-bull":sig.candleBias.includes("BEAR")?"f-bear":"f-neut") +
+      F("Two-Candle Structure", sig.twoCandle, sig.twoCandle.includes("BULL")?"f-bull":sig.twoCandle.includes("BEAR")?"f-bear":"f-neut") +
+      F("Micro Trend", sig.microTrend.replace("MICRO_",""), sig.microTrend.includes("UP")?"f-bull":sig.microTrend.includes("DOWN")?"f-bear":"f-neut") +
+      F("Momentum", sig.momentum, sig.momentum==="POSITIVE"?"f-bull":sig.momentum==="NEGATIVE"?"f-bear":"f-neut") +
+      F("Market State", sig.marketState, sig.marketState==="TREND_UP"?"f-bull":sig.marketState==="TREND_DOWN"?"f-bear":["RANGE","COMPRESSION","EXPANSION"].includes(sig.marketState)?"f-info":"f-warn") +
+      F("Spot vs Prev Range", sig.posLabel, "f-info") +
+      F("Prev High", sig.prevHigh!=null?fmt(sig.prevHigh,Market.pipDecimals):"—","f-warn") +
+      F("Prev Low", sig.prevLow!=null?fmt(sig.prevLow,Market.pipDecimals):"—","f-info");
+    const mb = $("mBias"); mb.style.width = Math.abs(sig.bias) + "%";
+    mb.className = sig.bias >= 0 ? "p" : "n";
+    /* micro panel */
+    const tk = Market.ticks.slice(-24);
+    $("ticksStrip").innerHTML = tk.map((x,i)=>{ const p = i>0?tk[i-1].q:x.q; return `<span class="${x.q>p?"u":x.q<p?"d":""}">${x.q>p?"▲":x.q<p?"▼":"•"}</span>`; }).join("");
+    $("microTag").textContent = Config.d.tickWindow + " ticks";
+    $("msUpDown").textContent = sig.ctx.up + " / " + sig.ctx.down;
+    $("msStrength").textContent = (sig.ctx.strength||0) + "%";
+    const mt = $("msTrend"); mt.textContent = sig.microTrend.replace("MICRO_",""); mt.className = sig.microTrend.includes("UP")?"f-bull":sig.microTrend.includes("DOWN")?"f-bear":"";
+    this.drawChart(sig); this.drawSpark();
+  },
+
+  drawChart(sig){
+    const cv = $("chart"); if(!cv) return;
+    const dpr = window.devicePixelRatio||1, W = cv.clientWidth, H = 280;
+    cv.width = W*dpr; cv.height = H*dpr;
+    const x = cv.getContext("2d"); x.scale(dpr,dpr); x.clearRect(0,0,W,H);
+    const candles = Market.candles.slice(-40);
+    if(candles.length < 2 || Market.spot==null) return;
+    let lo = Math.min(...candles.map(c=>c.l)), hi = Math.max(...candles.map(c=>c.h));
+    const spot = Market.spot; lo = Math.min(lo, spot); hi = Math.max(hi, spot);
+    if(sig.barrier!=null){ lo = Math.min(lo, sig.barrier); hi = Math.max(hi, sig.barrier); }
+    const pad = (hi-lo)*0.12 || 1; lo -= pad; hi += pad;
+    const Y = v => H - (v-lo)/(hi-lo)*H;
+    const cw = W/candles.length;
+    /* candles */
+    candles.forEach((c,i)=>{
+      const cx = i*cw + cw/2, up = c.dir >= 0;
+      x.strokeStyle = x.fillStyle = up ? "#22c55e" : "#ef4444";
+      x.lineWidth = 1;
+      x.beginPath(); x.moveTo(cx, Y(c.h)); x.lineTo(cx, Y(c.l)); x.stroke();
+      const bw = Math.max(2, cw*0.55), yo = Y(Math.max(c.o,c.c)), yc = Y(Math.min(c.o,c.c));
+      x.fillRect(cx-bw/2, yo, bw, Math.max(1.5, yc-yo));
+    });
+    /* reference lines */
+    const line = (v, col, lbl, dash)=>{ if(v==null) return;
+      x.strokeStyle = col; x.lineWidth = 1; x.setLineDash(dash?[6,4]:[]);
+      x.beginPath(); x.moveTo(0,Y(v)); x.lineTo(W,Y(v)); x.stroke(); x.setLineDash([]);
+      x.fillStyle = col; x.font = "9px monospace"; x.fillText(lbl + " " + fmt(v,Market.pipDecimals), 5, Y(v)-3);
+    };
+    const pc = Market.prevCandle();
+    if(pc){ line(pc.h, "#f5a623", "PREV HIGH"); line(pc.l, "#a78bfa", "PREV LOW"); line((pc.h+pc.l)/2, "#54627e", "PREV MID", true); }
+    if(sig.barrier!=null) line(sig.barrier, sig.contractType==="TOUCH" ? "#4d9fff" : "#ef4444", sig.contractType==="TOUCH"?"TOUCH BARRIER":"NOTOUCH BARRIER");
+    line(spot, "#19e3b1", "SPOT");
+  },
+  drawSpark(){
+    const cv = $("spark"); if(!cv) return;
+    const dpr = window.devicePixelRatio||1, W = cv.clientWidth, H = 64;
+    cv.width = W*dpr; cv.height = H*dpr;
+    const x = cv.getContext("2d"); x.scale(dpr,dpr);
+    const tk = Market.ticks.slice(-Config.d.tickWindow*2); if(tk.length<2) return;
+    let lo = Math.min(...tk.map(t=>t.q)), hi = Math.max(...tk.map(t=>t.q));
+    const pad = (hi-lo)*0.15||1; lo-=pad; hi+=pad;
+    const up = tk[tk.length-1].q >= tk[0].q;
+    x.strokeStyle = up ? "#22c55e" : "#ef4444"; x.lineWidth = 1.6; x.beginPath();
+    tk.forEach((t,i)=>{ const px = i/(tk.length-1)*W, py = H-(t.q-lo)/(hi-lo)*H; i?x.lineTo(px,py):x.moveTo(px,py); });
+    x.stroke();
+  },
+
+  /* ---------- signals ---------- */
+  logSignal(sig){
+    this.sigLog.unshift({t: nowT(), bias: sig.biasLabel, c: sig.contractType? sig.contractType+" "+sig.direction : "—",
+      b: sig.barrier, d: sig.durationTicks, conf: sig.confidence, bs: sig.barrierScore,
+      v: sig.decision==="TRADE" ? sig.grade : "NO TRADE"});
+    if(this.sigLog.length > 120) this.sigLog.pop();
+    Store.set("signals", this.sigLog.slice(0,60));
+    /* calibration record (features + outcome resolved later via trade log matching) */
+    this.calLog.unshift({conf: sig.confidence, bd: sig.barrierDist? +sig.barrierDist.toFixed(5):null,
+      dur: sig.durationTicks, state: sig.marketState, candle: sig.candleBias, grade: sig.grade, ts: sig.ts});
+    if(this.calLog.length > 400) this.calLog.pop();
+    Store.set("calibration", this.calLog.slice(0,120));
+    this.renderSignals(); this.renderCalibration();
+  },
+  renderSignals(){
+    $("sigCount").textContent = this.sigLog.length;
+    $("sigBody").innerHTML = this.sigLog.map(s=>`<tr>
+      <td>${s.t}</td><td>${esc(s.bias)}</td><td>${esc(s.c)}</td><td>${s.b!=null?fmt(s.b):"—"}</td>
+      <td>${s.d||"—"}</td><td>${s.conf}%</td><td>${s.bs||"—"}</td>
+      <td><span class="badge ${s.v==="NO TRADE"?"b-pend":s.v==="A+"?"b-win":"b-info"}">${s.v}</span></td></tr>`).join("") || `<tr><td colspan="8" class="empty">No signals yet — waiting for market data</td></tr>`;
+  },
+  renderCalibration(){
+    $("calCount").textContent = this.calLog.length;
+    $("calBody").innerHTML = this.calLog.slice(0,40).map(c=>`<tr>
+      <td>${c.conf}% ${c.grade}</td><td>${c.bd!=null?c.bd:"—"}</td><td>${c.dur||"—"}</td>
+      <td>${c.state}</td><td>${c.candle}</td><td><span class="badge b-info">tracked</span></td></tr>`).join("") || `<tr><td colspan="6" class="empty">Calibration buffer empty</td></tr>`;
+  },
+
+  /* ---------- trades ---------- */
+  renderOpenTrades(){
+    const list = Execution.open;
+    $("openCount").textContent = list.length;
+    $("openTrades").innerHTML = list.map(p=>`<div class="trade-item">
+      <span class="badge ${p.type==="TOUCH"?"b-info":"b-pend"}">${p.mode} ${p.type}</span>
+      <div><b>${p.dir} · ${fmt(p.barrier,Market.pipDecimals)}</b><div class="tt">${p.ticksLeft} ticks left · entry ${fmt(p.entry,Market.pipDecimals)}</div></div>
+      <span class="amt">${p.stake} USD</span></div>`).join("") || `<div class="empty">No open positions</div>`;
+  },
+  renderTrades(){
+    const h = Execution.history;
+    $("tradeCount").textContent = h.length;
+    $("tradeBody").innerHTML = h.slice(0,60).map(r=>`<tr>
+      <td>${r.t}</td><td>${r.mode} ${r.type} ${r.dir}</td><td>${fmt(r.entry,Market.pipDecimals)}</td>
+      <td>${fmt(r.barrier,Market.pipDecimals)}</td><td>${r.dur}t</td>
+      <td><span class="badge ${r.win?"b-win":"b-loss"}">${r.win?"WIN":"LOSS"}</span></td>
+      <td class="${r.pl>=0?"f-bull":"f-bear"}">${r.pl>=0?"+":""}${r.pl}</td></tr>`).join("") || `<tr><td colspan="7" class="empty">No trades yet — enable Auto Trade or execute manually</td></tr>`;
+    this.renderOpenTrades();
+  },
+
+  /* ---------- stats + risk ---------- */
+  renderStats(){
+    const h = Execution.history;
+    const wins = h.filter(r=>r.win), losses = h.filter(r=>!r.win);
+    const net = h.reduce((a,r)=>a+r.pl,0);
+    const S = (l,v,cls="")=>`<div class="stat"><small>${l}</small><b class="${cls}">${v}</b></div>`;
+    $("statGrid").innerHTML =
+      S("Signals", this.sigLog.length) + S("Trades", h.length) +
+      S("Wins", wins.length, "pos") + S("Losses", losses.length, "neg") +
+      S("Win Rate", h.length? Math.round(wins.length/h.length*100)+"%" : "—") +
+      S("Net P/L", (net>=0?"+":"")+fmt(net), net>=0?"pos":"neg") +
+      S("Avg Conf", h.length? Math.round(this.calLog.slice(0,h.length).reduce((a,c)=>a+(c.conf||0),0)/Math.max(1,Math.min(h.length,this.calLog.length)))+"%" : "—") +
+      S("Avg Barrier", this.calLog.length? Math.round(this.calLog.reduce((a,c)=>a+(c.bs||c.conf||0),0)/this.calLog.length) : "—");
+    $("sideStats").innerHTML =
+      S("Trades", h.length) + S("Win Rate", h.length?Math.round(wins.length/h.length*100)+"%":"—") +
+      S("Net", (net>=0?"+":"")+fmt(net), net>=0?"pos":"neg") + S("Open", Execution.open.length);
+    /* breakdowns */
+    const groups = {Contract: r=>r.type, Direction: r=>r.dir, Duration: r=>r.dur+" ticks", Mode: r=>r.mode};
+    let html = "";
+    for(const [gname, fn] of Object.entries(groups)){
+      const m = {};
+      h.forEach(r=>{ const k = fn(r); m[k] = m[k]||{n:0,w:0,pl:0}; m[k].n++; if(r.win)m[k].w++; m[k].pl+=r.pl; });
+      html += `<div class="factor"><span style="font-weight:700;color:var(--text)">${gname}</span><b></b></div>`;
+      Object.entries(m).forEach(([k,v])=> html += `<div class="factor"><span>　${k}</span><b class="${v.pl>=0?'f-bull':'f-bear'}">${v.w}/${v.n} · ${(v.pl>=0?"+":"")+fmt(v.pl)}</b></div>`);
+    }
+    $("breakdown").innerHTML = html || `<div class="empty">No data yet</div>`;
+  },
+  renderRisk(){
+    const r = [];
+    r.push(`<span>Stake ${Config.d.stake} USD</span>`);
+    r.push(`<span>Trades ${Risk.tradesSession}/${Config.d.maxTrades}</span>`);
+    r.push(`<span>Consec losses ${Risk.consecLosses}/${Config.d.maxConsecLosses}</span>`);
+    r.push(`<span>Day loss ${fmt(-Risk.dailyLoss())}/${Config.d.dailyLossLimit}</span>`);
+    r.push(`<span>${Config.d.paper?"PAPER":"LIVE"}</span>`);
+    if(Date.now() < Risk.cooldownUntil) r.push(`<span>Cooldown ${Math.ceil((Risk.cooldownUntil-Date.now())/1000)}s</span>`);
+    $("riskBar").innerHTML = r.join("");
+  },
+
+  renderAll(){ this.renderSignals(); this.renderTrades(); this.renderStats(); this.renderCalibration(); this.renderRisk(); this.syncBotUI(); }
+};
+
+/* ============================ Boot ============================ */
+window.addEventListener("DOMContentLoaded", ()=> App.boot());
+window.addEventListener("beforeunload", ()=> Config.save());
+setInterval(()=> UI.renderRisk(), 1000);
+</script>
+</body>
+</html>

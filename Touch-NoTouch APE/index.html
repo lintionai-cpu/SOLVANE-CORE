@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OV2UN7 Nexus — Touch/No Touch Intelligence Engine</title>
+<style>
+:root{
+  --bg-0:#0a0e0f;
+  --bg-1:#10161a;
+  --bg-2:#161e23;
+  --bg-3:#1c262c;
+  --line:#243038;
+  --line-soft:#1a2329;
+  --ink-0:#e8efef;
+  --ink-1:#9fb2b8;
+  --ink-2:#647077;
+  --teal:#2fd9c4;
+  --teal-dim:#1c8a7c;
+  --amber:#e8a13a;
+  --coral:#e8553a;
+  --violet:#8a7ce8;
+  --demo:#2fd9c4;
+  --real:#e8553a;
+  --font-display:'Spectral',Georgia,serif;
+  --font-mono:'JetBrains Mono','SF Mono',Consolas,monospace;
+  --font-body:'Inter',-apple-system,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{
+  background:var(--bg-0);
+  color:var(--ink-0);
+  font-family:var(--font-body);
+  font-size:14px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+@font-face{font-family:'sysfallback';src:local('Arial');}
+body{
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(47,217,196,0.04), transparent 40%),
+    radial-gradient(circle at 85% 100%, rgba(138,124,232,0.03), transparent 40%);
+}
+
+/* ===== TOP BAR ===== */
+.topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:14px 22px;
+  border-bottom:1px solid var(--line);
+  background:var(--bg-1);
+  position:sticky;
+  top:0;
+  z-index:100;
+  flex-wrap:wrap;
+  gap:12px;
+}
+.brand{
+  display:flex;
+  align-items:baseline;
+  gap:10px;
+}
+.brand .mark{
+  font-family:var(--font-display);
+  font-weight:600;
+  font-size:20px;
+  letter-spacing:0.5px;
+  color:var(--ink-0);
+}
+.brand .mark span{color:var(--teal);}
+.brand .sub{
+  font-family:var(--font-mono);
+  font-size:10px;
+  color:var(--ink-2);
+  letter-spacing:1.2px;
+  text-transform:uppercase;
+}
+.topbar-controls{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.mode-toggle{
+  display:flex;
+  border:1px solid var(--line);
+  border-radius:6px;
+  overflow:hidden;
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.5px;
+}
+.mode-toggle button{
+  background:var(--bg-2);
+  color:var(--ink-2);
+  border:none;
+  padding:8px 14px;
+  cursor:pointer;
+  transition:all .15s ease;
+  font-family:inherit;
+  font-size:inherit;
+  letter-spacing:inherit;
+}
+.mode-toggle button.active.demo{background:rgba(47,217,196,0.15);color:var(--demo);}
+.mode-toggle button.active.real{background:rgba(232,85,58,0.18);color:var(--real);}
+
+.conn-status{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font-family:var(--font-mono);
+  font-size:11px;
+  color:var(--ink-2);
+  padding:7px 12px;
+  border:1px solid var(--line);
+  border-radius:6px;
+  background:var(--bg-2);
+}
+.conn-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--ink-2);
+  transition:background .2s ease;
+}
+.conn-dot.connected{background:var(--teal);box-shadow:0 0 6px var(--teal);}
+.conn-dot.connecting{background:var(--amber);animation:pulse 1s infinite;}
+.conn-dot.error{background:var(--coral);}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+
+.btn{
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.4px;
+  padding:8px 14px;
+  border-radius:6px;
+  border:1px solid var(--line);
+  background:var(--bg-2);
+  color:var(--ink-0);
+  cursor:pointer;
+  transition:all .15s ease;
+  text-transform:uppercase;
+}
+.btn:hover{border-color:var(--teal-dim);background:var(--bg-3);}
+.btn:disabled{opacity:0.4;cursor:not-allowed;}
+.btn-primary{background:var(--teal-dim);border-color:var(--teal-dim);color:#06120f;font-weight:600;}
+.btn-primary:hover{background:var(--teal);border-color:var(--teal);}
+.btn-stop{
+  background:var(--coral);
+  border-color:var(--coral);
+  color:#1a0805;
+  font-weight:700;
+}
+.btn-stop:hover{background:#ff6347;}
+
+/* real-mode banner */
+.real-banner{
+  display:none;
+  background:repeating-linear-gradient(135deg,rgba(232,85,58,0.18),rgba(232,85,58,0.18) 10px,rgba(232,85,58,0.28) 10px,rgba(232,85,58,0.28) 20px);
+  border-bottom:1px solid var(--real);
+  color:#ffd9cf;
+  text-align:center;
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.6px;
+  padding:7px;
+  text-transform:uppercase;
+}
+.real-banner.show{display:block;}
+
+/* ===== LAYOUT ===== */
+.shell{
+  display:grid;
+  grid-template-columns:280px 1fr 320px;
+  gap:1px;
+  background:var(--line);
+  min-height:calc(100vh - 56px);
+}
+@media (max-width:1100px){
+  .shell{grid-template-columns:1fr;}
+}
+.col{
+  background:var(--bg-0);
+  display:flex;
+  flex-direction:column;
+  gap:1px;
+}
+.panel{
+  background:var(--bg-1);
+  border:1px solid var(--line-soft);
+  border-radius:8px;
+  margin:10px;
+  padding:16px;
+}
+.panel-title{
+  font-family:var(--font-mono);
+  font-size:10px;
+  letter-spacing:1.4px;
+  text-transform:uppercase;
+  color:var(--ink-2);
+  margin-bottom:12px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+/* ===== FORM ELEMENTS ===== */
+.field{margin-bottom:12px;}
+.field label{
+  display:block;
+  font-size:11px;
+  color:var(--ink-1);
+  margin-bottom:5px;
+  font-family:var(--font-mono);
+  letter-spacing:0.3px;
+}
+.field input,.field select{
+  width:100%;
+  background:var(--bg-2);
+  border:1px solid var(--line);
+  border-radius:5px;
+  color:var(--ink-0);
+  padding:8px 10px;
+  font-family:var(--font-mono);
+  font-size:12px;
+}
+.field input:focus,.field select:focus{
+  outline:none;
+  border-color:var(--teal-dim);
+}
+.field-row{display:flex;gap:8px;}
+.field-row .field{flex:1;}
+.hint{font-size:10px;color:var(--ink-2);margin-top:4px;}
+
+/* ===== ACCOUNT PANEL ===== */
+.acct-balance{
+  font-family:var(--font-display);
+  font-size:30px;
+  font-weight:600;
+  color:var(--ink-0);
+  margin:4px 0 2px;
+}
+.acct-currency{font-size:13px;color:var(--ink-2);font-family:var(--font-mono);}
+.acct-id{font-family:var(--font-mono);font-size:11px;color:var(--ink-2);margin-top:6px;}
+
+/* ===== TICK CHART ===== */
+.chart-wrap{
+  position:relative;
+  height:220px;
+  background:var(--bg-2);
+  border-radius:6px;
+  overflow:hidden;
+}
+#tickCanvas{width:100%;height:100%;display:block;}
+.chart-meta{
+  display:flex;
+  justify-content:space-between;
+  margin-top:8px;
+  font-family:var(--font-mono);
+  font-size:11px;
+  color:var(--ink-2);
+}
+.chart-meta .price{color:var(--teal);font-size:16px;font-weight:600;}
+
+/* ===== MARKET STATE ===== */
+.state-badge{
+  display:inline-block;
+  font-family:var(--font-mono);
+  font-size:13px;
+  font-weight:700;
+  letter-spacing:1px;
+  padding:8px 16px;
+  border-radius:5px;
+  text-transform:uppercase;
+}
+.state-IDLE{background:rgba(100,112,119,0.18);color:var(--ink-1);}
+.state-COMPRESSED{background:rgba(138,124,232,0.18);color:var(--violet);}
+.state-BREAKOUT{background:rgba(232,161,58,0.18);color:var(--amber);}
+.state-TRENDING{background:rgba(47,217,196,0.18);color:var(--teal);}
+.state-EXHAUSTED{background:rgba(232,85,58,0.18);color:var(--coral);}
+.state-REVERSING{background:rgba(138,124,232,0.18);color:var(--violet);}
+.state-HIGH_RISK{background:var(--coral);color:#1a0805;}
+
+.state-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px;}
+.state-cell{
+  font-family:var(--font-mono);
+  font-size:10px;
+  color:var(--ink-2);
+  padding:6px 8px;
+  background:var(--bg-2);
+  border-radius:4px;
+  border:1px solid var(--line-soft);
+}
+.state-cell b{color:var(--ink-0);display:block;font-size:13px;margin-top:2px;}
+
+/* ===== PROBABILITY METERS ===== */
+.meter{margin-bottom:14px;}
+.meter-head{
+  display:flex;
+  justify-content:space-between;
+  font-family:var(--font-mono);
+  font-size:11px;
+  margin-bottom:6px;
+}
+.meter-head .val{font-weight:700;font-size:14px;}
+.meter-track{
+  height:8px;
+  background:var(--bg-2);
+  border-radius:4px;
+  overflow:hidden;
+}
+.meter-fill{
+  height:100%;
+  border-radius:4px;
+  transition:width .3s ease;
+  width:0%;
+}
+.meter-fill.touch{background:linear-gradient(90deg,var(--teal-dim),var(--teal));}
+.meter-fill.notouch{background:linear-gradient(90deg,var(--violet),#a99cf0);}
+.meter-fill.conf{background:linear-gradient(90deg,var(--amber),#ffc766);}
+.meter-fill.risk{background:linear-gradient(90deg,var(--teal-dim),var(--amber),var(--coral));}
+
+/* ===== SIGNAL PANEL ===== */
+.signal-display{
+  text-align:center;
+  padding:18px 10px;
+  border-radius:8px;
+  background:var(--bg-2);
+  border:1px solid var(--line-soft);
+}
+.signal-text{
+  font-family:var(--font-display);
+  font-size:22px;
+  font-weight:600;
+  letter-spacing:0.5px;
+}
+.signal-text.touch{color:var(--teal);}
+.signal-text.notouch{color:var(--violet);}
+.signal-text.none{color:var(--ink-2);}
+.signal-sub{font-family:var(--font-mono);font-size:11px;color:var(--ink-2);margin-top:6px;}
+
+/* ===== TRADE HISTORY ===== */
+.trade-table{
+  width:100%;
+  border-collapse:collapse;
+  font-family:var(--font-mono);
+  font-size:11px;
+}
+.trade-table th{
+  text-align:left;
+  color:var(--ink-2);
+  font-weight:500;
+  padding:6px 8px;
+  border-bottom:1px solid var(--line);
+  text-transform:uppercase;
+  font-size:9px;
+  letter-spacing:0.6px;
+}
+.trade-table td{
+  padding:7px 8px;
+  border-bottom:1px solid var(--line-soft);
+  color:var(--ink-1);
+}
+.trade-table tr:hover td{background:var(--bg-2);}
+.win{color:var(--teal);font-weight:600;}
+.loss{color:var(--coral);font-weight:600;}
+.pending{color:var(--amber);}
+
+/* ===== LOG ===== */
+.log-feed{
+  max-height:220px;
+  overflow-y:auto;
+  font-family:var(--font-mono);
+  font-size:10.5px;
+  display:flex;
+  flex-direction:column-reverse;
+}
+.log-line{padding:4px 0;border-bottom:1px solid var(--line-soft);color:var(--ink-2);}
+.log-line.warn{color:var(--amber);}
+.log-line.error{color:var(--coral);}
+.log-line.trade{color:var(--teal);}
+.log-line .ts{color:var(--ink-2);margin-right:6px;opacity:0.6;}
+
+/* ===== RISK PANEL ===== */
+.risk-stat{
+  display:flex;
+  justify-content:space-between;
+  padding:7px 0;
+  border-bottom:1px solid var(--line-soft);
+  font-family:var(--font-mono);
+  font-size:11px;
+}
+.risk-stat:last-child{border-bottom:none;}
+.risk-stat .label{color:var(--ink-2);}
+.risk-stat .value{color:var(--ink-0);font-weight:600;}
+.risk-stat .value.bad{color:var(--coral);}
+.risk-stat .value.good{color:var(--teal);}
+
+.toggle-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.switch{
+  position:relative;width:38px;height:20px;
+  background:var(--bg-3);border-radius:10px;
+  cursor:pointer;border:1px solid var(--line);
+}
+.switch .knob{
+  position:absolute;top:2px;left:2px;
+  width:14px;height:14px;border-radius:50%;
+  background:var(--ink-2);transition:all .2s ease;
+}
+.switch.on{background:rgba(47,217,196,0.2);border-color:var(--teal-dim);}
+.switch.on .knob{left:20px;background:var(--teal);}
+
+.scroll{overflow-y:auto;}
+.scroll::-webkit-scrollbar{width:6px;}
+.scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px;}
+
+.empty-state{
+  text-align:center;
+  padding:20px 10px;
+  color:var(--ink-2);
+  font-size:11px;
+  font-family:var(--font-mono);
+}
+
+footer{
+  text-align:center;
+  padding:14px;
+  font-family:var(--font-mono);
+  font-size:10px;
+  color:var(--ink-2);
+  letter-spacing:0.5px;
+}
+</style>
+</head>
+<body>
+
+<div class="real-banner" id="realBanner">⚠ LIVE REAL-MONEY TRADING ACTIVE — REAL ACCOUNT — REAL FUNDS AT RISK ⚠</div>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="mark">OV2UN7 <span>Nexus</span></div>
+    <div class="sub">Touch / No Touch Adaptive Probability Engine</div>
+  </div>
+  <div class="topbar-controls">
+    <div class="mode-toggle" id="accountModeToggle">
+      <button class="active demo" data-mode="demo" id="btnDemo">Demo</button>
+      <button data-mode="real" id="btnReal">Real</button>
+    </div>
+    <div class="conn-status">
+      <div class="conn-dot" id="connDot"></div>
+      <span id="connLabel">Disconnected</span>
+    </div>
+    <button class="btn" id="btnConnect">Connect</button>
+    <button class="btn btn-stop" id="btnKillSwitch" disabled>⏹ Stop All</button>
+  </div>
+</div>
+
+<div class="shell">
+
+  <!-- LEFT COLUMN: Connection, Account, Contract Config, Risk Settings -->
+  <div class="col">
+    <div class="panel">
+      <div class="panel-title">Authentication</div>
+      <div class="field">
+        <label for="appIdInput">Deriv App ID</label>
+        <input type="text" id="appIdInput" placeholder="e.g. 1089" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="patInput">Personal Access Token (PAT)</label>
+        <input type="password" id="patInput" placeholder="Paste your PAT — never shared" autocomplete="off">
+        <div class="hint">Token stays in-browser only. Required scopes: trade, account_manage.</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Account <span id="acctRefreshHint" style="font-weight:400;"></span></div>
+      <div class="acct-balance" id="acctBalance">—</div>
+      <div class="acct-currency" id="acctCurrency">No account loaded</div>
+      <div class="acct-id" id="acctId"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Contract Parameters</div>
+      <div class="field">
+        <label for="marketSelect">Market</label>
+        <select id="marketSelect">
+          <option value="R_25" selected>Volatility 25 Index (R_25)</option>
+          <option value="R_10">Volatility 10 Index (R_10)</option>
+          <option value="R_50">Volatility 50 Index (R_50)</option>
+          <option value="R_75">Volatility 75 Index (R_75)</option>
+          <option value="R_100">Volatility 100 Index (R_100)</option>
+          <option value="1HZ100V">Volatility 100 (1s) Index</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="stakeInput">Base Stake (USD)</label>
+          <input type="number" id="stakeInput" value="1" min="0.35" step="0.01">
+        </div>
+        <div class="field">
+          <label for="durationInput">Duration</label>
+          <input type="number" id="durationInput" value="5" min="1" step="1">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="durationUnitSelect">Unit</label>
+          <select id="durationUnitSelect">
+            <option value="t">Ticks</option>
+            <option value="s" selected>Seconds</option>
+            <option value="m">Minutes</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="barrierOffsetInput">Barrier Offset (±)</label>
+          <input type="number" id="barrierOffsetInput" value="0.5" min="0.01" step="0.01">
+        </div>
+      </div>
+      <div class="hint">Barrier is computed dynamically as current spot ± offset, scaled by ATR. Touch trades use a near barrier; No Touch trades use a far barrier.</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Risk Management</div>
+      <div class="field-row">
+        <div class="field">
+          <label for="riskPerTradeInput">Risk / Trade (%)</label>
+          <input type="number" id="riskPerTradeInput" value="1" min="0.1" max="5" step="0.1">
+        </div>
+        <div class="field">
+          <label for="maxDrawdownInput">Max Daily DD (%)</label>
+          <input type="number" id="maxDrawdownInput" value="5" min="1" max="20" step="0.5">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="maxLossesInput">Max Consec. Losses</label>
+          <input type="number" id="maxLossesInput" value="3" min="1" max="10" step="1">
+        </div>
+        <div class="field">
+          <label for="cooldownInput">Cooldown (min)</label>
+          <input type="number" id="cooldownInput" value="30" min="1" max="240" step="1">
+        </div>
+      </div>
+      <div class="toggle-row">
+        <label style="font-size:11px;color:var(--ink-1);font-family:var(--font-mono);">Auto-Execute Validated Signals</label>
+        <div class="switch" id="autoExecSwitch"><div class="knob"></div></div>
+      </div>
+      <div class="hint">When off, signals display but require manual confirmation to trade.</div>
+    </div>
+  </div>
+
+  <!-- CENTER COLUMN: Chart, Market State, Pattern, Signal -->
+  <div class="col">
+    <div class="panel">
+      <div class="panel-title">
+        Live Tick Stream
+        <span id="tickStreamStatus" style="font-weight:400;"></span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="tickCanvas"></canvas>
+      </div>
+      <div class="chart-meta">
+        <span>Spot: <span class="price" id="spotPrice">—</span></span>
+        <span id="tickRate">0 ticks/s</span>
+        <span id="bufferFill">Buffer: 0/200</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Market State Machine</div>
+      <div class="state-badge state-IDLE" id="stateBadge">IDLE</div>
+      <div class="state-grid">
+        <div class="state-cell">Velocity<b id="featVelocity">—</b></div>
+        <div class="state-cell">Volatility<b id="featVolatility">—</b></div>
+        <div class="state-cell">Trend Strength<b id="featTrend">—</b></div>
+        <div class="state-cell">Barrier Ratio<b id="featBarrierRatio">—</b></div>
+        <div class="state-cell">Pattern<b id="featPattern">—</b></div>
+        <div class="state-cell">RSI(14)<b id="featRSI">—</b></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Probability Engine</div>
+      <div class="meter">
+        <div class="meter-head"><span>Touch Probability</span><span class="val" id="touchProbVal">0%</span></div>
+        <div class="meter-track"><div class="meter-fill touch" id="touchProbFill"></div></div>
+      </div>
+      <div class="meter">
+        <div class="meter-head"><span>No Touch Probability</span><span class="val" id="noTouchProbVal">0%</span></div>
+        <div class="meter-track"><div class="meter-fill notouch" id="noTouchProbFill"></div></div>
+      </div>
+      <div class="meter">
+        <div class="meter-head"><span>Confidence</span><span class="val" id="confVal">0%</span></div>
+        <div class="meter-track"><div class="meter-fill conf" id="confFill"></div></div>
+      </div>
+      <div class="meter" style="margin-bottom:0;">
+        <div class="meter-head"><span>Risk Score</span><span class="val" id="riskScoreVal">0%</span></div>
+        <div class="meter-track"><div class="meter-fill risk" id="riskScoreFill"></div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Trade Signal</div>
+      <div class="signal-display">
+        <div class="signal-text none" id="signalText">NO SIGNAL</div>
+        <div class="signal-sub" id="signalSub">Awaiting qualifying conditions</div>
+      </div>
+      <div id="manualConfirmWrap" style="display:none;margin-top:12px;text-align:center;">
+        <button class="btn btn-primary" id="btnManualExecute">Confirm &amp; Execute Trade</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN: Risk Status, Trade History, Performance, Log -->
+  <div class="col">
+    <div class="panel">
+      <div class="panel-title">Risk Status</div>
+      <div class="risk-stat"><span class="label">Trading Status</span><span class="value good" id="riskTradingStatus">Active</span></div>
+      <div class="risk-stat"><span class="label">Session P&amp;L</span><span class="value" id="riskSessionPL">$0.00</span></div>
+      <div class="risk-stat"><span class="label">Daily Drawdown</span><span class="value" id="riskDrawdown">0.00%</span></div>
+      <div class="risk-stat"><span class="label">Consecutive Losses</span><span class="value" id="riskConsecLosses">0</span></div>
+      <div class="risk-stat"><span class="label">Current Stake</span><span class="value" id="riskCurrentStake">$1.00</span></div>
+      <div class="risk-stat"><span class="label">Trades Today</span><span class="value" id="riskTradeCount">0</span></div>
+      <div class="risk-stat"><span class="label">Cooldown</span><span class="value" id="riskCooldown">—</span></div>
+    </div>
+
+    <div class="panel" style="flex:1;display:flex;flex-direction:column;min-height:240px;">
+      <div class="panel-title">Performance Analytics</div>
+      <div class="risk-stat"><span class="label">Win Rate</span><span class="value" id="perfWinRate">—</span></div>
+      <div class="risk-stat"><span class="label">Touch Accuracy</span><span class="value" id="perfTouchAcc">—</span></div>
+      <div class="risk-stat"><span class="label">No Touch Accuracy</span><span class="value" id="perfNoTouchAcc">—</span></div>
+      <div class="risk-stat"><span class="label">Profit Factor</span><span class="value" id="perfProfitFactor">—</span></div>
+      <div class="risk-stat"><span class="label">Expected Value / Trade</span><span class="value" id="perfEV">—</span></div>
+      <div class="risk-stat"><span class="label">Max Drawdown</span><span class="value" id="perfMaxDD">—</span></div>
+    </div>
+
+    <div class="panel" style="flex:1.4;display:flex;flex-direction:column;min-height:260px;">
+      <div class="panel-title">Trade History</div>
+      <div class="scroll" style="flex:1;">
+        <table class="trade-table">
+          <thead>
+            <tr><th>Time</th><th>Type</th><th>Stake</th><th>Result</th><th>P&amp;L</th></tr>
+          </thead>
+          <tbody id="tradeHistoryBody"></tbody>
+        </table>
+        <div class="empty-state" id="tradeHistoryEmpty">No trades yet this session.</div>
+      </div>
+    </div>
+
+    <div class="panel" style="flex:1.2;display:flex;flex-direction:column;min-height:200px;">
+      <div class="panel-title">System Log</div>
+      <div class="log-feed scroll" id="logFeed"></div>
+    </div>
+  </div>
+
+</div>
+
+<footer>OV2UN7 NEXUS — Touch/No Touch Adaptive Probability Engine v1.0 — Trading involves substantial risk of loss. Past performance does not guarantee future results.</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

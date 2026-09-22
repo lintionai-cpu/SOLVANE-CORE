@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>TouchEdge AI — Microstructure Touch/No Touch Engine</title>
+<link rel="manifest" href='data:application/json;base64,eyJuYW1lIjoiVG91Y2hFZGdlIEFJIiwic2hvcnRfbmFtZSI6IlRvdWNoRWRnZSIsInN0YXJ0X3VybCI6Ii4iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3IiOiIjMDcwYjE0IiwidGhlbWVfY29sb3IiOiIjMDdiOGE0In0='>
+<style>
+:root{
+  --bg:#070b14; --surface:#0e1626; --surface2:#121d33; --border:#1e2c47;
+  --text:#eaf2ff; --text-dim:#8fa3c4; --text-faint:#5c6d8a;
+  --accent:#07b8a4; --accent2:#6c8cff;
+  --up:#1fce8f; --down:#ff5470; --warn:#ffb020; --gold:#e8c766;
+  --risk-surface:#241322; --risk-border:#4a1f3d;
+  --radius:14px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Inter,sans-serif;
+  -webkit-font-smoothing:antialiased; overscroll-behavior:none; height:100%;}
+body{padding-bottom:calc(64px + var(--safe-b));}
+::-webkit-scrollbar{width:6px;height:6px;} ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+
+.app{max-width:560px;margin:0 auto;padding:10px 10px 20px;}
+header.topbar{position:sticky;top:0;z-index:50;background:linear-gradient(180deg,var(--bg) 80%,transparent);
+  padding:12px 14px 8px;display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(6px);}
+.brand{display:flex;align-items:center;gap:9px;}
+.brand .mark{width:34px;height:34px;border-radius:10px;background:radial-gradient(circle at 30% 30%,var(--accent),#04564c);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#04140f;box-shadow:0 0 14px #07b8a466;}
+.brand h1{font-size:15px;margin:0;letter-spacing:.3px;font-weight:800;}
+.brand small{display:block;color:var(--text-dim);font-size:10px;font-weight:500;letter-spacing:.4px;}
+.status-pill{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);
+  padding:5px 10px;border-radius:20px;font-size:11px;color:var(--text-dim);}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--text-faint);}
+.dot.on{background:var(--up);box-shadow:0 0 8px var(--up);}
+.dot.warn{background:var(--warn);box-shadow:0 0 8px var(--warn);}
+.dot.off{background:var(--down);box-shadow:0 0 8px var(--down);}
+
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px;}
+.panel h2{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);margin:0 0 10px;font-weight:700;display:flex;align-items:center;justify-content:space-between;}
+.row{display:flex;gap:8px;align-items:center;}
+.row.wrap{flex-wrap:wrap;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+
+select,input[type=number],input[type=text],input[type=password]{
+  width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);
+  padding:10px 11px;border-radius:10px;font-size:14px;outline:none;}
+select:focus,input:focus{border-color:var(--accent);}
+label.small{font-size:10.5px;color:var(--text-dim);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px;}
+.field{margin-bottom:10px;}
+
+button{cursor:pointer;border:none;font-family:inherit;}
+.btn{background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:10px 14px;
+  border-radius:10px;font-size:13px;font-weight:600;transition:.15s;}
+.btn:active{transform:scale(.97);}
+.btn.primary{background:var(--accent);color:#03231e;border-color:var(--accent);}
+.btn.ghost{background:transparent;}
+.btn.danger{background:var(--down);color:#2a0008;border-color:var(--down);}
+.btn.block{width:100%;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+
+.toggle{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);}
+.toggle:last-child{border-bottom:none;}
+.toggle .lbl{font-size:13px;font-weight:600;} .toggle .sub{font-size:10.5px;color:var(--text-dim);margin-top:1px;}
+.switch{width:44px;height:25px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);position:relative;transition:.2s;flex-shrink:0;}
+.switch .knob{position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:var(--text-faint);transition:.2s;}
+.switch.on{background:#0b4a41;border-color:var(--accent);} .switch.on .knob{left:21px;background:var(--accent);}
+.switch.danger-on{background:#4a1420;border-color:var(--down);} .switch.danger-on .knob{left:21px;background:var(--down);}
+
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10.5px;font-weight:700;letter-spacing:.3px;}
+.badge.up{background:#0b3a2c;color:var(--up);} .badge.down{background:#3a0b18;color:var(--down);}
+.badge.neutral{background:var(--surface2);color:var(--text-dim);} .badge.warn{background:#3a2a05;color:var(--warn);}
+.badge.gold{background:#3a3005;color:var(--gold);}
+
+.decision-card{border-radius:var(--radius);padding:16px;position:relative;overflow:hidden;border:1px solid var(--border);}
+.decision-card.trade-up{background:linear-gradient(135deg,#0c2a22,#0e1626);border-color:#1a5c46;}
+.decision-card.trade-down{background:linear-gradient(135deg,#2a0c16,#0e1626);border-color:#5c1a2c;}
+.decision-card.no-trade{background:var(--surface);}
+.decision-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+.decision-title{font-size:19px;font-weight:800;letter-spacing:.3px;}
+.decision-sub{font-size:11px;color:var(--text-dim);margin-top:2px;}
+.confidence-ring{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:800;flex-shrink:0;border:3px solid var(--border);}
+.reasons{margin-top:10px;font-size:12px;line-height:1.6;}
+.reasons .r{color:var(--up);} .reasons .w{color:var(--warn);}
+.metric-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px;}
+.metric{background:rgba(255,255,255,.03);border-radius:8px;padding:6px 4px;text-align:center;}
+.metric .v{font-size:13px;font-weight:800;} .metric .k{font-size:8.5px;color:var(--text-dim);text-transform:uppercase;margin-top:2px;letter-spacing:.3px;}
+
+.ref-line{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px dashed var(--border);}
+.ref-line:last-child{border-bottom:none;}
+.ref-line .lbl{color:var(--text-dim);} .ref-line .val{font-weight:700;font-variant-numeric:tabular-nums;}
+
+.barrier-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.barrier-row:last-child{border-bottom:none;}
+.barrier-row .score{font-weight:800;}
+
+table.hist{width:100%;border-collapse:collapse;font-size:11.5px;}
+table.hist th{text-align:left;color:var(--text-dim);font-weight:600;padding:5px 4px;border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase;}
+table.hist td{padding:6px 4px;border-bottom:1px solid var(--border);}
+
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.stat-box{background:var(--surface2);border-radius:10px;padding:10px;text-align:center;}
+.stat-box .v{font-size:18px;font-weight:800;} .stat-box .k{font-size:9.5px;color:var(--text-dim);text-transform:uppercase;margin-top:3px;}
+
+.risk-panel{background:var(--risk-surface);border:1px solid var(--risk-border);}
+.risk-panel h2{color:#e88ec0;}
+
+nav.tabbar{position:fixed;bottom:0;left:0;right:0;z-index:60;background:rgba(9,14,24,.94);backdrop-filter:blur(10px);
+  border-top:1px solid var(--border);display:flex;padding-bottom:var(--safe-b);}
+nav.tabbar button{flex:1;background:none;border:none;color:var(--text-faint);padding:9px 2px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9.5px;font-weight:700;letter-spacing:.2px;}
+nav.tabbar button.active{color:var(--accent);}
+nav.tabbar button .ic{font-size:18px;}
+.view{display:none;} .view.active{display:block;}
+
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:none;align-items:flex-end;justify-content:center;}
+.modal-backdrop.show{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:18px 18px 0 0;padding:20px;width:100%;max-width:560px;max-height:85vh;overflow:auto;}
+.modal h3{margin:0 0 10px;font-size:16px;}
+.modal p{font-size:13px;color:var(--text-dim);line-height:1.6;}
+
+.toast-wrap{position:fixed;top:10px;left:0;right:0;z-index:200;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;}
+.toast{background:var(--surface2);border:1px solid var(--border);padding:9px 16px;border-radius:20px;font-size:12.5px;font-weight:600;
+  box-shadow:0 6px 20px rgba(0,0,0,.4);animation:toastIn .25s ease;}
+.toast.up{border-color:var(--up);color:var(--up);} .toast.down{border-color:var(--down);color:var(--down);}
+@keyframes toastIn{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
+
+.log{font-family:'SF Mono',Consolas,monospace;font-size:10.5px;line-height:1.5;color:var(--text-dim);max-height:220px;overflow:auto;}
+.log .l-INFO{color:var(--text-dim);} .log .l-SIGNAL{color:var(--accent2);} .log .l-TRADE{color:var(--gold);}
+.log .l-WARNING{color:var(--warn);} .log .l-ERROR{color:var(--down);}
+
+.pulse{animation:pulse 1.6s infinite;} @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.emergency{background:var(--down);color:#2a0008;font-weight:800;letter-spacing:.5px;}
+a{color:var(--accent2);}
+.hint{font-size:11px;color:var(--text-faint);margin-top:4px;}
+</style>
+</head>
+<body>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<div class="modal-backdrop" id="confirmModal">
+  <div class="modal">
+    <h3>⚠️ Enable LIVE Trading</h3>
+    <p>You are about to arm <b>real-money execution</b>. TouchEdge AI will place actual Touch/No Touch contracts on your Deriv account using your configured stake and risk limits. This action carries financial risk.</p>
+    <p>Type <b>CONFIRM</b> below to proceed.</p>
+    <div class="field"><input type="text" id="confirmInput" placeholder="Type CONFIRM"></div>
+    <div class="row">
+      <button class="btn block" id="confirmCancel">Cancel</button>
+      <button class="btn danger block" id="confirmOk" disabled>Arm Live Trading</button>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="mark">TE</div>
+      <div>
+        <h1>TouchEdge <span style="color:var(--accent)">AI</span></h1>
+        <small>Microstructure Touch/No Touch Engine</small>
+      </div>
+    </div>
+    <div class="status-pill">
+      <span class="dot off" id="connDot"></span>
+      <span id="connLabel">Offline</span>
+    </div>
+  </header>
+
+  <!-- ===================== DASHBOARD ===================== -->
+  <div class="view active" id="view-dashboard">
+
+    <div class="panel">
+      <h2>Connection &amp; Market <span id="spotBadge" class="badge neutral">— spot</span></h2>
+      <div class="grid2">
+        <div class="field">
+          <label class="small">Deriv PAT Token</label>
+          <input type="password" id="patToken" placeholder="Paste Personal Access Token">
+        </div>
+        <div class="field">
+          <label class="small">App ID</label>
+          <input type="text" id="appId" placeholder="Your Deriv-App-ID" value="1089">
+        </div>
+      </div>
+      <div class="row" style="margin-bottom:10px">
+        <button class="btn primary block" id="btnConnect">Connect</button>
+        <button class="btn block" id="btnDisconnect" disabled>Disconnect</button>
+      </div>
+      <div class="field">
+        <label class="small">Market (Synthetic Index)</label>
+        <select id="marketSelect"><option value="">Connect to load markets…</option></select>
+      </div>
+      <div class="hint" id="connHint">Not connected. Runs in simulation mode until connected so you can preview the engine.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Live Decision Engine <span class="badge neutral" id="engineCycles">0 cycles</span></h2>
+      <div class="decision-card no-trade" id="decisionCard">
+        <div class="decision-top">
+          <div>
+            <div class="decision-title" id="decTitle">NO TRADE</div>
+            <div class="decision-sub" id="decSub">Waiting for sufficient data…</div>
+          </div>
+          <div class="confidence-ring" id="confRing">0%</div>
+        </div>
+        <div class="reasons" id="decReasons"></div>
+        <div class="metric-strip">
+          <div class="metric"><div class="v" id="mBarrier">—</div><div class="k">Barrier</div></div>
+          <div class="metric"><div class="v" id="mDuration">—</div><div class="k">Ticks</div></div>
+          <div class="metric"><div class="v" id="mGrade">—</div><div class="k">Grade</div></div>
+          <div class="metric"><div class="v" id="mState">—</div><div class="k">Mkt State</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Reference Levels</h2>
+      <div class="ref-line"><span class="lbl">Current Spot</span><span class="val" id="refSpot">—</span></div>
+      <div class="ref-line"><span class="lbl">Previous High</span><span class="val" id="refHigh">—</span></div>
+      <div class="ref-line"><span class="lbl">Previous Mid</span><span class="val" id="refMid">—</span></div>
+      <div class="ref-line"><span class="lbl">Previous Low</span><span class="val" id="refLow">—</span></div>
+      <div class="ref-line"><span class="lbl">Spot Location</span><span class="val" id="refLoc">—</span></div>
+      <div class="ref-line"><span class="lbl">Candle Bias</span><span class="val" id="refCandle">—</span></div>
+      <div class="ref-line"><span class="lbl">Two-Candle Structure</span><span class="val" id="refTwoCandle">—</span></div>
+      <div class="ref-line"><span class="lbl">Micro Trend (last 20 ticks)</span><span class="val" id="refMicro">—</span></div>
+      <div class="ref-line"><span class="lbl">Tick Momentum</span><span class="val" id="refMomentum">—</span></div>
+    </div>
+
+    <div class="panel">
+      <h2>Candidate Barriers</h2>
+      <div id="barrierList"><div class="hint">No candidates yet.</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Bias Composition</h2>
+      <div id="biasBreakdown" class="hint">—</div>
+    </div>
+  </div>
+
+  <!-- ===================== CONTROLS ===================== -->
+  <div class="view" id="view-controls">
+    <div class="panel">
+      <h2>Trading Mode</h2>
+      <div class="toggle">
+        <div><div class="lbl">Auto Trade</div><div class="sub">Automatically act on A/A+ signals</div></div>
+        <div class="switch" id="swAutoTrade"><div class="knob"></div></div>
+      </div>
+      <div class="toggle">
+        <div><div class="lbl">Paper Mode</div><div class="sub">Simulated fills — no real contracts</div></div>
+        <div class="switch on" id="swPaperMode"><div class="knob"></div></div>
+      </div>
+      <div class="toggle">
+        <div><div class="lbl">Live Trading</div><div class="sub">Real Deriv contract execution</div></div>
+        <div class="switch" id="swLiveTrade"><div class="knob"></div></div>
+      </div>
+      <div class="toggle">
+        <div><div class="lbl">Account Type</div><div class="sub" id="acctSub">Demo account</div></div>
+        <div class="switch" id="swAcctType"><div class="knob"></div></div>
+      </div>
+      <button class="btn danger block emergency" id="btnStop" style="margin-top:10px">⛔ STOP BOT</button>
+    </div>
+
+    <div class="panel">
+      <h2>Decision Thresholds</h2>
+      <div class="grid2">
+        <div class="field"><label class="small">Min Confidence %</label><input type="number" id="cfgMinConf" value="75" min="1" max="100"></div>
+        <div class="field"><label class="small">Min Barrier Score</label><input type="number" id="cfgMinBarrier" value="65" min="1" max="100"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label class="small">Min Barrier Dist (pips)</label><input type="number" id="cfgMinDist" value="3" min="0"></div>
+        <div class="field"><label class="small">Max Barrier Dist (pips)</label><input type="number" id="cfgMaxDist" value="40" min="1"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label class="small">Micro Window (ticks)</label><input type="number" id="cfgMicroWindow" value="20" min="5" max="60"></div>
+        <div class="field"><label class="small">Signal Lifetime (ticks)</label><input type="number" id="cfgSignalLife" value="2" min="1" max="10"></div>
+      </div>
+      <button class="btn ghost block" id="btnSaveCfg">Save Thresholds</button>
+    </div>
+
+    <div class="panel">
+      <h2>Weighting (must total 100)</h2>
+      <div class="grid2">
+        <div class="field"><label class="small">Prev Candle %</label><input type="number" id="wCandle" value="15"></div>
+        <div class="field"><label class="small">Two-Candle %</label><input type="number" id="wTwoCandle" value="10"></div>
+        <div class="field"><label class="small">Prev High/Low %</label><input type="number" id="wHiLo" value="15"></div>
+        <div class="field"><label class="small">Micro Trend %</label><input type="number" id="wMicro" value="25"></div>
+        <div class="field"><label class="small">Tick Momentum %</label><input type="number" id="wMomentum" value="15"></div>
+        <div class="field"><label class="small">Market State %</label><input type="number" id="wState" value="10"></div>
+      </div>
+      <div class="hint" id="weightTotalHint">Total: 100%</div>
+      <button class="btn ghost block" id="btnSaveWeights" style="margin-top:8px">Save Weights</button>
+    </div>
+
+    <div class="panel risk-panel">
+      <h2>Risk Management</h2>
+      <div class="grid2">
+        <div class="field"><label class="small">Stake (USD)</label><input type="number" id="riskStake" value="1" min="0.35" step="0.05"></div>
+        <div class="field"><label class="small">Max Trades / Session</label><input type="number" id="riskMaxTrades" value="20" min="1"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label class="small">Max Consecutive Losses</label><input type="number" id="riskMaxLoss" value="3" min="1"></div>
+        <div class="field"><label class="small">Daily Loss Limit (USD)</label><input type="number" id="riskDailyLimit" value="25" min="1"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label class="small">Cooldown After Trade (s)</label><input type="number" id="riskCooldown" value="15" min="0"></div>
+        <div class="field"><label class="small">Cooldown After Loss (s)</label><input type="number" id="riskCooldownLoss" value="45" min="0"></div>
+      </div>
+      <button class="btn ghost block" id="btnSaveRisk">Save Risk Settings</button>
+      <div class="hint">No martingale. Stakes are flat and capped by the limits above.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Alerts</h2>
+      <div class="toggle"><div><div class="lbl">Audio Alerts</div><div class="sub">Play tone on A/A+ signal</div></div><div class="switch on" id="swAudio"><div class="knob"></div></div></div>
+      <div class="toggle"><div><div class="lbl">Push Notifications</div><div class="sub">Browser notification on signal</div></div><div class="switch" id="swPush"><div class="knob"></div></div></div>
+    </div>
+  </div>
+
+  <!-- ===================== HISTORY ===================== -->
+  <div class="view" id="view-history">
+    <div class="panel">
+      <h2>Performance</h2>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="v" id="statTotal">0</div><div class="k">Signals</div></div>
+        <div class="stat-box"><div class="v" id="statTrades">0</div><div class="k">Trades</div></div>
+        <div class="stat-box"><div class="v" id="statWinRate">—</div><div class="k">Win Rate</div></div>
+        <div class="stat-box"><div class="v" id="statWins">0</div><div class="k">Wins</div></div>
+        <div class="stat-box"><div class="v" id="statLosses">0</div><div class="k">Losses</div></div>
+        <div class="stat-box"><div class="v" id="statPnl">$0.00</div><div class="k">Session P/L</div></div>
+      </div>
+      <button class="btn ghost block" style="margin-top:10px" id="btnResetStats">Reset Session Stats</button>
+    </div>
+    <div class="panel">
+      <h2>Signal History</h2>
+      <div style="overflow-x:auto">
+      <table class="hist" id="histTable">
+        <thead><tr><th>Time</th><th>Decision</th><th>Barrier</th><th>Ticks</th><th>Conf</th><th>Grade</th><th>Result</th></tr></thead>
+        <tbody id="histBody"></tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== LOG ===================== -->
+  <div class="view" id="view-log">
+    <div class="panel">
+      <h2>System Log <label class="row" style="font-size:11px;font-weight:600;gap:4px"><input type="checkbox" id="chkDebug"> Debug</label></h2>
+      <div class="log" id="logBox"></div>
+      <button class="btn ghost block" style="margin-top:8px" id="btnClearLog">Clear Log</button>
+    </div>
+    <div class="panel">
+      <h2>About</h2>
+      <div class="hint">TouchEdge AI is a probabilistic decision-support engine for Deriv Touch/No Touch contracts on synthetic indices. It analyzes previous candle structure, micro-tick trend, momentum and market state to score candidate barriers — and explicitly returns <b>NO TRADE</b> when evidence is weak or conflicting. Nothing here is a guarantee of profit. Live trading is off by default.</div>
+    </div>
+  </div>
+</div>
+
+<nav class="tabbar">
+  <button class="tab-btn active" data-view="dashboard"><span class="ic">📊</span>Dashboard</button>
+  <button class="tab-btn" data-view="controls"><span class="ic">⚙️</span>Controls</button>
+  <button class="tab-btn" data-view="history"><span class="ic">🗂️</span>History</button>
+  <button class="tab-btn" data-view="log"><span class="ic">🧾</span>Log</button>
+</nav>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   0. CONFIG
+   ============================================================ */
+const CONFIG = {
+  appId: '1089',
+  patToken: '',
+  minConfidence: 75,
+  minBarrierScore: 65,
+  minBarrierDistancePips: 3,
+  maxBarrierDistancePips: 40,
+  microWindow: 20,
+  signalLifetimeTicks: 2,
+  weights: { candle:15, twoCandle:10, hiLo:15, micro:25, momentum:15, state:10 },
+  candleHistoryMax: 100,
+  tickBufferMax: 500,
+  minTicks: 5, maxTicks: 10,
+  risk: { stake:1, maxTradesPerSession:20, maxConsecutiveLosses:3, dailyLossLimit:25, cooldownAfterTrade:15, cooldownAfterLoss:45 },
+  audio: true, push: false, debug:false,
+  autoTrade:false, paperMode:true, liveTrade:false, accountReal:false
+};
+
+function loadPersisted(){
+  try{
+    const raw = localStorage.getItem('touchedge_cfg_v1');
+    if(raw){ const p = JSON.parse(raw); Object.assign(CONFIG, p, {patToken: CONFIG.patToken}); }
+  }catch(e){}
+}
+function persist(){
+  try{
+    const c = Object.assign({}, CONFIG); delete c.patToken;
+    localStorage.setItem('touchedge_cfg_v1', JSON.stringify(c));
+  }catch(e){}
+}
+loadPersisted();
+
+/* ============================================================
+   1. LOGGING
+   ============================================================ */
+const Logger = {
+  lines: [],
+  log(level, msg){
+    if(level==='DEBUG' && !CONFIG.debug) return;
+    const t = new Date().toLocaleTimeString();
+    this.lines.push({level,msg,t});
+    if(this.lines.length>300) this.lines.shift();
+    this.render();
+  },
+  render(){
+    const box = document.getElementById('logBox');
+    if(!box) return;
+    box.innerHTML = this.lines.slice().reverse().map(l=>`<div class="l-${l.level}">[${l.t}] ${l.level}: ${escapeHtml(l.msg)}</div>`).join('');
+  }
+};
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+['INFO','DEBUG','WARNING','ERROR','TRADE','SIGNAL'].forEach(l=>{});
+
+/* ============================================================
+   2. TOASTS / ALERTS
+   ============================================================ */
+function toast(msg, cls){
+  const wrap = document.getElementById('toastWrap');
+  const el = document.createElement('div');
+  el.className = 'toast ' + (cls||'');
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(()=>{ el.remove(); }, 3200);
+}
+let audioCtx;
+function playAlertTone(kind){
+  if(!CONFIG.audio) return;
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type='sine'; o.frequency.value = kind==='up'?880:kind==='down'?440:660;
+    g.gain.setValueAtTime(0.001, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.18, audioCtx.currentTime+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime+0.35);
+    o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.36);
+  }catch(e){}
+}
+function pushNotify(title, body){
+  if(!CONFIG.push) return;
+  if(!('Notification' in window)) return;
+  if(Notification.permission === 'granted'){ new Notification(title,{body}); }
+  else if(Notification.permission !== 'denied'){
+    Notification.requestPermission().then(p=>{ if(p==='granted') new Notification(title,{body}); });
+  }
+}
+
+/* ============================================================
+   3. CONNECTION MANAGER
+   ============================================================ */
+const ConnectionManager = (function(){
+  const PUBLIC_URL = 'wss://api.derivws.com/trading/v1/options/ws/public';
+  const API_BASE = 'https://api.derivws.com';
+
+  let publicWs=null, tradeWs=null;
+  let publicGen=0, tradeGen=0;
+  let reqIdCounter=0;
+  const nextId = ()=> ++reqIdCounter;
+  let pendingPublic = new Map();
+  let pendingTrade = new Map();
+  let publicHandlers = new Map();
+  let tradeHandlers = new Map();
+  let subscribedTicks = new Set();
+  let currentSymbol = null;
+  let reconnectAttempts = 0;
+  let heartbeatTimerPub=null, heartbeatTimerTrade=null;
+  let account = null; // {account_id, balance, currency, account_type}
+  let connected = false;
+
+  function setStatus(state){
+    const dot = document.getElementById('connDot');
+    const label = document.getElementById('connLabel');
+    dot.className = 'dot ' + (state==='live'?'on':state==='connecting'?'warn':'off');
+    label.textContent = state==='live' ? 'Live Feed' : state==='connecting' ? 'Connecting…' : 'Offline';
+    document.getElementById('connHint').textContent = state==='live'
+      ? 'Connected to Deriv public market data.'
+      : state==='connecting' ? 'Establishing WebSocket connection…'
+      : 'Not connected. Runs in simulation mode until connected so you can preview the engine.';
+  }
+
+  function ensurePublicWs(){
+    return new Promise((resolve,reject)=>{
+      if(publicWs && (publicWs.readyState===WebSocket.OPEN)) return resolve();
+      if(publicWs && publicWs.readyState===WebSocket.CONNECTING){
+        publicWs.addEventListener('open', ()=>resolve(), {once:true});
+        return;
+      }
+      const myGen = ++publicGen;
+      setStatus('connecting');
+      const ws = new WebSocket(PUBLIC_URL);
+      publicWs = ws;
+      ws.onopen = ()=>{
+        if(myGen!==publicGen) return;
+        reconnectAttempts=0; connected=true; setStatus('live');
+        Logger.log('INFO','Public market data socket connected.');
+        clearInterval(heartbeatTimerPub);
+        heartbeatTimerPub = setInterval(()=>{ sendPublic({ping:1}); }, 25000);
+        resolve();
+      };
+      ws.onmessage = (evt)=>{
+        if(myGen!==publicGen) return;
+        let data; try{ data = JSON.parse(evt.data); }catch(e){ Logger.log('ERROR','Malformed public message'); return; }
+        routePublic(data);
+      };
+      ws.onerror = ()=>{ if(myGen!==publicGen) return; Logger.log('ERROR','Public WS error'); };
+      ws.onclose = ()=>{
+        if(myGen!==publicGen) return;
+        connected=false; setStatus('off'); clearInterval(heartbeatTimerPub);
+        Logger.log('WARNING','Public socket closed — scheduling reconnect.');
+        scheduleReconnect('public');
+      };
+    });
+  }
+
+  function scheduleReconnect(which){
+    reconnectAttempts++;
+    const delay = Math.min(1000*Math.pow(2,reconnectAttempts), 20000);
+    setTimeout(()=>{
+      if(which==='public') ensurePublicWs().then(()=>{
+        subscribedTicks.forEach(sym=>{ subscribeTicks(sym, tickHandlerRef); });
+        if(currentSymbol) seedHistory(currentSymbol);
+      });
+    }, delay);
+  }
+
+  function sendPublic(cmd){
+    return new Promise((resolve,reject)=>{
+      const ws = publicWs;
+      if(!ws || ws.readyState!==WebSocket.OPEN){ reject(new Error('public not connected')); return; }
+      const id = nextId();
+      const msg = Object.assign({}, cmd, {req_id:id});
+      if(!cmd.subscribe) pendingPublic.set(id,{resolve,reject}); else resolve(id);
+      ws.send(JSON.stringify(msg));
+    });
+  }
+
+  function routePublic(data){
+    if(data.error){
+      Logger.log('ERROR', `${data.error.code}: ${data.error.message}`);
+      if(data.req_id && pendingPublic.has(data.req_id)){ pendingPublic.get(data.req_id).reject(data.error); pendingPublic.delete(data.req_id); }
+      return;
+    }
+    if(data.req_id && pendingPublic.has(data.req_id)){
+      pendingPublic.get(data.req_id).resolve(data); pendingPublic.delete(data.req_id);
+    }
+    if(publicHandlers.has(data.msg_type)) publicHandlers.get(data.msg_type)(data);
+  }
+
+  function onPublic(type, fn){ publicHandlers.set(type, fn); }
+
+  let tickHandlerRef=null;
+  function subscribeTicks(symbol, onTick){
+    tickHandlerRef = onTick;
+    if(subscribedTicks.has(symbol)) return;
+    subscribedTicks.add(symbol);
+    onPublic('tick', d=>{ if(d.tick && d.tick.symbol===symbol) onTick(d.tick); });
+    sendPublic({ticks:symbol, subscribe:1}).catch(e=>Logger.log('ERROR','tick sub failed: '+e.message));
+  }
+  function unsubscribeAllTicks(){
+    if(subscribedTicks.size===0) return;
+    sendPublic({forget_all:'ticks'}).catch(()=>{});
+    subscribedTicks.clear();
+  }
+
+  function seedHistory(symbol){
+    return sendPublic({ticks_history:symbol, count:CONFIG.candleHistoryMax*20, end:'latest', style:'ticks'});
+  }
+
+  function loadActiveSymbols(){
+    return ensurePublicWs().then(()=> sendPublic({active_symbols:'brief'}))
+      .then(data=>{
+        const list = (data.active_symbols||[]).filter(s=>s.market==='synthetic_index');
+        return list;
+      });
+  }
+
+  function switchSymbol(symbol){
+    unsubscribeAllTicks();
+    currentSymbol = symbol;
+  }
+
+  /* ---- Trade (authenticated) socket, via REST OTP per Deriv Options API ---- */
+  function restHeaders(){
+    return { 'Authorization': 'Bearer ' + CONFIG.patToken, 'Deriv-App-ID': CONFIG.appId };
+  }
+
+  function fetchAccounts(){
+    return fetch(`${API_BASE}/trading/v1/options/accounts`, { headers: restHeaders() })
+      .then(r=>{ if(!r.ok) return r.json().then(j=>{throw new Error(j.errors?.[0]?.message||('HTTP '+r.status));}); return r.json(); })
+      .then(j=> Array.isArray(j.data) ? j.data : [j.data]);
+  }
+
+  function ensureAccount(wantReal){
+    return fetchAccounts().then(accounts=>{
+      let acc = accounts.find(a=> a.account_type === (wantReal?'real':'demo') && a.status==='active');
+      if(!acc) acc = accounts.find(a=>a.status==='active');
+      if(!acc) throw new Error('No active Deriv account found.');
+      account = acc;
+      return acc;
+    });
+  }
+
+  function getOtpUrl(accountId){
+    return fetch(`${API_BASE}/trading/v1/options/accounts/${accountId}/otp`, { method:'POST', headers: restHeaders() })
+      .then(r=>{ if(!r.ok) return r.json().then(j=>{throw new Error(j.errors?.[0]?.message||('HTTP '+r.status));}); return r.json(); })
+      .then(j=> j.data.url);
+  }
+
+  function connectTradeWs(wantReal){
+    return ensureAccount(wantReal).then(acc=> getOtpUrl(acc.account_id)).then(url=>{
+      return new Promise((resolve,reject)=>{
+        const myGen = ++tradeGen;
+        const ws = new WebSocket(url);
+        tradeWs = ws;
+        ws.onopen = ()=>{
+          if(myGen!==tradeGen) return;
+          Logger.log('INFO', `Trade socket connected (${account.account_type}: ${account.account_id}).`);
+          clearInterval(heartbeatTimerTrade);
+          heartbeatTimerTrade = setInterval(()=> sendTrade({ping:1}).catch(()=>{}), 25000);
+          resolve();
+        };
+        ws.onmessage = (evt)=>{
+          if(myGen!==tradeGen) return;
+          let data; try{ data = JSON.parse(evt.data); }catch(e){ return; }
+          routeTrade(data);
+        };
+        ws.onerror = ()=>{ if(myGen!==tradeGen) return; Logger.log('ERROR','Trade WS error'); };
+        ws.onclose = ()=>{
+          if(myGen!==tradeGen) return;
+          Logger.log('WARNING','Trade socket closed.');
+          clearInterval(heartbeatTimerTrade);
+        };
+      });
+    });
+  }
+
+  function sendTrade(cmd){
+    return new Promise((resolve,reject)=>{
+      const ws = tradeWs;
+      if(!ws || ws.readyState!==WebSocket.OPEN){ reject(new Error('trade socket not connected')); return; }
+      const id = nextId();
+      const msg = Object.assign({}, cmd, {req_id:id});
+      if(!cmd.subscribe) pendingTrade.set(id,{resolve,reject}); else pendingTrade.set(id,{resolve,reject});
+      ws.send(JSON.stringify(msg));
+    });
+  }
+  function routeTrade(data){
+    if(data.error){
+      Logger.log('ERROR', `${data.error.code}: ${data.error.message}`);
+      if(data.req_id && pendingTrade.has(data.req_id)){ pendingTrade.get(data.req_id).reject(data.error); pendingTrade.delete(data.req_id); }
+      return;
+    }
+    if(data.req_id && pendingTrade.has(data.req_id)){ pendingTrade.get(data.req_id).resolve(data); pendingTrade.delete(data.req_id); }
+    if(tradeHandlers.has(data.msg_type)) tradeHandlers.get(data.msg_type)(data);
+  }
+  function onTrade(type, fn){ tradeHandlers.set(type, fn); }
+
+  function disconnectAll(){
+    unsubscribeAllTicks();
+    publicGen++; tradeGen++;
+    clearInterval(heartbeatTimerPub); clearInterval(heartbeatTimerTrade);
+    if(publicWs) try{publicWs.close();}catch(e){}
+    if(tradeWs) try{tradeWs.close();}catch(e){}
+    publicWs=null; tradeWs=null; connected=false; setStatus('off');
+  }
+
+  return {
+    ensurePublicWs, sendPublic, onPublic, subscribeTicks, unsubscribeAllTicks, seedHistory,
+    loadActiveSymbols, switchSymbol, connectTradeWs, sendTrade, onTrade,
+    disconnectAll, isConnected: ()=>connected, getAccount: ()=>account, nextId
+  };
+})();
+
+/* ============================================================
+   4. MARKET DATA ENGINE (candles + tick buffer)
+   ============================================================ */
+const MarketData = (function(){
+  let ticks = [];         // {epoch, quote}
+  let candles = [];       // 1-minute OHLC
+  let currentBucket = null;
+  let spot = null;
+  let pipSize = 0.01;
+  let listeners = [];
+
+  function reset(){ ticks=[]; candles=[]; currentBucket=null; spot=null; }
+
+  function onUpdate(fn){ listeners.push(fn); }
+  function fireUpdate(){ listeners.forEach(fn=>fn()); }
+
+  function ingestTick(tick){
+    spot = tick.quote;
+    if(tick.pip_size) pipSize = 1/Math.pow(10, tick.pip_size===0?2:Math.round(-Math.log10(tick.pip_size||0.01)));
+    ticks.push({epoch: tick.epoch, quote: tick.quote});
+    if(ticks.length>CONFIG.tickBufferMax) ticks.shift();
+
+    const minuteBucket = Math.floor(tick.epoch/60)*60;
+    if(!currentBucket || currentBucket.t !== minuteBucket){
+      if(currentBucket) finalizeCandle(currentBucket);
+      currentBucket = { t:minuteBucket, o:tick.quote, h:tick.quote, l:tick.quote, c:tick.quote };
+    } else {
+      currentBucket.h = Math.max(currentBucket.h, tick.quote);
+      currentBucket.l = Math.min(currentBucket.l, tick.quote);
+      currentBucket.c = tick.quote;
+    }
+    fireUpdate();
+  }
+
+  function finalizeCandle(bucket){
+    const body = Math.abs(bucket.c-bucket.o);
+    const range = Math.max(bucket.h-bucket.l, 1e-9);
+    const upperWick = bucket.h - Math.max(bucket.o,bucket.c);
+    const lowerWick = Math.min(bucket.o,bucket.c) - bucket.l;
+    candles.push({
+      t:bucket.t, o:bucket.o, h:bucket.h, l:bucket.l, c:bucket.c,
+      direction: bucket.c>=bucket.o ? 'UP':'DOWN',
+      body, range, bodyRatio: body/range,
+      upperWickRatio: upperWick/range, lowerWickRatio: lowerWick/range
+    });
+    if(candles.length>CONFIG.candleHistoryMax) candles.shift();
+  }
+
+  function seedFromHistory(prices, times){
+    reset();
+    const byMinute = new Map();
+    for(let i=0;i<prices.length;i++){
+      const epoch = times[i], price = prices[i];
+      const m = Math.floor(epoch/60)*60;
+      if(!byMinute.has(m)) byMinute.set(m, {t:m,o:price,h:price,l:price,c:price});
+      const b = byMinute.get(m); b.h=Math.max(b.h,price); b.l=Math.min(b.l,price); b.c=price;
+      ticks.push({epoch, quote:price});
+    }
+    const arr = Array.from(byMinute.values()).sort((a,b)=>a.t-b.t);
+    arr.forEach((b,i)=>{ if(i<arr.length-1) finalizeCandle(b); else currentBucket=b; });
+    if(ticks.length){ spot = ticks[ticks.length-1].quote; }
+    if(ticks.length>CONFIG.tickBufferMax) ticks = ticks.slice(-CONFIG.tickBufferMax);
+    fireUpdate();
+  }
+
+  return {
+    ingestTick, seedFromHistory, reset, onUpdate,
+    getTicks: ()=>ticks.slice(), getCandles: ()=>candles.slice(), getCurrentBucket: ()=>currentBucket,
+    getSpot: ()=>spot, getPipSize: ()=>pipSize
+  };
+})();
+
+/* ============================================================
+   5. ANALYSIS ENGINES
+   ============================================================ */
+
+function classifyCandle(c, recentCandles){
+  if(!c) return {label:'NEUTRAL', score:0};
+  const avgRange = recentCandles.length ? recentCandles.reduce((s,x)=>s+x.range,0)/recentCandles.length : c.range;
+  const relRange = avgRange>0 ? c.range/avgRange : 1;
+  let strength = c.bodyRatio * (c.direction==='UP'?1:-1) * Math.min(relRange,2);
+  strength = Math.max(-1, Math.min(1, strength));
+  const pct = strength*100;
+  let label;
+  if(pct>=60) label='STRONG_BULLISH'; else if(pct>=25) label='BULLISH'; else if(pct>=8) label='WEAK_BULLISH';
+  else if(pct<=-60) label='STRONG_BEARISH'; else if(pct<=-25) label='BEARISH'; else if(pct<=-8) label='WEAK_BEARISH';
+  else label='NEUTRAL';
+  return {label, score:pct, relRange};
+}
+
+function twoCandleContext(candles){
+  if(candles.length<2) return {label:'INSUFFICIENT', score:0};
+  const prev = candles[candles.length-1], before = candles[candles.length-2];
+  const bothRangeAvg = (prev.range+before.range)/2;
+  let label, score;
+  if(prev.direction==='UP' && before.direction==='UP'){ label='BULLISH_CONTINUATION'; score=45; }
+  else if(prev.direction==='DOWN' && before.direction==='DOWN'){ label='BEARISH_CONTINUATION'; score=-45; }
+  else if(prev.direction==='UP' && before.direction==='DOWN'){ label='BULLISH_REVERSAL'; score=25; }
+  else if(prev.direction==='DOWN' && before.direction==='UP'){ label='BEARISH_REVERSAL'; score=-25; }
+  else { label='CONFLICT'; score=0; }
+  if(prev.range < before.range*0.55 && before.range < (bothRangeAvg*1.4)) { label += '_COMPRESSION'; score*=0.6; }
+  if(prev.range > before.range*1.8){ label += '_EXPANSION'; score*=1.2; }
+  return {label, score: Math.max(-100,Math.min(100,score))};
+}
+
+function previousHighLow(candles, spot){
+  if(!candles.length) return null;
+  const prev = candles[candles.length-1];
+  const mid = (prev.h+prev.l)/2;
+  const range = Math.max(prev.h-prev.l, 1e-9);
+  let loc;
+  if(spot>prev.h) loc='ABOVE_PREV_HIGH';
+  else if(spot > prev.h - range*0.12) loc='NEAR_PREV_HIGH';
+  else if(spot > mid) loc='UPPER_HALF';
+  else if(spot > prev.l + range*0.12) loc='LOWER_HALF';
+  else if(spot >= prev.l) loc='NEAR_PREV_LOW';
+  else loc='BELOW_PREV_LOW';
+  const locScoreMap = {ABOVE_PREV_HIGH:35, NEAR_PREV_HIGH:20, UPPER_HALF:8, LOWER_HALF:-8, NEAR_PREV_LOW:-20, BELOW_PREV_LOW:-35};
+  return { high:prev.h, low:prev.l, mid, loc, score: locScoreMap[loc]||0,
+    distToHigh: prev.h-spot, distToLow: spot-prev.l };
+}
+
+function microTrendEngine(ticks, windowSize){
+  const w = ticks.slice(-windowSize);
+  if(w.length<4) return {label:'MICRO_NEUTRAL', score:0, upRatio:0.5, consecutive:0};
+  let up=0, down=0, consecUp=0, consecDown=0, maxConsecUp=0, maxConsecDown=0;
+  let higherHighs=0, lowerLows=0;
+  for(let i=1;i<w.length;i++){
+    if(w[i].quote>w[i-1].quote){ up++; consecUp++; consecDown=0; maxConsecUp=Math.max(maxConsecUp,consecUp);} 
+    else if(w[i].quote<w[i-1].quote){ down++; consecDown++; consecUp=0; maxConsecDown=Math.max(maxConsecDown,consecDown);} 
+  }
+  const total = up+down || 1;
+  const upRatio = up/total, downRatio = down/total;
+  const slope = (w[w.length-1].quote - w[0].quote) / w.length;
+  let score = (upRatio-downRatio)*70 + Math.sign(slope)*Math.min(Math.abs(slope)*1e5,30);
+  score = Math.max(-100, Math.min(100, score));
+  let label;
+  if(score>=55) label='MICRO_STRONG_UP'; else if(score>=15) label='MICRO_UP';
+  else if(score<=-55) label='MICRO_STRONG_DOWN'; else if(score<=-15) label='MICRO_DOWN';
+  else label='MICRO_NEUTRAL';
+  return {label, score, upRatio, downRatio, consecutive:Math.max(maxConsecUp,maxConsecDown), slope};
+}
+
+function tickMomentum(ticks, n){
+  const w = ticks.slice(-n);
+  if(w.length<2) return {value:0, score:0};
+  const momentum = (w[w.length-1].quote - w[0].quote)/w.length;
+  const score = Math.max(-100, Math.min(100, momentum*1e5*40));
+  return {value:momentum, score};
+}
+
+function marketStateEngine({candleInfo, twoCandle, micro, hiLo, ticks}){
+  const conflict = (candleInfo.score>15 && micro.score<-15) || (candleInfo.score<-15 && micro.score>15);
+  const volSample = ticks.slice(-30).map(t=>t.quote);
+  let vol = 0;
+  if(volSample.length>2){
+    const mean = volSample.reduce((a,b)=>a+b,0)/volSample.length;
+    vol = Math.sqrt(volSample.reduce((s,x)=>s+(x-mean)*(x-mean),0)/volSample.length);
+  }
+  let state;
+  if(conflict) state='CONFLICT';
+  else if(Math.abs(micro.score)<10 && Math.abs(candleInfo.score)<10) state='RANGE';
+  else if(twoCandle.label.includes('COMPRESSION')) state='COMPRESSION';
+  else if(twoCandle.label.includes('EXPANSION')) state='EXPANSION';
+  else if(twoCandle.label==='BULLISH_REVERSAL' && micro.score>10) state='REVERSAL_UP';
+  else if(twoCandle.label==='BEARISH_REVERSAL' && micro.score<-10) state='REVERSAL_DOWN';
+  else if(micro.score>25 && candleInfo.score>0) state='TREND_UP';
+  else if(micro.score<-25 && candleInfo.score<0) state='TREND_DOWN';
+  else if(vol===0) state='UNKNOWN';
+  else state='UNSTABLE';
+  const penalty = {CONFLICT:-30, UNSTABLE:-15, UNKNOWN:-20, RANGE:-5, COMPRESSION:-5}[state] || 0;
+  return {state, penalty, volatility:vol};
+}
+
+/* ---------------- Bias fusion ---------------- */
+function computeBias(parts){
+  const w = CONFIG.weights;
+  const totalW = w.candle+w.twoCandle+w.hiLo+w.micro+w.momentum+w.state || 1;
+  const norm = k => w[k]/totalW;
+  const stateContribution = parts.marketState.penalty; // negative pulls toward neutral/no-trade, applied separately
+  const score =
+    parts.candleInfo.score*norm('candle') +
+    parts.twoCandle.score*norm('twoCandle') +
+    parts.hiLo.score*norm('hiLo') +
+    parts.micro.score*norm('micro') +
+    parts.momentum.score*norm('momentum');
+  return Math.max(-100, Math.min(100, score));
+}
+
+/* ---------------- Barrier engine ---------------- */
+function generateBarrierCandidates(spot, pipSize, ctx){
+  const minD = CONFIG.minBarrierDistancePips*pipSize;
+  const maxD = CONFIG.maxBarrierDistancePips*pipSize;
+  const steps = 6;
+  const candidates = [];
+  for(let i=1;i<=steps;i++){
+    const dist = minD + (maxD-minD)*(i/steps);
+    candidates.push(scoreBarrier(spot+dist, spot, dist, 'UP', ctx));
+    candidates.push(scoreBarrier(spot-dist, spot, dist, 'DOWN', ctx));
+  }
+  // include previous high/low as reference candidates if within range
+  if(ctx.hiLo){
+    const dh = Math.abs(ctx.hiLo.high-spot), dl = Math.abs(spot-ctx.hiLo.low);
+    if(dh>=minD*0.5 && dh<=maxD*1.3) candidates.push(scoreBarrier(ctx.hiLo.high, spot, dh, 'UP', ctx, true));
+    if(dl>=minD*0.5 && dl<=maxD*1.3) candidates.push(scoreBarrier(ctx.hiLo.low, spot, dl, 'DOWN', ctx, true));
+  }
+  return candidates.sort((a,b)=>b.score-a.score);
+}
+
+function scoreBarrier(price, spot, distance, direction, ctx, isRefLevel){
+  const minD = CONFIG.minBarrierDistancePips*MarketData.getPipSize();
+  const maxD = CONFIG.maxBarrierDistancePips*MarketData.getPipSize();
+  const rangeSpan = maxD-minD || 1;
+  const normDist = (distance-minD)/rangeSpan; // 0..1
+  let feasibility;
+  if(distance<minD) feasibility='TOO_CLOSE';
+  else if(distance>maxD) feasibility='TOO_FAR';
+  else if(normDist<0.18) feasibility='VALID';
+  else if(normDist<0.55) feasibility='OPTIMAL';
+  else feasibility='FAR';
+
+  const dirSign = direction==='UP'?1:-1;
+  const alignMicro = Math.max(0, ctx.micro.score*dirSign)/100;
+  const alignCandle = Math.max(0, ctx.candleInfo.score*dirSign)/100;
+  const alignMomentum = Math.max(0, ctx.momentum.score*dirSign)/100;
+  const recentRange = ctx.avgRecentRange || distance;
+  const distRelRange = distance/Math.max(recentRange,1e-9);
+
+  let touchScore = 50
+    + alignMicro*28 + alignCandle*14 + alignMomentum*14
+    - Math.min(distRelRange,3)*10
+    + (feasibility==='OPTIMAL'?8:feasibility==='VALID'?4:feasibility==='FAR'?-6:feasibility==='TOO_FAR'?-30:feasibility==='TOO_CLOSE'?-15:0)
+    + (isRefLevel?4:0)
+    + ctx.marketState.penalty*0.4;
+  touchScore = Math.max(0, Math.min(100, touchScore));
+
+  const notouchScore = Math.max(0, Math.min(100, 100 - touchScore - Math.min(distRelRange,3)*2 + (feasibility==='FAR'?10:feasibility==='OPTIMAL'?-4:0)));
+
+  return { price, distance, direction, feasibility, touchScore, notouchScore,
+    score: Math.max(touchScore, notouchScore), isRefLevel: !!isRefLevel };
+}
+
+/* ---------------- Duration engine ---------------- */
+function chooseDuration(microScoreAbs, momentumScoreAbs, volatility){
+  const strength = (microScoreAbs+momentumScoreAbs)/2;
+  let ticks, reason;
+  if(strength>=65){ ticks=5; reason='Very strong momentum — shortest viable window.'; }
+  else if(strength>=35){ ticks=7; reason='Moderate momentum — mid-range duration.'; }
+  else { ticks=10; reason='Slower movement — longer window for evidence to play out.'; }
+  ticks = Math.max(CONFIG.minTicks, Math.min(CONFIG.maxTicks, ticks));
+  return {ticks, reason};
+}
+
+/* ---------------- Confidence & grading ---------------- */
+function gradeFor(conf){
+  if(conf>=85) return 'A+'; if(conf>=78) return 'A'; if(conf>=70) return 'B'; if(conf>=60) return 'C'; return 'NO TRADE';
+}
+
+/* ============================================================
+   6. DECISION ENGINE (the fusion / orchestration layer)
+   ============================================================ */
+let lastSignal = null;
+let engineCycles = 0;
+
+function runDecisionCycle(){
+  const candles = MarketData.getCandles();
+  const ticks = MarketData.getTicks();
+  const spot = MarketData.getSpot();
+  engineCycles++;
+  document.getElementById('engineCycles').textContent = engineCycles+' cycles';
+
+  if(spot==null || candles.length<3 || ticks.length<CONFIG.microWindow){
+    renderNoTrade('Insufficient data', 'Waiting for enough candles/ticks to build context.');
+    return;
+  }
+
+  const prevCandles = candles.slice(-8);
+  const candleInfo = classifyCandle(candles[candles.length-1], prevCandles.slice(0,-1));
+  const twoCandle = twoCandleContext(candles);
+  const hiLo = previousHighLow(candles, spot);
+  const micro = microTrendEngine(ticks, CONFIG.microWindow);
+  const momentum = tickMomentum(ticks, CONFIG.microWindow);
+  const avgRecentRange = prevCandles.reduce((s,c)=>s+c.range,0)/Math.max(prevCandles.length,1);
+
+  const ctxPre = {candleInfo, twoCandle, micro, hiLo, ticks:[]};
+  const marketState = marketStateEngine({candleInfo, twoCandle, micro, hiLo, ticks});
+  const ctx = {candleInfo, twoCandle, micro, hiLo, momentum, marketState, avgRecentRange};
+
+  const bias = computeBias(ctx) + marketState.penalty*0.5;
+  const biasClamped = Math.max(-100, Math.min(100, bias));
+
+  const barrierCandidates = generateBarrierCandidates(spot, MarketData.getPipSize(), ctx);
+  const validBarriers = barrierCandidates.filter(b=> b.distance >= CONFIG.minBarrierDistancePips*MarketData.getPipSize()
+    && b.distance <= CONFIG.maxBarrierDistancePips*MarketData.getPipSize() && b.score >= CONFIG.minBarrierScore);
+
+  renderReferencePanel({spot, hiLo, candleInfo, twoCandle, micro, momentum, marketState});
+  renderBarrierList(barrierCandidates.slice(0,6));
+  renderBiasBreakdown({candleInfo, twoCandle, hiLo, micro, momentum, marketState, bias:biasClamped});
+
+  // Hard conflict guard
+  const hardConflict = marketState.state==='CONFLICT' || marketState.state==='UNSTABLE' || marketState.state==='UNKNOWN';
+
+  if(!validBarriers.length){
+    renderNoTrade('No acceptable barrier found', `No candidate barrier scored ≥ ${CONFIG.minBarrierScore} within ${CONFIG.minBarrierDistancePips}-${CONFIG.maxBarrierDistancePips} pip range.`, marketState.state);
+    return;
+  }
+  if(hardConflict){
+    renderNoTrade('Market state unstable/conflicting', `Market state: ${marketState.state}. Candle bias and micro trend disagree or data is inconclusive.`, marketState.state);
+    return;
+  }
+
+  // Build 4 candidate contracts and pick best
+  const upBarriers = validBarriers.filter(b=>b.direction==='UP');
+  const downBarriers = validBarriers.filter(b=>b.direction==='DOWN');
+  const bestTouchUp = upBarriers.slice().sort((a,b)=>b.touchScore-a.touchScore)[0];
+  const bestTouchDown = downBarriers.slice().sort((a,b)=>b.touchScore-a.touchScore)[0];
+  const bestNoTouchUp = upBarriers.slice().sort((a,b)=>b.notouchScore-a.notouchScore)[0];
+  const bestNoTouchDown = downBarriers.slice().sort((a,b)=>b.notouchScore-a.notouchScore)[0];
+
+  const contractOptions = [
+    bestTouchUp && {type:'TOUCH_UP', barrier:bestTouchUp, base: bestTouchUp.touchScore},
+    bestTouchDown && {type:'TOUCH_DOWN', barrier:bestTouchDown, base: bestTouchDown.touchScore},
+    bestNoTouchUp && {type:'NOTOUCH_UP', barrier:bestNoTouchUp, base: bestNoTouchUp.notouchScore},
+    bestNoTouchDown && {type:'NOTOUCH_DOWN', barrier:bestNoTouchDown, base: bestNoTouchDown.notouchScore},
+  ].filter(Boolean);
+
+  contractOptions.forEach(o=>{
+    const dirSign = o.type.includes('UP')?1:-1;
+    const biasAlign = Math.max(0, biasClamped*dirSign)/100;
+    const isTouch = o.type.startsWith('TOUCH');
+    o.confidence = Math.max(0, Math.min(100, o.base*0.65 + biasAlign*30 + (isTouch?0:5) + marketState.penalty*0.3));
+  });
+  contractOptions.sort((a,b)=>b.confidence-a.confidence);
+  const best = contractOptions[0];
+
+  if(!best || best.confidence < CONFIG.minConfidence){
+    renderNoTrade('Confidence below threshold', `Best candidate ${best?best.type:'—'} at ${best?best.confidence.toFixed(1):'0'}% confidence, required ${CONFIG.minConfidence}%.`, marketState.state);
+    return;
+  }
+
+  const duration = chooseDuration(Math.abs(micro.score), Math.abs(momentum.score), marketState.volatility);
+  const grade = gradeFor(best.confidence);
+
+  const signal = {
+    market: currentMarketSymbol || 'SIM',
+    timestamp: Date.now(),
+    spotPrice: spot,
+    previousHigh: hiLo.high, previousLow: hiLo.low,
+    candleBias: candleInfo.label, twoCandleBias: twoCandle.label, microTrend: micro.label, marketState: marketState.state,
+    directionalBias: Math.round(biasClamped),
+    contractType: best.type.startsWith('TOUCH')?'TOUCH':'NOTOUCH',
+    direction: best.type.endsWith('UP')?'UP':'DOWN',
+    barrier: best.barrier.price, barrierDistance: best.barrier.distance,
+    durationTicks: duration.ticks, durationReason: duration.reason,
+    confidence: Math.round(best.confidence*10)/10, barrierScore: Math.round(best.barrier.score),
+    grade,
+    reasons: buildReasons(ctx, best, biasClamped),
+    warnings: marketState.penalty<0 ? [`Market state penalty applied (${marketState.state}).`] : [],
+    tickIssuedAt: ticks.length,
+    decision: 'TRADE'
+  };
+
+  renderDecision(signal);
+  handleNewSignal(signal);
+}
+
+function buildReasons(ctx, best, bias){
+  const r = [];
+  r.push(`Micro trend ${ctx.micro.label} (${ctx.micro.score.toFixed(0)}) ${best.type.endsWith('UP')?'supports':'opposes'} upside.`);
+  r.push(`Previous candle ${ctx.candleInfo.label}.`);
+  r.push(`Two-candle structure: ${ctx.twoCandle.label}.`);
+  r.push(`Barrier feasibility: ${best.barrier.feasibility} (${best.barrier.distance.toFixed(4)} from spot).`);
+  r.push(`Composite directional bias: ${bias.toFixed(0)}.`);
+  return r;
+}
+
+function renderNoTrade(title, detail, state){
+  const card = document.getElementById('decisionCard');
+  card.className='decision-card no-trade';
+  document.getElementById('decTitle').textContent = 'NO TRADE';
+  document.getElementById('decSub').textContent = title + (detail?(' — '+detail):'');
+  document.getElementById('confRing').textContent='0%';
+  document.getElementById('confRing').style.borderColor='var(--border)';
+  document.getElementById('decReasons').innerHTML = `<div class="w">⚠ ${escapeHtml(detail||title)}</div>`;
+  document.getElementById('mBarrier').textContent='—';
+  document.getElementById('mDuration').textContent='—';
+  document.getElementById('mGrade').textContent='—';
+  document.getElementById('mState').textContent= state||'—';
+  Logger.log('SIGNAL', 'NO TRADE — '+title+(detail?(': '+detail):''));
+}
+
+function renderDecision(sig){
+  const card = document.getElementById('decisionCard');
+  const isUp = sig.direction==='UP';
+  card.className = 'decision-card ' + (isUp?'trade-up':'trade-down');
+  document.getElementById('decTitle').textContent = `${sig.contractType} ${sig.direction}`;
+  document.getElementById('decSub').textContent = `Barrier ${sig.barrier.toFixed(5)} · ${sig.durationTicks} ticks · ${sig.market}`;
+  const ring = document.getElementById('confRing');
+  ring.textContent = sig.confidence.toFixed(0)+'%';
+  ring.style.borderColor = isUp?'var(--up)':'var(--down)';
+  document.getElementById('decReasons').innerHTML =
+    sig.reasons.map(r=>`<div class="r">✓ ${escapeHtml(r)}</div>`).join('') +
+    sig.warnings.map(w=>`<div class="w">⚠ ${escapeHtml(w)}</div>`).join('');
+  document.getElementById('mBarrier').textContent = sig.barrier.toFixed(5);
+  document.getElementById('mDuration').textContent = sig.durationTicks+'t';
+  document.getElementById('mGrade').textContent = sig.grade;
+  document.getElementById('mState').textContent = sig.marketState;
+  Logger.log('SIGNAL', `${sig.contractType} ${sig.direction} @ ${sig.barrier.toFixed(5)} dur=${sig.durationTicks}t conf=${sig.confidence}% grade=${sig.grade}`);
+}
+
+function renderReferencePanel({spot, hiLo, candleInfo, twoCandle, micro, momentum, marketState}){
+  document.getElementById('spotBadge').textContent = spot.toFixed(5)+' spot';
+  document.getElementById('refSpot').textContent = spot.toFixed(5);
+  document.getElementById('refHigh').textContent = hiLo.high.toFixed(5);
+  document.getElementById('refMid').textContent = hiLo.mid.toFixed(5);
+  document.getElementById('refLow').textContent = hiLo.low.toFixed(5);
+  document.getElementById('refLoc').textContent = hiLo.loc.replace(/_/g,' ');
+  document.getElementById('refCandle').innerHTML = candleBadge(candleInfo.label);
+  document.getElementById('refTwoCandle').textContent = twoCandle.label.replace(/_/g,' ');
+  document.getElementById('refMicro').innerHTML = candleBadge(micro.label);
+  document.getElementById('refMomentum').textContent = momentum.score.toFixed(1);
+}
+function candleBadge(label){
+  const up = label.includes('BULLISH')||label.includes('UP');
+  const down = label.includes('BEARISH')||label.includes('DOWN');
+  const cls = up?'up':down?'down':'neutral';
+  return `<span class="badge ${cls}">${label.replace(/_/g,' ')}</span>`;
+}
+
+function renderBarrierList(list){
+  const el = document.getElementById('barrierList');
+  if(!list.length){ el.innerHTML='<div class="hint">No candidates yet.</div>'; return; }
+  el.innerHTML = list.map(b=>{
+    const cls = b.feasibility==='OPTIMAL'?'up':b.feasibility==='VALID'?'neutral':b.feasibility.includes('TOO')?'down':'warn';
+    return `<div class="barrier-row">
+      <span>${b.direction} ${b.price.toFixed(5)} <span class="badge ${cls}">${b.feasibility}</span></span>
+      <span class="score">${b.score.toFixed(0)}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderBiasBreakdown({candleInfo, twoCandle, hiLo, micro, momentum, marketState, bias}){
+  const w = CONFIG.weights;
+  const el = document.getElementById('biasBreakdown');
+  el.innerHTML = `
+    Prev Candle (${w.candle}%): ${candleInfo.score.toFixed(0)} &nbsp;|&nbsp;
+    Two-Candle (${w.twoCandle}%): ${twoCandle.score.toFixed(0)} &nbsp;|&nbsp;
+    Hi/Lo (${w.hiLo}%): ${hiLo.score.toFixed(0)}<br>
+    Micro (${w.micro}%): ${micro.score.toFixed(0)} &nbsp;|&nbsp;
+    Momentum (${w.momentum}%): ${momentum.score.toFixed(0)} &nbsp;|&nbsp;
+    State penalty: ${marketState.penalty}<br>
+    <b>Composite Bias: ${bias.toFixed(1)}</b>`;
+}
+
+/* ============================================================
+   7. TRADE VALIDATOR + EXECUTION ENGINE + RISK MANAGER
+   ============================================================ */
+const RiskManager = (function(){
+  let session = { trades:0, wins:0, losses:0, consecutiveLosses:0, pnl:0, cooldownUntil:0 };
+  function reset(){ session = { trades:0, wins:0, losses:0, consecutiveLosses:0, pnl:0, cooldownUntil:0 }; renderStats(); }
+  function canArm(){
+    const r = CONFIG.risk;
+    if(Date.now() < session.cooldownUntil) return {ok:false, reason:'Cooldown active.'};
+    if(session.trades >= r.maxTradesPerSession) return {ok:false, reason:'Max trades per session reached.'};
+    if(session.consecutiveLosses >= r.maxConsecutiveLosses) return {ok:false, reason:'Max consecutive losses reached.'};
+    if(-session.pnl >= r.dailyLossLimit) return {ok:false, reason:'Daily loss limit reached.'};
+    return {ok:true};
+  }
+  function recordResult(win, pnlDelta){
+    session.trades++; session.pnl += pnlDelta;
+    if(win){ session.wins++; session.consecutiveLosses=0; session.cooldownUntil = Date.now()+CONFIG.risk.cooldownAfterTrade*1000; }
+    else { session.losses++; session.consecutiveLosses++; session.cooldownUntil = Date.now()+CONFIG.risk.cooldownAfterLoss*1000; }
+    renderStats();
+  }
+  function renderStats(){
+    document.getElementById('statTrades').textContent = session.trades;
+    document.getElementById('statWins').textContent = session.wins;
+    document.getElementById('statLosses').textContent = session.losses;
+    const wr = session.trades? Math.round(session.wins/session.trades*100):null;
+    document.getElementById('statWinRate').textContent = wr==null?'—':wr+'%';
+    document.getElementById('statPnl').textContent = (session.pnl>=0?'+':'')+'$'+session.pnl.toFixed(2);
+  }
+  return {canArm, recordResult, reset, get: ()=>session};
+})();
+
+const SignalHistory = (function(){
+  let list = [];
+  function push(sig, result){
+    list.unshift({ time:new Date(sig.timestamp).toLocaleTimeString(), decision:`${sig.contractType} ${sig.direction}`,
+      barrier: sig.barrier.toFixed(5), ticks: sig.durationTicks, conf: sig.confidence.toFixed(0)+'%', grade: sig.grade, result: result||'PENDING' });
+    if(list.length>200) list.pop();
+    render();
+    document.getElementById('statTotal').textContent = list.length;
+  }
+  function updateLastResult(result){
+    if(list.length){ list[0].result = result; render(); }
+  }
+  function render(){
+    document.getElementById('histBody').innerHTML = list.map(r=>{
+      const resCls = r.result==='WIN'?'up':r.result==='LOSS'?'down':'neutral';
+      return `<tr><td>${r.time}</td><td>${r.decision}</td><td>${r.barrier}</td><td>${r.ticks}</td><td>${r.conf}</td><td>${r.grade}</td><td><span class="badge ${resCls}">${r.result}</span></td></tr>`;
+    }).join('');
+  }
+  return {push, updateLastResult, render, all: ()=>list};
+})();
+
+let botStopped = false;
+let lastExecutedAt = 0;
+
+function handleNewSignal(signal){
+  const grade = signal.grade;
+  const eligible = grade==='A+' || grade==='A';
+  playAlertTone(signal.direction==='UP'?'up':'down');
+  toast(`${signal.contractType} ${signal.direction} · ${grade} · ${signal.confidence}%`, signal.direction==='UP'?'up':'down');
+  pushNotify('TouchEdge AI Signal', `${signal.contractType} ${signal.direction} @ ${signal.barrier.toFixed(5)} — ${signal.confidence}% (${grade})`);
+  SignalHistory.push(signal, 'PENDING');
+  lastSignal = signal;
+
+  if(botStopped) return;
+  if(!CONFIG.autoTrade) return;
+  if(!eligible) { Logger.log('INFO', `Signal graded ${grade} — below auto-trade eligibility (A/A+ only).`); return; }
+
+  const gate = RiskManager.canArm();
+  if(!gate.ok){ Logger.log('WARNING', 'Risk gate blocked execution: '+gate.reason); return; }
+
+  ExecutionEngine.execute(signal);
+}
+
+const ExecutionEngine = (function(){
+  function riskGatePass(){
+    const gate = RiskManager.canArm();
+    if(!gate.ok) return gate;
+    if(CONFIG.liveTrade && !CONFIG.paperMode && !ConnectionManager.getAccount()) return {ok:false, reason:'No trade account connected.'};
+    return {ok:true};
+  }
+
+  function validate(signal){
+    if(botStopped) return {ok:false, reason:'Bot stopped.'};
+    const spot = MarketData.getSpot();
+    if(spot==null) return {ok:false, reason:'No spot price.'};
+    const age = MarketData.getTicks().length - signal.tickIssuedAt;
+    if(age > CONFIG.signalLifetimeTicks) return {ok:false, reason:'Signal stale.'};
+    if(signal.confidence < CONFIG.minConfidence) return {ok:false, reason:'Confidence dropped below threshold.'};
+    const rg = riskGatePass();
+    if(!rg.ok) return rg;
+    return {ok:true};
+  }
+
+  function execute(signal){
+    const check = validate(signal);
+    if(!check.ok){ Logger.log('WARNING','Trade validator rejected execution: '+check.reason); return; }
+
+    if(CONFIG.paperMode || !CONFIG.liveTrade){
+      Logger.log('TRADE', `PAPER: ${signal.contractType} ${signal.direction} stake=$${CONFIG.risk.stake} barrier=${signal.barrier.toFixed(5)} dur=${signal.durationTicks}t`);
+      simulateOutcome(signal);
+      return;
+    }
+
+    // LIVE MODE — proposal -> buy -> proposal_open_contract
+    const contractType = signal.contractType==='TOUCH' ? 'ONETOUCH' : 'NOTOUCH';
+    const barrierStr = (signal.barrier - MarketData.getSpot() >=0 ? '+':'') + (signal.barrier - MarketData.getSpot()).toFixed(5);
+    const proposalReq = {
+      proposal:1, amount: CONFIG.risk.stake, basis:'stake', contract_type: contractType,
+      currency: (ConnectionManager.getAccount()||{}).currency || 'USD',
+      duration: signal.durationTicks, duration_unit:'t',
+      barrier: barrierStr, underlying_symbol: currentMarketSymbol
+    };
+    ConnectionManager.sendTrade(proposalReq).then(res=>{
+      const proposalId = res.proposal && res.proposal.id;
+      if(!proposalId) throw new Error('No proposal id returned.');
+      return ConnectionManager.sendTrade({buy: proposalId, price: CONFIG.risk.stake});
+    }).then(buyRes=>{
+      Logger.log('TRADE', `LIVE BUY confirmed: contract_id=${buyRes.buy.contract_id} price=${buyRes.buy.buy_price}`);
+      monitorLiveContract(buyRes.buy.contract_id, signal);
+    }).catch(err=>{
+      Logger.log('ERROR', 'Live execution failed: '+(err.message||JSON.stringify(err)));
+    });
+  }
+
+  function monitorLiveContract(contractId, signal){
+    ConnectionManager.onTrade('proposal_open_contract', data=>{
+      const c = data.proposal_open_contract;
+      if(!c || c.contract_id!==contractId) return;
+      if(c.is_sold){
+        const win = Number(c.profit) > 0;
+        RiskManager.recordResult(win, Number(c.profit));
+        SignalHistory.updateLastResult(win?'WIN':'LOSS');
+        Logger.log('TRADE', `Contract ${contractId} settled: ${win?'WIN':'LOSS'} profit=${c.profit}`);
+      }
+    });
+    ConnectionManager.sendTrade({proposal_open_contract:1, contract_id: contractId, subscribe:1}).catch(()=>{});
+  }
+
+  function simulateOutcome(signal){
+    // simple paper simulation: resolve probabilistically using confidence as win-likelihood proxy
+    setTimeout(()=>{
+      const win = Math.random()*100 < signal.confidence;
+      const pnl = win ? CONFIG.risk.stake*0.85 : -CONFIG.risk.stake;
+      RiskManager.recordResult(win, pnl);
+      SignalHistory.updateLastResult(win?'WIN':'LOSS');
+      Logger.log('TRADE', `PAPER settled: ${win?'WIN':'LOSS'} pnl=${pnl.toFixed(2)}`);
+    }, Math.min(signal.durationTicks*1200, 9000));
+  }
+
+  return {execute, riskGatePass};
+})();
+
+/* ============================================================
+   8. SIMULATION FALLBACK (offline / preview mode)
+   ============================================================ */
+let simInterval=null, currentMarketSymbol=null, usingSimulation=false;
+function startSimulation(){
+  usingSimulation = true;
+  currentMarketSymbol = 'SIM100';
+  MarketData.reset();
+  let price = 1000 + Math.random()*50;
+  let t = Math.floor(Date.now()/1000) - 6000;
+  const seedPrices=[], seedTimes=[];
+  for(let i=0;i<3000;i++){ price += (Math.random()-0.5)*0.6; seedPrices.push(price); seedTimes.push(t+i); }
+  MarketData.seedFromHistory(seedPrices, seedTimes);
+  clearInterval(simInterval);
+  simInterval = setInterval(()=>{
+    price += (Math.random()-0.5)*0.6 + Math.sin(Date.now()/9000)*0.05;
+    MarketData.ingestTick({epoch: Math.floor(Date.now()/1000), quote: price, pip_size:2});
+  }, 900);
+}
+function stopSimulation(){ usingSimulation=false; clearInterval(simInterval); }
+
+/* ============================================================
+   9. UI WIRING
+   ============================================================ */
+function $(id){ return document.getElementById(id); }
+function bindSwitch(id, key, onChange){
+  const el = $(id);
+  el.classList.toggle('on', !!CONFIG[key]);
+  el.addEventListener('click', ()=>{
+    CONFIG[key] = !CONFIG[key];
+    el.classList.toggle('on', CONFIG[key]);
+    if(onChange) onChange(CONFIG[key]);
+    persist();
+  });
+}
+
+// Tabs
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    btn.classList.add('active');
+    $('view-'+btn.dataset.view).classList.add('active');
+  });
+});
+
+// Connect / disconnect
+$('btnConnect').addEventListener('click', ()=>{
+  CONFIG.patToken = $('patToken').value.trim();
+  CONFIG.appId = $('appId').value.trim() || '1089';
+  stopSimulation();
+  ConnectionManager.ensurePublicWs().then(()=>{
+    return ConnectionManager.loadActiveSymbols();
+  }).then(list=>{
+    const sel = $('marketSelect');
+    sel.innerHTML = list.map(s=>`<option value="${s.symbol}">${s.underlying_symbol_name||s.symbol}</option>`).join('');
+    if(list.length){ selectMarket(list[0].symbol); }
+    $('btnDisconnect').disabled=false;
+    Logger.log('INFO', `Loaded ${list.length} synthetic index symbols.`);
+  }).catch(err=>{
+    Logger.log('ERROR', 'Connection failed: '+(err.message||JSON.stringify(err))+'. Falling back to simulation.');
+    startSimulation();
+  });
+});
+$('btnDisconnect').addEventListener('click', ()=>{
+  ConnectionManager.disconnectAll();
+  $('btnDisconnect').disabled=true;
+  startSimulation();
+});
+$('marketSelect').addEventListener('change', e=> selectMarket(e.target.value));
+
+function selectMarket(symbol){
+  if(!symbol) return;
+  stopSimulation();
+  currentMarketSymbol = symbol;
+  ConnectionManager.switchSymbol(symbol);
+  MarketData.reset();
+  ConnectionManager.seedHistory(symbol).then(data=>{
+    const h = data.history;
+    if(h && h.prices) MarketData.seedFromHistory(h.prices, h.times);
+    ConnectionManager.subscribeTicks(symbol, tick=> MarketData.ingestTick(tick));
+    Logger.log('INFO', `Subscribed to ${symbol}.`);
+  }).catch(err=> Logger.log('ERROR','History seed failed: '+(err.message||JSON.stringify(err))));
+}
+
+// Controls
+bindSwitch('swPaperMode','paperMode');
+bindSwitch('swAudio','audio');
+bindSwitch('swPush','push', on=>{ if(on && 'Notification' in window) Notification.requestPermission(); });
+bindSwitch('swAcctType','accountReal', on=>{ $('acctSub').textContent = on?'Real account':'Demo account'; });
+
+$('swAutoTrade').addEventListener('click', ()=>{
+  const el = $('swAutoTrade');
+  const turningOn = !CONFIG.autoTrade;
+  CONFIG.autoTrade = turningOn;
+  el.classList.toggle('on', turningOn);
+  persist();
+  Logger.log('INFO', 'Auto Trade '+(turningOn?'ENABLED':'disabled'));
+});
+
+$('swLiveTrade').addEventListener('click', ()=>{
+  if(!CONFIG.liveTrade){
+    $('confirmModal').classList.add('show');
+  } else {
+    CONFIG.liveTrade = false; CONFIG.paperMode = true;
+    $('swLiveTrade').classList.remove('on','danger-on');
+    $('swPaperMode').classList.add('on');
+    persist();
+    Logger.log('WARNING','Live trading DISARMED.');
+  }
+});
+$('confirmInput').addEventListener('input', e=>{
+  $('confirmOk').disabled = e.target.value.trim() !== 'CONFIRM';
+});
+$('confirmCancel').addEventListener('click', ()=>{ $('confirmModal').classList.remove('show'); $('confirmInput').value=''; $('confirmOk').disabled=true; });
+$('confirmOk').addEventListener('click', ()=>{
+  if(!CONFIG.patToken){ toast('Enter a PAT token first.','down'); $('confirmModal').classList.remove('show'); return; }
+  CONFIG.liveTrade = true; CONFIG.paperMode = false;
+  $('swLiveTrade').classList.add('danger-on');
+  $('swPaperMode').classList.remove('on');
+  $('confirmModal').classList.remove('show');
+  $('confirmInput').value=''; $('confirmOk').disabled=true;
+  persist();
+  Logger.log('WARNING','LIVE TRADING ARMED by user confirmation.');
+  ConnectionManager.connectTradeWs(CONFIG.accountReal).catch(err=>{
+    Logger.log('ERROR','Trade socket connection failed: '+(err.message||JSON.stringify(err)));
+    toast('Could not connect trade account.','down');
+  });
+});
+
+$('btnStop').addEventListener('click', ()=>{
+  botStopped = !botStopped;
+  $('btnStop').textContent = botStopped ? '▶ RESUME BOT' : '⛔ STOP BOT';
+  $('btnStop').classList.toggle('emergency', !botStopped);
+  Logger.log('WARNING', botStopped ? 'BOT STOPPED by user.' : 'Bot resumed.');
+});
+
+$('btnSaveCfg').addEventListener('click', ()=>{
+  CONFIG.minConfidence = +$('cfgMinConf').value;
+  CONFIG.minBarrierScore = +$('cfgMinBarrier').value;
+  CONFIG.minBarrierDistancePips = +$('cfgMinDist').value;
+  CONFIG.maxBarrierDistancePips = +$('cfgMaxDist').value;
+  CONFIG.microWindow = +$('cfgMicroWindow').value;
+  CONFIG.signalLifetimeTicks = +$('cfgSignalLife').value;
+  persist(); toast('Thresholds saved.');
+});
+
+function weightTotal(){
+  return ['wCandle','wTwoCandle','wHiLo','wMicro','wMomentum','wState'].reduce((s,id)=>s+(+$(id).value||0),0);
+}
+['wCandle','wTwoCandle','wHiLo','wMicro','wMomentum','wState'].forEach(id=>{
+  $(id).addEventListener('input', ()=>{ $('weightTotalHint').textContent = 'Total: '+weightTotal()+'%'; });
+});
+$('btnSaveWeights').addEventListener('click', ()=>{
+  const total = weightTotal();
+  if(total!==100){ toast('Weights must total 100% (currently '+total+'%).','down'); return; }
+  CONFIG.weights = { candle:+$('wCandle').value, twoCandle:+$('wTwoCandle').value, hiLo:+$('wHiLo').value,
+    micro:+$('wMicro').value, momentum:+$('wMomentum').value, state:+$('wState').value };
+  persist(); toast('Weights saved.');
+});
+
+$('btnSaveRisk').addEventListener('click', ()=>{
+  CONFIG.risk = {
+    stake: +$('riskStake').value, maxTradesPerSession: +$('riskMaxTrades').value,
+    maxConsecutiveLosses: +$('riskMaxLoss').value, dailyLossLimit: +$('riskDailyLimit').value,
+    cooldownAfterTrade: +$('riskCooldown').value, cooldownAfterLoss: +$('riskCooldownLoss').value
+  };
+  persist(); toast('Risk settings saved.');
+});
+
+$('btnResetStats').addEventListener('click', ()=>{ RiskManager.reset(); toast('Session stats reset.'); });
+$('btnClearLog').addEventListener('click', ()=>{ Logger.lines=[]; Logger.render(); });
+$('chkDebug').addEventListener('change', e=>{ CONFIG.debug = e.target.checked; });
+
+function applyPersistedToInputs(){
+  $('cfgMinConf').value = CONFIG.minConfidence;
+  $('cfgMinBarrier').value = CONFIG.minBarrierScore;
+  $('cfgMinDist').value = CONFIG.minBarrierDistancePips;
+  $('cfgMaxDist').value = CONFIG.maxBarrierDistancePips;
+  $('cfgMicroWindow').value = CONFIG.microWindow;
+  $('cfgSignalLife').value = CONFIG.signalLifetimeTicks;
+  $('wCandle').value=CONFIG.weights.candle; $('wTwoCandle').value=CONFIG.weights.twoCandle;
+  $('wHiLo').value=CONFIG.weights.hiLo; $('wMicro').value=CONFIG.weights.micro;
+  $('wMomentum').value=CONFIG.weights.momentum; $('wState').value=CONFIG.weights.state;
+  $('weightTotalHint').textContent = 'Total: '+weightTotal()+'%';
+  $('riskStake').value=CONFIG.risk.stake; $('riskMaxTrades').value=CONFIG.risk.maxTradesPerSession;
+  $('riskMaxLoss').value=CONFIG.risk.maxConsecutiveLosses; $('riskDailyLimit').value=CONFIG.risk.dailyLossLimit;
+  $('riskCooldown').value=CONFIG.risk.cooldownAfterTrade; $('riskCooldownLoss').value=CONFIG.risk.cooldownAfterLoss;
+  $('swAudio').classList.toggle('on', CONFIG.audio);
+  $('swPaperMode').classList.toggle('on', CONFIG.paperMode);
+}
+applyPersistedToInputs();
+
+/* ============================================================
+   10. CYCLE DRIVER
+   ============================================================ */
+let lastCycleAt = 0;
+MarketData.onUpdate(()=>{
+  const now = Date.now();
+  if(now - lastCycleAt < 700) return; // throttle — don't recompute on every single tick
+  lastCycleAt = now;
+  try{ runDecisionCycle(); }catch(e){ Logger.log('ERROR','Decision cycle error: '+e.message); }
+});
+
+// Boot
+Logger.log('INFO','TouchEdge AI initialized.');
+startSimulation();
+RiskManager.renderStats();
+
+})();
+</script>
+</body>
+</html>

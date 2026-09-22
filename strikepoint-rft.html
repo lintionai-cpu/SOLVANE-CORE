@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#07060d">
+<title>STRIKEPOINT — Rise/Fall &amp; Touch Terminal</title>
+<style>
+:root{
+  --bg:#07060d; --bg2:#0b0a15; --panel:#100e1c; --panel2:#161328;
+  --line:#231f38; --line2:#2b2645;
+  --txt:#f0eefb; --txt-dim:#938db0; --txt-mute:#615a7d;
+  --accent:#ff5e7e; --accent2:#7c5cff; --amber:#ffb020; --red:#ff4d5e; --green:#2ee6a6;
+  --grad-accent: linear-gradient(135deg,#ff5e7e,#7c5cff);
+  --radius:14px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Inter,sans-serif;
+  overscroll-behavior:none; height:100%; width:100%;}
+body{padding-top:var(--safe-t); padding-bottom:calc(66px + var(--safe-b));
+  font-size:14px; -webkit-font-smoothing:antialiased;}
+::-webkit-scrollbar{width:0;height:0;}
+button{cursor:pointer; font-family:inherit;}
+.hidden{display:none !important;}
+
+.topbar{position:sticky; top:0; z-index:40; display:flex; align-items:center; gap:8px;
+  padding:10px 12px; background:linear-gradient(180deg,rgba(7,6,13,.98),rgba(7,6,13,.92));
+  backdrop-filter:blur(10px); border-bottom:1px solid var(--line);}
+.brand{display:flex; align-items:center; gap:8px; flex:1; min-width:0;}
+.brand-mark{width:30px;height:30px;border-radius:8px;background:var(--grad-accent);
+  display:flex;align-items:center;justify-content:center;font-weight:800;color:#0a0812;font-size:13px;flex:none;}
+.brand-txt{display:flex; flex-direction:column; line-height:1.05; min-width:0;}
+.brand-txt b{font-size:14px; letter-spacing:.5px;}
+.brand-txt span{font-size:9.5px; color:var(--txt-mute); text-transform:uppercase; letter-spacing:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.conn-pill{display:flex; align-items:center; gap:5px; font-size:10.5px; padding:5px 9px; border-radius:20px;
+  background:var(--panel2); border:1px solid var(--line2); flex:none;}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--txt-mute);}
+.dot.live{background:var(--green); box-shadow:0 0 8px var(--green); animation:pulse 1.6s infinite;}
+.dot.warn{background:var(--amber); box-shadow:0 0 8px var(--amber);}
+.dot.off{background:var(--red);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.icon-btn{width:32px;height:32px;border-radius:9px;background:var(--panel2);border:1px solid var(--line2);
+  color:var(--txt); display:flex;align-items:center;justify-content:center; font-size:15px; flex:none;}
+.icon-btn.on{background:rgba(255,94,126,.15); border-color:var(--accent); color:var(--accent);}
+
+.wrap{padding:12px; max-width:640px; margin:0 auto;}
+.page{display:none;}
+.page.active{display:block;}
+
+.card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:13px; margin-bottom:11px;}
+.card-h{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; gap:8px;}
+.card-h h3{margin:0; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--txt-dim); font-weight:700;}
+.card-h .r{display:flex; align-items:center; gap:6px;}
+
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:9px;}
+.grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;}
+.stat{background:var(--panel2); border:1px solid var(--line2); border-radius:10px; padding:9px 10px;}
+.stat .l{font-size:9.5px; color:var(--txt-mute); text-transform:uppercase; letter-spacing:.6px; margin-bottom:3px;}
+.stat .v{font-size:16px; font-weight:800; font-variant-numeric:tabular-nums;}
+.stat .v.up{color:var(--green);} .stat .v.down{color:var(--red);} .stat .v.warn{color:var(--amber);} .stat .v.accent{color:var(--accent);}
+
+.big-price{font-size:29px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:.5px;}
+.price-row{display:flex; align-items:baseline; gap:8px;}
+.price-chg{font-size:13px; font-weight:700;}
+
+.field{margin-bottom:10px;}
+.field label{display:block; font-size:10.5px; color:var(--txt-mute); text-transform:uppercase; letter-spacing:.6px; margin-bottom:5px;}
+.field input, .field select{width:100%; padding:11px 12px; background:var(--panel2); border:1px solid var(--line2);
+  border-radius:10px; color:var(--txt); font-size:16px; outline:none;}
+.field input:focus, .field select:focus{border-color:var(--accent);}
+.row{display:flex; gap:8px;}
+.row > *{flex:1;}
+
+.btn{display:flex; align-items:center; justify-content:center; gap:7px; padding:13px; border-radius:11px;
+  border:none; font-weight:700; font-size:13.5px; width:100%; min-height:44px;}
+.btn-primary{background:var(--grad-accent); color:#0a0812;}
+.btn-outline{background:transparent; border:1px solid var(--line2); color:var(--txt);}
+.btn-danger{background:rgba(255,77,94,.15); border:1px solid var(--red); color:var(--red);}
+.btn-warn{background:rgba(255,176,32,.15); border:1px solid var(--amber); color:var(--amber);}
+.btn-sm{padding:8px 10px; font-size:12px; width:auto; min-height:auto;}
+.btn:disabled{opacity:.4;}
+
+.switch{position:relative; width:42px; height:24px; flex:none;}
+.switch input{opacity:0; width:0; height:0;}
+.slider{position:absolute; inset:0; background:var(--panel2); border:1px solid var(--line2); border-radius:24px; transition:.2s;}
+.slider:before{content:""; position:absolute; width:18px; height:18px; left:2px; top:2px; background:var(--txt-mute); border-radius:50%; transition:.2s;}
+input:checked + .slider{background:rgba(255,94,126,.25); border-color:var(--accent);}
+input:checked + .slider:before{transform:translateX(18px); background:var(--accent);}
+.opt-row{display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line); gap:10px;}
+.opt-row:last-child{border-bottom:none;}
+.opt-row .lab{font-size:13px;} .opt-row .sub{font-size:10.5px; color:var(--txt-mute); margin-top:1px;}
+
+.seg{display:flex; background:var(--panel2); border:1px solid var(--line2); border-radius:10px; padding:3px; gap:3px;}
+.seg button{flex:1; padding:9px 4px; border:none; background:transparent; border-radius:8px; color:var(--txt-dim); font-size:12px; font-weight:700; min-height:38px;}
+.seg button.active{background:var(--grad-accent); color:#0a0812;}
+
+.badge{display:inline-flex; align-items:center; padding:3px 9px; border-radius:20px; font-size:10px; font-weight:800; letter-spacing:.5px; white-space:nowrap;}
+.badge.up{background:rgba(46,230,166,.16); color:var(--green);}
+.badge.down{background:rgba(255,77,94,.16); color:var(--red);}
+.badge.neu{background:var(--panel2); color:var(--txt-dim);}
+
+.bar{height:6px; border-radius:4px; background:var(--panel2); overflow:hidden; margin-top:6px;}
+.bar > i{display:block; height:100%; background:var(--grad-accent); border-radius:4px; transition:width .3s;}
+
+.log-item{padding:9px 0; border-bottom:1px solid var(--line); font-size:12px;}
+.log-item:last-child{border-bottom:none;}
+.log-top{display:flex; justify-content:space-between; margin-bottom:3px;}
+.log-top b{font-size:12.5px;}
+.log-meta{color:var(--txt-mute); font-size:10.5px; display:flex; gap:10px; flex-wrap:wrap;}
+.pl-pos{color:var(--green); font-weight:700;} .pl-neg{color:var(--red); font-weight:700;}
+
+.bottom-nav{position:fixed; left:0; right:0; bottom:0; z-index:50; display:flex;
+  background:rgba(11,10,21,.97); backdrop-filter:blur(14px); border-top:1px solid var(--line);
+  padding-bottom:var(--safe-b);}
+.bottom-nav button{flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; padding:9px 0 7px;
+  background:none; border:none; color:var(--txt-mute); font-size:9.5px; font-weight:700; min-height:48px;}
+.bottom-nav button .ic{font-size:18px;}
+.bottom-nav button.active{color:var(--accent);}
+
+.exec-bar{position:sticky; bottom:0; margin:10px -12px -12px; padding:10px 12px calc(10px + var(--safe-b));
+  background:linear-gradient(180deg, rgba(16,14,28,0), rgba(7,6,13,.97) 30%); z-index:20;}
+
+#toastHost{position:fixed; top:calc(var(--safe-t) + 58px); left:12px; right:12px; z-index:100; display:flex; flex-direction:column; gap:8px; pointer-events:none; max-width:640px; margin:0 auto;}
+.toast{pointer-events:auto; background:var(--panel); border:1px solid var(--line2); border-left:4px solid var(--accent);
+  border-radius:10px; padding:11px 13px; box-shadow:0 10px 30px rgba(0,0,0,.5); animation:slideIn .25s ease;}
+.toast.win{border-left-color:var(--green);} .toast.loss{border-left-color:var(--red);} .toast.warn{border-left-color:var(--amber);} .toast.err{border-left-color:var(--red);}
+.toast h4{margin:0 0 3px; font-size:12.5px;} .toast p{margin:0; font-size:11px; color:var(--txt-dim);}
+@keyframes slideIn{from{transform:translateY(-14px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+
+.note{font-size:11px; color:var(--txt-mute); background:var(--panel2); border:1px solid var(--line2); border-radius:9px; padding:8px 10px; margin-top:8px; line-height:1.5;}
+.hl{color:var(--accent); font-weight:700;}
+.mt8{margin-top:8px;} .mb0{margin-bottom:0;}
+
+@media (max-width:760px){ .grid3{grid-template-columns:1fr 1fr;} }
+@media (max-width:420px){ .big-price{font-size:24px;} .brand-txt b{font-size:13px;} }
+</style>
+</head>
+<body>
+
+<div id="toastHost"></div>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark">SP</div>
+    <div class="brand-txt">
+      <b>STRIKEPOINT</b>
+      <span>Rise/Fall &amp; Touch Engine</span>
+    </div>
+  </div>
+  <div class="conn-pill"><span class="dot off" id="connDot"></span><span id="connLabel">Offline</span></div>
+  <button class="icon-btn" id="soundToggleBtn" title="Sound">🔊</button>
+</div>
+
+<div class="wrap" style="padding-bottom:0">
+  <div class="card" style="margin-bottom:10px;">
+    <div class="card-h">
+      <h3 id="symLabel">VOLATILITY 100 (1s) INDEX</h3>
+      <span class="badge neu" id="trendBadge">TREND —</span>
+    </div>
+    <div class="price-row">
+      <div class="big-price" id="priceVal">—</div>
+      <div class="price-chg" id="priceChg">+0.00</div>
+    </div>
+    <div class="grid3 mt8">
+      <div class="stat"><div class="l">Momentum</div><div class="v" id="momVal">—</div></div>
+      <div class="stat"><div class="l">Volatility</div><div class="v" id="volVal">—</div></div>
+      <div class="stat"><div class="l">Z-Score</div><div class="v" id="zVal">—</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" style="padding-top:0">
+
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-dash">
+
+    <div class="card">
+      <div class="card-h"><h3>Rise / Fall Signal</h3><span class="badge neu" id="rfBadge">—</span></div>
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <div style="font-size:20px; font-weight:800;" id="rfDirection">NO SIGNAL</div>
+          <div style="font-size:11px; color:var(--txt-mute); margin-top:2px;">EWMA equilibrium + momentum fusion</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:22px; font-weight:800;" id="rfConfidence">0%</div>
+          <div style="font-size:10px; color:var(--txt-mute);">CONFIDENCE</div>
+        </div>
+      </div>
+      <div class="bar"><i id="rfBar" style="width:0%"></i></div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h3>Touch / No Touch Signal</h3><span class="badge neu" id="touchBadge">—</span></div>
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <div style="font-size:20px; font-weight:800;" id="touchDirection">NO SIGNAL</div>
+          <div style="font-size:11px; color:var(--txt-mute); margin-top:2px;" id="touchBarrierInfo">Barrier —</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:22px; font-weight:800;" id="touchConfidence">0%</div>
+          <div style="font-size:10px; color:var(--txt-mute);">CONFIDENCE</div>
+        </div>
+      </div>
+      <div class="bar"><i id="touchBar" style="width:0%;background:var(--grad-accent)"></i></div>
+    </div>
+
+    <div class="exec-bar">
+      <div class="card" style="margin-bottom:8px;">
+        <div class="card-h"><h3>Execution</h3>
+          <div class="r"><span style="font-size:10.5px; color:var(--txt-mute)">AUTO-TRADE</span>
+            <label class="switch"><input type="checkbox" id="autoTradeSwitch"><span class="slider"></span></label>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field mb0"><label>Stake (USD)</label><input type="number" id="stakeInput" value="1" min="0.35" step="0.5"></div>
+          <div class="field mb0"><label>Duration (Ticks)</label><input type="number" id="ticksInput" value="5" min="1" max="10"></div>
+        </div>
+        <div class="row mt8">
+          <button class="btn btn-primary" id="btnBuyRise">▲ RISE</button>
+          <button class="btn btn-danger" id="btnBuyFall">▼ FALL</button>
+        </div>
+        <div class="row mt8">
+          <button class="btn btn-outline" id="btnBuyTouch">◎ TOUCH</button>
+          <button class="btn btn-outline" id="btnBuyNoTouch">⊘ NO TOUCH</button>
+        </div>
+        <div class="note" id="tradeMutexNote">Ready — no open position.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RISK -->
+  <div class="page" id="page-risk">
+    <div class="card">
+      <div class="card-h"><h3>Risk Engine</h3></div>
+      <div class="field"><label>Min Confidence To Trade (%)</label>
+        <select id="minConfSel">
+          <option value="55">55%</option>
+          <option value="65" selected>65%</option>
+          <option value="75">75%</option>
+          <option value="85">85%</option>
+          <option value="92">92%</option>
+        </select>
+      </div>
+      <div class="row">
+        <div class="field"><label>Max Stake (% Balance)</label><input type="number" id="maxStakePct" value="5" min="0.5" max="50"></div>
+        <div class="field"><label>Hard Stake Cap ($)</label><input type="number" id="hardCap" value="25" min="1"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Session Take-Profit ($)</label><input type="number" id="sessionTP" value="20" min="0"></div>
+        <div class="field"><label>Session Stop-Loss ($)</label><input type="number" id="sessionSL" value="15" min="0"></div>
+      </div>
+      <div class="opt-row"><div><div class="lab">Auto-Reset Cycle</div><div class="sub">Reset P/L + ladder when TP/SL is hit</div></div>
+        <label class="switch"><input type="checkbox" id="autoResetSwitch" checked><span class="slider"></span></label></div>
+      <div class="opt-row"><div><div class="lab">Auto-Restart After Reset</div><div class="sub">Resume auto-trade automatically after cycle reset</div></div>
+        <label class="switch"><input type="checkbox" id="autoRestartSwitch" checked><span class="slider"></span></label></div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h3>Recovery Ladder</h3><span class="badge neu" id="martStatusBadge">STANDBY</span></div>
+      <div class="opt-row"><div><div class="lab">Enable Recovery Ladder</div><div class="sub">Stake steps up after a loss, resets on win</div></div>
+        <label class="switch"><input type="checkbox" id="martEnableSwitch"><span class="slider"></span></label></div>
+      <div class="row">
+        <div class="field"><label>Multiplier</label><input type="number" id="martMultiplier" value="1.9" step="0.05" min="1.1" max="3"></div>
+        <div class="field"><label>Max Steps</label><input type="number" id="martMaxSteps" value="4" min="1" max="10"></div>
+      </div>
+      <div class="note">Hard stops (session SL, hard stake cap) are <span class="hl">never</span> overridden by the ladder.</div>
+      <button class="btn btn-warn mt8" id="btnFullReset">↺ FULL RESET (P/L, ladder, journal)</button>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h3>Session Cycle</h3></div>
+      <div class="grid3">
+        <div class="stat"><div class="l">Session P/L</div><div class="v" id="sessionPL">$0.00</div></div>
+        <div class="stat"><div class="l">TP Progress</div><div class="v accent" id="tpProgress">0%</div></div>
+        <div class="stat"><div class="l">SL Buffer</div><div class="v warn" id="slBuffer">100%</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JOURNAL -->
+  <div class="page" id="page-journal">
+    <div class="card">
+      <div class="card-h"><h3>Performance</h3></div>
+      <div class="grid3">
+        <div class="stat"><div class="l">Total Trades</div><div class="v" id="statTotal">0</div></div>
+        <div class="stat"><div class="l">Win Rate</div><div class="v up" id="statWinRate">0%</div></div>
+        <div class="stat"><div class="l">Net P/L</div><div class="v" id="statNetPL">$0.00</div></div>
+        <div class="stat"><div class="l">Win Streak</div><div class="v up" id="statWinStreak">0</div></div>
+        <div class="stat"><div class="l">Loss Streak</div><div class="v down" id="statLossStreak">0</div></div>
+        <div class="stat"><div class="l">Max Drawdown</div><div class="v down" id="statDD">$0.00</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>Trade Journal</h3>
+        <button class="btn btn-outline btn-sm" id="btnExportCSV">Export CSV</button></div>
+      <div id="journalList"><div class="note">No trades yet this session.</div></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="page" id="page-settings">
+    <div class="card">
+      <div class="card-h"><h3>Connection</h3></div>
+      <div class="field"><label>Deriv App ID</label><input type="text" id="appIdInput" placeholder="e.g. 70123"></div>
+      <div class="field"><label>API Token (PAT or OAuth)</label><input type="password" id="tokenInput" placeholder="Paste your token"></div>
+      <div class="field"><label>Account Mode</label>
+        <div class="seg"><button data-acc="demo" class="active" id="accDemoBtn">DEMO</button><button data-acc="real" id="accRealBtn">REAL</button></div>
+      </div>
+      <button class="btn btn-primary" id="btnConnect">Connect &amp; Authorize</button>
+      <div class="note">Credentials are kept in memory only for this session and are never written to local storage.</div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>Market</h3></div>
+      <div class="field"><label>Symbol</label>
+        <select id="symbolSel">
+          <option value="1HZ100V">Volatility 100 (1s) Index</option>
+          <option value="1HZ75V">Volatility 75 (1s) Index</option>
+          <option value="1HZ50V">Volatility 50 (1s) Index</option>
+          <option value="1HZ25V">Volatility 25 (1s) Index</option>
+          <option value="1HZ10V">Volatility 10 (1s) Index</option>
+          <option value="R_100">Volatility 100 Index</option>
+          <option value="R_75">Volatility 75 Index</option>
+          <option value="R_50">Volatility 50 Index</option>
+        </select>
+      </div>
+      <div class="field"><label>Structure Lookback (ticks)</label>
+        <select id="lookbackSel">
+          <option value="30">30</option><option value="50" selected>50</option>
+          <option value="100">100</option><option value="200">200</option>
+        </select>
+      </div>
+      <div class="field"><label>Touch Barrier Distance (× volatility)</label>
+        <select id="barrierMultSel">
+          <option value="1.2">Tight (1.2×)</option>
+          <option value="1.8" selected>Standard (1.8×)</option>
+          <option value="2.5">Wide (2.5×)</option>
+        </select>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>Notifications</h3></div>
+      <div class="opt-row"><div><div class="lab">Onscreen Alerts</div></div><label class="switch"><input type="checkbox" id="notifOnscreen" checked><span class="slider"></span></label></div>
+      <div class="opt-row"><div><div class="lab">Audio Alerts</div></div><label class="switch"><input type="checkbox" id="notifAudio" checked><span class="slider"></span></label></div>
+      <div class="opt-row"><div><div class="lab">Mobile Push Notifications</div><div class="sub">Alerts even when app is backgrounded</div></div>
+        <button class="btn btn-outline btn-sm" id="btnEnablePush">Enable</button></div>
+      <div class="opt-row"><div><div class="lab">High-Confidence Only (≥85%)</div></div><label class="switch"><input type="checkbox" id="notifHighOnly"><span class="slider"></span></label></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>App</h3></div>
+      <div class="note">STRIKEPOINT RF/T v1.0 · MVP Build<br>Equilibrium → Momentum → Structure → Barrier → Risk → Execution → Journal<br>Synthetic indices are negative-expectancy instruments. Confidence scores are heuristic, not calibrated probabilities. Trade at your own risk.</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="bottom-nav">
+  <button class="nav-btn active" data-page="dash"><span class="ic">📈</span>Dashboard</button>
+  <button class="nav-btn" data-page="risk"><span class="ic">🛡️</span>Risk</button>
+  <button class="nav-btn" data-page="journal"><span class="ic">📒</span>Journal</button>
+  <button class="nav-btn" data-page="settings"><span class="ic">⚙️</span>Settings</button>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   STATE / PERSISTENCE
+   ============================================================ */
+const LS_KEY = "strikepoint_rft_state_v1";
+const defaultState = {
+  settings:{
+    symbol:"1HZ100V", lookback:50, accountMode:"demo", barrierMult:1.8,
+    minConf:65, maxStakePct:5, hardCap:25, sessionTP:20, sessionSL:15,
+    autoReset:true, autoRestart:true, martEnable:false, martMultiplier:1.9, martMaxSteps:4,
+    notifOnscreen:true, notifAudio:true, notifHighOnly:false, autoTrade:false, stake:1, ticks:5
+  },
+  perf:{ total:0, wins:0, losses:0, netPL:0, winStreak:0, lossStreak:0, maxDD:0, peak:0 },
+  journal:[]
+};
+let state = loadState();
+function loadState(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      return Object.assign({}, defaultState, parsed, {
+        settings: Object.assign({}, defaultState.settings, parsed.settings||{}),
+        perf: Object.assign({}, defaultState.perf, parsed.perf||{})
+      });
+    }
+  }catch(e){}
+  return JSON.parse(JSON.stringify(defaultState));
+}
+function saveState(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){} }
+let saveTimer=null;
+function saveStateSoon(){ clearTimeout(saveTimer); saveTimer=setTimeout(saveState, 400); }
+
+/* ============================================================
+   UI HELPERS
+   ============================================================ */
+const $ = s=>document.querySelector(s);
+const $$ = s=>document.querySelectorAll(s);
+function fmt(n,d){ return (Number(n)||0).toFixed(d==null?2:d); }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+
+function toast(title, msg, type){
+  const host = $("#toastHost");
+  const el = document.createElement("div");
+  el.className = "toast" + (type?(" "+type):"");
+  el.innerHTML = `<h4>${title}</h4><p>${msg}</p>`;
+  host.appendChild(el);
+  setTimeout(()=>{ el.style.transition="opacity .3s"; el.style.opacity="0"; setTimeout(()=>el.remove(),300); }, 4200);
+  if(document.hidden && "Notification" in window && Notification.permission==="granted"){
+    try{ new Notification("STRIKEPOINT: "+title, {body:msg, tag:"strikepoint"}); }catch(e){}
+  }
+}
+
+let actx=null;
+function audioCtx(){ if(!actx){ try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return actx; }
+function beep(freq, dur, type, vol){
+  if(!state.settings.notifAudio) return;
+  const ctx = audioCtx(); if(!ctx) return;
+  try{
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type = type||"sine"; o.frequency.value = freq;
+    g.gain.value = vol||0.08;
+    o.connect(g); g.connect(ctx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + (dur||0.15));
+    o.stop(ctx.currentTime + (dur||0.15) + 0.02);
+  }catch(e){}
+}
+const SOUND = {
+  signal:()=>beep(700,.12,"sine",.06),
+  highConf:()=>{beep(880,.1); setTimeout(()=>beep(1046,.14),110);},
+  executed:()=>beep(500,.09,"square",.05),
+  win:()=>{beep(660,.1); setTimeout(()=>beep(880,.12),100); setTimeout(()=>beep(1100,.16),210);},
+  loss:()=>{beep(300,.18,"sawtooth",.06); setTimeout(()=>beep(220,.22,"sawtooth",.05),140);},
+  error:()=>beep(180,.3,"square",.06),
+  connect:()=>{beep(500,.08); setTimeout(()=>beep(750,.1),90);},
+  disconnect:()=>beep(240,.25,"triangle",.06),
+  warn:()=>beep(420,.15,"triangle",.05)
+};
+function notify(kind, title, msg, highOnly){
+  if(highOnly && state.settings.notifHighOnly && kind!=="win" && kind!=="loss" && kind!=="error") return;
+  if(state.settings.notifOnscreen) toast(title, msg, kind==="win"?"win":kind==="loss"?"loss":kind==="warn"?"warn":kind==="error"?"err":"");
+  if(SOUND[kind]) SOUND[kind]();
+}
+$("#btnEnablePush").addEventListener("click", async ()=>{
+  if(!("Notification" in window)){ toast("Unsupported","This browser has no Notification API.","warn"); return; }
+  const p = await Notification.requestPermission();
+  toast("Push Notifications", p==="granted"?"Enabled — you'll get alerts when backgrounded.":"Permission not granted.", p==="granted"?"":"warn");
+});
+
+/* Navigation */
+function goPage(name){
+  $$(".nav-btn").forEach(b=>b.classList.toggle("active", b.dataset.page===name));
+  $$(".page").forEach(p=>p.classList.toggle("active", p.id==="page-"+name));
+}
+$$(".nav-btn").forEach(btn=>btn.addEventListener("click", ()=>goPage(btn.dataset.page)));
+$("#soundToggleBtn").addEventListener("click", ()=>{
+  state.settings.notifAudio = !state.settings.notifAudio;
+  $("#notifAudio").checked = state.settings.notifAudio;
+  $("#soundToggleBtn").classList.toggle("on", state.settings.notifAudio);
+  $("#soundToggleBtn").textContent = state.settings.notifAudio ? "🔊" : "🔇";
+  saveStateSoon();
+});
+
+$$('.seg [data-acc]').forEach(b=>b.addEventListener('click', ()=>{
+  $$('.seg [data-acc]').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+  state.settings.accountMode = b.dataset.acc; saveStateSoon();
+}));
+
+function bindField(id, path, isCheckbox, isNumber){
+  const el = $(id);
+  const parts = path.split(".");
+  let val = state; parts.forEach(p=>val=val[p]);
+  if(isCheckbox) el.checked = !!val; else el.value = val;
+  el.addEventListener(isCheckbox?"change":"input", ()=>{
+    let v = isCheckbox ? el.checked : (isNumber ? parseFloat(el.value)||0 : el.value);
+    let obj = state; for(let i=0;i<parts.length-1;i++) obj=obj[parts[i]];
+    obj[parts[parts.length-1]] = v;
+    saveStateSoon();
+  });
+}
+bindField("#symbolSel","settings.symbol");
+bindField("#lookbackSel","settings.lookback",false,true);
+bindField("#barrierMultSel","settings.barrierMult",false,true);
+bindField("#minConfSel","settings.minConf",false,true);
+bindField("#maxStakePct","settings.maxStakePct",false,true);
+bindField("#hardCap","settings.hardCap",false,true);
+bindField("#sessionTP","settings.sessionTP",false,true);
+bindField("#sessionSL","settings.sessionSL",false,true);
+bindField("#autoResetSwitch","settings.autoReset",true);
+bindField("#autoRestartSwitch","settings.autoRestart",true);
+bindField("#martEnableSwitch","settings.martEnable",true);
+bindField("#martMultiplier","settings.martMultiplier",false,true);
+bindField("#martMaxSteps","settings.martMaxSteps",false,true);
+bindField("#notifOnscreen","settings.notifOnscreen",true);
+bindField("#notifAudio","settings.notifAudio",true);
+bindField("#notifHighOnly","settings.notifHighOnly",true);
+bindField("#autoTradeSwitch","settings.autoTrade",true);
+bindField("#stakeInput","settings.stake",false,true);
+bindField("#ticksInput","settings.ticks",false,true);
+if(state.settings.symbol) $("#symbolSel").value = state.settings.symbol;
+if(state.settings.accountMode==="real"){ $("#accDemoBtn").classList.remove("active"); $("#accRealBtn").classList.add("active"); }
+$("#symbolSel").addEventListener("change", ()=>{ resetMarketData(); ensurePublicWs(true); });
+
+/* ============================================================
+   CONNECTION LAYER
+   ============================================================ */
+const PUBLIC_WS = "wss://api.derivws.com/trading/v1/options/ws/public";
+const REST_BASE = "https://api.derivws.com";
+let publicWS=null, publicGen=0;
+let liveWS=null, liveGen=0, liveKeepalive=null;
+let reqId = 1;
+function nextReq(){ return reqId++; }
+
+function setConn(status){ // 'off' | 'connecting' | 'live'
+  const dot = $("#connDot"), lbl = $("#connLabel");
+  dot.className = "dot " + (status==="live"?"live":status==="connecting"?"warn":"off");
+  lbl.textContent = status==="live"?"Live":status==="connecting"?"Connecting…":"Offline";
+}
+
+function ensurePublicWs(force){
+  if(!force && publicWS && (publicWS.readyState===WebSocket.OPEN || publicWS.readyState===WebSocket.CONNECTING)) return;
+  if(force && publicWS){ try{publicWS.close();}catch(e){} }
+  const myGen = ++publicGen;
+  setConn(liveWS && liveWS.readyState===WebSocket.OPEN ? "live":"connecting");
+  publicWS = new WebSocket(PUBLIC_WS);
+  publicWS.onopen = ()=>{
+    if(myGen!==publicGen) return;
+    setConn(liveWS && liveWS.readyState===WebSocket.OPEN ? "live":"connecting");
+    fetchActiveSymbolMeta();
+    subscribeMarket();
+  };
+  publicWS.onmessage = e=>{ try{ handleMessage(JSON.parse(e.data)); }catch(err){} };
+  publicWS.onclose = ()=>{ if(myGen!==publicGen) return; setConn(liveWS&&liveWS.readyState===WebSocket.OPEN?"live":"off"); setTimeout(()=>{ if(myGen===publicGen) ensurePublicWs(); }, 2500); };
+  publicWS.onerror = ()=>{};
+}
+
+function subscribeMarket(){
+  if(!publicWS || publicWS.readyState!==WebSocket.OPEN) return;
+  const sym = state.settings.symbol;
+  publicWS.send(JSON.stringify({forget_all:"ticks", req_id:nextReq()}));
+  publicWS.send(JSON.stringify({ticks_history:sym, count:200, end:"latest", style:"ticks", req_id:nextReq()}));
+  publicWS.send(JSON.stringify({ticks:sym, subscribe:1, req_id:nextReq()}));
+}
+
+// pip_size per symbol, used for correct barrier decimal precision (capped at 2dp per API rules)
+let symbolMeta = {};
+function fetchActiveSymbolMeta(){
+  if(!publicWS || publicWS.readyState!==WebSocket.OPEN) return;
+  publicWS.send(JSON.stringify({active_symbols:"brief", req_id:nextReq()}));
+}
+function onActiveSymbols(list){
+  (list||[]).forEach(s=>{
+    const sym = s.underlying_symbol || s.symbol || s.short_code || s.code;
+    if(sym) symbolMeta[sym] = { pipSize: s.pip_size!=null?Number(s.pip_size):0.01 };
+  });
+}
+
+async function connectLive(){
+  const appId = ($("#appIdInput").value||"").trim();
+  const token = ($("#tokenInput").value||"").trim();
+  if(!appId || !token){ notify("warn","Missing Credentials","Enter App ID and API Token first."); return; }
+  try{
+    setConn("connecting");
+    const accRes = await fetch(`${REST_BASE}/trading/v1/options/accounts`, {
+      headers:{ "Authorization":"Bearer "+token, "Deriv-App-ID": appId }
+    });
+    if(!accRes.ok) throw new Error("Account fetch failed: HTTP "+accRes.status);
+    const accData = await accRes.json();
+    const accounts = Array.isArray(accData.data) ? accData.data : (accData.data?[accData.data]:[]);
+    const wanted = state.settings.accountMode;
+    let acct = accounts.find(a=>a.account_type===wanted && a.status==="active") || accounts.find(a=>a.account_type===wanted) || accounts[0];
+    if(!acct) throw new Error("No "+wanted+" account found on this token.");
+    const accountId = acct.account_id || acct.loginid || acct.login_id || acct.id;
+    // OTP must be fetched fresh immediately before every connect/reconnect
+    const otpRes = await fetch(`${REST_BASE}/trading/v1/options/accounts/${accountId}/otp`, {
+      method:"POST", headers:{ "Authorization":"Bearer "+token, "Deriv-App-ID": appId }
+    });
+    if(!otpRes.ok) throw new Error("OTP request failed: HTTP "+otpRes.status);
+    const otpData = await otpRes.json();
+    const wsUrl = otpData.data.url;
+    liveAuthToken = token; liveAppId = appId;
+    openLiveSocket(wsUrl, acct);
+  }catch(err){
+    setConn(publicWS&&publicWS.readyState===WebSocket.OPEN?"connecting":"off");
+    notify("error","Connection Failed", err.message||"Unknown error");
+  }
+}
+let liveAuthToken=null, liveAppId=null;
+
+function openLiveSocket(wsUrl, acct){
+  const myGen = ++liveGen;
+  if(liveWS){ try{liveWS.close();}catch(e){} }
+  liveWS = new WebSocket(wsUrl);
+  // NOTE: no separate `authorize` message is sent — the OTP URL itself authenticates the socket.
+  liveWS.onopen = ()=>{
+    if(myGen!==liveGen) return;
+    setConn("live");
+    liveAccount = acct;
+    notify("connect","Connected", (acct.account_type||"").toUpperCase()+" account "+(acct.account_id||"")+" — balance "+Number(acct.balance||0).toFixed(2)+" "+(acct.currency||"USD"));
+    liveWS.send(JSON.stringify({balance:1, subscribe:1, req_id:nextReq()}));
+    clearInterval(liveKeepalive);
+    // Keepalive: one-shot balance request on 30s interval (ping is unrecognised by this gateway)
+    liveKeepalive = setInterval(()=>{ if(liveWS && liveWS.readyState===WebSocket.OPEN) liveWS.send(JSON.stringify({balance:1, req_id:nextReq()})); }, 30000);
+  };
+  liveWS.onmessage = e=>{ try{ handleMessage(JSON.parse(e.data)); }catch(err){} };
+  liveWS.onclose = ()=>{
+    if(myGen!==liveGen) return;
+    clearInterval(liveKeepalive);
+    setConn(publicWS && publicWS.readyState===WebSocket.OPEN ? "connecting":"off");
+    notify("disconnect","Live Connection Lost","Requesting fresh OTP and reconnecting…");
+    releaseMutex();
+    setTimeout(()=>{ if(myGen===liveGen && liveAuthToken) reconnectLive(); }, 3000);
+  };
+  liveWS.onerror = ()=>{};
+}
+
+async function reconnectLive(){
+  // Always request a brand-new OTP before reconnecting — stale OTP URLs fail silently
+  try{
+    const accountId = liveAccount ? (liveAccount.account_id||liveAccount.loginid||liveAccount.login_id||liveAccount.id) : null;
+    if(!accountId) return;
+    const otpRes = await fetch(`${REST_BASE}/trading/v1/options/accounts/${accountId}/otp`, {
+      method:"POST", headers:{ "Authorization":"Bearer "+liveAuthToken, "Deriv-App-ID": liveAppId }
+    });
+    if(!otpRes.ok) throw new Error("OTP refresh failed");
+    const otpData = await otpRes.json();
+    openLiveSocket(otpData.data.url, liveAccount);
+  }catch(err){
+    notify("error","Reconnect Failed", err.message||"Retrying shortly…");
+    setTimeout(reconnectLive, 5000);
+  }
+}
+let liveAccount = null, liveBalance = null;
+
+$("#btnConnect").addEventListener("click", connectLive);
+
+/* ============================================================
+   MESSAGE ROUTER
+   ============================================================ */
+function handleMessage(data){
+  if(data.error){
+    if(data.error.code!=="AlreadySubscribed") notify("warn","API Error", (data.error.code||"Error")+": "+(data.error.message||""));
+    if(data.req_id && proposalWaiters[data.req_id]){ delete proposalWaiters[data.req_id]; releaseMutex(); }
+    return;
+  }
+  switch(data.msg_type){
+    case "active_symbols": onActiveSymbols(data.active_symbols); break;
+    case "history": onHistory(data.history); break;
+    case "tick": onTick(data.tick); break;
+    case "balance": liveBalance = Number(data.balance.balance); break;
+    case "proposal":
+      if(proposalWaiters[data.req_id]){
+        const w = proposalWaiters[data.req_id]; delete proposalWaiters[data.req_id];
+        buyFromProposal(data.proposal, w);
+      }
+      break;
+    case "buy": onBuyConfirmed(data.buy); break;
+    case "proposal_open_contract": onOpenContract(data.proposal_open_contract); break;
+    default: break;
+  }
+}
+
+/* ============================================================
+   MARKET DATA / ANALYTICS ENGINE
+   ============================================================ */
+let priceHistory = [];
+let lastPrice = null, prevPrice = null;
+function resetMarketData(){ priceHistory=[]; lastPrice=null; prevPrice=null; engineState.ready=false; }
+
+function onHistory(history){
+  if(!history) return;
+  const prices = history.prices, times = history.times;
+  priceHistory = prices.map((p,i)=>({t:times[i], p:Number(p)}));
+  if(priceHistory.length) lastPrice = priceHistory[priceHistory.length-1].p;
+  runAnalyticsCycle();
+}
+function onTick(tick){
+  prevPrice = lastPrice;
+  lastPrice = Number(tick.quote);
+  priceHistory.push({t:tick.epoch, p:lastPrice});
+  if(priceHistory.length>1000) priceHistory.splice(0, priceHistory.length-1000);
+  runAnalyticsCycle();
+}
+
+const engineState = { ready:false };
+
+function runAnalyticsCycle(){
+  const lb = Math.min(state.settings.lookback, priceHistory.length);
+  if(lb < 10 || lastPrice==null) return;
+  const win = priceHistory.slice(-lb).map(x=>x.p);
+
+  // EWMA equilibrium
+  const alpha = 2/(lb+1);
+  let ewma = win[0];
+  for(let i=1;i<win.length;i++) ewma = alpha*win[i] + (1-alpha)*ewma;
+
+  // momentum: slope over last 10 points (normalized)
+  const mWin = win.slice(-10);
+  let momentum = 0;
+  if(mWin.length>=2){
+    momentum = (mWin[mWin.length-1]-mWin[0]) / (mWin[0]||1) * 10000; // bps
+  }
+
+  // volatility: stddev of returns
+  let returns = [];
+  for(let i=1;i<win.length;i++) returns.push((win[i]-win[i-1])/(win[i-1]||1));
+  const mean = returns.reduce((a,b)=>a+b,0)/(returns.length||1);
+  const variance = returns.reduce((a,b)=>a+Math.pow(b-mean,2),0)/(returns.length||1);
+  const volatility = Math.sqrt(variance) * 10000; // bps
+
+  // deviation z-score of last price vs EWMA
+  const stdPrice = Math.sqrt(win.reduce((a,b)=>a+Math.pow(b-ewma,2),0)/win.length) || 1e-9;
+  const zscore = (lastPrice-ewma)/stdPrice;
+
+  // recent high/low for touch structure
+  const high = Math.max(...win), low = Math.min(...win);
+
+  engineState.ready = true;
+  engineState.price = lastPrice;
+  engineState.ewma = ewma;
+  engineState.momentum = momentum;
+  engineState.volatility = volatility;
+  engineState.zscore = zscore;
+  engineState.high = high;
+  engineState.low = low;
+  engineState.stdPrice = stdPrice;
+
+  computeSignals();
+  renderTicker();
+}
+
+let rfSignal = null, touchSignal = null;
+
+function computeSignals(){
+  const e = engineState;
+
+  // ---- Rise/Fall: momentum + mean-reversion(z-score) fusion ----
+  const momComponent = clamp(e.momentum/4, -50, 50);       // trend continuation
+  const revComponent = clamp(-e.zscore*12, -50, 50);        // pull back toward equilibrium
+  const rfScore = momComponent*0.6 + revComponent*0.4;      // -100..100 range approx
+  const rfConf = Math.round(clamp(50 + Math.abs(rfScore), 0, 97));
+  const rfDir = rfScore>=0 ? "RISE" : "FALL";
+  rfSignal = { direction: Math.abs(rfScore)<3 ? "NO SIGNAL" : rfDir, confidence: Math.abs(rfScore)<3?0:rfConf, contract_type: rfDir==="RISE"?"CALL":"PUT" };
+
+  // ---- Touch/No Touch: barrier distance vs realized volatility ----
+  const distPrice = e.stdPrice * state.settings.barrierMult;
+  const rangeSpan = e.high - e.low;
+  const withinTightRange = rangeSpan < e.stdPrice*3.2; // compressed range favors TOUCH breakout
+  const touchConf = Math.round(clamp(50 + (withinTightRange? (3.2 - rangeSpan/(e.stdPrice||1))*14 : -10) + Math.abs(e.zscore)*4, 0, 96));
+  const touchDir = withinTightRange ? "TOUCH" : "NOTOUCH";
+  touchSignal = {
+    direction: touchConf<52 ? "NO SIGNAL" : (touchDir==="TOUCH"?"TOUCH":"NO TOUCH"),
+    confidence: touchConf<52?0:touchConf,
+    contract_type: touchDir,
+    barrierDistance: distPrice
+  };
+
+  renderSignals();
+}
+
+function renderTicker(){
+  const e = engineState;
+  $("#symLabel").textContent = symbolName(state.settings.symbol);
+  $("#priceVal").textContent = fmt(e.price, guessDecimals(e.price));
+  const chg = prevPrice!=null ? (lastPrice-prevPrice) : 0;
+  const chgEl = $("#priceChg");
+  chgEl.textContent = (chg>=0?"+":"")+fmt(chg, guessDecimals(e.price));
+  chgEl.style.color = chg>0? "var(--green)": chg<0?"var(--red)":"var(--txt-mute)";
+  $("#momVal").textContent = fmt(e.momentum,1);
+  $("#volVal").textContent = fmt(e.volatility,1);
+  $("#zVal").textContent = fmt(e.zscore,2);
+  const tb = $("#trendBadge");
+  if(e.momentum>3){ tb.textContent="TREND UP"; tb.className="badge up"; }
+  else if(e.momentum<-3){ tb.textContent="TREND DOWN"; tb.className="badge down"; }
+  else { tb.textContent="TREND FLAT"; tb.className="badge neu"; }
+}
+
+function renderSignals(){
+  const rf = $("#rfDirection"), rc = $("#rfConfidence"), rb = $("#rfBar"), rBadge = $("#rfBadge");
+  rf.textContent = rfSignal.direction;
+  rc.textContent = rfSignal.confidence+"%";
+  rb.style.width = rfSignal.confidence+"%";
+  rBadge.textContent = rfSignal.direction==="NO SIGNAL"?"—":rfSignal.direction;
+  rBadge.className = "badge " + (rfSignal.direction==="RISE"?"up":rfSignal.direction==="FALL"?"down":"neu");
+
+  const td = $("#touchDirection"), tc = $("#touchConfidence"), tbar = $("#touchBar"), tBadge = $("#touchBadge");
+  td.textContent = touchSignal.direction;
+  tc.textContent = touchSignal.confidence+"%";
+  tbar.style.width = touchSignal.confidence+"%";
+  tBadge.textContent = touchSignal.direction==="NO SIGNAL"?"—":touchSignal.direction;
+  tBadge.className = "badge " + (touchSignal.direction==="NO SIGNAL"?"neu":"accent");
+  $("#touchBarrierInfo").textContent = "Barrier distance ≈ " + fmt(touchSignal.barrierDistance, guessDecimals(engineState.price));
+
+  if(rfSignal.confidence>=85) notify("highConf","High-Confidence Rise/Fall", rfSignal.direction+" · "+rfSignal.confidence+"%", true);
+  if(touchSignal.confidence>=85) notify("highConf","High-Confidence Touch Signal", touchSignal.direction+" · "+touchSignal.confidence+"%", true);
+
+  maybeAutoTrade();
+}
+
+function guessDecimals(price){
+  const meta = symbolMeta[state.settings.symbol];
+  if(meta && meta.pipSize){
+    const s = meta.pipSize.toString();
+    const dec = (s.split(".")[1]||"").length;
+    return Math.min(dec, 4);
+  }
+  if(!price) return 2;
+  if(price>=1000) return 2;
+  if(price>=1) return 3;
+  return 5;
+}
+function symbolName(sym){
+  const map = {"1HZ100V":"Volatility 100 (1s) Index","1HZ75V":"Volatility 75 (1s) Index","1HZ50V":"Volatility 50 (1s) Index",
+    "1HZ25V":"Volatility 25 (1s) Index","1HZ10V":"Volatility 10 (1s) Index","R_100":"Volatility 100 Index","R_75":"Volatility 75 Index","R_50":"Volatility 50 Index"};
+  return map[sym]||sym;
+}
+// Barrier string must be a plain +/- offset formatted to a MAXIMUM of 2 decimal places
+function formatBarrierOffset(distance, sign){
+  const d = Math.abs(distance);
+  return (sign>=0?"+":"-") + d.toFixed(2);
+}
+
+/* ============================================================
+   RISK ENGINE
+   ============================================================ */
+let martStep = 0;
+let tradingPaused = false;
+
+function computeStake(){
+  const base = parseFloat($("#stakeInput").value)||1;
+  let stake = base;
+  if(state.settings.martEnable && martStep>0) stake = base * Math.pow(state.settings.martMultiplier, martStep);
+  const balCap = liveBalance!=null ? liveBalance * (state.settings.maxStakePct/100) : Infinity;
+  stake = Math.min(stake, balCap, state.settings.hardCap);
+  return Math.max(0.35, Math.round(stake*100)/100);
+}
+
+function renderRiskCycle(){
+  $("#sessionPL").textContent = "$"+fmt(state.perf.netPL,2);
+  $("#sessionPL").className = "v " + (state.perf.netPL>0?"up":state.perf.netPL<0?"down":"");
+  const tp = state.settings.sessionTP||1, sl = state.settings.sessionSL||1;
+  $("#tpProgress").textContent = Math.round(clamp((state.perf.netPL/tp)*100,0,100))+"%";
+  $("#slBuffer").textContent = Math.round(clamp(100-(Math.max(0,-state.perf.netPL)/sl)*100,0,100))+"%";
+  $("#martStatusBadge").textContent = state.settings.martEnable ? (martStep>0?("STEP "+martStep+"/"+state.settings.martMaxSteps):"ARMED") : "STANDBY";
+  $("#martStatusBadge").className = "badge " + (state.settings.martEnable?"accent":"neu");
+  $("#tradeMutexNote").textContent = tradeMutex ? "Position open — waiting for settlement." : (tradingPaused? "Trading paused — session limit reached.":"Ready — no open position.");
+}
+
+function checkSessionCycle(){
+  const tp = state.settings.sessionTP, sl = state.settings.sessionSL;
+  if(tp>0 && state.perf.netPL >= tp) cycleSession("TAKE-PROFIT HIT");
+  else if(sl>0 && state.perf.netPL <= -sl) cycleSession("STOP-LOSS HIT"); // hard stop — unconditional
+}
+function cycleSession(reason){
+  notify("warn","Session Cycle: "+reason, "Net P/L "+fmt(state.perf.netPL,2)+" — "+(state.settings.autoReset?"auto-resetting cycle.":"cycle held."));
+  if(state.settings.autoReset){
+    state.perf.netPL = 0; martStep = 0;
+    tradingPaused = !state.settings.autoRestart;
+    if(tradingPaused){ $("#autoTradeSwitch").checked=false; state.settings.autoTrade=false; }
+  } else {
+    tradingPaused = true; $("#autoTradeSwitch").checked=false; state.settings.autoTrade=false;
+  }
+  saveStateSoon(); renderRiskCycle();
+}
+$("#btnFullReset").addEventListener("click", ()=>{
+  state.perf = JSON.parse(JSON.stringify(defaultState.perf));
+  martStep = 0; tradingPaused = false; state.journal = [];
+  saveState(); renderRiskCycle(); renderJournal(); renderPerformance();
+  notify("signal","Full Reset Complete","P/L, ladder, cooldown, and journal cleared.");
+});
+
+/* ============================================================
+   TRADE EXECUTION  (single mutex, single settlement path, watchdog)
+   ============================================================ */
+let tradeMutex = false;
+let watchdogTimer = null;
+let proposalWaiters = {};
+let activeContractId = null;
+
+function acquireMutex(){
+  if(tradeMutex) return false;
+  tradeMutex = true;
+  clearTimeout(watchdogTimer);
+  watchdogTimer = setTimeout(()=>{
+    notify("warn","Trade Watchdog","No settlement confirmed in time — unlocking execution.");
+    releaseMutex();
+  }, 40000); // force-unlock on stall
+  renderRiskCycle();
+  return true;
+}
+function releaseMutex(){
+  tradeMutex = false; activeContractId = null;
+  clearTimeout(watchdogTimer);
+  renderRiskCycle();
+}
+
+function riskGatePass(signal, requireSignal){
+  if(tradingPaused) return {ok:false, reason:"Trading paused (session cycle limit hit)."};
+  if(tradeMutex) return {ok:false, reason:"A position is already open."};
+  if(!liveWS || liveWS.readyState!==WebSocket.OPEN) return {ok:false, reason:"Not connected to a live account."};
+  if(requireSignal){
+    if(!signal || signal.direction==="NO SIGNAL") return {ok:false, reason:"No qualifying signal."};
+    if(signal.confidence < state.settings.minConf) return {ok:false, reason:"Confidence below minimum threshold."};
+  }
+  return {ok:true};
+}
+
+function executeTrade(kind, isAuto){
+  const contractMap = {RISE:"CALL", FALL:"PUT", TOUCH:"ONETOUCH", NOTOUCH:"NOTOUCH"};
+  const contractType = contractMap[kind];
+  const relevantSignal = (kind==="RISE"||kind==="FALL") ? rfSignal : touchSignal;
+  const gate = riskGatePass(relevantSignal, !!isAuto);
+  if(!gate.ok){ if(!isAuto) notify("warn","Trade Blocked", gate.reason); return; }
+  if(!acquireMutex()) return;
+
+  const stake = computeStake();
+  const ticks = clamp(parseInt($("#ticksInput").value)||5, 1, 10);
+  notify("executed","Requesting Proposal", kind+" · Stake $"+stake+" · "+ticks+" ticks");
+
+  const id = nextReq();
+  const cmd = {
+    proposal:1, amount:stake, basis:"stake", contract_type:contractType,
+    currency: (liveAccount&&liveAccount.currency)||"USD",
+    duration: ticks, duration_unit:"t",
+    underlying_symbol: state.settings.symbol,
+    req_id:id
+    // NOTE: one-shot proposal — `subscribe` is deliberately omitted (subscribe:0 is rejected by the gateway)
+  };
+  if(contractType==="ONETOUCH" || contractType==="NOTOUCH"){
+    const dist = (touchSignal && touchSignal.barrierDistance) || (engineState.stdPrice*state.settings.barrierMult) || 1;
+    // Barrier direction: TOUCH targets the nearer structural extreme; NOTOUCH targets the wider one
+    const sign = engineState.price>=engineState.ewma ? 1 : -1;
+    cmd.barrier = formatBarrierOffset(dist, contractType==="ONETOUCH" ? sign : -sign);
+  }
+  proposalWaiters[id] = { stake, ticks, kind, contractType, isAuto:!!isAuto };
+  liveWS.send(JSON.stringify(cmd));
+}
+
+function buyFromProposal(proposal, w){
+  const id = nextReq();
+  proposalWaiters[id] = { ...w, buying:true };
+  liveWS.send(JSON.stringify({buy: proposal.id, price: proposal.ask_price, req_id:id}));
+}
+
+function onBuyConfirmed(buy){
+  const keys = Object.keys(proposalWaiters).filter(k=>proposalWaiters[k].buying);
+  const w = keys.length ? proposalWaiters[keys[keys.length-1]] : null;
+  if(w) delete proposalWaiters[keys[keys.length-1]];
+  const contractId = buy.contract_id;
+  activeContractId = contractId;
+  openContracts[contractId] = {
+    contractId, buyPrice: Number(buy.buy_price), payout: Number(buy.payout),
+    kind: w?w.kind:"?", contractType: w?w.contractType:"?", stake: w?w.stake:Number(buy.buy_price),
+    ticks: w?w.ticks:null, confidence: w&&(w.kind==="RISE"||w.kind==="FALL")?rfSignal.confidence:(w?touchSignal.confidence:0),
+    entryTime: Date.now(), status:"ACTIVE"
+  };
+  notify("executed","Trade Executed", (w?w.kind:"")+" · Entry "+fmt(buy.buy_price,2)+" · Payout "+fmt(buy.payout,2));
+  liveWS.send(JSON.stringify({proposal_open_contract:1, contract_id:contractId, subscribe:1, req_id:nextReq()}));
+  renderRiskCycle();
+}
+
+let openContracts = {};
+
+function onOpenContract(poc){
+  const c = openContracts[poc.contract_id];
+  if(!c) return;
+  if(Number(poc.is_sold)===1 || poc.status!=="open"){
+    postSettlement(c, poc); // single authoritative settlement path
+  }
+}
+
+// ---- Single authoritative post-settlement decision point ----
+function postSettlement(c, poc){
+  if(c.status!=="ACTIVE") return; // already finalized, never double-count
+  c.status = "DONE";
+  const sellPrice = Number(poc.sell_price||0);
+  const pl = sellPrice - Number(c.buyPrice);
+  const win = pl > 0;
+
+  state.perf.total++;
+  if(win){ state.perf.wins++; state.perf.winStreak++; state.perf.lossStreak=0; martStep=0; }
+  else {
+    state.perf.losses++; state.perf.lossStreak++; state.perf.winStreak=0;
+    if(state.settings.martEnable){
+      if(martStep < state.settings.martMaxSteps) martStep++;
+      else martStep = 0;
+    }
+  }
+  state.perf.netPL += pl;
+  state.perf.peak = Math.max(state.perf.peak, state.perf.netPL);
+  state.perf.maxDD = Math.max(state.perf.maxDD, state.perf.peak-state.perf.netPL);
+
+  state.journal.unshift({
+    time: new Date(c.entryTime).toLocaleTimeString(), market: symbolName(state.settings.symbol),
+    contract: c.kind, entry: c.buyPrice, duration: c.ticks, confidence: c.confidence,
+    stake: c.stake, result: win?"WIN":"LOSS", pl: Math.round(pl*100)/100
+  });
+  if(state.journal.length>300) state.journal.length=300;
+  saveStateSoon();
+
+  notify(win?"win":"loss", win?"Trade Won":"Trade Lost", (win?"+":"")+fmt(pl,2)+" · "+c.kind);
+  delete openContracts[c.contractId];
+  releaseMutex();          // isRunning/autoTrade state is untouched here — only hard stops halt trading
+  renderPerformance(); renderJournal(); renderRiskCycle();
+  checkSessionCycle();      // hard session SL is unconditional; soft TP triggers auto-restart per settings
+}
+
+$("#btnBuyRise").addEventListener("click", ()=>executeTrade("RISE"));
+$("#btnBuyFall").addEventListener("click", ()=>executeTrade("FALL"));
+$("#btnBuyTouch").addEventListener("click", ()=>executeTrade("TOUCH"));
+$("#btnBuyNoTouch").addEventListener("click", ()=>executeTrade("NOTOUCH"));
+
+let lastAutoTradeAt = 0;
+function maybeAutoTrade(){
+  if(!state.settings.autoTrade) return;
+  if(tradeMutex) return;
+  if(Date.now()-lastAutoTradeAt < 4000) return;
+  let best = null;
+  if(rfSignal && rfSignal.direction!=="NO SIGNAL" && rfSignal.confidence>=state.settings.minConf) best = {kind:rfSignal.direction, conf:rfSignal.confidence};
+  if(touchSignal && touchSignal.direction!=="NO SIGNAL" && touchSignal.confidence>=state.settings.minConf){
+    if(!best || touchSignal.confidence>best.conf) best = {kind: touchSignal.contract_type==="ONETOUCH"?"TOUCH":"NOTOUCH", conf:touchSignal.confidence};
+  }
+  if(!best) return;
+  lastAutoTradeAt = Date.now();
+  executeTrade(best.kind, true);
+}
+
+/* ============================================================
+   PERFORMANCE / JOURNAL RENDER
+   ============================================================ */
+function renderPerformance(){
+  const p = state.perf;
+  $("#statTotal").textContent = p.total;
+  $("#statWinRate").textContent = p.total? Math.round((p.wins/p.total)*100)+"%":"0%";
+  $("#statNetPL").textContent = "$"+fmt(p.netPL,2);
+  $("#statNetPL").className = "v "+(p.netPL>0?"up":p.netPL<0?"down":"");
+  $("#statWinStreak").textContent = p.winStreak;
+  $("#statLossStreak").textContent = p.lossStreak;
+  $("#statDD").textContent = "$"+fmt(p.maxDD,2);
+}
+function renderJournal(){
+  if(!state.journal.length){ $("#journalList").innerHTML = `<div class="note">No trades yet this session.</div>`; return; }
+  $("#journalList").innerHTML = state.journal.slice(0,60).map(j=>`
+    <div class="log-item">
+      <div class="log-top"><b>${j.contract}</b><span class="${j.result==='WIN'?'pl-pos':'pl-neg'}">${j.result} ${j.pl>=0?'+':''}${fmt(j.pl,2)}</span></div>
+      <div class="log-meta"><span>${j.time}</span><span>${j.market}</span><span>Conf ${j.confidence}%</span><span>Stake $${fmt(j.stake,2)}</span><span>${j.duration||'-'}t</span></div>
+    </div>`).join("");
+}
+$("#btnExportCSV").addEventListener("click", ()=>{
+  if(!state.journal.length){ notify("warn","Nothing to Export","Journal is empty."); return; }
+  const headers = Object.keys(state.journal[0]);
+  const rows = [headers.join(",")].concat(state.journal.map(j=>headers.map(h=>JSON.stringify(j[h]??"")).join(",")));
+  const blob = new Blob([rows.join("\n")], {type:"text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href=url; a.download="strikepoint_rft_journal.csv"; a.click();
+  URL.revokeObjectURL(url);
+});
+
+/* ============================================================
+   INIT
+   ============================================================ */
+function init(){
+  ensurePublicWs();
+  renderPerformance(); renderJournal(); renderRiskCycle();
+  setInterval(()=>{ if(publicWS && publicWS.readyState!==WebSocket.OPEN) ensurePublicWs(); }, 5000);
+  window.addEventListener("beforeunload", saveState);
+  document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) ensurePublicWs(); });
+}
+init();
+
+})();
+</script>
+</body>
+</html>

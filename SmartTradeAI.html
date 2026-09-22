@@ -590,14 +590,23 @@ canvas.minichart{width:100%;display:block}
       <div class="setup-sub">DERIV TRADING ANALYTICS PLATFORM</div>
       <div class="setup-form">
         <div class="input-row">
-          <label>DERIV API TOKEN</label>
-          <input type="text" id="derivToken" placeholder="Enter your Deriv API token" autocomplete="off">
+          <label>DERIV PAT TOKEN</label>
+          <input type="text" id="derivToken" placeholder="e.g. a1-xxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off" style="font-family:var(--font-mono);font-size:12px">
         </div>
-        <button class="primary-btn" onclick="APP.connectDeriv()">CONNECT TO DERIV</button>
-        <button class="demo-btn" onclick="APP.connectDemo()">USE DEMO MODE</button>
+        <div class="input-row">
+          <label>APP ID <span style="color:var(--white3);font-size:9px">(optional — defaults to 1089)</span></label>
+          <input type="text" id="derivAppId" placeholder="Your registered App ID" value="1089" style="font-family:var(--font-mono);font-size:12px">
+        </div>
+        <button class="primary-btn" id="connectBtn" onclick="APP.connectDeriv()">⚡ CONNECT TO DERIV</button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button class="demo-btn" onclick="APP.connectDemo()">🎮 DEMO MODE</button>
+          <button class="demo-btn" onclick="APP.showTokenHelp()">❓ GET TOKEN</button>
+        </div>
       </div>
-      <div style="font-size:10px;color:var(--white3);text-align:center;max-width:280px;line-height:1.6">
-        Get your free API token at <span style="color:var(--gold)">app.deriv.com</span> → Security & Limits → API Token
+      <div id="connProgress" style="display:none;font-family:var(--font-mono);font-size:10px;color:var(--white3);text-align:center;margin-top:8px;line-height:2"></div>
+      <div style="font-size:10px;color:var(--white3);text-align:center;max-width:300px;line-height:1.8;margin-top:4px">
+        <span style="color:var(--gold)">app.deriv.com</span> → Account Settings → API Token<br>
+        Scopes required: <span style="color:var(--gold)">trade + account_manage</span>
       </div>
     </div>
     <div id="dashContent" style="display:none;flex-direction:column;gap:12px">
@@ -614,6 +623,32 @@ canvas.minichart{width:100%;display:block}
         <div class="section-action" onclick="APP.refreshMarkets()">↻ REFRESH</div>
       </div>
       <div class="market-grid" id="marketGrid"></div>
+      <!-- CYCLE STATUS MINI-BAR -->
+      <div id="dashCycleBanner" style="display:none;padding:10px 14px;background:linear-gradient(135deg,rgba(212,175,55,.12),rgba(0,0,0,0));border:1px solid var(--border);border-radius:10px;margin-bottom:-4px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div style="font-family:var(--font-display);font-size:10px;color:var(--gold);letter-spacing:2px">CYCLE MANAGER</div>
+          <div style="display:flex;gap:16px;font-family:var(--font-mono);font-size:11px">
+            <span>Cycle#<span id="dcCycle" style="color:var(--gold)">0</span></span>
+            <span>C.PnL:<span id="dcCyclePnl" style="color:var(--white2)">$0.00</span></span>
+            <span>S.PnL:<span id="dcSessPnl" style="color:var(--white2)">$0.00</span></span>
+          </div>
+          <div id="dcStatus" style="font-family:var(--font-display);font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--green);color:var(--green)">STANDBY</div>
+        </div>
+        <!-- dual progress bars -->
+        <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:8px;color:var(--white3);width:42px;letter-spacing:1px">CYCLE</span>
+            <div style="flex:1;height:5px;background:var(--black5);border-radius:3px;overflow:hidden"><div id="dcCycleBar" style="height:100%;background:var(--gold);border-radius:3px;width:0%;transition:.4s"></div></div>
+            <span style="font-size:8px;color:var(--white3);width:32px;text-align:right" id="dcCyclePct">0%</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:8px;color:var(--white3);width:42px;letter-spacing:1px">SESSION</span>
+            <div style="flex:1;height:5px;background:var(--black5);border-radius:3px;overflow:hidden"><div id="dcSessBar" style="height:100%;background:var(--green);border-radius:3px;width:0%;transition:.4s"></div></div>
+            <span style="font-size:8px;color:var(--white3);width:32px;text-align:right" id="dcSessPct">0%</span>
+          </div>
+        </div>
+      </div>
+
       <!-- ACCOUNT OVERVIEW -->
       <div class="card gold-card">
         <div class="card-title"><div class="dot green"></div>ACCOUNT OVERVIEW</div>
@@ -821,6 +856,52 @@ canvas.minichart{width:100%;display:block}
       <button class="tab-btn" onclick="APP.setExecMode('semi')">SEMI-AUTO</button>
       <button class="tab-btn" onclick="APP.setExecMode('ai')">AI ASSIST</button>
     </div>
+
+    <!-- CYCLE MANAGER PANEL -->
+    <div class="card gold-card">
+      <div class="card-title"><div class="dot" style="background:var(--gold);animation:pulse 2s infinite"></div>CYCLE MANAGER & AUTO-RESET</div>
+      <!-- CONFIG -->
+      <div class="risk-input-grid" style="margin-bottom:10px">
+        <div class="input-row"><label>CYCLE TP ($)</label><input type="number" id="cmCycleTP" value="50" min="1" step="1" onchange="CycleManager.loadConfig();CycleManager.renderCycleUI()"></div>
+        <div class="input-row"><label>CYCLE SL ($)</label><input type="number" id="cmCycleSL" value="25" min="1" step="1" onchange="CycleManager.loadConfig();CycleManager.renderCycleUI()"></div>
+        <div class="input-row"><label>SESSION TP ($)</label><input type="number" id="cmSessionTP" value="200" min="1" step="1" onchange="CycleManager.loadConfig();CycleManager.renderCycleUI()"></div>
+        <div class="input-row"><label>SESSION SL ($)</label><input type="number" id="cmSessionSL" value="100" min="1" step="1" onchange="CycleManager.loadConfig();CycleManager.renderCycleUI()"></div>
+        <div class="input-row"><label>AUTO LOT</label><input type="number" id="cmAutoLot" value="0.01" min="0.001" step="0.001" onchange="CycleManager.loadConfig()"></div>
+        <div class="input-row"><label>AUTO DIRECTION</label>
+          <select id="cmAutoDir" onchange="CycleManager.loadConfig()" style="width:100%;background:var(--black3);border:1px solid var(--border);color:var(--white);padding:10px;border-radius:8px;font-family:var(--font-mono);font-size:12px;outline:none">
+            <option value="AI">AI SIGNAL</option>
+            <option value="BUY">BUY ONLY</option>
+            <option value="SELL">SELL ONLY</option>
+          </select>
+        </div>
+      </div>
+      <!-- AUTO TRADE TOGGLE -->
+      <div class="setting-row" style="padding:8px 0;margin-bottom:8px">
+        <div class="setting-info">
+          <div class="setting-name">Auto-Trading</div>
+          <div class="setting-desc">Automatically trade, reset & restart on each TP/SL</div>
+        </div>
+        <div class="toggle" id="autoTradeToggle" onclick="APP.toggleAutoTrade()"></div>
+      </div>
+      <!-- LIVE CYCLE PANEL -->
+      <div id="cycleManagerPanel">
+        <div class="empty-state"><p>CONNECT TO ACTIVATE CYCLE MANAGER</p></div>
+      </div>
+    </div>
+
+    <!-- TRADE DURATION CONTROLS (for real API) -->
+    <div class="risk-input-grid" style="margin-bottom:0">
+      <div class="input-row"><label>DURATION</label><input type="number" id="execDuration" value="15" min="1" max="1440"></div>
+      <div class="input-row"><label>UNIT</label>
+        <select id="execDurUnit" style="width:100%;background:var(--black3);border:1px solid var(--border);color:var(--white);padding:10px;border-radius:8px;font-family:var(--font-mono);font-size:12px;outline:none">
+          <option value="m">Minutes</option>
+          <option value="h">Hours</option>
+          <option value="d">Days</option>
+          <option value="s">Seconds</option>
+          <option value="t">Ticks</option>
+        </select>
+      </div>
+    </div>
     <!-- MARKET SELECT -->
     <div class="input-row">
       <label>MARKET</label>
@@ -1004,20 +1085,38 @@ canvas.minichart{width:100%;display:block}
   <div class="page" id="pageSettings">
     <div class="section-ttl" style="margin-bottom:12px">SETTINGS</div>
     <div class="card">
-      <div class="card-title"><div class="dot"></div>CONNECTION</div>
-      <div class="input-row">
-        <label>DERIV API TOKEN</label>
-        <input type="password" id="settToken" placeholder="••••••••••••••••">
+      <div class="card-title"><div class="dot"></div>CONNECTION & PAT API</div>
+      <!-- Connection status -->
+      <div style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--black3);border-radius:8px;margin-bottom:10px;border:1px solid var(--border2)">
+        <div class="conn-dot" id="settConnDot"></div>
+        <div style="flex:1">
+          <div style="font-family:var(--font-display);font-size:10px;color:var(--white2)" id="settAcctId">NOT CONNECTED</div>
+          <div style="font-size:10px;color:var(--white3)" id="settAcctBal"></div>
+        </div>
+        <div style="font-size:9px;color:var(--white3);font-family:var(--font-mono)" id="settMode"></div>
       </div>
       <div class="input-row">
-        <label>SERVER</label>
+        <label>PAT TOKEN <span style="color:var(--white3);font-size:9px">(Personal Access Token)</span></label>
+        <input type="password" id="settToken" placeholder="a1-xxxxxxxxxxxxxxxxxxxxxxxx" style="font-family:var(--font-mono);font-size:12px">
+      </div>
+      <div class="input-row">
+        <label>APP ID</label>
+        <input type="text" id="settAppId" placeholder="Your App ID" style="font-family:var(--font-mono)">
+      </div>
+      <div class="input-row">
+        <label>FALLBACK WS SERVER</label>
         <select id="settServer">
           <option value="blue.binaryws.com">Blue (Primary)</option>
           <option value="green.binaryws.com">Green (Backup)</option>
-          <option value="white.binaryws.com">White (Alt)</option>
+          <option value="red.binaryws.com">Red (Alt)</option>
+          <option value="ws.derivws.com">Deriv Public</option>
         </select>
       </div>
-      <button class="primary-btn" style="margin-top:4px" onclick="APP.saveConnection()">SAVE & RECONNECT</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+        <button class="primary-btn" onclick="APP.saveConnection()">SAVE & RECONNECT</button>
+        <button class="exec-btn secondary" onclick="APP.testConnection()">TEST CONNECTION</button>
+      </div>
+      <div id="settTestResult" style="margin-top:8px;font-family:var(--font-mono);font-size:10px;display:none"></div>
     </div>
     <div class="card">
       <div class="card-title"><div class="dot"></div>NOTIFICATIONS</div>
@@ -1745,226 +1844,948 @@ function generateSignalFromAnalysis(market, tf, candles, scores, indicators, smc
   };
 }
 
-// ========== DERIV WEBSOCKET ==========
-function connectWS(token) {
-  if (state.ws) { try { state.ws.close(); } catch(e){} }
-  setConnStatus('connecting');
-  addLog('info','CONN',`Connecting to ${state.wsServer}...`);
+// ========== DERIV CONNECTION SYSTEM ==========
+// Implements the official Deriv API specification exactly:
+//   REST:  https://api.derivws.com/trading/v1/options/...
+//   WS:    wss://api.derivws.com/trading/v1/options/ws/{demo|real}?otp=OTP
+//   Auth:  PAT Bearer token in REST headers only
+//   WS Auth: OTP embedded in URL — NO authorize message needed
+// Project rules enforced:
+//   - underlying_symbol (not symbol) in proposals
+//   - subscribe:0 for one-shot proposals
+//   - No product_type in active_symbols
+//   - All monetary values coerced with Number()
+//   - Fresh OTP on every connect/reconnect
+//   - Keepalive via balance request (not ping)
+//   - Event handlers registered once at init only
+//   - Account ID: loginid→login_id→account_id→id→account
+//   - 200 vs 201 response normalization
+// ================================================================
 
-  const url = `wss://${state.wsServer}/websockets/v3?app_id=${state.appId}&l=en&brand=deriv`;
-  try {
-    state.ws = new WebSocket(url);
-  } catch(e) {
-    addLog('error','CONN','WebSocket creation failed: '+e.message);
-    setConnStatus('disconnected');
-    scheduleReconnect();
-    return;
-  }
+// ---- req_id counter (monotonically increasing, never reused) ----
+let _reqId = 100;
+function nextReqId() { return ++_reqId; }
 
-  state.ws.onopen = () => {
-    setConnStatus('connected');
-    state.reconnectAttempts = 0;
-    addLog('info','CONN','WebSocket connected');
-    // Ping
-    state.pingInterval = setInterval(() => {
-      if (state.ws?.readyState===1) state.ws.send(JSON.stringify({ping:1}));
-    }, 30000);
-    if (token && !state.demoMode) {
-      send({authorize: token});
-    } else {
-      // Demo: get a demo account
-      send({authorize: 'FAKE_DEMO_TOKEN_FOR_UI'});
-      initDemoMode();
+// ---- Active subscription registry: Map<req_id, {cmd, subId}> ----
+const _activeSubs   = new Map();   // req_id → { cmd, subId }
+const _subIdMap     = new Map();   // subscription.id → req_id
+const _pendingBuys  = new Map();   // req_id → {resolve, reject, timeout}
+
+// ================================================================
+// DERIV REST CLIENT
+// Wraps all REST endpoints with correct headers, error parsing,
+// and 200/201 normalization per the official API spec.
+// ================================================================
+const DerivRestClient = {
+  BASE: 'https://api.derivws.com',
+
+  _headers(token, appId, withBody = false) {
+    const h = {
+      'Authorization': `Bearer ${token}`,
+      'Deriv-App-ID':  String(appId),
+    };
+    if (withBody) h['Content-Type'] = 'application/json';
+    return h;
+  },
+
+  async _request(method, path, token, appId, body = null) {
+    const opts = {
+      method,
+      headers: this._headers(token, appId, !!body),
+    };
+    if (body) opts.body = JSON.stringify(body);
+    let res, raw;
+    try {
+      res = await fetch(`${this.BASE}${path}`, opts);
+      raw = await res.json();
+    } catch (e) {
+      throw new Error(`Network error: ${e.message}`);
     }
-  };
+    if (!res.ok) {
+      const code = raw.errors?.[0]?.code    || 'APIError';
+      const msg  = raw.errors?.[0]?.message || `HTTP ${res.status}`;
+      const err  = new Error(msg);
+      err.code   = code;
+      err.status = res.status;
+      throw err;
+    }
+    return { data: raw, status: res.status };
+  },
 
-  state.ws.onmessage = (e) => {
-    try { handleMessage(JSON.parse(e.data)); } catch(err) {}
-  };
+  // GET /trading/v1/options/accounts — scope: trade
+  async getAccounts(token, appId) {
+    const { data } = await this._request('GET', '/trading/v1/options/accounts', token, appId);
+    // Always returns array
+    return Array.isArray(data.data) ? data.data : [data.data].filter(Boolean);
+  },
 
-  state.ws.onerror = () => {
-    addLog('error','CONN','WebSocket error');
-  };
+  // POST /trading/v1/options/accounts — scope: account_manage
+  // Returns 200 (object, existed) or 201 (array, created) — normalize both
+  async createAccount(token, appId, accountType = 'demo') {
+    const { data, status } = await this._request(
+      'POST', '/trading/v1/options/accounts', token, appId,
+      { currency: 'USD', group: 'row', account_type: accountType }
+    );
+    // 200 → data.data is object; 201 → data.data is array
+    const acc = Array.isArray(data.data) ? data.data[0] : data.data;
+    return acc;
+  },
 
-  state.ws.onclose = () => {
-    clearInterval(state.pingInterval);
-    setConnStatus('disconnected');
-    addLog('warn','CONN','WebSocket disconnected');
-    if (state.settings.notifConn) showToast('⚡ Connection lost — reconnecting...', 'warn');
-    scheduleReconnect();
-  };
-}
+  // POST /trading/v1/options/accounts/{accountId}/otp — scope: trade
+  // Returns { data: { url: "wss://..." } }
+  async getOTP(token, appId, accountId) {
+    const { data } = await this._request(
+      'POST', `/trading/v1/options/accounts/${accountId}/otp`, token, appId
+    );
+    const url = data?.data?.url;
+    if (!url) throw new Error('OTP response missing URL field');
+    return url; // fully-formed wss:// URL, use immediately
+  },
 
-function send(data) {
-  if (state.ws?.readyState === 1) {
-    state.ws.send(JSON.stringify(data));
+  // POST /trading/v1/options/accounts/{accountId}/reset-demo-balance — scope: trade
+  async resetDemoBalance(token, appId, accountId) {
+    const { data } = await this._request(
+      'POST', `/trading/v1/options/accounts/${accountId}/reset-demo-balance`, token, appId
+    );
+    return data.data;
+  },
+
+  // Normalize account ID across all Deriv API field name variants
+  normalizeAccount(acc) {
+    if (!acc) return null;
+    const id = acc.loginid || acc.login_id || acc.account_id || acc.id || acc.account || null;
+    return {
+      id,
+      balance:     Number(acc.balance    || 0),
+      currency:    acc.currency           || 'USD',
+      accountType: acc.account_type       || (acc.is_virtual ? 'demo' : 'real'),
+      status:      acc.status             || 'active',
+      group:       acc.group              || 'row',
+      raw:         acc,
+    };
+  },
+};
+
+// ================================================================
+// DERIV WEBSOCKET CLIENT
+// Implements full lifecycle per websocket-guide.md:
+//   - Connects to OTP URL (already authenticated)
+//   - Tracks subscriptions in Map for restore-on-reconnect
+//   - Keepalive: balance request every 25s (WS times out at ~17min)
+//   - Re-fetches fresh OTP on every reconnect (never reuses OTP)
+//   - Event handlers attached ONCE at construction
+//   - Exponential backoff: 2s, 4s, 8s … capped at 30s
+// ================================================================
+class DerivWSClient {
+  constructor() {
+    this.ws              = null;
+    this.isConnected     = false;
+    this._keepaliveTimer = null;
+    this._reconnTimer    = null;
+    this._reconnAttempts = 0;
+    this._maxReconn      = 15;
+    this._stopped        = false;   // set true on manual disconnect
+    // Message handlers: msg_type → handler fn (set once)
+    this._handlers       = new Map();
+    // Subscription registry: req_id → original command object
+    this._subs           = new Map();
+    // Subscription ID map: subscription.id → req_id (for forget)
+    this._subIdToReq     = new Map();
+    // One-shot pending requests: req_id → { resolve, reject, timer }
+    this._pending        = new Map();
   }
-}
 
-function scheduleReconnect() {
-  clearTimeout(state.reconnectTimer);
-  if (state.reconnectAttempts >= 10) {
-    addLog('error','CONN','Max reconnect attempts reached');
-    return;
+  // ---- Register a message handler (call once at init) ----
+  on(msgType, fn) {
+    this._handlers.set(msgType, fn);
+    return this;
   }
-  const delay = Math.min(30000, 3000 * Math.pow(1.5, state.reconnectAttempts));
-  state.reconnectAttempts++;
-  addLog('info','CONN',`Reconnecting in ${Math.round(delay/1000)}s (attempt ${state.reconnectAttempts})`);
-  state.reconnectTimer = setTimeout(() => {
-    if (state.token) connectWS(state.token);
-  }, delay);
-}
 
-function handleMessage(msg) {
-  if (msg.error) {
-    if (msg.error.code !== 'AlreadySubscribed') {
-      addLog('error','API', `${msg.error.code}: ${msg.error.message}`);
-      if (msg.error.code === 'AuthorizationRequired' || msg.error.code === 'InvalidToken') {
-        showToast('❌ Invalid API token', 'warn');
-        initDemoMode();
+  // ---- Connect to an OTP WebSocket URL ----
+  // Called with a fresh URL every time (reconnects re-fetch OTP first)
+  connect(otpUrl) {
+    if (this.ws) {
+      try { this.ws.onopen = this.ws.onmessage = this.ws.onerror = this.ws.onclose = null; this.ws.close(); } catch(e){}
+      this.ws = null;
+    }
+    this.isConnected = false;
+    addLog('info', 'WS', `Connecting → ${otpUrl.replace(/otp=[^&]+/, 'otp=***')}`);
+
+    let ws;
+    try { ws = new WebSocket(otpUrl); } catch(e) {
+      addLog('error', 'WS', `WebSocket constructor failed: ${e.message}`);
+      this._scheduleReconn();
+      return;
+    }
+    this.ws = ws;
+
+    ws.onopen = () => {
+      this.isConnected     = true;
+      this._reconnAttempts = 0;
+      setConnStatus('connected');
+      addLog('info', 'WS', 'Connected — OTP WebSocket ready (no authorize needed)');
+      this._startKeepalive();
+      this._restoreSubscriptions();
+      onWSAuthenticated();
+    };
+
+    // SINGLE onmessage handler — registered once, never re-registered
+    ws.onmessage = (evt) => {
+      let msg;
+      try { msg = JSON.parse(evt.data); } catch(e) { return; }
+      this._route(msg);
+    };
+
+    ws.onerror = () => {
+      addLog('error', 'WS', 'WebSocket error event');
+    };
+
+    ws.onclose = (evt) => {
+      this.isConnected = false;
+      clearInterval(this._keepaliveTimer);
+      setConnStatus('disconnected');
+      addLog('warn', 'WS', `Closed (code:${evt.code} reason:${evt.reason||'—'})`);
+      if (!this._stopped) {
+        if (state.settings?.notifConn) showToast('⚡ Connection lost — reconnecting…', 'warn');
+        this._scheduleReconn();
       }
+    };
+  }
+
+  // ---- Route incoming message ----
+  _route(msg) {
+    // ---- Error messages (still have msg_type in some cases) ----
+    if (msg.error) {
+      const code = msg.error.code;
+      const text = msg.error.message || '';
+      // Release pending one-shot request if matched
+      if (msg.req_id && this._pending.has(msg.req_id)) {
+        const { reject, timer } = this._pending.get(msg.req_id);
+        clearTimeout(timer);
+        this._pending.delete(msg.req_id);
+        reject(Object.assign(new Error(text), { code }));
+        return;
+      }
+      if (code === 'AlreadySubscribed') return;  // benign
+      addLog('error', 'API', `[${code}] ${text} (req_id:${msg.req_id||'?'})`);
+      if (code === 'InvalidToken' || code === 'AuthorizationRequired') {
+        showToast('❌ Invalid or expired API token', 'warn');
+        this.disconnect();
+        setConnStatus('disconnected');
+        return;
+      }
+      if (code === 'RateLimit') {
+        addLog('warn', 'API', 'Rate limited — backing off 10s');
+        return;
+      }
+      // Release trade mutex on trade rejection
+      if (code === 'ContractBuyValidationError' || code === 'InvalidContractProposal' ||
+          code === 'ContractValidationError') {
+        addLog('warn', 'TRADE', `Trade rejected: ${text}`);
+        showToast(`⚠️ Trade rejected: ${text}`, 'warn');
+        CycleManager.tradeMutex = false;
+        clearTimeout(state._tradeWatchdog);
+      }
+      return;
     }
+
+    // ---- Store subscription IDs for clean forget ----
+    if (msg.subscription?.id && msg.req_id) {
+      this._subIdToReq.set(msg.subscription.id, msg.req_id);
+      // Update the sub registry with the real subscription ID
+      const sub = this._subs.get(msg.req_id);
+      if (sub) sub.subId = msg.subscription.id;
+    }
+
+    // ---- Resolve pending one-shot requests ----
+    if (msg.req_id && this._pending.has(msg.req_id)) {
+      const { resolve, timer } = this._pending.get(msg.req_id);
+      clearTimeout(timer);
+      this._pending.delete(msg.req_id);
+      resolve(msg);
+      return;
+    }
+
+    // ---- Route to registered handler ----
+    const fn = this._handlers.get(msg.msg_type);
+    if (fn) {
+      try { fn(msg); } catch(e) { addLog('error', 'HANDLER', `${msg.msg_type}: ${e.message}`); }
+    }
+  }
+
+  // ---- Send a command, returns Promise that resolves on response ----
+  // subscribe:1 commands register as subscriptions and auto-resolve with req_id
+  // All other commands are one-shot with 15s timeout
+  send(cmd) {
+    return new Promise((resolve, reject) => {
+      if (!this.ws || this.ws.readyState !== 1) {
+        reject(new Error('WS not open'));
+        return;
+      }
+      const req_id = nextReqId();
+      const msg    = { ...cmd, req_id };
+
+      if (cmd.subscribe) {
+        // Subscription: register for restore-on-reconnect, resolve immediately
+        this._subs.set(req_id, { cmd, subId: null });
+        this.ws.send(JSON.stringify(msg));
+        resolve(req_id);
+      } else {
+        // One-shot: wait for response with timeout
+        const timer = setTimeout(() => {
+          this._pending.delete(req_id);
+          reject(new Error(`Request timeout (req_id:${req_id} type:${JSON.stringify(cmd).slice(0,60)})`));
+        }, 15000);
+        this._pending.set(req_id, { resolve, reject, timer });
+        this.ws.send(JSON.stringify(msg));
+      }
+    });
+  }
+
+  // ---- Fire-and-forget send (no response tracking) ----
+  emit(cmd) {
+    if (!this.ws || this.ws.readyState !== 1) {
+      addLog('warn', 'WS', `emit skipped (not open): ${JSON.stringify(cmd).slice(0,60)}`);
+      return;
+    }
+    this.ws.send(JSON.stringify({ ...cmd, req_id: nextReqId() }));
+  }
+
+  // ---- Unsubscribe by req_id ----
+  forget(reqId) {
+    const sub = this._subs.get(reqId);
+    if (sub?.subId) this.emit({ forget: sub.subId });
+    else this.emit({ forget: reqId });
+    this._subs.delete(reqId);
+  }
+
+  // ---- Unsubscribe all of a type ----
+  forgetAll(type) {
+    this.emit({ forget_all: type });
+    // Remove matching subs from registry
+    for (const [rid, sub] of this._subs) {
+      const key = Object.keys(sub.cmd || {})[0];
+      if (key === type || key === `${type}s`) this._subs.delete(rid);
+    }
+  }
+
+  // ---- Keepalive: balance request every 25s ----
+  // Per project rules: keepalive = balance request, NOT ping (ping is rejected)
+  _startKeepalive() {
+    clearInterval(this._keepaliveTimer);
+    this._keepaliveTimer = setInterval(() => {
+      if (this.ws?.readyState === 1) {
+        this.ws.send(JSON.stringify({ balance: 1, req_id: nextReqId() }));
+      }
+    }, 25000);
+  }
+
+  // ---- Restore subscriptions after reconnect ----
+  _restoreSubscriptions() {
+    if (!this._subs.size) return;
+    addLog('info', 'WS', `Restoring ${this._subs.size} subscriptions after reconnect`);
+    for (const [, sub] of this._subs) {
+      try { this.ws.send(JSON.stringify({ ...sub.cmd, req_id: nextReqId() })); } catch(e) {}
+    }
+  }
+
+  // ---- Schedule reconnect with exponential backoff ----
+  // Per spec: re-fetch fresh OTP on every reconnect (never reuse OTP)
+  _scheduleReconn() {
+    clearTimeout(this._reconnTimer);
+    if (this._stopped)              return;
+    if (!state.token && !state.demoMode) return;
+    if (this._reconnAttempts >= this._maxReconn) {
+      addLog('error', 'WS', 'Max reconnect attempts reached — giving up');
+      showToast('❌ Reconnect failed after many attempts. Re-enter token.', 'warn');
+      setConnStatus('disconnected');
+      return;
+    }
+    const delay = Math.min(30000, 2000 * Math.pow(2, this._reconnAttempts));
+    this._reconnAttempts++;
+    addLog('info', 'WS', `Reconnect in ${Math.round(delay/1000)}s (attempt ${this._reconnAttempts})`);
+    setConnStatus('connecting');
+    this._reconnTimer = setTimeout(async () => {
+      if (this._stopped) return;
+      if (state.demoMode) { initDemoMode(); return; }
+      // Re-fetch fresh OTP — never reuse old OTP URL
+      await connectLive(state.token);
+    }, delay);
+  }
+
+  // ---- Manual disconnect (stops reconnect loop) ----
+  disconnect() {
+    this._stopped = true;
+    clearInterval(this._keepaliveTimer);
+    clearTimeout(this._reconnTimer);
+    this.forgetAll('ticks');
+    this.forgetAll('proposal');
+    this.forgetAll('balance');
+    this._subs.clear();
+    this._pending.clear();
+    try { this.ws?.close(1000, 'Manual disconnect'); } catch(e) {}
+    this.isConnected = false;
+    addLog('info', 'WS', 'Manually disconnected');
+  }
+
+  // ---- Re-enable after manual disconnect ----
+  enable() { this._stopped = false; this._reconnAttempts = 0; }
+}
+
+// ---- Singleton WS client instance ----
+const WS = new DerivWSClient();
+
+// ---- Thin send wrapper for backward compatibility ----
+function send(cmd) {
+  if (WS.ws?.readyState === 1) WS.emit(cmd);
+  else addLog('warn', 'WS', `send() skipped — not connected: ${JSON.stringify(cmd).slice(0,60)}`);
+}
+
+// ================================================================
+// PRIMARY CONNECT FLOW — PAT → REST → OTP → WS
+// ================================================================
+async function connectLive(token) {
+  if (!token) { addLog('error', 'CONN', 'connectLive called with no token'); return; }
+  const appId = String(state.appId || 1089);
+  setConnStatus('connecting');
+  addLog('info', 'CONN', `Starting PAT connection | AppID:${appId}`);
+  _updateConnProgress('▸ Fetching account via REST…');
+
+  let account = null;
+
+  // ---- Step 1: GET existing accounts ----
+  try {
+    const accounts = await DerivRestClient.getAccounts(token, appId);
+    // Find preferred account: demo first, then real, then any active
+    const preferred =
+      accounts.find(a => a.account_type === 'demo'  && a.status === 'active') ||
+      accounts.find(a => a.account_type === 'real'  && a.status === 'active') ||
+      accounts.find(a => a.status === 'active') ||
+      accounts[0];
+    if (preferred) {
+      account = DerivRestClient.normalizeAccount(preferred);
+      addLog('info', 'REST', `Account found: ${account.id} | ${account.accountType} | $${account.balance} ${account.currency}`);
+    }
+  } catch (e) {
+    addLog('warn', 'REST', `GET accounts failed (${e.message}) — trying to create account`);
+    _updateConnProgress('▸ Creating demo account…');
+  }
+
+  // ---- Step 1b: Create demo account if none found ----
+  if (!account) {
+    try {
+      const created = await DerivRestClient.createAccount(token, appId, 'demo');
+      account = DerivRestClient.normalizeAccount(created);
+      addLog('info', 'REST', `Demo account created: ${account.id}`);
+    } catch (e) {
+      addLog('error', 'REST', `Account creation failed: ${e.message}`);
+      showToast(`❌ Account error: ${e.message}`, 'warn');
+      setConnStatus('disconnected');
+      _updateConnProgress('');
+      return;
+    }
+  }
+
+  // ---- Validate account ID ----
+  if (!account?.id) {
+    addLog('error', 'REST', `Cannot resolve account ID. Response: ${JSON.stringify(account?.raw||{})}`);
+    showToast('❌ Could not resolve account ID — check token scopes', 'warn');
+    setConnStatus('disconnected');
+    _updateConnProgress('');
     return;
   }
-  if (msg.msg_type === 'authorize') {
-    const acc = msg.authorize;
-    state.account.loginid = acc.loginid || 'DEMO';
-    state.account.balance = acc.balance || 0;
-    state.account.currency = acc.currency || 'USD';
-    state.account.equity = acc.balance || 0;
-    updateAccountDisplay();
-    addLog('info','AUTH',`Authorized: ${state.account.loginid} | Balance: ${state.account.balance} ${state.account.currency}`);
-    showToast(`✅ Connected: ${state.account.loginid}`, 'trade');
-    showDashContent();
-    subscribeAllMarkets();
-    send({balance:1, subscribe:1});
+
+  // ---- Persist account to state ----
+  state.account.loginid     = account.id;
+  state.account.balance     = account.balance;
+  state.account.currency    = account.currency;
+  state.account.accountType = account.accountType;
+  state.account.equity      = account.balance;
+  state._accountId          = account.id;
+
+  _updateConnProgress('▸ Generating OTP WebSocket URL…');
+
+  // ---- Step 2: Get OTP URL (short-lived — connect immediately) ----
+  let wsUrl;
+  try {
+    wsUrl = await DerivRestClient.getOTP(token, appId, account.id);
+    addLog('info', 'REST', `OTP URL obtained for ${account.id} — connecting immediately`);
+  } catch (e) {
+    addLog('error', 'REST', `OTP failed: ${e.message}`);
+    showToast(`❌ OTP error: ${e.message}`, 'warn');
+    setConnStatus('disconnected');
+    _updateConnProgress('');
+    return;
   }
-  if (msg.msg_type === 'balance') {
-    state.account.balance = msg.balance.balance;
+
+  _updateConnProgress('▸ Opening WebSocket…');
+
+  // ---- Step 3: Connect immediately (OTP expires fast) ----
+  WS.enable();
+  WS.connect(wsUrl);
+  // WS.onopen → onWSAuthenticated() is called automatically
+}
+
+// ---- Progress display helper ----
+function _updateConnProgress(msg) {
+  const el = document.getElementById('connProgress');
+  if (el) { el.style.display = msg ? 'block' : 'none'; el.textContent = msg; }
+  const btn = document.getElementById('connectBtn');
+  if (btn) { btn.disabled = !!msg; btn.textContent = msg ? '⏳ Connecting…' : '⚡ CONNECT TO DERIV'; }
+}
+
+// ================================================================
+// POST-AUTHENTICATION SETUP
+// Called by DerivWSClient.onopen (no authorize message needed)
+// ================================================================
+function onWSAuthenticated() {
+  showDashContent();
+
+  // Subscribe to live balance (streaming)
+  WS.emit({ balance: 1, subscribe: 1 });
+
+  // Subscribe to ticks for all markets
+  Object.keys(MARKETS).forEach(sym => {
+    WS.emit({ ticks: sym, subscribe: 1 });
+  });
+
+  // Fetch candles for primary market
+  fetchCandles(state.currentAnalysisMarket || 'R_100', state.currentTF || 'M5', 500);
+
+  // Monitor any open positions from before reconnect
+  state.positions.forEach(pos => {
+    if (pos.contractId) {
+      WS.emit({ proposal_open_contract: 1, contract_id: pos.contractId, subscribe: 1 });
+    }
+  });
+
+  // Activate CycleManager
+  CycleManager.loadConfig();
+  CycleManager.onConnected();
+
+  updateAccountDisplay();
+  addLog('info', 'AUTH', `Session live: ${state.account.loginid} | ${state.account.accountType} | $${state.account.balance} ${state.account.currency}`);
+  showToast(`✅ Connected: ${state.account.loginid} ($${Number(state.account.balance).toFixed(2)})`, 'trade');
+  _updateConnProgress('');
+  APP.syncSettingsDisplay?.();
+}
+
+// ================================================================
+// WS MESSAGE HANDLERS
+// All registered once here via WS.on() — never re-registered
+// ================================================================
+WS
+  .on('balance', msg => {
+    // All monetary fields from Deriv are strings — coerce with Number()
+    state.account.balance  = Number(msg.balance.balance);
     state.account.currency = msg.balance.currency;
+    state.account.loginid  = state.account.loginid || msg.balance.loginid;
     updateAccountDisplay();
-  }
-  if (msg.msg_type === 'tick') {
-    const t = msg.tick;
+  })
+
+  .on('tick', msg => {
+    const t   = msg.tick;
     const sym = t.symbol;
-    if (!state.markets[sym]) state.markets[sym] = { price:0, prevPrice:0, history:[] };
-    state.markets[sym].prevPrice = state.markets[sym].price;
-    state.markets[sym].price = t.quote;
-    state.markets[sym].bid = t.bid;
-    state.markets[sym].ask = t.ask;
-    state.markets[sym].history.push(t.quote);
-    if (state.markets[sym].history.length > 50) state.markets[sym].history.shift();
+    if (!state.markets[sym]) state.markets[sym] = { price:0, prevPrice:0, history:[], bid:0, ask:0 };
+    const m   = state.markets[sym];
+    m.prevPrice = m.price;
+    m.price     = Number(t.quote);
+    // Bid/ask may not always be present in all tick feeds
+    m.bid       = Number(t.bid  ?? t.quote);
+    m.ask       = Number(t.ask  ?? t.quote);
+    m.epoch     = t.epoch;
+    m.history.push(m.price);
+    if (m.history.length > 100) m.history.shift();
     updateMarketCard(sym);
-    if (sym === document.getElementById('execMarket').value) updateExecPriceDisplay(sym);
+    const execMkt = document.getElementById('execMarket')?.value;
+    if (execMkt === sym) updateExecPriceDisplay(sym);
     updateOpenPositionsPnl();
-  }
-  if (msg.msg_type === 'candles') {
-    const sym = msg.echo_req.ticks_history;
-    const tf = state.currentTF;
-    state.candles[sym + '_' + tf] = msg.candles.map(c=>({
-      open:+c.open, high:+c.high, low:+c.low, close:+c.close, epoch:c.epoch
+    CycleManager.onTick(sym, m.price);
+  })
+
+  .on('candles', msg => {
+    // ticks_history response with style:'candles'
+    const sym = msg.echo_req?.ticks_history;
+    const gran = msg.echo_req?.granularity || 300;
+    if (!sym) return;
+    const tf  = granToTF(gran);
+    const key = sym + '_' + tf;
+    state.candles[key] = (msg.candles || []).map(c => ({
+      open:  Number(c.open),
+      high:  Number(c.high),
+      low:   Number(c.low),
+      close: Number(c.close),
+      epoch: c.epoch,
     }));
-    addLog('info','DATA',`Fetched ${msg.candles.length} candles for ${sym} ${tf}`);
-  }
-  if (msg.msg_type === 'ohlc') {
-    const o = msg.ohlc;
+    addLog('info', 'DATA', `Candles: ${sym} ${tf} — ${state.candles[key].length} bars`);
+  })
+
+  .on('ohlc', msg => {
+    // Streaming OHLC update
+    const o   = msg.ohlc;
     const key = o.symbol + '_' + granToTF(o.granularity);
     if (!state.candles[key]) state.candles[key] = [];
-    const last = state.candles[key][state.candles[key].length-1];
-    if (last && last.epoch === o.epoch) {
-      last.open=+o.open; last.high=+o.high; last.low=+o.low; last.close=+o.close;
-    } else {
-      state.candles[key].push({open:+o.open,high:+o.high,low:+o.low,close:+o.close,epoch:o.epoch});
-      if (state.candles[key].length > 500) state.candles[key].shift();
-    }
-  }
-  if (msg.msg_type === 'buy') {
-    const r = msg.buy;
-    addLog('trade','EXEC',`Position opened: ${r.contract_id} | ${r.longcode}`);
-    showToast(`✅ Trade Opened: ${r.contract_id}`, 'trade');
-    // Add to positions
-    const execMarket = document.getElementById('execMarket').value;
-    const dir = state._lastTradeDir || 'BUY';
-    const price = r.buy_price || state.markets[execMarket]?.price || 0;
-    const pos = {
-      id: r.contract_id,
-      market: execMarket,
-      direction: dir,
-      entryPrice: price,
-      currentPrice: price,
-      lot: parseFloat(document.getElementById('execLot').value)||0.01,
-      tp: parseFloat(document.getElementById('execTP').value)||0,
-      sl: parseFloat(document.getElementById('execSL').value)||0,
-      openTime: Date.now(),
-      pnl: 0,
+    const arr  = state.candles[key];
+    const bar  = {
+      open:  Number(o.open),
+      high:  Number(o.high),
+      low:   Number(o.low),
+      close: Number(o.close),
+      epoch: o.epoch,
     };
+    const last = arr[arr.length - 1];
+    if (last && last.epoch === o.epoch) Object.assign(last, bar);
+    else { arr.push(bar); if (arr.length > 500) arr.shift(); }
+  })
+
+  .on('proposal', msg => {
+    // One-shot proposal response (subscribe:0) — store for buy
+    if (!msg.error && msg.proposal?.id) {
+      state._latestProposalId    = msg.proposal.id;
+      state._latestProposalPrice = Number(msg.proposal.ask_price);
+      state._latestProposalPayout = Number(msg.proposal.payout || 0);
+      addLog('info', 'PROP',
+        `Proposal: ${msg.proposal.id} | ask:$${msg.proposal.ask_price} | payout:$${msg.proposal.payout||0}`);
+    }
+  })
+
+  .on('buy', msg => {
+    // Contract opened — coerce all monetary fields
+    const r          = msg.buy;
+    const contractId = r.contract_id;
+    clearTimeout(state._tradeWatchdog);
+
+    addLog('trade', 'BUY', `Contract opened: ${contractId} | buy_price:$${Number(r.buy_price).toFixed(2)} | balance_after:$${Number(r.balance_after).toFixed(2)}`);
+    showToast(`✅ Trade Open: ${contractId}`, 'trade');
+
+    // Update balance immediately from buy response (coerce string → number)
+    state.account.balance = Number(r.balance_after);
+    updateAccountDisplay();
+
+    // Build position record
+    const mktEl = document.getElementById('execMarket');
+    const mkt   = mktEl?.value || state.currentAnalysisMarket;
+    const dir   = state._lastTradeDir || 'BUY';
+    const entry = Number(r.buy_price) || Number(r.entry_spot) || state.markets[mkt]?.price || 0;
+
+    const pos = {
+      id:           contractId,
+      contractId,
+      market:       mkt,
+      direction:    dir,
+      entryPrice:   entry,
+      currentPrice: entry,
+      lot:          Number(document.getElementById('execLot')?.value)  || CycleManager.autoLot || 0.01,
+      tp:           Number(document.getElementById('execTP')?.value)   || 0,
+      sl:           Number(document.getElementById('execSL')?.value)   || 0,
+      openTime:     Date.now(),
+      pnl:          0,
+      buyPrice:     Number(r.buy_price),
+      transactionId: r.transaction_id,
+      longcode:     r.longcode || '',
+      _settling:    false,
+    };
+
     state.positions.push(pos);
+    CycleManager.onTradeOpened(pos);
     renderPositions();
     updateAccountDisplay();
-  }
-  if (msg.msg_type === 'sell') {
-    const r = msg.sell;
-    addLog('trade','EXEC',`Position closed: ${r.transaction_id} | Profit: ${r.sold_for}`);
-    showToast(`💰 Trade Closed: P&L $${r.sold_for}`, 'trade');
-    closePositionById(null, r.sold_for);
-  }
+
+    // Subscribe to live contract monitoring
+    WS.emit({ proposal_open_contract: 1, contract_id: contractId, subscribe: 1 });
+  })
+
+  .on('proposal_open_contract', msg => {
+    const poc        = msg.proposal_open_contract;
+    if (!poc) return;
+    const contractId = poc.contract_id;
+    const pos        = state.positions.find(p => p.contractId == contractId || p.id == contractId);
+
+    if (pos) {
+      // Coerce all numeric fields — Deriv returns strings
+      pos.currentPrice = Number(poc.current_spot     || poc.bid_price   || pos.currentPrice);
+      pos.pnl          = Number(poc.profit            || 0);
+      pos.pnlPct       = Number(poc.profit_percentage || 0);
+
+      // Contract settled?
+      if (poc.is_sold || poc.status === 'sold') {
+        if (pos._settling) return; // guard double-settlement
+        pos._settling = true;
+        const finalPnl = Number(poc.profit || 0);
+        addLog('trade', 'SETTLE',
+          `Settled: ${contractId} | P&L: ${finalPnl>=0?'+':''}$${finalPnl.toFixed(2)} | sell_price:$${Number(poc.sell_price||0).toFixed(2)}`);
+        // Forget the POC subscription
+        if (msg.subscription?.id) WS.emit({ forget: msg.subscription.id });
+        // Close in local state and notify CycleManager
+        setTimeout(() => {
+          closePositionById(pos.id, finalPnl);
+          CycleManager.postSettlement(finalPnl, pos);
+        }, 0);
+      } else {
+        renderPositions();
+        updateAccountDisplay();
+      }
+    }
+  })
+
+  .on('sell', msg => {
+    // Manual sell response
+    const r   = msg.sell;
+    const pnl = Number(r.sold_for || 0);
+    addLog('trade', 'SELL', `Manual sell: TxID:${r.transaction_id} | sold_for:$${pnl}`);
+    showToast(`💰 Closed: ${pnl>=0?'+':''}$${pnl.toFixed(2)}`, 'trade');
+    const pos = state.positions.find(p => p.contractId == r.contract_id || p.id == r.contract_id);
+    if (pos && !pos._settling) {
+      pos._settling = true;
+      closePositionById(pos.id, pnl);
+      CycleManager.postSettlement(pnl, pos);
+    }
+  })
+
+  .on('active_symbols', msg => {
+    // active_symbols — no product_type field in request per project rules
+    const syms = msg.active_symbols || [];
+    state._activeSymbols = syms;
+    addLog('info', 'DATA', `Active symbols: ${syms.length} received`);
+  })
+
+  .on('contracts_for', msg => {
+    addLog('info', 'DATA', `Contracts for symbol received`);
+  })
+
+  .on('forget', _msg => {}) // silent
+  .on('forget_all', _msg => {}) // silent
+;
+
+// ================================================================
+// PUBLIC MARKET DATA WS (no auth — for price feed only)
+// Used in demo mode for real tick streaming from public endpoint
+// ================================================================
+let _pubWS = null;
+
+function connectPublicFeed(symbols) {
+  if (_pubWS && _pubWS.readyState === 1) return;
+  const url = 'wss://api.derivws.com/trading/v1/options/ws/public';
+  try { _pubWS = new WebSocket(url); } catch(e) { addLog('error','PUB',e.message); return; }
+  _pubWS.onopen = () => {
+    addLog('info','PUB','Public feed connected');
+    // active_symbols — NO product_type field (causes ValidationError per project rules)
+    _pubWS.send(JSON.stringify({ active_symbols: 'brief', req_id: nextReqId() }));
+    symbols.forEach(sym => {
+      _pubWS.send(JSON.stringify({ ticks: sym, subscribe: 1, req_id: nextReqId() }));
+    });
+    // Fetch candle history
+    symbols.forEach(sym => {
+      _pubWS.send(JSON.stringify({
+        ticks_history: sym,
+        count: 500, end: 'latest',
+        granularity: 300, style: 'candles',
+        subscribe: 1,
+        req_id: nextReqId(),
+      }));
+    });
+  };
+  _pubWS.onmessage = evt => {
+    let msg; try { msg = JSON.parse(evt.data); } catch(e) { return; }
+    if (msg.error) { if (msg.error.code !== 'AlreadySubscribed') addLog('error','PUB',msg.error.message); return; }
+    // Route through main handlers (same as authenticated WS)
+    const fn = WS._handlers.get(msg.msg_type);
+    if (fn) try { fn(msg); } catch(e) {}
+  };
+  _pubWS.onerror  = () => addLog('warn','PUB','Public feed error');
+  _pubWS.onclose  = () => {
+    addLog('warn','PUB','Public feed closed — reconnecting in 5s');
+    setTimeout(() => connectPublicFeed(symbols), 5000);
+  };
 }
 
+// ================================================================
+// UTILITY FUNCTIONS
+// ================================================================
 function granToTF(g) {
-  const map = {60:'M1',300:'M5',900:'M15',1800:'M30',3600:'H1',14400:'H4',86400:'D1'};
-  return map[g]||'M5';
+  const map = { 60:'M1', 300:'M5', 900:'M15', 1800:'M30', 3600:'H1', 14400:'H4', 86400:'D1' };
+  return map[Number(g)] || 'M5';
 }
 
-function subscribeAllMarkets() {
-  Object.keys(MARKETS).forEach(sym => {
-    send({ ticks: sym, subscribe: 1 });
-  });
-  // Fetch initial candles
-  fetchCandles(state.currentAnalysisMarket, state.currentTF);
+function setConnStatus(status) {
+  state.connected = (status === 'connected');
+  const dot   = document.getElementById('connDot');
+  const label = document.getElementById('connLabel');
+  if (dot) {
+    dot.className = 'conn-dot' +
+      (status === 'connected' ? ' live' : status === 'connecting' ? ' connecting' : '');
+  }
+  if (label) label.textContent = status === 'connected' ? 'LIVE' : status === 'connecting' ? 'CONN…' : 'OFF';
 }
 
-function fetchCandles(symbol, tf, count=500) {
+function fetchCandles(symbol, tf, count = 500) {
   const gran = TF_MAP[tf] || 300;
-  send({
-    ticks_history: symbol,
+  // Use the right WS for the current mode
+  const wsReady = WS.ws?.readyState === 1;
+  const pubReady = _pubWS?.readyState === 1;
+  const cmd = {
+    ticks_history:     symbol,
     adjust_start_time: 1,
-    count: count,
-    end: 'latest',
-    granularity: gran,
-    style: 'candles',
-    subscribe: 1,
-  });
+    count,
+    end:               'latest',
+    granularity:       gran,
+    style:             'candles',
+    subscribe:         1,
+    req_id:            nextReqId(),
+  };
+  if (wsReady)       WS.emit(cmd);
+  else if (pubReady) _pubWS.send(JSON.stringify(cmd));
 }
+
+function resubscribeAfterReconnect() {
+  addLog('info','WS','Re-subscribing after reconnect');
+  WS.emit({ balance: 1, subscribe: 1 });
+  Object.keys(MARKETS).forEach(sym => WS.emit({ ticks: sym, subscribe: 1 }));
+  state.positions.forEach(pos => {
+    if (pos.contractId) WS.emit({ proposal_open_contract: 1, contract_id: pos.contractId, subscribe: 1 });
+  });
+  fetchCandles(state.currentAnalysisMarket, state.currentTF, 500);
+}
+
+// Legacy compat wrapper
+function connectWS(token) { connectLive(token); }
+
+// ================================================================
+// PROPOSAL → BUY FLOW (correct field names per project rules)
+// underlying_symbol (not symbol), subscribe:0 for one-shot proposals
+// ================================================================
+async function requestProposalAndBuy(market, direction, stake, duration, durUnit, tp, sl) {
+  if (!WS.ws || WS.ws.readyState !== 1) {
+    throw new Error('WebSocket not connected');
+  }
+  const contractType = direction === 'BUY' ? 'CALL' : 'PUT';
+  // Proposals must use underlying_symbol (not symbol) — project rule
+  // Proposals must be one-shot non-subscribed (subscribe:0) — project rule
+  const proposalCmd = {
+    proposal:        1,
+    amount:          stake,
+    basis:           'stake',
+    contract_type:   contractType,
+    currency:        state.account.currency || 'USD',
+    duration:        duration,
+    duration_unit:   durUnit,
+    underlying_symbol: market,  // ← correct field name
+    subscribe:       0,          // ← one-shot, not streaming (project rule)
+  };
+
+  addLog('info', 'PROP', `Requesting proposal: ${direction} ${market} stake:$${stake}`);
+
+  let proposalRes;
+  try {
+    proposalRes = await WS.send(proposalCmd);
+  } catch (e) {
+    throw new Error(`Proposal failed: ${e.message}`);
+  }
+
+  if (proposalRes.error) throw new Error(`Proposal error: ${proposalRes.error.message}`);
+  const proposalId = proposalRes.proposal?.id;
+  const askPrice   = Number(proposalRes.proposal?.ask_price || stake);
+  if (!proposalId) throw new Error('No proposal ID in response');
+
+  addLog('info', 'PROP', `Proposal received: ${proposalId} @ $${askPrice}`);
+
+  // Build buy command — include limit_order only if TP/SL set
+  const buyCmd = {
+    buy:   proposalId,
+    price: askPrice,
+    ...(tp > 0 || sl > 0 ? {
+      limit_order: {
+        ...(tp > 0 ? { take_profit: tp } : {}),
+        ...(sl > 0 ? { stop_loss:   sl } : {}),
+      }
+    } : {}),
+  };
+
+  // Send buy — response comes through WS.on('buy', ...) handler
+  WS.emit(buyCmd);
+  addLog('info', 'BUY', `Buy sent: proposal:${proposalId} price:$${askPrice}`);
+}
+
+// Legacy: expose DerivAPI alias for external code (testConnection etc.)
+const DerivAPI = {
+  getAccounts:       (t, a)    => DerivRestClient.getAccounts(t, a),
+  createAccount:     (t, a, ty)=> DerivRestClient.createAccount(t, a, ty),
+  getOTP:            (t, a, id)=> DerivRestClient.getOTP(t, a, id),
+  resetDemoBalance:  (t, a, id)=> DerivRestClient.resetDemoBalance(t, a, id),
+  normalizeAccount:  (acc)     => DerivRestClient.normalizeAccount(acc),
+};
+window.DerivAPI = DerivAPI;
+
+// Legacy alias used by external modules
+async function connectWithPAT(token) { await connectLive(token); }
+
 
 // ========== DEMO MODE ==========
 function initDemoMode() {
+  // Stop any prior WS
+  WS.disconnect();
+  WS.enable();
+
   state.demoMode = true;
-  state.account = { loginid:'DEMO-001', balance:10000, currency:'USD', equity:10000 };
-  addLog('info','DEMO','Demo mode activated with $10,000 virtual balance');
-  showToast('🎮 Demo Mode Active', 'signal');
+  state.account  = {
+    loginid:'DEMO-001', balance:10000, currency:'USD',
+    equity:10000, accountType:'demo',
+  };
+
+  // Seed initial market prices so UI isn't blank while public feed loads
+  const SEED = {
+    XAUUSD:2340.50, BTC_USD:67800, R_10:6234.123,
+    R_25:4521.887, R_50:3876.543, R_75:5123.456, R_100:2987.654,
+  };
+  const VOLS = {
+    XAUUSD:0.0003, BTC_USD:0.002, R_10:0.005,
+    R_25:0.008, R_50:0.010, R_75:0.015, R_100:0.020,
+  };
+  Object.keys(MARKETS).forEach(sym => {
+    if (!state.markets[sym]?.price) {
+      const base = SEED[sym] || 1000;
+      state.markets[sym] = { price:base, prevPrice:base, history:[base], bid:base, ask:base };
+    }
+    // Generate synthetic candles for all timeframes
+    generateDemoCandles(sym, SEED[sym]||1000, VOLS[sym]||0.005);
+  });
+
+  addLog('info','DEMO','Demo mode — $10,000 virtual balance | Connecting to public feed…');
+  showToast('🎮 Demo Mode — live market data via public feed', 'signal');
   updateAccountDisplay();
   showDashContent();
-  // Simulate market data
-  const basePrices = { XAUUSD:2340.50, BTC_USD:67800, R_10:6234.123, R_25:4521.887, R_50:3876.543, R_75:5123.456, R_100:2987.654 };
-  const vols = { XAUUSD:0.0003, BTC_USD:0.002, R_10:0.005, R_25:0.008, R_50:0.010, R_75:0.015, R_100:0.020 };
-  Object.entries(basePrices).forEach(([sym, base]) => {
-    state.markets[sym] = { price:base, prevPrice:base, history:[base], bid:base, ask:base };
-    generateDemoCandles(sym, base, vols[sym]);
-    // Live tick simulation
+  setConnStatus('connected');
+
+  // Connect to Deriv public WS for real tick data (no auth needed)
+  connectPublicFeed(Object.keys(MARKETS));
+
+  // Local synthetic tick simulation (runs alongside public feed, fills gaps)
+  Object.keys(MARKETS).forEach(sym => {
+    clearInterval(state.priceIntervals?.[sym]);
+    if (!state.priceIntervals) state.priceIntervals = {};
     state.priceIntervals[sym] = setInterval(() => {
-      const vol = vols[sym];
-      const change = state.markets[sym].price * vol * (Math.random()*2-1);
-      state.markets[sym].prevPrice = state.markets[sym].price;
-      state.markets[sym].price = +(state.markets[sym].price + change).toFixed(MARKETS[sym].digits);
-      state.markets[sym].bid = state.markets[sym].price;
-      state.markets[sym].ask = +(state.markets[sym].price * 1.0001).toFixed(MARKETS[sym].digits);
-      state.markets[sym].history.push(state.markets[sym].price);
-      if (state.markets[sym].history.length > 50) state.markets[sym].history.shift();
+      // Only simulate if public feed hasn't provided a tick recently
+      const m   = state.markets[sym];
+      const vol = VOLS[sym] || 0.005;
+      const δ   = m.price * vol * (Math.random() * 2 - 1);
+      m.prevPrice = m.price;
+      m.price     = +Math.max(0.001, m.price + δ).toFixed(MARKETS[sym].digits);
+      m.bid       = m.price;
+      m.ask       = +(m.price * 1.00015).toFixed(MARKETS[sym].digits);
+      m.history.push(m.price);
+      if (m.history.length > 100) m.history.shift();
       updateMarketCard(sym);
-      if (sym === document.getElementById('execMarket').value) updateExecPriceDisplay(sym);
+      const execEl = document.getElementById('execMarket');
+      if (execEl && sym === execEl.value) updateExecPriceDisplay(sym);
       updateOpenPositionsPnl();
-    }, 800 + Math.random()*400);
+      CycleManager.onTick(sym, m.price);
+    }, 1200 + Math.random() * 600);
   });
+
+  // Activate CycleManager
+  CycleManager.loadCycleState();
+  CycleManager.loadConfig();
+  CycleManager.onConnected();
 }
 
 function generateDemoCandles(sym, base, vol) {
@@ -1987,13 +2808,6 @@ function generateDemoCandles(sym, base, vol) {
 }
 
 // ========== UI UPDATES ==========
-function setConnStatus(status) {
-  const dot = document.getElementById('connDot');
-  const label = document.getElementById('connLabel');
-  state.connected = status === 'connected';
-  dot.className = 'conn-dot' + (status==='connected'?' live':status==='connecting'?' connecting':'');
-  label.textContent = status==='connected'?'LIVE':status==='connecting'?'CONN...':'OFF';
-}
 
 function updateAccountDisplay() {
   const bal = state.account.balance;
@@ -2088,12 +2902,18 @@ function updateOpenPositionsPnl() {
   let changed = false;
   state.positions.forEach(pos => {
     const m = state.markets[pos.market];
-    if (!m) return;
+    if (!m || pos._settling) return;
     const price = m.price;
     pos.currentPrice = price;
-    const tickValue = pos.lot * 1000;
-    const priceDiff = pos.direction==='BUY' ? price - pos.entryPrice : pos.entryPrice - price;
-    pos.pnl = +(priceDiff * tickValue / pos.entryPrice * 100).toFixed(2);
+    // P&L: simplified pip-based calculation
+    const digits   = MARKETS[pos.market]?.digits || 2;
+    const pip      = MARKETS[pos.market]?.pip    || 0.01;
+    const pipValue = pos.lot * 10; // $10 per pip per lot (standard)
+    const priceDiff = pos.direction === 'BUY'
+      ? price - pos.entryPrice
+      : pos.entryPrice - price;
+    const pips = priceDiff / pip;
+    pos.pnl = +(pips * pipValue * pos.lot * 100 / pos.entryPrice).toFixed(2);
     changed = true;
   });
   if (changed) {
@@ -2404,80 +3224,168 @@ function updateSignalBadge() {
 }
 
 // ========== TRADE EXECUTION ==========
-function executeTrade(direction) {
-  const market = document.getElementById('execMarket').value;
-  const lot = parseFloat(document.getElementById('execLot').value) || 0.01;
-  const tp = parseFloat(document.getElementById('execTP').value) || 0;
-  const sl = parseFloat(document.getElementById('execSL').value) || 0;
-  const maxTrades = parseInt(document.getElementById('rcMaxTrades').value) || 3;
+// =====================================================================
+// TRADE EXECUTION — PAT API Real + Demo, with Cycle Manager hooks
+// =====================================================================
 
-  if (state.positions.length >= maxTrades) {
-    showToast(`⚠️ Max ${maxTrades} trades allowed`, 'warn');
+function executeTrade(direction, opts = {}) {
+  // ---- Guard: mutex prevents concurrent trade requests ----
+  if (CycleManager.tradeMutex) {
+    addLog('warn','EXEC','Skipped — trade already in flight (mutex locked)');
     return;
   }
-  const price = state.markets[market]?.price || 0;
-  if (!price) { showToast('⚠️ No price data available', 'warn'); return; }
+  // ---- Guard: hard stop requires manual reset ----
+  if (CycleManager.hardStopped && !opts.forced) {
+    addLog('warn','EXEC','Blocked — hard stop active. Reset session to resume.');
+    showToast('⛔ Hard stop active — reset session to resume trading', 'warn');
+    return;
+  }
 
-  addLog('trade','EXEC',`Placing ${direction} on ${market} at ${price} | Lot: ${lot}`);
-  state._lastTradeDir = direction;
+  const market    = opts.market || document.getElementById('execMarket')?.value || state.currentAnalysisMarket;
+  const lot       = +(opts.lot  || parseFloat(document.getElementById('execLot')?.value)   || CycleManager.autoLot || 0.01).toFixed(2);
+  const tp        =   opts.tp   != null ? opts.tp : parseFloat(document.getElementById('execTP')?.value)  || 0;
+  const sl        =   opts.sl   != null ? opts.sl : parseFloat(document.getElementById('execSL')?.value)  || 0;
+  const maxTrades = parseInt(document.getElementById('rcMaxTrades')?.value) || 5;
+  const duration  = parseInt(document.getElementById('execDuration')?.value) || 15;
+  const durUnit   = document.getElementById('execDurUnit')?.value || 'm';
+  const mult      = parseInt(document.getElementById('execMult')?.value)  || 1;
 
+  // ---- Validate pre-conditions ----
+  if (state.positions.length >= maxTrades) {
+    showToast(`⚠️ Max open trades (${maxTrades}) reached`, 'warn');
+    return;
+  }
+  const livePrice = state.markets[market]?.price || 0;
+  if (!livePrice) {
+    showToast('⚠️ No live price data — check connection', 'warn');
+    addLog('warn','EXEC',`No price for market: ${market}`);
+    return;
+  }
+  if (!MARKETS[market]) {
+    showToast(`⚠️ Unknown market: ${market}`, 'warn');
+    return;
+  }
+
+  // ---- Lock mutex ----
+  CycleManager.tradeMutex = true;
+  state._lastTradeDir     = direction;
+  const stake             = +(lot * mult).toFixed(2);
+
+  addLog('trade','EXEC',
+    `▶ ${direction} | ${MARKETS[market].display} @ ${formatPrice(market,livePrice)} | ` +
+    `Lot:${lot} × Mult:${mult} = Stake:$${stake} | TP:${tp||'—'} SL:${sl||'—'}`);
+
+  // ================================================================
+  // DEMO EXECUTION — immediate synthetic fill
+  // ================================================================
   if (state.demoMode) {
-    // Demo execution
     const pos = {
-      id: 'POS-' + Date.now(),
-      market, direction,
-      entryPrice: price, currentPrice: price,
-      lot, tp, sl, openTime: Date.now(), pnl: 0,
+      id:           'DEMO-' + Date.now(),
+      contractId:   null,
+      market,
+      direction,
+      entryPrice:   livePrice,
+      currentPrice: livePrice,
+      lot, tp, sl, stake,
+      openTime:     Date.now(),
+      pnl:          0,
+      _settling:    false,
     };
     state.positions.push(pos);
+    CycleManager.onTradeOpened(pos);
     renderPositions();
     updateAccountDisplay();
-    showToast(`✅ ${direction} opened: ${market} @ ${price}`, 'trade');
-    addLog('trade','EXEC',`Demo trade opened: ${pos.id} | ${direction} ${market} @ ${formatPrice(market,price)}`);
-  } else {
-    // Real Deriv execution
-    const mult = parseInt(document.getElementById('execMult').value) || 1;
-    send({
-      buy: 1,
-      price: lot * mult * price,
-      parameters: {
-        contract_type: direction === 'BUY' ? 'CALL' : 'PUT',
-        symbol: market,
-        duration: 15,
-        duration_unit: 'm',
-        basis: 'stake',
-        amount: lot,
-        currency: state.account.currency,
-        limit_order: (tp||sl) ? { take_profit: tp||undefined, stop_loss: sl||undefined } : undefined,
-      },
-    });
+    showToast(`✅ Demo ${direction}: ${MARKETS[market].display} @ ${formatPrice(market,livePrice)}`, 'trade');
+    addLog('trade','EXEC',`Demo filled: ${pos.id} | ${direction} ${market} @ ${formatPrice(market,livePrice)}`);
+    // Release mutex after position is registered
+    setTimeout(() => { CycleManager.tradeMutex = false; }, 400);
+    return;
   }
+
+  // ================================================================
+  // REAL EXECUTION — Proposal → Buy via Deriv API
+  // Uses requestProposalAndBuy which enforces all project rules:
+  //   - underlying_symbol (not symbol)
+  //   - subscribe:0 (one-shot proposal, no persistent stream)
+  //   - Number() coercion on all monetary fields
+  // ================================================================
+  if (!WS.isConnected) {
+    CycleManager.tradeMutex = false;
+    showToast('⚠️ Not connected to Deriv — cannot execute real trade', 'warn');
+    addLog('warn','EXEC','Real trade aborted — WS not connected');
+    return;
+  }
+
+  // Watchdog: release mutex if buy response never arrives (20s)
+  clearTimeout(state._tradeWatchdog);
+  state._tradeWatchdog = setTimeout(() => {
+    if (CycleManager.tradeMutex) {
+      CycleManager.tradeMutex = false;
+      addLog('warn','WATCHDOG','Mutex force-released (20s timeout — no buy response)');
+      showToast('⚠️ Trade timeout — no response from Deriv. Mutex released.', 'warn');
+    }
+  }, 20000);
+
+  // Fire proposal → buy asynchronously
+  requestProposalAndBuy(market, direction, stake, duration, durUnit, tp, sl)
+    .catch(err => {
+      clearTimeout(state._tradeWatchdog);
+      CycleManager.tradeMutex = false;
+      addLog('error','EXEC',`Trade failed: ${err.message}`);
+      showToast(`❌ Trade failed: ${err.message}`, 'warn');
+    });
 }
 
 function closePositionById(posId, manualPnl) {
-  const idx = posId ? state.positions.findIndex(p=>p.id===posId) : 0;
-  if (idx < 0) return;
+  // Find position — supports id, contractId, or first position (posId=null)
+  let idx = -1;
+  if (posId === null || posId === undefined) {
+    idx = 0;
+  } else {
+    idx = state.positions.findIndex(p => p.id == posId || p.contractId == posId);
+  }
+  if (idx < 0) {
+    addLog('warn','EXEC',`closePositionById: no position found for id=${posId}`);
+    return;
+  }
+
   const pos = state.positions[idx];
-  const pnl = manualPnl !== undefined ? manualPnl : pos.pnl;
-  // Record to history
+  const pnl = manualPnl !== undefined ? Number(manualPnl) : pos.pnl;
+
+  // ---- Record trade to history ----
   const record = {
     ...pos,
     exitPrice: pos.currentPrice,
-    closedAt: Date.now(),
-    pnl: +pnl,
-    rr: pos.tp ? +((Math.abs(pos.tp-pos.entryPrice)/Math.abs(pos.entryPrice-pos.sl||0.001))).toFixed(2) : 1,
+    closedAt:  Date.now(),
+    pnl:       +pnl.toFixed(2),
+    rr: (pos.tp && pos.sl && pos.entryPrice)
+      ? +((Math.abs(pos.tp - pos.entryPrice) / (Math.abs(pos.entryPrice - pos.sl) || 0.001))).toFixed(2)
+      : 1,
+    cycle: CycleManager.cycleCount,
   };
+
   state.history.unshift(record);
   dbPut('history', record);
+
+  // ---- Update session stats ----
   if (pnl >= 0) state.sessionStats.wins++;
-  else state.sessionStats.losses++;
+  else           state.sessionStats.losses++;
   state.sessionStats.totalPnl = +(state.sessionStats.totalPnl + pnl).toFixed(2);
+
+  // ---- Remove from open positions ----
   state.positions.splice(idx, 1);
+
+  // ---- Release trade mutex ----
+  CycleManager.tradeMutex = false;
+  clearTimeout(state._tradeWatchdog);
+
+  // ---- Update UI ----
   renderPositions();
   renderHistory();
   updateAccountDisplay();
-  addLog('trade','EXEC',`Position closed: ${pos.id} | PnL: ${pnl>=0?'+':''}$${pnl}`);
-  showToast(`💰 Closed ${pos.direction} ${pos.market}: ${pnl>=0?'+':''}$${pnl}`, 'trade');
+
+  addLog('trade','EXEC',`Closed: ${pos.id || pos.contractId} | ${pos.direction} ${pos.market} | P&L: ${pnl>=0?'+':''}$${pnl.toFixed(2)} | Cycle#${record.cycle}`);
+  showToast(`💰 Closed ${pos.direction} ${MARKETS[pos.market]?.display||pos.market}: ${pnl>=0?'+':''}$${pnl.toFixed(2)}`, 'trade');
 }
 
 function renderPositions() {
@@ -2662,13 +3570,79 @@ return {
     addLog('info','SYS','All modules loaded: Analysis Engine, Signal Engine, Execution Engine');
   },
 
-  connectDeriv() {
-    const token = document.getElementById('derivToken').value.trim();
-    if (!token) { showToast('⚠️ Enter your API token', 'warn'); return; }
-    state.token = token;
+  async connectDeriv() {
+    const token = (document.getElementById('derivToken')?.value || '').trim();
+    const appId = (document.getElementById('derivAppId')?.value || '1089').trim();
+    if (!token || token.length < 8) {
+      showToast('⚠️ Enter a valid Deriv PAT token', 'warn');
+      return;
+    }
+    // Update state
+    state.token    = token;
+    state.appId    = parseInt(appId) || 1089;
     state.demoMode = false;
-    localStorage.setItem('sta_token', token);
-    connectWS(token);
+    localStorage.setItem('sta_token',  token);
+    localStorage.setItem('sta_app_id', appId);
+
+    // Sync to settings page
+    const settEl = document.getElementById('settToken');
+    if (settEl) settEl.value = token;
+
+    // Show progress
+    const btn = document.getElementById('connectBtn');
+    const prog = document.getElementById('connProgress');
+    if (btn)  { btn.textContent = '⏳ Connecting…'; btn.disabled = true; }
+    if (prog) { prog.style.display = 'block'; prog.textContent = '▸ Authenticating with Deriv REST API…'; }
+
+    addLog('info','PAT',`Connecting | Token: ${token.slice(0,8)}… | AppID: ${state.appId}`);
+
+    // Progress updater
+    let step = 0;
+    const steps = [
+      '▸ Authenticating with Deriv REST API…',
+      '▸ Fetching account details…',
+      '▸ Generating OTP WebSocket URL…',
+      '▸ Opening authenticated WebSocket…',
+      '▸ Subscribing to live market data…',
+    ];
+    const progInterval = setInterval(() => {
+      if (step < steps.length - 1) step++;
+      if (prog) prog.textContent = steps[step];
+    }, 1200);
+
+    try {
+      await connectWithPAT(token);
+    } finally {
+      clearInterval(progInterval);
+      if (btn)  { btn.textContent = '⚡ CONNECT TO DERIV'; btn.disabled = false; }
+      if (prog) { prog.style.display = 'none'; }
+    }
+
+    // Load persisted cycle state
+    CycleManager.loadCycleState();
+    CycleManager.loadConfig();
+  },
+
+  showTokenHelp() {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay open';
+    overlay.innerHTML = `<div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-title">HOW TO GET YOUR API TOKEN</div>
+      <div style="font-size:12px;color:var(--white2);line-height:2">
+        <div style="padding:8px 0;border-bottom:1px solid var(--border2)"><span style="color:var(--gold);font-family:var(--font-display);font-size:10px;letter-spacing:1px">STEP 1</span><br>Go to <span style="color:var(--gold)">app.deriv.com</span></div>
+        <div style="padding:8px 0;border-bottom:1px solid var(--border2)"><span style="color:var(--gold);font-family:var(--font-display);font-size:10px;letter-spacing:1px">STEP 2</span><br>Click your Profile → <b>Security &amp; Limits</b></div>
+        <div style="padding:8px 0;border-bottom:1px solid var(--border2)"><span style="color:var(--gold);font-family:var(--font-display);font-size:10px;letter-spacing:1px">STEP 3</span><br>Select <b>API Token</b> from the menu</div>
+        <div style="padding:8px 0;border-bottom:1px solid var(--border2)"><span style="color:var(--gold);font-family:var(--font-display);font-size:10px;letter-spacing:1px">STEP 4</span><br>Create token with scopes:<br><span style="color:var(--green)">✓ Read</span> <span style="color:var(--green)">✓ Trade</span> <span style="color:var(--green)">✓ Payments</span> <span style="color:var(--green)">✓ Admin</span></div>
+        <div style="padding:8px 0"><span style="color:var(--gold);font-family:var(--font-display);font-size:10px;letter-spacing:1px">STEP 5</span><br>Copy the token (shown only once) and paste it above</div>
+      </div>
+      <div style="margin-top:12px;padding:10px;background:rgba(212,175,55,.08);border:1px solid var(--border);border-radius:8px;font-size:10px;color:var(--white3);line-height:1.6">
+        ⚠️ Never share your API token. It grants full trading access to your account.
+      </div>
+      <button class="primary-btn" style="margin-top:12px" onclick="this.closest('.modal-overlay').remove()">GOT IT</button>
+    </div>`;
+    overlay.addEventListener('click', e => { if(e.target===overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
   },
 
   connectDemo() {
@@ -2835,13 +3809,135 @@ return {
     if (map[id]) { state.settings[map[id]] = el.classList.contains('on'); localStorage.setItem('sta_settings', JSON.stringify(state.settings)); }
   },
 
-  saveConnection() {
-    const token = document.getElementById('settToken').value.trim();
-    const server = document.getElementById('settServer').value;
-    if (token) { state.token = token; localStorage.setItem('sta_token', token); }
-    state.wsServer = server;
-    if (token) connectWS(token);
-    showToast('✅ Settings saved', 'trade');
+  async saveConnection() {
+    const token  = (document.getElementById('settToken')?.value  || '').trim();
+    const server = document.getElementById('settServer')?.value  || 'blue.binaryws.com';
+    const appId  = (document.getElementById('settAppId')?.value  || '1089').trim();
+
+    if (token && token.length > 5) {
+      state.token    = token;
+      state.appId    = parseInt(appId) || 1089;
+      state.demoMode = false;
+      localStorage.setItem('sta_token',  token);
+      localStorage.setItem('sta_app_id', appId);
+      const el = document.getElementById('derivToken');
+      if (el) el.value = token;
+      const elA = document.getElementById('derivAppId');
+      if (elA) elA.value = appId;
+    }
+    // (wsServer stored only for display; new API uses OTP URL from REST, not manual server)
+    state._fallbackServer = server;
+
+    // Cleanly disconnect any existing WS
+    WS.disconnect();
+    WS.enable();
+
+    if (state.token) {
+      addLog('info','SETT',`Reconnecting | Token:${state.token.slice(0,8)}… | AppID:${state.appId}`);
+      await connectLive(state.token);
+      CycleManager.loadConfig();
+    }
+    showToast('✅ Settings saved & reconnected', 'trade');
+    APP.syncSettingsDisplay();
+  },
+
+  async testConnection() {
+    const token = (document.getElementById('settToken')?.value || '').trim();
+    const appId = (document.getElementById('settAppId')?.value || '1089').trim();
+    const res   = document.getElementById('settTestResult');
+    if (!res) return;
+    if (!token) { res.style.display='block'; res.style.color='var(--red)'; res.textContent='⚠️ Enter token first'; return; }
+    res.style.display = 'block';
+    res.style.color   = 'var(--white3)';
+    res.textContent   = '⏳ Testing REST API…';
+    try {
+      const client   = window._STA?.DerivRestClient || DerivAPI;
+      const accounts = await client.getAccounts(token, appId || '1089');
+      const acc = accounts[0];
+      const id  = acc?.loginid || acc?.login_id || acc?.account_id || '?';
+      const bal = Number(acc?.balance || 0).toFixed(2);
+      const cur = acc?.currency || 'USD';
+      const typ = acc?.account_type || '?';
+      res.style.color = 'var(--green)';
+      res.textContent = `✅ OK — ${id} | ${typ} | $${bal} ${cur}`;
+      addLog('info','TEST',`REST API test passed: ${id} | $${bal} ${cur}`);
+    } catch(e) {
+      res.style.color = 'var(--red)';
+      res.textContent = `❌ Failed: ${e.message}`;
+      addLog('error','TEST',`REST API test failed: ${e.message}`);
+    }
+  },
+
+  syncSettingsDisplay() {
+    // Sync conn dots and account info on settings page
+    const dot  = document.getElementById('settConnDot');
+    const idEl = document.getElementById('settAcctId');
+    const balEl= document.getElementById('settAcctBal');
+    const mode = document.getElementById('settMode');
+    if (dot) { dot.className = 'conn-dot' + (state.connected?' live':state.demoMode?' connecting':''); }
+    if (idEl) idEl.textContent  = state.account.loginid || 'NOT CONNECTED';
+    if (balEl) balEl.textContent = state.connected||state.demoMode ? `$${Number(state.account.balance).toFixed(2)} ${state.account.currency}` : '';
+    if (mode) mode.textContent  = state.demoMode ? 'DEMO' : state.connected ? state._wsMode||'LIVE' : '';
+    // Pre-fill from stored values
+    const st = document.getElementById('settToken');
+    const sa = document.getElementById('settAppId');
+    if (st && state.token) st.placeholder = state.token.slice(0,8)+'…';
+    if (sa) sa.value = state.appId || 1089;
+  },
+
+  toggleAutoTrade() {
+    CycleManager.loadConfig();
+    if (CycleManager.hardStopped) {
+      showToast('⛔ Hard stop active — reset session first', 'warn');
+      return;
+    }
+    if (!state.connected && !state.demoMode) {
+      showToast('⚠️ Connect to Deriv first', 'warn');
+      return;
+    }
+    CycleManager.autoActive = !CycleManager.autoActive;
+    const tog = document.getElementById('autoTradeToggle');
+    if (tog) tog.classList.toggle('on', CycleManager.autoActive);
+
+    if (CycleManager.autoActive) {
+      addLog('info','AUTO','Auto-trading ACTIVATED');
+      showToast('🤖 Auto-trading ON — AI will trade and auto-reset on each TP/SL', 'signal');
+      CycleManager._scheduleAutoTrade(1500);
+    } else {
+      CycleManager._cancelRestart = true;
+      clearTimeout(CycleManager._restartTimer);
+      addLog('info','AUTO','Auto-trading DEACTIVATED');
+      showToast('⏹ Auto-trading OFF', 'warn');
+    }
+    CycleManager.renderCycleUI();
+  },
+
+  confirmSessionReset() {
+    const confirmed = confirm(
+      `Reset SESSION data?
+
+` +
+      `Current Session P&L: $${CycleManager.sessionPnl.toFixed(2)}
+` +
+      `Cycles completed: ${CycleManager.cycleCount}
+
+` +
+      `This will clear all session counters and remove any hard stop. Continue?`
+    );
+    if (!confirmed) return;
+    CycleManager._cancelRestart = true;
+    clearTimeout(CycleManager._restartTimer);
+    CycleManager.tradeMutex  = false;
+    CycleManager.hardStopped = false;
+    CycleManager._resetCycle();
+    CycleManager._resetSession();
+    CycleManager.cycleCount = 0;
+    CycleManager.saveCycleState();
+    addLog('info','CYCLE','Full session reset by user');
+    showToast('⚡ Session fully reset — ready for new session', 'signal');
+    CycleManager.renderCycleUI();
+    // If auto-trading was on, restart it
+    if (CycleManager.autoActive) CycleManager._scheduleAutoTrade(2000);
   },
 
   setHistFilter(f) {
@@ -2875,6 +3971,477 @@ return {
   },
 };
 
+// =====================================================================
+// CYCLE MANAGER — AUTO RESET & RESTART ENGINE
+// Enforces: Trade TP → cycle reset → restart
+//           Session TP → session reset → restart
+//           Hard stops (SL/MaxDD/DailyLoss) → halt until manual reset
+// Single authoritative post-settlement decision point: postSettlement()
+// =====================================================================
+
+const CycleManager = {
+
+  // ---- Config (loaded from UI) ----
+  cycleTP:      50,    // $ per cycle take profit
+  cycleSL:     -25,    // $ per cycle stop loss (negative)
+  sessionTP:   200,    // $ session take profit
+  sessionSL:  -100,    // $ session stop loss  (negative)
+  autoTradeDir: 'BUY', // direction for auto-trading
+  autoLot:     0.01,   // lot for auto-trading
+
+  // ---- Runtime state ----
+  cycleCount:   0,
+  cyclePnl:     0,
+  sessionPnl:   0,
+  totalPnl:     0,
+  cycleWins:    0,
+  cycleLosses:  0,
+  sessionWins:  0,
+  sessionLosses:0,
+
+  tradeMutex:   false,   // true while a trade is open/pending
+  hardStopped:  false,   // true after hard stop — requires manual reset
+  autoActive:   false,   // auto-trading on/off
+  _cancelRestart: false, // guard against stale restart timers
+  _restartTimer:  null,
+  _watchdogTimer: null,
+
+  // ---- Called once WS is live ----
+  onConnected() {
+    addLog('info','CYCLE',`CycleManager connected | Cycle#${this.cycleCount} | CyclePnL:$${this.cyclePnl} | SessionPnL:$${this.sessionPnl}`);
+    this.loadConfig();
+    this.renderCycleUI();
+    if (this.autoActive && !this.hardStopped) {
+      addLog('info','CYCLE','Auto-trading resuming after reconnect');
+      this._scheduleAutoTrade(2000);
+    }
+  },
+
+  // ---- Called on every tick ----
+  onTick(sym, price) {
+    // Check open position SL/TP in demo (real positions handled via proposal_open_contract)
+    if (!state.demoMode) return;
+    state.positions.forEach(pos => {
+      if (pos.market !== sym) return;
+      if (pos._settling) return; // already being settled
+      const isBuy = pos.direction === 'BUY';
+      const hitTP = pos.tp > 0 && (isBuy ? price >= pos.tp : price <= pos.tp);
+      const hitSL = pos.sl > 0 && (isBuy ? price <= pos.sl : price >= pos.sl);
+      if (hitTP || hitSL) {
+        pos._settling = true;
+        const tickValue = pos.lot * 1000;
+        const priceDiff = isBuy ? price - pos.entryPrice : pos.entryPrice - price;
+        const pnl = +(priceDiff * tickValue / pos.entryPrice * 100).toFixed(2);
+        const reason = hitTP ? `TP hit @ ${formatPrice(sym,price)}` : `SL hit @ ${formatPrice(sym,price)}`;
+        addLog('trade','AUTO-CLOSE', `${pos.id}: ${reason} | P&L: ${pnl>=0?'+':''}$${pnl}`);
+        showToast(`${hitTP?'🎯':'🛑'} ${reason} | ${pnl>=0?'+':''}$${pnl}`, hitTP?'trade':'warn');
+        // Settle asynchronously to avoid mid-forEach mutation
+        setTimeout(() => {
+          closePositionById(pos.id, pnl);
+          this.postSettlement(pnl, pos);
+        }, 0);
+      }
+    });
+  },
+
+  // ---- Called when a trade opens ----
+  onTradeOpened(pos) {
+    addLog('info','CYCLE',`Trade opened: ${pos.id} | Cycle#${this.cycleCount} | CyclePnL so far: $${this.cyclePnl}`);
+    this.renderCycleUI();
+  },
+
+  // ---- Called on mutex release for rejected trades ----
+  onTradeMutexRelease() {
+    this.tradeMutex = false;
+    clearTimeout(state._tradeWatchdog);
+  },
+
+  // =====================================================================
+  // POST-SETTLEMENT — SINGLE AUTHORITATIVE DECISION POINT
+  // Called ONLY after a contract is fully settled (real or demo)
+  // =====================================================================
+  postSettlement(pnl, pos) {
+    // Accumulate P&L
+    this.cyclePnl   = +(this.cyclePnl   + pnl).toFixed(2);
+    this.sessionPnl = +(this.sessionPnl + pnl).toFixed(2);
+    this.totalPnl   = +(this.totalPnl   + pnl).toFixed(2);
+
+    if (pnl >= 0) { this.cycleWins++;   this.sessionWins++; }
+    else          { this.cycleLosses++; this.sessionLosses++; }
+
+    addLog('trade','CYCLE',`Post-settlement: PnL=${pnl>=0?'+':''}$${pnl} | CyclePnL=$${this.cyclePnl} | SessionPnL=$${this.sessionPnl}`);
+    this.renderCycleUI();
+
+    // ---- Priority chain: evaluate in order, first match wins ----
+    // 1. Session Take Profit
+    if (this.sessionPnl >= this.sessionTP) {
+      this._triggerSessionTP();
+      return;
+    }
+    // 2. Session Stop Loss
+    if (this.sessionPnl <= this.sessionSL) {
+      this._triggerSessionSL();
+      return;
+    }
+    // 3. Cycle Take Profit
+    if (this.cyclePnl >= this.cycleTP) {
+      this._triggerCycleTP();
+      return;
+    }
+    // 4. Cycle Stop Loss
+    if (this.cyclePnl <= this.cycleSL) {
+      this._triggerCycleSL();
+      return;
+    }
+    // 5. Daily drawdown / risk limits
+    const maxDD    = parseFloat(document.getElementById('rcMaxDD')?.value)    || 10;
+    const dailyLoss = parseFloat(document.getElementById('rcDailyLoss')?.value) || 999;
+    const bal = state.account.balance || 1;
+    const ddPct = Math.max(0, -this.sessionPnl / bal * 100);
+    if (ddPct >= maxDD) {
+      this._triggerHardStop(`Max drawdown ${maxDD}% reached (${ddPct.toFixed(1)}%)`);
+      return;
+    }
+    if (-this.sessionPnl >= dailyLoss) {
+      this._triggerHardStop(`Daily loss limit $${dailyLoss} hit`);
+      return;
+    }
+    // 6. No stop hit — if auto-trading, schedule next trade
+    if (this.autoActive && !this.hardStopped) {
+      addLog('info','CYCLE','No stop hit — scheduling next auto-trade');
+      this._scheduleAutoTrade(1500);
+    }
+  },
+
+  // ---- CYCLE TAKE PROFIT — soft stop, auto-restart ----
+  _triggerCycleTP() {
+    addLog('signal','CYCLE',`🎯 CYCLE TP HIT: +$${this.cyclePnl} (target $${this.cycleTP}) | Cycle#${this.cycleCount}`);
+    showCyclePopup('CYCLE TP HIT', this.cyclePnl, this.cycleCount, 'gold');
+    showToast(`🎯 Cycle #${this.cycleCount} Complete! +$${this.cyclePnl}`, 'trade');
+
+    const savedCyclePnl = this.cyclePnl;
+    const savedCycle    = this.cycleCount;
+
+    // Reset cycle state
+    this._resetCycle();
+
+    // Auto-restart after brief celebration delay
+    this._cancelRestart = false;
+    this._restartTimer = setTimeout(() => {
+      if (this._cancelRestart) return;
+      addLog('info','CYCLE',`♻ Restarting Cycle#${this.cycleCount} after TP`);
+      this.renderCycleUI();
+      if (this.autoActive) this._scheduleAutoTrade(1000);
+    }, 3000);
+  },
+
+  // ---- SESSION TAKE PROFIT — bigger celebration, then restart ----
+  _triggerSessionTP() {
+    addLog('signal','CYCLE',`🏆 SESSION TP HIT: +$${this.sessionPnl} (target $${this.sessionTP})`);
+    showCyclePopup('SESSION TARGET REACHED', this.sessionPnl, this.cycleCount, 'green', true);
+    showToast(`🏆 SESSION TARGET $${this.sessionTP} HIT! Total P&L: +$${this.sessionPnl}`, 'trade');
+
+    // Reset everything but keep history
+    this._resetCycle();
+    this._resetSession();
+
+    // Auto-restart after longer celebration
+    this._cancelRestart = false;
+    this._restartTimer = setTimeout(() => {
+      if (this._cancelRestart) return;
+      addLog('info','CYCLE','♻ New session starting after Session TP');
+      this.renderCycleUI();
+      if (this.autoActive) this._scheduleAutoTrade(2000);
+    }, 5000);
+  },
+
+  // ---- CYCLE STOP LOSS — soft stop ----
+  _triggerCycleSL() {
+    addLog('warn','CYCLE',`🛑 CYCLE SL HIT: $${this.cyclePnl} (limit $${this.cycleSL}) | Cycle#${this.cycleCount}`);
+    showCyclePopup('CYCLE SL HIT', this.cyclePnl, this.cycleCount, 'orange');
+    showToast(`🛑 Cycle SL hit: $${this.cyclePnl} | Resetting cycle...`, 'warn');
+    this._resetCycle();
+
+    // Restart after pause
+    this._cancelRestart = false;
+    this._restartTimer = setTimeout(() => {
+      if (this._cancelRestart) return;
+      addLog('info','CYCLE',`♻ Restarting after Cycle SL — Cycle#${this.cycleCount}`);
+      this.renderCycleUI();
+      if (this.autoActive) this._scheduleAutoTrade(3000);
+    }, 4000);
+  },
+
+  // ---- SESSION STOP LOSS / DAILY LIMIT — hard stop ----
+  _triggerSessionSL() {
+    addLog('warn','CYCLE',`⛔ SESSION SL HIT: $${this.sessionPnl} (limit $${this.sessionSL})`);
+    this._triggerHardStop(`Session SL $${this.sessionSL} hit | P&L: $${this.sessionPnl}`);
+  },
+
+  _triggerHardStop(reason) {
+    this.hardStopped = true;
+    this.autoActive  = false;
+    this.tradeMutex  = false;
+    this._cancelRestart = true;
+    clearTimeout(this._restartTimer);
+    addLog('error','CYCLE',`⛔ HARD STOP: ${reason}`);
+    showToast(`⛔ HARD STOP: ${reason}`, 'warn');
+    showCyclePopup('HARD STOP', this.sessionPnl, this.cycleCount, 'red');
+    this.renderCycleUI();
+    // Broadcast hard stop to auto-analysis
+    document.getElementById('autoTradeToggle')?.classList.remove('on');
+  },
+
+  // ---- Reset cycle P&L counters ----
+  _resetCycle() {
+    this.cycleCount++;
+    this.cyclePnl    = 0;
+    this.cycleWins   = 0;
+    this.cycleLosses = 0;
+    this.tradeMutex  = false;
+    clearTimeout(state._tradeWatchdog);
+    // Forget all open proposal subscriptions
+    send({ forget_all: 'proposal', req_id: Date.now() % 100000 });
+    addLog('info','CYCLE',`Cycle reset → Cycle#${this.cycleCount}`);
+    this.renderCycleUI();
+    this.saveCycleState();
+  },
+
+  // ---- Reset session P&L counters (keep cycle count) ----
+  _resetSession() {
+    this.sessionPnl    = 0;
+    this.sessionWins   = 0;
+    this.sessionLosses = 0;
+    this.hardStopped   = false;
+    addLog('info','CYCLE','Session stats reset');
+    this.saveCycleState();
+  },
+
+  // ---- Schedule next auto-trade ----
+  _scheduleAutoTrade(delayMs = 1000) {
+    if (!this.autoActive || this.hardStopped) return;
+    clearTimeout(this._restartTimer);
+    this._restartTimer = setTimeout(() => {
+      if (!this.autoActive || this.hardStopped || this.tradeMutex) return;
+      // Re-run analysis then execute
+      const market = document.getElementById('anMarket')?.value || state.currentAnalysisMarket;
+      const tf     = state.currentTF;
+      const key    = market + '_' + tf;
+      const candles = state.candles[key];
+      if (!candles || candles.length < 30) {
+        addLog('warn','AUTO','No candles for auto-trade — retrying in 5s');
+        this._scheduleAutoTrade(5000);
+        return;
+      }
+      // Quick analysis
+      const closes = candles.map(c=>c.close);
+      const highs  = candles.map(c=>c.high);
+      const lows   = candles.map(c=>c.low);
+      const rsi    = Indicators.RSI(closes);
+      const macd   = Indicators.MACD(closes);
+      const macd_dir = { signal: macd.dir.includes('BUY')?'BUY':macd.dir.includes('SELL')?'SELL':'NEUTRAL', strength:50 };
+      const bb     = Indicators.BollingerBands(closes);
+      const stoch  = Indicators.Stochastic(highs, lows, closes);
+      const adx    = Indicators.ADX(highs, lows, closes);
+      const vwap   = Indicators.VWAP(highs, lows, closes);
+      const supertrend = Indicators.SuperTrend(highs, lows, closes);
+      const patterns   = Patterns.detect(candles);
+      const chartPats  = ChartPatterns.detect(candles);
+      const smcData    = SMC.analyze(candles);
+      const indicators = { rsi, macd_dir, bb, stoch, adx, vwap, supertrend };
+      const scores     = calculateScores(indicators, patterns, smcData, chartPats);
+
+      if (scores.overall < 55 || scores.dominant === 'NEUTRAL') {
+        addLog('info','AUTO',`Score too low (${scores.overall}%) — retrying in 10s`);
+        this._scheduleAutoTrade(10000);
+        return;
+      }
+
+      // Generate signal for TP/SL levels
+      const atr = Indicators.ATR(highs, lows, closes).atr || closes[closes.length-1]*0.001;
+      const price = closes[closes.length-1];
+      const isBuy = scores.dominant === 'BUY';
+      const tp = +(isBuy ? price + atr*1.5 : price - atr*1.5).toFixed(5);
+      const sl = +(isBuy ? price - atr*1.0 : price + atr*1.0).toFixed(5);
+
+      // Patch the exec UI fields
+      const execMkt = document.getElementById('execMarket');
+      const execLot = document.getElementById('execLot');
+      const execTP  = document.getElementById('execTP');
+      const execSL  = document.getElementById('execSL');
+      if (execMkt) execMkt.value = market;
+      if (execLot) execLot.value = this.autoLot;
+      if (execTP)  execTP.value  = tp;
+      if (execSL)  execSL.value  = sl;
+
+      addLog('trade','AUTO',`Auto-trade: ${scores.dominant} ${market} | Score:${scores.overall}% | TP:${tp} | SL:${sl}`);
+      executeTrade(scores.dominant);
+
+    }, delayMs);
+  },
+
+  // ---- Load config from UI ----
+  loadConfig() {
+    this.cycleTP   = parseFloat(document.getElementById('cmCycleTP')?.value)   || 50;
+    this.cycleSL   = -(parseFloat(document.getElementById('cmCycleSL')?.value) || 25);
+    this.sessionTP = parseFloat(document.getElementById('cmSessionTP')?.value) || 200;
+    this.sessionSL = -(parseFloat(document.getElementById('cmSessionSL')?.value)|| 100);
+    this.autoLot   = parseFloat(document.getElementById('cmAutoLot')?.value)   || 0.01;
+    this.autoTradeDir = document.getElementById('cmAutoDir')?.value || 'AI';
+  },
+
+  // ---- Save/restore cycle state ----
+  saveCycleState() {
+    try {
+      localStorage.setItem('sta_cycle', JSON.stringify({
+        cycleCount: this.cycleCount,
+        sessionPnl: this.sessionPnl,
+        totalPnl:   this.totalPnl,
+      }));
+    } catch(e) {}
+  },
+  loadCycleState() {
+    try {
+      const d = JSON.parse(localStorage.getItem('sta_cycle') || '{}');
+      if (d.cycleCount) this.cycleCount = d.cycleCount;
+      if (d.sessionPnl) this.sessionPnl = d.sessionPnl;
+      if (d.totalPnl)   this.totalPnl   = d.totalPnl;
+    } catch(e) {}
+  },
+
+  // ---- Full manual reset (from UI button) ----
+  manualReset(resetSession = false) {
+    this._cancelRestart = true;
+    clearTimeout(this._restartTimer);
+    this.tradeMutex  = false;
+    this.hardStopped = false;
+    this._resetCycle();
+    if (resetSession) this._resetSession();
+    addLog('info','CYCLE',`Manual reset — Cycle#${this.cycleCount} | Session reset: ${resetSession}`);
+    showToast('♻ Cycle reset — ready to trade', 'signal');
+    this.renderCycleUI();
+  },
+
+  // ---- Render Cycle Manager UI panel ----
+  renderCycleUI() {
+    const el = document.getElementById('cycleManagerPanel');
+    if (!el) return;
+    const cycleWR = (this.cycleWins + this.cycleLosses) > 0
+      ? Math.round(this.cycleWins / (this.cycleWins + this.cycleLosses) * 100)
+      : 0;
+    const sessionWR = (this.sessionWins + this.sessionLosses) > 0
+      ? Math.round(this.sessionWins / (this.sessionWins + this.sessionLosses) * 100)
+      : 0;
+    const cyclePct  = this.cycleTP > 0 ? Math.min(100, Math.max(0, this.cyclePnl / this.cycleTP * 100)) : 0;
+    const sessionPct = this.sessionTP > 0 ? Math.min(100, Math.max(0, this.sessionPnl / this.sessionTP * 100)) : 0;
+    const statusColor = this.hardStopped ? 'var(--red)' : this.autoActive ? 'var(--green)' : 'var(--orange)';
+    const statusText  = this.hardStopped ? 'HARD STOP' : this.autoActive ? 'AUTO ACTIVE' : 'STANDBY';
+
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-family:var(--font-display);font-size:9px;color:${statusColor};letter-spacing:2px;padding:3px 10px;border:1px solid ${statusColor};border-radius:4px;background:rgba(0,0,0,.3)">${statusText}</div>
+        <div style="font-family:var(--font-display);font-size:11px;color:var(--gold)">CYCLE #${this.cycleCount}</div>
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--white3)">ALL-TIME: <span style="color:${this.totalPnl>=0?'var(--green)':'var(--red)'}">${this.totalPnl>=0?'+':''}$${this.totalPnl.toFixed(2)}</span></div>
+      </div>
+      <!-- Cycle Progress -->
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:9px;color:var(--white3);letter-spacing:1px">CYCLE P&L</span>
+          <span style="font-family:var(--font-mono);font-size:11px;color:${this.cyclePnl>=0?'var(--green)':'var(--red)'};font-weight:700">${this.cyclePnl>=0?'+':''}$${this.cyclePnl.toFixed(2)} / $${this.cycleTP}</span>
+        </div>
+        <div style="height:8px;background:var(--black5);border-radius:4px;overflow:hidden;border:1px solid var(--border2)">
+          <div style="height:100%;width:${Math.abs(cyclePct)}%;background:${this.cyclePnl>=0?'linear-gradient(90deg,var(--gold2),var(--gold3))':'linear-gradient(90deg,var(--red),#ff8080)'};border-radius:4px;transition:.4s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:3px">
+          <span style="font-size:9px;color:var(--red)">SL $${Math.abs(this.cycleSL)}</span>
+          <span style="font-size:9px;color:var(--white3)">${cycleWR}% WR (${this.cycleWins}W/${this.cycleLosses}L)</span>
+          <span style="font-size:9px;color:var(--green)">TP $${this.cycleTP}</span>
+        </div>
+      </div>
+      <!-- Session Progress -->
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:9px;color:var(--white3);letter-spacing:1px">SESSION P&L</span>
+          <span style="font-family:var(--font-mono);font-size:11px;color:${this.sessionPnl>=0?'var(--green)':'var(--red)'};">${this.sessionPnl>=0?'+':''}$${this.sessionPnl.toFixed(2)} / $${this.sessionTP}</span>
+        </div>
+        <div style="height:8px;background:var(--black5);border-radius:4px;overflow:hidden;border:1px solid var(--border2)">
+          <div style="height:100%;width:${Math.abs(sessionPct)}%;background:${this.sessionPnl>=0?'var(--green)':'var(--red)'};border-radius:4px;transition:.4s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:3px">
+          <span style="font-size:9px;color:var(--red)">SL $${Math.abs(this.sessionSL)}</span>
+          <span style="font-size:9px;color:var(--white3)">${sessionWR}% WR (${this.sessionWins}W/${this.sessionLosses}L)</span>
+          <span style="font-size:9px;color:var(--green)">TP $${this.sessionTP}</span>
+        </div>
+      </div>
+      <!-- Action Buttons -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+        <button onclick="APP.toggleAutoTrade()" style="padding:9px 4px;background:${this.autoActive?'rgba(0,200,150,.15)':'rgba(255,255,255,.04)'};border:1px solid ${this.autoActive?'var(--green)':'var(--border2)'};color:${this.autoActive?'var(--green)':'var(--white3)'};border-radius:7px;font-family:var(--font-display);font-size:9px;letter-spacing:1px;cursor:pointer">
+          ${this.autoActive?'⏹ STOP':'▶ AUTO'}
+        </button>
+        <button onclick="CycleManager.manualReset(false)" style="padding:9px 4px;background:rgba(212,175,55,.08);border:1px solid var(--border);color:var(--gold);border-radius:7px;font-family:var(--font-display);font-size:9px;letter-spacing:1px;cursor:pointer">
+          ♻ CYCLE
+        </button>
+        <button onclick="APP.confirmSessionReset()" style="padding:9px 4px;background:rgba(255,64,96,.08);border:1px solid rgba(255,64,96,.3);color:var(--red);border-radius:7px;font-family:var(--font-display);font-size:9px;letter-spacing:1px;cursor:pointer">
+          ⚡ SESSION
+        </button>
+      </div>
+      ${this.hardStopped ? `<div style="margin-top:8px;padding:8px;background:rgba(255,64,96,.12);border:1px solid rgba(255,64,96,.4);border-radius:6px;font-size:10px;color:var(--red);text-align:center;letter-spacing:1px">⛔ HARD STOP ACTIVE — Press SESSION to reset</div>` : ''}
+    `;
+
+    // Sync auto-trade toggle visual
+    const tog = document.getElementById('autoTradeToggle');
+    if (tog) tog.classList.toggle('on', this.autoActive);
+  },
+};
+
+// =====================================================================
+// CYCLE POPUP / CELEBRATION OVERLAY
+// =====================================================================
+function showCyclePopup(title, pnl, cycle, colorKey, isSession = false) {
+  const colors = {
+    gold:   { bg:'rgba(212,175,55,.95)',   fg:'#0A0A0A', glow:'#D4AF37' },
+    green:  { bg:'rgba(0,200,150,.95)',    fg:'#0A0A0A', glow:'#00C896' },
+    orange: { bg:'rgba(255,140,0,.85)',    fg:'#0A0A0A', glow:'#FF8C00' },
+    red:    { bg:'rgba(255,64,96,.85)',    fg:'#fff',    glow:'#FF4060' },
+  };
+  const c = colors[colorKey] || colors.gold;
+  const existing = document.getElementById('cyclePopupOverlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'cyclePopupOverlay';
+  overlay.style.cssText = `
+    position:fixed;inset:0;background:rgba(0,0,0,.75);
+    display:flex;align-items:center;justify-content:center;
+    z-index:9999;backdrop-filter:blur(6px);
+    animation:fadeIn .25s ease;
+  `;
+  overlay.innerHTML = `
+    <div style="
+      background:${c.bg};color:${c.fg};
+      border-radius:20px;padding:32px 24px;text-align:center;
+      max-width:320px;width:90%;
+      box-shadow:0 0 60px ${c.glow},0 20px 60px rgba(0,0,0,.5);
+      animation:fadeIn .3s ease;
+    ">
+      <div style="font-size:${isSession?'48px':'40px'};margin-bottom:8px">${isSession?'🏆':'🎯'}</div>
+      <div style="font-family:'Orbitron',monospace;font-size:${isSession?'15px':'13px'};font-weight:900;letter-spacing:3px;margin-bottom:4px">${title}</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:32px;font-weight:700;margin:12px 0">${pnl>=0?'+':''}$${Number(pnl).toFixed(2)}</div>
+      <div style="font-family:'Orbitron',monospace;font-size:10px;letter-spacing:2px;opacity:.8;margin-bottom:16px">CYCLE #${cycle} ${isSession?'· SESSION COMPLETE':''}</div>
+      <div style="font-size:11px;opacity:.7;margin-bottom:16px">${isSession?'New session starting automatically...':'Next cycle starting in 3s...'}</div>
+      <button onclick="document.getElementById('cyclePopupOverlay')?.remove()" style="
+        padding:10px 24px;background:rgba(0,0,0,.2);border:1px solid rgba(0,0,0,.3);
+        color:${c.fg};border-radius:8px;font-family:'Orbitron',monospace;
+        font-size:10px;letter-spacing:2px;cursor:pointer;
+      ">DISMISS</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target===overlay) overlay.remove(); });
+  // Auto-remove after 6s
+  setTimeout(() => overlay?.remove(), 6000);
+}
+
 // ========== EXPOSE INTERNALS FOR EXTENSION MODULES ==========
 window._STA = {
   state, MARKETS, TF_MAP, TIMEFRAMES,
@@ -2884,6 +4451,9 @@ window._STA = {
   renderSignals, updateDashLatestSignal, updateSignalBadge,
   renderHistory, renderPositions, closePositionById,
   executeTrade, updatePerfStats,
+  CycleManager, connectWithPAT, connectLive, DerivAPI, DerivRestClient, WS,
+  resubscribeAfterReconnect, fetchCandles,
+  requestProposalAndBuy, nextReqId,
 };
 
 })(); // end APP
@@ -2910,10 +4480,17 @@ function _bindSTA() {
   updateSignalBadge = s.updateSignalBadge; renderHistory = s.renderHistory;
   renderPositions = s.renderPositions; closePositionById = s.closePositionById;
   executeTrade = s.executeTrade; updatePerfStats = s.updatePerfStats;
+  // New exports
+  if (s.CycleManager) window.CycleManager = s.CycleManager;
+  if (s.WS)           window._DerivWS      = s.WS;
   return true;
 }
 // The IIFE runs synchronously, so _STA is available immediately
 _bindSTA();
+// Make CycleManager globally accessible (needed for inline onclick handlers)
+let CycleManager = window._STA?.CycleManager || {};
+// Expose DerivRestClient for testConnection
+let DerivRestClient = window._STA?.DerivRestClient || DerivAPI;
 
 // ========== MINI CHART CANVAS ENGINE ==========
 const MiniChart = {
@@ -4205,6 +5782,16 @@ APP.switchPage = function(pageId, navId) {
   }
   if (pageId === 'pageHistory') {
     renderJournalEntries();
+    renderCycleHistory();
+  }
+  if (pageId === 'pageSettings') {
+    APP.syncSettingsDisplay?.();
+  }
+  if (pageId === 'pageExec') {
+    CycleManager.renderCycleUI();
+  }
+  if (pageId === 'pageDash') {
+    updateDashCycleBanner();
   }
 };
 
@@ -4215,6 +5802,200 @@ function syncPosCalcBalance() {
 }
 setInterval(syncPosCalcBalance, 3000);
 setInterval(renderNewsWidget, 60000);
+
+// =====================================================================
+// DASHBOARD CYCLE BANNER UPDATER
+// =====================================================================
+function updateDashCycleBanner() {
+  const banner = document.getElementById('dashCycleBanner');
+  if (!banner) return;
+  // Show only when connected
+  if (!state.connected && !state.demoMode) { banner.style.display='none'; return; }
+  banner.style.display = 'block';
+
+  const cm = CycleManager;
+  // Cycle elements
+  const cycleEl    = document.getElementById('dcCycle');
+  const cPnlEl     = document.getElementById('dcCyclePnl');
+  const sPnlEl     = document.getElementById('dcSessPnl');
+  const statusEl   = document.getElementById('dcStatus');
+  const cBarEl     = document.getElementById('dcCycleBar');
+  const sBarEl     = document.getElementById('dcSessBar');
+  const cPctEl     = document.getElementById('dcCyclePct');
+  const sPctEl     = document.getElementById('dcSessPct');
+
+  if (cycleEl) cycleEl.textContent = cm.cycleCount;
+
+  const cPnl = cm.cyclePnl;
+  const sPnl = cm.sessionPnl;
+  if (cPnlEl) { cPnlEl.textContent = `${cPnl>=0?'+':''}$${cPnl.toFixed(2)}`; cPnlEl.style.color = cPnl>=0?'var(--green)':'var(--red)'; }
+  if (sPnlEl) { sPnlEl.textContent = `${sPnl>=0?'+':''}$${sPnl.toFixed(2)}`; sPnlEl.style.color = sPnl>=0?'var(--green)':'var(--red)'; }
+
+  const statusText  = cm.hardStopped ? 'HARD STOP' : cm.autoActive ? 'AUTO ACTIVE' : 'STANDBY';
+  const statusColor = cm.hardStopped ? 'var(--red)' : cm.autoActive ? 'var(--green)' : 'var(--orange)';
+  if (statusEl) { statusEl.textContent = statusText; statusEl.style.borderColor = statusColor; statusEl.style.color = statusColor; }
+
+  const cPct = cm.cycleTP > 0 ? Math.min(100, Math.max(0, cPnl/cm.cycleTP*100)) : 0;
+  const sPct = cm.sessionTP > 0 ? Math.min(100, Math.max(0, sPnl/cm.sessionTP*100)) : 0;
+  if (cBarEl) { cBarEl.style.width = Math.abs(cPct)+'%'; cBarEl.style.background = cPnl>=0?'var(--gold)':'var(--red)'; }
+  if (sBarEl) { sBarEl.style.width = Math.abs(sPct)+'%'; sBarEl.style.background = sPnl>=0?'var(--green)':'var(--red)'; }
+  if (cPctEl) cPctEl.textContent = Math.abs(cPct).toFixed(0)+'%';
+  if (sPctEl) sPctEl.textContent = Math.abs(sPct).toFixed(0)+'%';
+}
+// Update dashboard banner every 2 seconds
+setInterval(updateDashCycleBanner, 2000);
+
+// =====================================================================
+// CYCLE HISTORY LOG (in History page)
+// =====================================================================
+function buildCycleHistoryWidget() {
+  const histPage = document.getElementById('pageHistory');
+  if (!histPage || document.getElementById('cycleHistCard')) return;
+  const div = document.createElement('div');
+  div.id = 'cycleHistCard';
+  div.className = 'card';
+  div.style.marginTop = '10px';
+  div.innerHTML = `
+    <div class="card-title"><div class="dot" style="background:var(--gold)"></div>CYCLE PERFORMANCE LOG</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+      <div class="perf-box"><div class="perf-val" id="chTotalCycles" style="color:var(--gold)">0</div><div class="perf-lbl">CYCLES</div></div>
+      <div class="perf-box"><div class="perf-val" id="chSessPnl" style="color:var(--white2)">$0</div><div class="perf-lbl">SESSION P&L</div></div>
+      <div class="perf-box"><div class="perf-val" id="chTotalPnl" style="color:var(--white2)">$0</div><div class="perf-lbl">ALL-TIME P&L</div></div>
+    </div>
+    <div id="cycleHistList"><div class="empty-state"><p>NO CYCLE HISTORY YET</p></div></div>`;
+  histPage.appendChild(div);
+}
+
+const _cycleHistory = [];
+
+function renderCycleHistory() {
+  buildCycleHistoryWidget();
+  const el = document.getElementById('cycleHistList');
+  const cm = CycleManager;
+  // Update summary
+  const tc  = document.getElementById('chTotalCycles');
+  const sp  = document.getElementById('chSessPnl');
+  const tp  = document.getElementById('chTotalPnl');
+  if (tc) tc.textContent = cm.cycleCount;
+  if (sp) { sp.textContent = `${cm.sessionPnl>=0?'+':''}$${cm.sessionPnl.toFixed(2)}`; sp.style.color = cm.sessionPnl>=0?'var(--green)':'var(--red)'; }
+  if (tp) { tp.textContent = `${cm.totalPnl>=0?'+':''}$${cm.totalPnl.toFixed(2)}`; tp.style.color = cm.totalPnl>=0?'var(--green)':'var(--red)'; }
+
+  if (!el || !_cycleHistory.length) return;
+  el.innerHTML = _cycleHistory.slice().reverse().map(c => `
+    <div class="trade-row">
+      <div class="trade-dir-dot" style="background:${c.result==='TP'?'var(--green)':c.result==='SL'?'var(--red)':'var(--orange)'}"></div>
+      <div class="trade-info">
+        <div class="trade-market">Cycle #${c.cycle} — ${c.result}</div>
+        <div class="trade-time">${new Date(c.time).toLocaleString()} · ${c.trades} trades · WR:${c.wr}%</div>
+      </div>
+      <div class="trade-pnl" style="color:${c.pnl>=0?'var(--green)':'var(--red)'}">${c.pnl>=0?'+':''}$${c.pnl.toFixed(2)}</div>
+    </div>`).join('');
+}
+
+// Patch CycleManager._resetCycle to log to cycle history
+const _origResetCycle = CycleManager._resetCycle.bind(CycleManager);
+CycleManager._resetCycle = function() {
+  // Record this cycle before resetting
+  const total = this.cycleWins + this.cycleLosses;
+  const wr    = total > 0 ? Math.round(this.cycleWins/total*100) : 0;
+  _cycleHistory.push({
+    cycle:  this.cycleCount,
+    pnl:    this.cyclePnl,
+    result: this.cyclePnl >= this.cycleTP ? 'TP' : this.cyclePnl <= this.cycleSL ? 'SL' : 'MANUAL',
+    trades: total,
+    wr,
+    time:   Date.now(),
+  });
+  try { localStorage.setItem('sta_cycle_hist', JSON.stringify(_cycleHistory.slice(-50))); } catch(e){}
+  _origResetCycle();
+};
+
+// Load saved cycle history
+try {
+  const saved = JSON.parse(localStorage.getItem('sta_cycle_hist') || '[]');
+  _cycleHistory.push(...saved);
+} catch(e){}
+
+// =====================================================================
+// PATCH: renderCycleUI also updates dashboard banner
+// =====================================================================
+const _origRenderCycleUI = CycleManager.renderCycleUI.bind(CycleManager);
+CycleManager.renderCycleUI = function() {
+  _origRenderCycleUI();
+  updateDashCycleBanner();
+  // Keep settings page conn dot in sync
+  APP.syncSettingsDisplay?.();
+};
+
+// =====================================================================
+// PATCH: APP.init — restore AppID from storage, load cycle state
+// =====================================================================
+const _origVeryFinalInit = APP.init.bind(APP);
+APP.init = async function() {
+  // Restore stored AppID before anything else
+  const storedAppId = localStorage.getItem('sta_app_id');
+  if (storedAppId) {
+    state.appId = parseInt(storedAppId) || 1089;
+    const el = document.getElementById('derivAppId');
+    if (el) el.value = storedAppId;
+    const sel = document.getElementById('settAppId');
+    if (sel) sel.value = storedAppId;
+  }
+  await _origVeryFinalInit();
+  CycleManager.loadCycleState();
+  buildCycleHistoryWidget();
+  setTimeout(updateDashCycleBanner, 800);
+};
+
+// =====================================================================
+// PATCH: connectDemo also loads cycle state and updates banner
+// =====================================================================
+const _origVeryFinalDemo = APP.connectDemo.bind(APP);
+APP.connectDemo = function() {
+  _origVeryFinalDemo();
+  setTimeout(() => {
+    buildCycleHistoryWidget();
+    updateDashCycleBanner();
+    CycleManager.renderCycleUI();
+  }, 1600);
+};
+
+// =====================================================================
+// REAL-TIME CYCLE BANNER REFRESH on every tick
+// =====================================================================
+const _origCMTick = CycleManager.onTick.bind(CycleManager);
+CycleManager.onTick = function(sym, price) {
+  _origCMTick(sym, price);
+  // Throttle banner updates to max 1/sec
+  if (!CycleManager._lastBannerUpdate || Date.now()-CycleManager._lastBannerUpdate > 1000) {
+    CycleManager._lastBannerUpdate = Date.now();
+    updateDashCycleBanner();
+  }
+};
+
+// =====================================================================
+// CSS: Add missing styles for new elements
+// =====================================================================
+(function injectCycleStyles() {
+  const style = document.createElement('style');
+  style.textContent = `
+    #cyclePopupOverlay * { box-sizing: border-box; }
+    .conn-dot.live   { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .conn-dot.connecting { background: var(--orange); animation: pulse 1s infinite; }
+    #dashCycleBanner { transition: all .3s; }
+    #cycleManagerPanel .exec-btn { font-size: 10px; }
+    .cycle-tp-flash { animation: glow 0.5s ease 3; }
+    @keyframes celebrationPop {
+      0%   { transform: scale(0.5); opacity: 0; }
+      60%  { transform: scale(1.05); opacity: 1; }
+      100% { transform: scale(1); }
+    }
+    #cyclePopupOverlay > div { animation: celebrationPop .35s cubic-bezier(.34,1.56,.64,1) forwards; }
+  `;
+  document.head.appendChild(style);
+})();
+
+// DerivAPI is exposed via window._STA and window.DerivAPI (set inside IIFE)
 
 // ========== BOOT ==========
 document.addEventListener('DOMContentLoaded', () => {

@@ -257,6 +257,13 @@ footer{text-align:center;color:var(--text-faint);font-size:11px;padding:30px 0 1
       <hr class="sep">
       <label class="toggle"><input type="checkbox" id="realModeCheck"><span class="tswitch"></span><span class="small">Enable real-money accounts in this list</span></label>
       <div class="hint">Demo accounts are shown by default. Turning this on does not place real trades by itself — a typed confirmation is still required before arming any strategy on a real account.</div>
+      <hr class="sep">
+      <div class="row">
+        <button class="btn block" id="createDemoBtn">+ Create Demo Account</button>
+        <button class="btn block" id="createRealBtn" style="display:none">+ Create Real Account</button>
+      </div>
+      <div class="hint">Uses <code>POST /trading/v1/options/accounts</code> on the new Deriv API (USD / row / demo|real). Correctly handles both the 200 (existing) and 201 (newly created) response shapes.</div>
+      <div id="createAcctMsg"></div>
     </div>
   </div>
 
@@ -278,6 +285,7 @@ footer{text-align:center;color:var(--text-faint);font-size:11px;padding:30px 0 1
           <div class="stat"><span>Balance</span><b id="s_bal">—</b></div>
           <div class="stat"><span>Session P/L</span><b id="s_pl">0.00</b></div>
           <div class="stat"><span>Open contracts</span><b id="s_open">0</b></div>
+          <div class="stat"><span>TP cycles completed</span><b id="s_cycles">0</b></div>
           <div class="stat"><span>WS reconnects</span><b id="s_recon">0</b></div>
           <button class="btn block" id="switchAcctBtn" style="margin-top:12px">Switch Account</button>
           <button class="btn block" id="refreshBalBtn" style="margin-top:8px">Refresh Balance Now</button>
@@ -287,21 +295,23 @@ footer{text-align:center;color:var(--text-faint);font-size:11px;padding:30px 0 1
 
         <div class="card">
           <h2>🛡️ Risk Engine <span class="tag">Global</span></h2>
-          <label>Daily profit target (USD, 0 = off)</label>
+          <label>Cycle / Session take-profit (USD, 0 = off)</label>
           <input type="number" id="riskTP" value="0" step="0.5">
           <label>Daily loss limit (USD, 0 = off)</label>
           <input type="number" id="riskSL" value="50" step="0.5">
           <label>Max consecutive losses before pause</label>
           <input type="number" id="riskConsec" value="4" step="1">
-          <label>Auto-resume after pause (minutes, 0 = manual only)</label>
+          <label>Auto-resume after SL/loss pause (minutes, 0 = manual only)</label>
           <input type="number" id="riskResume" value="15" step="1">
-          <div class="hint">This gate is the final check before every <code>buy()</code> call. No strategy or signal can bypass it.</div>
+          <label class="toggle" style="margin-top:12px"><input type="checkbox" id="autoCycleToggle" checked><span class="tswitch"></span><span class="small">Auto-cycle on take-profit (seamless reset &amp; restart toward next TP)</span></label>
+          <div class="hint">Take-profit hits reset P/L, per-strategy stake progression, and trade counts in place, then continue immediately toward the next cycle — no reconnect, no downtime. Loss limits and consecutive-loss pauses never auto-restart on their own; that's a manual/timed resume by design.</div>
           <div style="margin-top:10px" id="riskStatus"><span class="badge on">ACTIVE</span></div>
         </div>
 
         <div class="card">
           <h2>🎛️ Real-Money Arming</h2>
           <div class="muted small" id="armingInfo">Currently trading on a <b style="color:var(--cyan)">DEMO</b> account. No confirmation needed.</div>
+
           <button class="btn danger block" id="armRealBtn" style="margin-top:12px;display:none">Arm Real-Money Trading</button>
         </div>
       </div>
@@ -358,7 +368,7 @@ const state = {
   killed:false, realArmed:false,
   ticksBySymbol:new Map(), // symbol -> {prices:[], lastQuote, lastDigit, subId}
   requiredSymbols:new Set(),
-  risk:{ dailyProfit:0, dailyLoss:0, consecLosses:0, paused:false, pauseUntil:0 },
+  risk:{ dailyProfit:0, dailyLoss:0, consecLosses:0, paused:false, pauseUntil:0, cyclesCompleted:0, cycling:false },
   strategies:{}, // filled below
   activeStrategyId:null,
 };
@@ -636,13 +646,28 @@ function registerTradeResult(profit, strat){
 }
 
 function evaluateRiskGate(){
+  if (state.risk.cycling) return; // re-entrancy guard — never double-fire a cycle reset
   const tp = num(document.getElementById('riskTP').value);
   const sl = num(document.getElementById('riskSL').value);
   const maxConsec = num(document.getElementById('riskConsec').value);
   const resumeMin = num(document.getElementById('riskResume').value);
+  const autoCycle = document.getElementById('autoCycleToggle').checked;
+
+  // ---- Take-profit: seamless auto-reset-and-restart cycle (checked first, independent of any pause state) ----
+  if (tp > 0 && state.risk.dailyProfit >= tp){
+    if (autoCycle){ completeCycleAndRestart(tp); }
+    else if (!state.risk.paused){
+      state.risk.paused = true;
+      state.risk.pauseUntil = resumeMin > 0 ? Date.now() + resumeMin*60000 : 0;
+      log(`⛔ Session take-profit reached (+${state.risk.dailyProfit.toFixed(2)}) — auto-cycle is OFF, trading paused.`, 'err');
+      document.getElementById('riskStatus').innerHTML = `<span class="badge pause">PAUSED — TP reached</span>`;
+    }
+    return;
+  }
+
+  // ---- Stop-loss / consecutive-loss: hard pause (never auto-restarts on its own — safety-critical) ----
   let pauseReason = null;
-  if (tp > 0 && state.risk.dailyProfit >= tp) pauseReason = `Daily profit target reached (+${state.risk.dailyProfit.toFixed(2)})`;
-  else if (sl > 0 && state.risk.dailyLoss >= sl) pauseReason = `Daily loss limit hit (-${state.risk.dailyLoss.toFixed(2)})`;
+  if (sl > 0 && state.risk.dailyLoss >= sl) pauseReason = `Daily loss limit hit (-${state.risk.dailyLoss.toFixed(2)})`;
   else if (maxConsec > 0 && state.risk.consecLosses >= maxConsec) pauseReason = `${state.risk.consecLosses} consecutive losses`;
 
   if (pauseReason && !state.risk.paused){
@@ -657,6 +682,41 @@ function evaluateRiskGate(){
   }
 }
 setInterval(evaluateRiskGate, 5000);
+
+/* ================= Auto-cycle: seamless TP-triggered reset & restart ================= */
+function completeCycleAndRestart(tpTarget){
+  state.risk.cycling = true; // re-entrancy guard on
+  const achieved = state.risk.dailyProfit;
+  state.risk.cyclesCompleted++;
+  const cycleNum = state.risk.cyclesCompleted;
+
+  // Reset only cycle-scoped state, entirely in-place. The WebSocket connection, all tick/balance/
+  // contract subscriptions, and every strategy's "active" arming stay exactly as they were —
+  // no reconnect, no OTP refetch, no resubscribe, no dropped ticks. This is what makes it seamless.
+  state.risk.dailyProfit = 0;
+  state.risk.dailyLoss = 0;
+  state.risk.consecLosses = 0;
+  state.risk.paused = false;
+  state.risk.pauseUntil = 0;
+  state.sessionPL = 0;
+
+  Object.values(state.strategies).forEach(s => {
+    s.consec = 0;
+    s.stake = s.config.stake ?? s.baseStake;               // martingale progression reset to base
+    if ('stepIdx' in s.config) s.config.stepIdx = 0;        // ladder strategy step reset to base
+    s.stats = { trades:0, wins:0, losses:0, netProfit:0 };  // cycle trade count reset
+    // strategy.active is intentionally left untouched — armed strategies stay armed into the next cycle
+  });
+
+  const plEl = document.getElementById('s_pl'); plEl.textContent = '0.00'; plEl.className = '';
+  document.getElementById('riskStatus').innerHTML = `<span class="badge on">ACTIVE — cycle ${cycleNum+1} running</span>`;
+  const cyclesEl = document.getElementById('s_cycles'); if (cyclesEl) cyclesEl.textContent = cycleNum;
+  if (document.getElementById('strategyPanels').firstChild) renderStrategyPanel();
+
+  log(`🔁 CYCLE ${cycleNum} COMPLETE — take-profit of ${tpTarget.toFixed(2)} reached (+${achieved.toFixed(2)}). Auto-reset done — connection kept alive, all armed strategies continue immediately toward the next take-profit.`, 'win');
+
+  state.risk.cycling = false; // re-entrancy guard off
+}
 
 /* ================= Risk-gated buy ================= */
 async function riskGatedBuy(strategy, proposalReq, opts){
@@ -1141,7 +1201,27 @@ function renderAccountList(){
     el.appendChild(row);
   });
 }
-document.getElementById('realModeCheck').onchange = renderAccountList;
+document.getElementById('realModeCheck').onchange = () => {
+  renderAccountList();
+  document.getElementById('createRealBtn').style.display = document.getElementById('realModeCheck').checked ? '' : 'none';
+};
+
+document.getElementById('createDemoBtn').onclick = () => createAndSelectAccount('demo');
+document.getElementById('createRealBtn').onclick = () => createAndSelectAccount('real');
+
+async function createAndSelectAccount(accountType){
+  const msg = document.getElementById('createAcctMsg');
+  msg.innerHTML = `<div class="ok">Creating ${accountType} account…</div>`;
+  try {
+    const account = await createAccount(accountType); // handles 200 (object) vs 201 (array) internally
+    // Refresh the full account list from source of truth rather than trusting only the create response
+    state.accounts = await fetchAccounts();
+    msg.innerHTML = `<div class="ok">Account ${account.account_id} ready.</div>`;
+    renderAccountList();
+  } catch(e){
+    msg.innerHTML = `<div class="err">${e.code||'Error'}: ${e.message}</div>`;
+  }
+}
 
 async function selectAccount(account){
   state.account = account;

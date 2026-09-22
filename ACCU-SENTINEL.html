@@ -150,7 +150,8 @@ input:checked + .slider:before{background:var(--green); transform:translateX(18p
 .fusion-grid .fv{font-family:var(--mono); font-weight:700; text-align:right;}
 .reasons{margin-top:8px; font-size:10.5px; color:var(--red); line-height:1.6;}
 
-table{width:100%; border-collapse:collapse; font-size:11px;}
+.table-scroll{width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch;}
+table{width:100%; border-collapse:collapse; font-size:11px; min-width:420px;}
 th{text-align:left; color:var(--dim); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--line); font-size:9.5px; text-transform:uppercase; letter-spacing:.5px; position:sticky; top:0; background:var(--panel);}
 td{padding:6px 8px; border-bottom:1px solid #101820; font-family:var(--mono);}
 tr:hover td{background:#0c141c;}
@@ -180,6 +181,7 @@ canvas{width:100%; display:block;}
   display:none; margin-bottom:10px; align-items:center; justify-content:space-between;
 }
 .halt-banner.show{display:flex;}
+.restart-banner{background:var(--green-dim); border:1px solid var(--green); color:#d8fff2;}
 
 .footer-actions{display:flex; gap:8px; margin-top:10px;}
 .small-note{font-size:9.5px; color:var(--dim2); margin-top:4px; line-height:1.5;}
@@ -193,6 +195,61 @@ hr.sep{border:none; border-top:1px solid var(--line); margin:10px 0;}
 .gate-row:last-child{border-bottom:none;}
 .gate-pass{color:var(--green); font-weight:700;}
 .gate-fail{color:var(--red); font-weight:700;}
+
+/* ===================== RESPONSIVE / MOBILE ===================== */
+@media (max-width:1200px){
+  .grid{grid-template-columns:1fr;}
+}
+
+@media (max-width:760px){
+  body{padding:8px; font-size:12.5px;}
+  .topbar{padding:10px 12px; gap:8px;}
+  .brand h1{font-size:14px;}
+  .brand .sub{font-size:9px; letter-spacing:1px;}
+  .brand .logo{width:30px; height:30px; font-size:13px;}
+  .top-stats{gap:12px; width:100%; justify-content:space-between;}
+  .top-stat{text-align:left;}
+  .top-stat .val{font-size:13px;}
+  .conn-pill{padding:5px 9px; font-size:9.5px;}
+  .grid{gap:8px;}
+  .col{gap:8px;}
+  .panel-head{padding:9px 11px;}
+  .panel-head h2{font-size:10px;}
+  .panel-body{padding:10px;}
+  .row2,.row3{grid-template-columns:1fr 1fr; gap:6px;}
+  .kv-grid{grid-template-columns:1fr 1fr; gap:6px;}
+  .kv{padding:7px 8px;}
+  .kv .v{font-size:13px;}
+  /* 16px min font-size on inputs prevents iOS Safari auto-zoom on focus */
+  input[type=text],input[type=password],input[type=number],select{
+    font-size:16px; padding:9px 10px;
+  }
+  button{padding:10px 12px; font-size:12px;}
+  .btn-sm{padding:8px 10px; font-size:10.5px;}
+  .fusion-decision{font-size:18px;}
+  .fusion-grid{grid-template-columns:1fr 1fr; font-size:10.5px;}
+  .halt-banner{flex-direction:column; align-items:flex-start; gap:8px;}
+  .halt-banner button{width:100%;}
+  .scroll-box{max-height:200px;}
+  .checkbox-row{padding:8px;}
+  .section-title{font-size:9.5px;}
+}
+
+@media (max-width:420px){
+  .top-stats{gap:8px;}
+  .top-stat .lbl{font-size:8px;}
+  .top-stat .val{font-size:12px;}
+  .row2,.row3{grid-template-columns:1fr;}
+  .kv-grid{grid-template-columns:1fr;}
+  .fusion-grid{grid-template-columns:1fr;}
+  .brand .sub{display:none;}
+}
+
+@media (hover:none) and (pointer:coarse){
+  button, .switch, .pill, select, input{min-height:38px;}
+  .switch{min-height:20px;}
+  td, th{padding:8px;}
+}
 </style>
 </head>
 <body>
@@ -208,6 +265,7 @@ hr.sep{border:none; border-top:1px solid var(--line); margin:10px 0;}
   <div class="top-stats">
     <div class="top-stat"><div class="lbl">Balance</div><div class="val" id="topBalance">—</div></div>
     <div class="top-stat"><div class="lbl">Session PnL</div><div class="val" id="topPnl">0.00</div></div>
+    <div class="top-stat"><div class="lbl">Lifetime PnL</div><div class="val" id="topLifetimePnl">0.00</div></div>
     <div class="top-stat"><div class="lbl">Symbol</div><div class="val" id="topSymbol">—</div></div>
     <div class="conn-pill"><div class="dot" id="connDot"></div><span id="connText" class="mono">DISCONNECTED</span></div>
   </div>
@@ -216,6 +274,11 @@ hr.sep{border:none; border-top:1px solid var(--line); margin:10px 0;}
 <div class="halt-banner" id="haltBanner">
   <span id="haltMsg">TRADING HALTED — risk limit breached</span>
   <button class="btn-red btn-sm" id="resumeTradingBtn">ACKNOWLEDGE &amp; RESUME</button>
+</div>
+
+<div class="halt-banner restart-banner" id="restartBanner">
+  <span id="restartMsg">CYCLE COMPLETE — resetting &amp; restarting in 5s…</span>
+  <button class="btn-ghost btn-sm" id="cancelRestartBtn">CANCEL AUTO-RESTART</button>
 </div>
 
 <div class="grid">
@@ -344,6 +407,31 @@ hr.sep{border:none; border-top:1px solid var(--line); margin:10px 0;}
     </div>
   </div>
 
+  <div class="panel">
+    <div class="panel-head"><h2>Auto-Restart Cycle Engine</h2><span class="badge" id="cycleBadge">ARMED</span></div>
+    <div class="panel-body">
+      <div class="toggle-row">
+        <label style="margin:0;">Auto-Reset &amp; Restart on TP</label>
+        <label class="switch"><input type="checkbox" id="autoRestartToggle" checked><span class="slider"></span></label>
+      </div>
+      <label>Restart Delay (sec)</label>
+      <input type="number" id="restartDelayInput" value="5" min="0" step="1">
+      <div class="small-note" style="margin-bottom:8px;">When Session Take-Profit is reached: cycle P/L is banked to Lifetime P/L, session-scoped state (PnL, trade log, martingale) resets, and auto-trading re-activates automatically once the countdown ends. Connection, account, lifetime stats and system log are always preserved. A hard Stop-Loss or risk-limit breach still halts and requires manual acknowledgement — it never auto-restarts.</div>
+      <div class="kv-grid">
+        <div class="kv"><div class="k">Lifetime P/L</div><div class="v num" id="statLifetimePnl">0.00</div></div>
+        <div class="kv"><div class="k">Cycles Completed</div><div class="v num" id="statCyclesCompleted">0</div></div>
+      </div>
+      <div class="section-title">Cycle History</div>
+      <div class="scroll-box table-scroll" style="max-height:140px;">
+        <table>
+          <thead><tr><th>#</th><th>Time</th><th>Trades</th><th>Cycle P/L</th></tr></thead>
+          <tbody id="cycleHistoryTableBody"></tbody>
+        </table>
+      </div>
+      <button class="btn-ghost btn-block" style="margin-top:9px;" id="resetLifetimeBtn">Reset Lifetime Stats</button>
+    </div>
+  </div>
+
 </div>
 
 <!-- ================= MIDDLE COLUMN ================= -->
@@ -403,7 +491,7 @@ hr.sep{border:none; border-top:1px solid var(--line); margin:10px 0;}
 
   <div class="panel">
     <div class="panel-head"><h2>Trade Log</h2><button class="btn-ghost btn-sm" id="resetTradeLogBtn">Reset</button></div>
-    <div class="panel-body scroll-box">
+    <div class="panel-body scroll-box table-scroll">
       <table>
         <thead><tr><th>Time</th><th>Symbol</th><th>Growth</th><th>Stake</th><th>Ticks</th><th>Result</th><th>P/L</th></tr></thead>
         <tbody id="tradeLogTableBody"></tbody>
@@ -458,10 +546,12 @@ hr.sep{border:none; border-top:1px solid var(--line); margin:10px 0;}
       </div>
 
       <div class="section-title">Barrier Survival Curve (L5)</div>
-      <table>
-        <thead><tr><th>Ticks</th><th>Survival %</th></tr></thead>
-        <tbody id="survivalTable"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Ticks</th><th>Survival %</th></tr></thead>
+          <tbody id="survivalTable"></tbody>
+        </table>
+      </div>
 
       <div class="section-title">Knockout Prediction (L6)</div>
       <div class="kv-grid">
@@ -558,10 +648,12 @@ const State = {
   engines: {},
   martingale: { step:0, currentStake:1, consecLosses:0 },
   risk: { halted:false, haltReason:'', dailyLoss:0, exposure:0, cooldownUntil:0 },
-  pnl: { sessionPnl:0, wins:0, losses:0, total:0, equityCurve:[0], bestStreak:0, worstStreak:0, curStreak:0 },
+  pnl: { sessionPnl:0, wins:0, losses:0, total:0, equityCurve:[0], bestStreak:0, worstStreak:0, curStreak:0,
+         lifetimePnl:0, cyclesCompleted:0, cycleHistory:[] },
   trades: [],
   openContract: null,
-  mutex: { locked:false }
+  mutex: { locked:false, phase:null, lockedAt:0, lastActivityAt:0, resyncAttempted:false },
+  restart: { inProgress:false, timerId:null, remaining:0 }
 };
 
 /* ============================================================
@@ -596,7 +688,9 @@ async function derivRequest(method, path, body, headers){
   try{ data = await res.json(); }catch(e){ data = null; }
   if(!res.ok){
     const code = data?.errors?.[0]?.code || 'UnknownError';
-    const message = data?.errors?.[0]?.message || `HTTP ${res.status}`;
+    let message = data?.errors?.[0]?.message || `HTTP ${res.status}`;
+    if(res.status===401) message += ' — check that your PAT token is current and that the App ID is a PAT-type app registered at developers.deriv.com (legacy App IDs will 401).';
+    if(res.status===403) message += ' — your PAT token is missing a required scope (needs "trade" and "account_manage").';
     const err = new Error(`${code}: ${message}`);
     err.code = code; err.status = res.status;
     throw err;
@@ -677,6 +771,11 @@ class DerivSocket{
     // ticks subscription for selected symbol
     this.subscribeTicks(State.market.symbol);
     this._startKeepalive();
+    // re-attach live monitor for any contract that was open across a reconnect
+    if(State.openContract && State.openContract.contract_id){
+      Log.info('Re-attaching monitor for open contract ' + State.openContract.contract_id + ' after reconnect.');
+      this.send({ proposal_open_contract: 1, contract_id: State.openContract.contract_id, subscribe: 1 });
+    }
   }
 
   subscribeTicks(symbol){
@@ -703,7 +802,10 @@ class DerivSocket{
     this.reconnectAttempts++;
     Log.warn(`Reconnecting in ${Math.round(delay/1000)}s (attempt ${this.reconnectAttempts})…`);
     setTimeout(() => {
-      this.connect().catch(e => Log.err('Reconnect failed: ' + e.message));
+      this.connect().catch(e => {
+        Log.err('Reconnect attempt failed: ' + e.message);
+        this._scheduleReconnect(); // keep retrying — a failed OTP fetch must not end the retry chain
+      });
     }, delay);
   }
 
@@ -969,7 +1071,20 @@ const UI = {
     $('statWinsLosses').textContent = `${p.wins} / ${p.losses}`;
     $('statAvgProfit').textContent = fmt(p.total ? p.sessionPnl/p.total : 0);
     $('statStreak').textContent = p.curStreak;
+    $('statLifetimePnl').textContent = fmt(p.lifetimePnl);
+    $('statLifetimePnl').className = 'v num ' + (p.lifetimePnl>0?'pos':p.lifetimePnl<0?'neg':'');
+    $('topLifetimePnl').textContent = fmt(p.lifetimePnl);
+    $('topLifetimePnl').style.color = p.lifetimePnl>0 ? 'var(--green)' : p.lifetimePnl<0 ? 'var(--red)' : 'var(--text)';
+    $('statCyclesCompleted').textContent = p.cyclesCompleted;
+    this.renderCycleHistory();
     this.drawEquity();
+  },
+  renderCycleHistory(){
+    const tbody = $('cycleHistoryTableBody');
+    if(!tbody) return;
+    tbody.innerHTML = State.pnl.cycleHistory.slice().reverse().map(c => `
+      <tr><td>${c.cycle}</td><td>${c.time}</td><td>${c.trades}</td>
+      <td class="${c.pnl>0?'v pos':c.pnl<0?'v neg':''}">${fmt(c.pnl)}</td></tr>`).join('');
   },
   drawEquity(){
     const canvas = $('equityCanvas');
@@ -1082,6 +1197,7 @@ const Trader = {
   canTrade(){
     if(State.connection.status !== 'connected') return false;
     if(State.risk.halted) return false;
+    if(State.restart.inProgress) return false;
     if(State.mutex.locked) return false;
     if(Date.now() < State.risk.cooldownUntil) return false;
     if(State.risk.dailyLoss <= -Number($('maxDailyLossInput').value)) return false;
@@ -1104,11 +1220,14 @@ const Trader = {
   },
 
   checkRiskHalt(){
+    // NOTE: Session Take-Profit is intentionally NOT a halt condition — it is a
+    // soft-stop handled exclusively by AutoRestart.evaluate(), which banks the
+    // cycle and automatically resets & re-arms trading. Only hard stops below
+    // halt and require manual operator acknowledgement.
+    if(State.restart.inProgress) return; // never halt mid-restart
     const sl = Number($('sessionStopLossInput').value);
-    const tp = Number($('sessionTakeProfitInput').value);
     let reason = null;
     if(sl>0 && State.pnl.sessionPnl <= -sl) reason = `Session stop-loss reached (${fmt(State.pnl.sessionPnl)})`;
-    else if(tp>0 && State.pnl.sessionPnl >= tp) reason = `Session take-profit reached (${fmt(State.pnl.sessionPnl)})`;
     else if(State.risk.dailyLoss <= -Number($('maxDailyLossInput').value)) reason = `Max daily loss breached (${fmt(State.risk.dailyLoss)})`;
     else if(State.martingale.consecLosses >= Number($('maxConsecLossesInput').value)) reason = `Max consecutive losses reached (${State.martingale.consecLosses})`;
     if(reason && !State.risk.halted){
@@ -1131,6 +1250,10 @@ const Trader = {
     const takeProfitAmount = +(stake * tpPct).toFixed(2);
 
     State.mutex.locked = true;
+    State.mutex.phase = 'proposal';
+    State.mutex.lockedAt = Date.now();
+    State.mutex.lastActivityAt = Date.now();
+    State.mutex.resyncAttempted = false;
     Log.trade(`Requesting proposal — ${State.market.symbol} | growth ${growth}% | stake $${fmt(stake)} | TP $${fmt(takeProfitAmount)}`);
 
     this._pendingStake = stake;
@@ -1150,23 +1273,28 @@ const Trader = {
   },
 
   onProposal(p){
+    State.mutex.lastActivityAt = Date.now();
     if(!p || !p.id){
       Log.err('Proposal returned no id — aborting.');
-      State.mutex.locked = false;
+      this._releaseMutex();
       this._cooldown();
       return;
     }
     Log.ok(`Proposal received: ask $${fmt(p.ask_price)} — buying…`);
+    State.mutex.phase = 'buying';
     Sock.send({ buy: p.id, price: p.ask_price });
   },
 
   onBuy(b){
+    State.mutex.lastActivityAt = Date.now();
     if(!b || !b.contract_id){
       Log.err('Buy failed — no contract_id returned.');
-      State.mutex.locked = false;
+      this._releaseMutex();
       this._cooldown();
       return;
     }
+    State.mutex.phase = 'open';
+    State.mutex.resyncAttempted = false;
     const stake = this._pendingStake, growth = this._pendingGrowth;
     State.risk.exposure += stake;
     State.openContract = {
@@ -1188,6 +1316,8 @@ const Trader = {
 
   onOpenContract(c){
     if(!c || !State.openContract || c.contract_id !== State.openContract.contract_id) return;
+    State.mutex.lastActivityAt = Date.now();
+    State.mutex.resyncAttempted = false;
     const oc = State.openContract;
     oc.ticks = c.tick_count ?? oc.ticks+1;
     oc.profit = Number(c.profit) || 0;
@@ -1270,7 +1400,7 @@ const Trader = {
     Log.trade(`Contract ${oc.contract_id} CLOSED — ${win?'WIN':'LOSS'} — P/L $${fmt(profit)}`);
 
     State.openContract = null;
-    State.mutex.locked = false;
+    this._releaseMutex();
     $('sellNowBtn').disabled = true;
     $('openContractBadge').textContent = 'NONE';
     $('ocContractId').textContent = '—';
@@ -1284,6 +1414,9 @@ const Trader = {
     UI.renderPnl();
     UI.renderTradeLog();
     this._cooldown();
+
+    // single authoritative post-settlement decision point for cycle auto-restart
+    AutoRestart.evaluate();
   },
 
   _cooldown(){
@@ -1291,9 +1424,167 @@ const Trader = {
     State.risk.cooldownUntil = Date.now() + secs*1000;
   },
 
-  onApiError(data){
+  _releaseMutex(){
     State.mutex.locked = false;
+    State.mutex.phase = null;
+    State.mutex.lockedAt = 0;
+    State.mutex.lastActivityAt = 0;
+    State.mutex.resyncAttempted = false;
+  },
+
+  onApiError(data){
+    this._releaseMutex();
     this._cooldown();
+  },
+
+  /* ------------------------------------------------------------
+     WATCHDOG — guarantees the trade mutex can never permanently
+     stall. Runs continuously; force-recovers if a proposal/buy
+     response never arrives, or if an open contract's tick stream
+     goes silent (missed WS message). This is the single recovery
+     path — everything else that can lock the mutex is covered.
+  ------------------------------------------------------------ */
+  watchdogTick(){
+    if(!State.mutex.locked) return;
+    const idle = Date.now() - State.mutex.lastActivityAt;
+
+    if(State.mutex.phase === 'proposal' || State.mutex.phase === 'buying'){
+      if(idle > 15000){
+        Log.err(`Watchdog: ${State.mutex.phase} phase stalled ${Math.round(idle/1000)}s with no response — force-releasing mutex.`);
+        this._releaseMutex();
+        this._cooldown();
+      }
+      return;
+    }
+
+    if(State.mutex.phase === 'open'){
+      if(idle > 20000 && !State.mutex.resyncAttempted){
+        Log.warn('Watchdog: no contract updates for 20s — attempting resync subscription.');
+        State.mutex.resyncAttempted = true;
+        State.mutex.lastActivityAt = Date.now(); // give the resync a fresh window
+        if(State.openContract) Sock.send({ proposal_open_contract: 1, contract_id: State.openContract.contract_id, subscribe: 1 });
+      } else if(idle > 20000 && State.mutex.resyncAttempted){
+        Log.err('Watchdog: contract stream still silent after resync — force-releasing mutex. Verify contract status on Deriv directly; the log entry above is marked UNKNOWN.');
+        const idx = State.trades.findIndex(t => State.openContract && t.contract_id === State.openContract.contract_id);
+        if(idx>=0){ State.trades[idx].result = 'UNKNOWN'; UI.renderTradeLog(); }
+        State.openContract = null;
+        this._releaseMutex();
+        this._cooldown();
+        $('sellNowBtn').disabled = true;
+        $('openContractBadge').textContent = 'NONE';
+      }
+    }
+  }
+};
+
+setInterval(() => Trader.watchdogTick(), 4000);
+
+/* ============================================================
+   AUTO-RESTART CYCLE ENGINE
+   Single authoritative trigger point: called only from
+   Trader._finalizeContract() immediately after PnL settlement.
+   Soft-stop (Session TP) -> bank cycle, reset session state, re-arm.
+   Hard-stop (Session SL / risk breach) -> handled separately by
+   Trader.checkRiskHalt() and NEVER auto-restarts.
+============================================================ */
+const AutoRestart = {
+  evaluate(){
+    if(State.restart.inProgress) return;      // already restarting — idempotent guard
+    if(State.risk.halted) return;              // hard stop takes precedence, never auto-restart
+    if(!$('autoRestartToggle').checked) return; // feature disabled by operator
+    const tp = Number($('sessionTakeProfitInput').value);
+    if(tp>0 && State.pnl.sessionPnl >= tp){
+      this.trigger(`Session Take-Profit reached ($${fmt(State.pnl.sessionPnl)} ≥ $${fmt(tp)})`);
+    }
+  },
+
+  trigger(reason){
+    if(State.restart.inProgress) return; // idempotent — prevents double-trigger race
+    State.restart.inProgress = true;
+    Log.ok('CYCLE COMPLETE — ' + reason);
+
+    // 1) Bank cycle P/L into lifetime total (lifetime NEVER auto-resets)
+    State.pnl.lifetimePnl += State.pnl.sessionPnl;
+    State.pnl.cyclesCompleted++;
+    State.pnl.cycleHistory.push({
+      cycle: State.pnl.cyclesCompleted,
+      time: new Date().toLocaleTimeString('en-GB',{hour12:false}),
+      trades: State.pnl.total,
+      pnl: State.pnl.sessionPnl
+    });
+    if(State.pnl.cycleHistory.length > 200) State.pnl.cycleHistory.shift();
+    UI.renderPnl();
+
+    // 2) Remember whether auto-trade was active so we can seamlessly re-arm it
+    this._wasAutoTrading = $('autoTradeToggle').checked;
+    $('autoTradeToggle').checked = false; // pause entries during the reset window
+    $('cycleBadge').textContent = 'RESTARTING';
+
+    // 3) Show countdown overlay
+    const delay = Math.max(0, Number($('restartDelayInput').value) || 0);
+    State.restart.remaining = delay;
+    $('restartBanner').classList.add('show');
+    this._tick();
+  },
+
+  _tick(){
+    $('restartMsg').textContent = State.restart.remaining > 0
+      ? `CYCLE COMPLETE — resetting & restarting in ${State.restart.remaining}s…`
+      : `CYCLE COMPLETE — resetting now…`;
+    if(State.restart.remaining <= 0){
+      this._performReset();
+      return;
+    }
+    State.restart.timerId = setTimeout(() => {
+      State.restart.remaining--;
+      this._tick();
+    }, 1000);
+  },
+
+  cancel(){
+    if(!State.restart.inProgress) return;
+    if(State.restart.timerId) clearTimeout(State.restart.timerId);
+    State.restart.timerId = null;
+    State.restart.inProgress = false;
+    $('restartBanner').classList.remove('show');
+    $('cycleBadge').textContent = 'ARMED';
+    Log.warn('Auto-restart cancelled by operator. Session state left as-is; auto-trade remains OFF until manually re-enabled.');
+  },
+
+  _performReset(){
+    // Reset ONLY session-scoped subsystems. Connection, account identity,
+    // lifetime P/L, cycle history and system log are always preserved.
+    State.pnl.sessionPnl = 0;
+    State.pnl.wins = 0;
+    State.pnl.losses = 0;
+    State.pnl.total = 0;
+    State.pnl.equityCurve = [0];
+    State.pnl.curStreak = 0;
+    // bestStreak / worstStreak intentionally preserved as lifetime records
+
+    State.trades = [];
+    State.martingale = { step:0, currentStake:Number($('martingaleBaseStake').value)||1, consecLosses:0 };
+    // daily loss counter persists (it's a calendar-day risk cap, not a per-cycle one)
+    State.risk.cooldownUntil = 0;
+
+    UI.renderPnl();
+    UI.renderMartingale();
+    UI.renderTradeLog();
+
+    $('restartBanner').classList.remove('show');
+    State.restart.timerId = null;
+    State.restart.inProgress = false;
+    $('cycleBadge').textContent = 'ARMED';
+
+    Log.info('Session state reset complete — PnL, trade log & martingale re-armed.');
+
+    // 4) Seamlessly re-activate trading for the next cycle, with zero manual input
+    if(this._wasAutoTrading && !State.risk.halted){
+      $('autoTradeToggle').checked = true;
+      Log.trade('Auto-trade re-activated — pursuing next Take-Profit cycle.');
+    } else {
+      Log.info('Auto-trade left OFF (was not active before this cycle, or a halt is in effect).');
+    }
   }
 };
 
@@ -1306,6 +1597,8 @@ $('fetchAccountsBtn').addEventListener('click', async () => {
   const appId = $('appIdInput').value.trim();
   const token = $('tokenInput').value.trim();
   if(!appId || !token){ $('authStatusMsg').textContent = 'Enter App ID and PAT token first.'; return; }
+  if(!/^\d+$/.test(appId)){ $('authStatusMsg').textContent = 'App ID should be numeric — copy it exactly from developers.deriv.com.'; return; }
+  if(token.length < 10){ $('authStatusMsg').textContent = 'PAT token looks too short — copy the full token (shown only once at creation).'; return; }
   State.connection.appId = appId;
   State.connection.token = token;
   try{
@@ -1380,6 +1673,7 @@ $('symbolSelect').addEventListener('change', () => {
 
 $('manualBuyBtn').addEventListener('click', () => {
   if(State.mutex.locked){ Log.warn('A contract is already open.'); return; }
+  if(State.restart.inProgress){ Log.warn('Cycle reset in progress — please wait for restart to complete.'); return; }
   Trader.executeTrade(true);
 });
 
@@ -1406,12 +1700,23 @@ $('resetMartingaleBtn').addEventListener('click', () => {
 });
 
 $('resetPnLBtn').addEventListener('click', () => {
-  if(!confirmed('Reset PnL & equity dashboard? Trade log will remain.')) return;
-  State.pnl = { sessionPnl:0, wins:0, losses:0, total:0, equityCurve:[0], bestStreak:0, worstStreak:0, curStreak:0 };
+  if(!confirmed('Reset session PnL & equity dashboard? Lifetime P/L and cycle history are preserved. Trade log will remain.')) return;
+  Object.assign(State.pnl, { sessionPnl:0, wins:0, losses:0, total:0, equityCurve:[0], bestStreak:0, worstStreak:0, curStreak:0 });
   State.risk.dailyLoss = 0;
   UI.renderPnl();
-  Log.info('PnL dashboard reset.');
+  Log.info('Session PnL dashboard reset (lifetime stats preserved).');
 });
+
+$('resetLifetimeBtn').addEventListener('click', () => {
+  if(!confirmed('Reset LIFETIME P/L and full cycle history? This is permanent and cannot be undone.')) return;
+  State.pnl.lifetimePnl = 0;
+  State.pnl.cyclesCompleted = 0;
+  State.pnl.cycleHistory = [];
+  UI.renderPnl();
+  Log.info('Lifetime stats and cycle history reset.');
+});
+
+$('cancelRestartBtn').addEventListener('click', () => AutoRestart.cancel());
 
 $('resetTradeLogBtn').addEventListener('click', () => {
   if(!confirmed('Clear the full trade log table? This cannot be undone.')) return;
@@ -1426,14 +1731,15 @@ $('resetSystemLogBtn').addEventListener('click', () => {
 });
 
 $('resetAllBtn').addEventListener('click', () => {
-  if(!confirmed('This resets PnL, trade log, martingale, and system log (connection stays live). Continue?')) return;
+  if(!confirmed('This resets session PnL, trade log, martingale, and system log (connection + lifetime stats stay intact). Continue?')) return;
+  if(State.restart.inProgress) AutoRestart.cancel();
   State.martingale = { step:0, currentStake:Number($('martingaleBaseStake').value)||1, consecLosses:0 };
-  State.pnl = { sessionPnl:0, wins:0, losses:0, total:0, equityCurve:[0], bestStreak:0, worstStreak:0, curStreak:0 };
+  Object.assign(State.pnl, { sessionPnl:0, wins:0, losses:0, total:0, equityCurve:[0], bestStreak:0, worstStreak:0, curStreak:0 });
   State.risk.dailyLoss = 0;
   State.trades = [];
   UI.renderMartingale(); UI.renderPnl(); UI.renderTradeLog();
   Log.reset();
-  Log.info('Full application reset performed.');
+  Log.info('Full session reset performed (lifetime P/L and cycle history preserved).');
 });
 
 /* keep martingale display live when inputs change */
