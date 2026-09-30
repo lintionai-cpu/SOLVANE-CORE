@@ -1,0 +1,2166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>TOUCHEDGE AI · Microstructure Touch/No Touch Engine</title>
+<style>
+/* ============================================================
+   TOUCHEDGE AI — DESIGN SYSTEM
+   Dark quantitative terminal aesthetic
+   ============================================================ */
+:root{
+  --bg:#0a0d12; --bg2:#0f141b; --panel:#131a23; --panel2:#171f2a;
+  --border:#232d3a; --border-light:#2c3948;
+  --txt:#e7edf5; --txt-dim:#93a3b8; --txt-faint:#5b6b80;
+  --accent:#00d1a0; --accent-dim:#0a7a63;
+  --up:#00d1a0; --down:#ff4d6a; --warn:#ffb020; --info:#4d9fff;
+  --touch:#00d1a0; --notouch:#4d9fff;
+  --mono:'JetBrains Mono','SF Mono',Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --radius:10px;
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:var(--bg);color:var(--txt);font-family:var(--sans);overflow-x:hidden;}
+body{font-size:14px;line-height:1.4;padding-bottom:calc(64px + var(--safe-bottom));}
+input,select,button,textarea{font-family:inherit;font-size:16px;color:var(--txt);}
+.mono{font-family:var(--mono);}
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-thumb{background:var(--border-light);border-radius:3px;}
+
+/* ---- Header ---- */
+#topbar{position:sticky;top:0;z-index:50;background:linear-gradient(180deg,#0d121a,#0a0d12);border-bottom:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;}
+.brand{display:flex;flex-direction:column;line-height:1.1;}
+.brand-name{font-weight:800;font-size:16px;letter-spacing:.5px;color:var(--txt);}
+.brand-name span{color:var(--accent);}
+.brand-sub{font-size:9.5px;color:var(--txt-faint);letter-spacing:.4px;text-transform:uppercase;}
+.status-pill{display:flex;align-items:center;gap:6px;font-size:11px;font-family:var(--mono);padding:5px 10px;border-radius:20px;background:var(--panel2);border:1px solid var(--border);}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--txt-faint);}
+.dot.live{background:var(--up);box-shadow:0 0 6px var(--up);animation:pulse 1.6s infinite;}
+.dot.bad{background:var(--down);box-shadow:0 0 6px var(--down);}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+
+/* ---- Layout ---- */
+#app{max-width:1400px;margin:0 auto;padding:10px;}
+.view{display:none;flex-direction:column;gap:10px;}
+.view.active{display:flex;}
+.desktop-grid{display:grid;grid-template-columns:1fr;gap:10px;}
+
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:12px;}
+.card-title{font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--txt-faint);font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.row + .row{margin-top:6px;}
+.label{color:var(--txt-dim);font-size:12px;}
+.value{font-family:var(--mono);font-weight:600;font-size:13px;}
+
+/* market/spot header card */
+.market-card{display:flex;justify-content:space-between;}
+.market-card .field{flex:1;}
+.market-card .field:last-child{text-align:right;}
+.field-label{font-size:9.5px;color:var(--txt-faint);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;}
+.field-value{font-family:var(--mono);font-size:18px;font-weight:700;}
+.field-value.spot{color:var(--accent);}
+
+/* signal card */
+.signal-card{text-align:center;padding:18px 12px;position:relative;overflow:hidden;}
+.signal-card.trade{border-color:var(--accent-dim);}
+.bias-label{font-size:11px;color:var(--txt-faint);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;}
+.bias-value{font-size:22px;font-weight:800;letter-spacing:.5px;margin-bottom:10px;}
+.bias-value.bull{color:var(--up);} .bias-value.bear{color:var(--down);} .bias-value.neutral{color:var(--txt-dim);}
+.confidence-ring{font-size:38px;font-weight:800;font-family:var(--mono);margin:6px 0;}
+.confidence-grade{display:inline-block;font-size:11px;font-weight:800;padding:2px 10px;border-radius:20px;margin-bottom:10px;letter-spacing:.5px;}
+.grade-Ap{background:rgba(0,209,160,.18);color:var(--up);border:1px solid var(--accent-dim);}
+.grade-A{background:rgba(0,209,160,.12);color:var(--up);border:1px solid var(--accent-dim);}
+.grade-B{background:rgba(255,176,32,.14);color:var(--warn);border:1px solid #7a5a12;}
+.grade-C{background:rgba(255,77,106,.10);color:#ff8fa3;border:1px solid #7a1f2e;}
+.grade-NONE{background:rgba(147,163,184,.1);color:var(--txt-dim);border:1px solid var(--border-light);}
+.contract-pick{font-size:26px;font-weight:800;margin:8px 0 4px;font-family:var(--mono);letter-spacing:1px;}
+.contract-pick.touch{color:var(--touch);} .contract-pick.notouch{color:var(--notouch);} .contract-pick.none{color:var(--txt-faint);}
+.signal-meta{display:flex;justify-content:center;gap:18px;margin-top:8px;flex-wrap:wrap;}
+.signal-meta .m{text-align:center;}
+.signal-meta .m .k{font-size:9px;color:var(--txt-faint);text-transform:uppercase;letter-spacing:.5px;}
+.signal-meta .m .v{font-family:var(--mono);font-weight:700;font-size:14px;}
+.decision-tag{display:inline-block;margin-top:12px;font-weight:800;font-size:13px;letter-spacing:1px;padding:6px 16px;border-radius:6px;}
+.decision-tag.TRADE{background:rgba(0,209,160,.15);color:var(--up);border:1px solid var(--accent-dim);}
+.decision-tag.NOTRADE{background:rgba(147,163,184,.1);color:var(--txt-dim);border:1px solid var(--border-light);}
+.no-trade-reason{font-size:11.5px;color:var(--txt-faint);margin-top:8px;padding:0 8px;}
+
+/* factors panel */
+.factor-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed var(--border);font-size:12.5px;}
+.factor-row:last-child{border-bottom:none;}
+.factor-badge{font-family:var(--mono);font-weight:700;font-size:11px;padding:2px 8px;border-radius:4px;}
+.b-up{background:rgba(0,209,160,.13);color:var(--up);} .b-down{background:rgba(255,77,106,.13);color:var(--down);}
+.b-neu{background:rgba(147,163,184,.12);color:var(--txt-dim);} .b-warn{background:rgba(255,176,32,.13);color:var(--warn);}
+
+/* micro ticks */
+.tick-strip{font-family:var(--mono);font-size:16px;letter-spacing:3px;word-break:break-all;line-height:1.6;color:var(--txt-dim);}
+.tick-strip .u{color:var(--up);} .tick-strip .d{color:var(--down);}
+.tick-stats{display:flex;justify-content:space-around;margin-top:8px;}
+.tick-stats .s{text-align:center;}
+.tick-stats .s .k{font-size:9.5px;color:var(--txt-faint);text-transform:uppercase;}
+.tick-stats .s .v{font-family:var(--mono);font-weight:700;font-size:15px;}
+.bar-track{height:6px;border-radius:3px;background:var(--panel2);overflow:hidden;margin-top:8px;display:flex;}
+.bar-fill-up{background:var(--up);height:100%;} .bar-fill-down{background:var(--down);height:100%;}
+
+/* price map */
+.pricemap-wrap{position:relative;}
+canvas#priceMap{width:100%;height:220px;display:block;border-radius:8px;background:var(--bg2);}
+
+/* controls */
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.btn{border:1px solid var(--border-light);background:var(--panel2);color:var(--txt);padding:13px 10px;border-radius:8px;font-weight:700;font-size:12.5px;letter-spacing:.4px;text-align:center;cursor:pointer;transition:.15s;user-select:none;}
+.btn:active{transform:scale(.97);}
+.btn.primary{background:var(--accent);color:#04120f;border-color:var(--accent);}
+.btn.danger{background:var(--down);color:#1a0308;border-color:var(--down);}
+.btn.ghost{background:transparent;}
+.btn.on{background:var(--accent);color:#04120f;border-color:var(--accent);}
+.btn.off{background:var(--panel2);color:var(--txt-dim);}
+.btn.full{grid-column:1/-1;}
+.btn[disabled]{opacity:.4;pointer-events:none;}
+.stop-bot{width:100%;background:linear-gradient(180deg,#ff4d6a,#c8203c);color:#fff;border:none;padding:15px;border-radius:10px;font-weight:800;font-size:14px;letter-spacing:1.5px;margin-top:4px;box-shadow:0 4px 14px rgba(255,77,106,.25);}
+
+/* toggle switch */
+.switch-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;}
+.switch{position:relative;width:44px;height:24px;background:var(--panel2);border:1px solid var(--border-light);border-radius:14px;cursor:pointer;flex-shrink:0;}
+.switch.on{background:var(--accent-dim);border-color:var(--accent);}
+.switch .knob{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--txt-dim);transition:.18s;}
+.switch.on .knob{left:22px;background:var(--accent);}
+
+/* settings form */
+.field-group{margin-bottom:12px;}
+.field-group label{display:block;font-size:11px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;}
+.field-group input, .field-group select{width:100%;background:var(--bg2);border:1px solid var(--border-light);color:var(--txt);padding:10px;border-radius:7px;font-size:16px;}
+.field-group input:focus,.field-group select:focus{outline:none;border-color:var(--accent);}
+.field-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.section-label{font-size:12px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 8px;padding-top:8px;border-top:1px solid var(--border);}
+.section-label:first-child{margin-top:0;border-top:none;padding-top:0;}
+.hint{font-size:10.5px;color:var(--txt-faint);margin-top:3px;}
+
+/* table */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+table{width:100%;border-collapse:collapse;font-size:11.5px;min-width:640px;}
+th{text-align:left;color:var(--txt-faint);font-weight:600;text-transform:uppercase;font-size:9.5px;padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:7px 8px;border-bottom:1px solid var(--border);font-family:var(--mono);white-space:nowrap;}
+tr:last-child td{border-bottom:none;}
+.tag{padding:2px 7px;border-radius:4px;font-weight:700;font-size:10px;}
+.tag.WIN{background:rgba(0,209,160,.15);color:var(--up);}
+.tag.LOSS{background:rgba(255,77,106,.15);color:var(--down);}
+.tag.OPEN{background:rgba(255,176,32,.15);color:var(--warn);}
+.tag.NOTRADE{background:rgba(147,163,184,.1);color:var(--txt-dim);}
+.empty-state{text-align:center;padding:30px 10px;color:var(--txt-faint);font-size:12.5px;}
+
+/* stats grid */
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+@media(min-width:480px){.stat-grid{grid-template-columns:repeat(3,1fr);}}
+.stat-box{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;}
+.stat-box .k{font-size:9.5px;color:var(--txt-faint);text-transform:uppercase;letter-spacing:.4px;}
+.stat-box .v{font-family:var(--mono);font-size:18px;font-weight:800;margin-top:3px;}
+.stat-box .v.pos{color:var(--up);} .stat-box .v.neg{color:var(--down);}
+
+/* markets list */
+.market-item{display:flex;justify-content:space-between;align-items:center;padding:11px 10px;border-radius:8px;cursor:pointer;border:1px solid transparent;}
+.market-item:active{background:var(--panel2);}
+.market-item.selected{background:rgba(0,209,160,.08);border-color:var(--accent-dim);}
+.market-item .mname{font-size:13px;font-weight:600;}
+.market-item .mprice{font-family:var(--mono);color:var(--txt-dim);font-size:12px;}
+.search-box{width:100%;background:var(--bg2);border:1px solid var(--border-light);color:var(--txt);padding:10px 12px;border-radius:8px;margin-bottom:8px;font-size:15px;}
+
+/* log panel */
+#logPanel{max-height:220px;overflow-y:auto;font-family:var(--mono);font-size:10.5px;}
+.log-line{padding:2px 0;border-bottom:1px dotted var(--border);color:var(--txt-dim);}
+.log-line.ERROR{color:var(--down);} .log-line.WARNING{color:var(--warn);} .log-line.TRADE{color:var(--accent);} .log-line.SIGNAL{color:var(--info);}
+
+/* bottom nav (mobile) */
+#bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:60;background:#0b0f15;border-top:1px solid var(--border);display:flex;padding-bottom:var(--safe-bottom);}
+#bottomnav .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 2px 8px;color:var(--txt-faint);cursor:pointer;}
+#bottomnav .nav-btn.active{color:var(--accent);}
+#bottomnav .nav-btn svg{width:20px;height:20px;}
+#bottomnav .nav-btn .lbl{font-size:9px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;}
+
+/* toast */
+#toastWrap{position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:6px;width:min(94%,420px);}
+.toast{background:var(--panel2);border:1px solid var(--border-light);border-left:4px solid var(--info);border-radius:8px;padding:10px 12px;font-size:12.5px;box-shadow:0 6px 20px rgba(0,0,0,.4);animation:slideIn .2s ease;}
+.toast.SIGNAL{border-left-color:var(--info);} .toast.TRADE{border-left-color:var(--accent);}
+.toast.WIN{border-left-color:var(--up);} .toast.LOSS{border-left-color:var(--down);}
+.toast.WARNING{border-left-color:var(--warn);} .toast.ERROR{border-left-color:var(--down);}
+@keyframes slideIn{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
+
+/* live badge blink */
+.paper-badge{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:4px;letter-spacing:.5px;}
+.paper-badge.paper{background:rgba(77,159,255,.15);color:var(--info);}
+.paper-badge.live{background:rgba(255,77,106,.18);color:var(--down);}
+
+@media(min-width:900px){
+  body{padding-bottom:20px;}
+  #bottomnav{display:none;}
+  #app{padding:16px;}
+  .desktop-grid{grid-template-columns:280px 1fr 340px;align-items:start;}
+  .view{display:none !important;}
+  .view.active{display:grid !important;grid-template-columns:280px 1fr 340px;gap:14px;}
+  .col{display:flex;flex-direction:column;gap:10px;}
+  #view-dashboard.active{display:grid;}
+}
+@media(max-width:420px){
+  .field-value{font-size:15px;}
+  .confidence-ring{font-size:32px;}
+  .contract-pick{font-size:21px;}
+}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="brand">
+    <div class="brand-name">TOUCH<span>EDGE</span> AI</div>
+    <div class="brand-sub">Microstructure Touch/No Touch Engine</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span class="paper-badge paper" id="modeBadge">PAPER</span>
+    <div class="status-pill"><span class="dot" id="connDot"></span><span id="connText">OFFLINE</span></div>
+  </div>
+</div>
+
+<div id="toastWrap"></div>
+
+<div id="app">
+
+  <!-- ================= DASHBOARD ================= -->
+  <div class="view active" id="view-dashboard">
+    <div class="col" id="col-left">
+      <div class="card market-card">
+        <div class="field">
+          <div class="field-label">Market</div>
+          <div class="field-value" id="dMarketName">— Select —</div>
+        </div>
+        <div class="field">
+          <div class="field-label">Spot</div>
+          <div class="field-value spot" id="dSpot">0.00000</div>
+        </div>
+      </div>
+
+      <div class="card" id="signalCardWrap">
+        <div class="signal-card" id="signalCard">
+          <div class="bias-label">Market Bias</div>
+          <div class="bias-value neutral" id="biasValue">NEUTRAL</div>
+          <div class="confidence-ring" id="confValue">—</div>
+          <span class="confidence-grade grade-NONE" id="confGrade">NO TRADE</span>
+          <div class="contract-pick none" id="contractPick">—</div>
+          <div class="signal-meta">
+            <div class="m"><div class="k">Barrier</div><div class="v" id="mBarrier">—</div></div>
+            <div class="m"><div class="k">Distance</div><div class="v" id="mDist">—</div></div>
+            <div class="m"><div class="k">Duration</div><div class="v" id="mDur">—</div></div>
+            <div class="m"><div class="k">Barrier Score</div><div class="v" id="mBscore">—</div></div>
+          </div>
+          <div><span class="decision-tag NOTRADE" id="decisionTag">NO TRADE</span></div>
+          <div class="no-trade-reason" id="noTradeReason">Waiting for market data…</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Analysis Factors</div>
+        <div id="factorsPanel"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">AI Explanation</div>
+        <div id="aiExplain" style="font-size:12px;color:var(--txt-dim);line-height:1.7;">Awaiting first signal…</div>
+      </div>
+    </div>
+
+    <div class="col" id="col-center">
+      <div class="card">
+        <div class="card-title">Live Microstructure <span id="tickCountLbl" class="mono" style="color:var(--txt-faint);"></span></div>
+        <div class="tick-strip" id="tickStrip">— — — — — — — — — — — — — — — — — — — —</div>
+        <div class="tick-stats">
+          <div class="s"><div class="k">Up Ticks</div><div class="v" id="upTicks" style="color:var(--up);">0</div></div>
+          <div class="s"><div class="k">Down Ticks</div><div class="v" id="downTicks" style="color:var(--down);">0</div></div>
+          <div class="s"><div class="k">Strength</div><div class="v" id="dirStrength">0%</div></div>
+        </div>
+        <div class="bar-track"><div class="bar-fill-up" id="barUp" style="width:50%;"></div><div class="bar-fill-down" id="barDown" style="width:50%;"></div></div>
+      </div>
+
+      <div class="card pricemap-wrap">
+        <div class="card-title">Price / Barrier Map</div>
+        <canvas id="priceMap"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Trade Controls</div>
+        <div class="switch-row"><span class="label">Paper Mode</span><div class="switch on" id="swPaper"><div class="knob"></div></div></div>
+        <div class="switch-row"><span class="label">Auto Trade</span><div class="switch" id="swAuto"><div class="knob"></div></div></div>
+        <div class="switch-row"><span class="label">Sound Alerts</span><div class="switch on" id="swSound"><div class="knob"></div></div></div>
+        <div class="btn-row" style="margin-top:8px;">
+          <div class="btn primary" id="btnAnalyze">ANALYZE NOW</div>
+          <div class="btn" id="btnManualTrade">MANUAL TRADE</div>
+        </div>
+        <button class="stop-bot" id="btnStop">■ STOP BOT</button>
+      </div>
+    </div>
+
+    <div class="col" id="col-right">
+      <div class="card">
+        <div class="card-title">Session Statistics</div>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="k">Signals</div><div class="v" id="stSignals">0</div></div>
+          <div class="stat-box"><div class="k">Trades</div><div class="v" id="stTrades">0</div></div>
+          <div class="stat-box"><div class="k">Win Rate</div><div class="v" id="stWinRate">0%</div></div>
+          <div class="stat-box"><div class="k">Wins</div><div class="v pos" id="stWins">0</div></div>
+          <div class="stat-box"><div class="k">Losses</div><div class="v neg" id="stLosses">0</div></div>
+          <div class="stat-box"><div class="k">Net P/L</div><div class="v" id="stNet">0.00</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Risk Status</div>
+        <div class="row"><span class="label">Trades Today</span><span class="value" id="rTrades">0 / 20</span></div>
+        <div class="row"><span class="label">Consecutive Losses</span><span class="value" id="rLosses">0 / 3</span></div>
+        <div class="row"><span class="label">Daily P/L</span><span class="value" id="rDaily">0.00</span></div>
+        <div class="row"><span class="label">Cooldown</span><span class="value" id="rCooldown">Ready</span></div>
+        <div class="row"><span class="label">Trade Mutex</span><span class="value" id="rMutex">Free</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Connection Log</div>
+        <div id="logPanel"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MARKETS ================= -->
+  <div class="view" id="view-markets">
+    <div class="card">
+      <div class="card-title">Select Market</div>
+      <input class="search-box" id="marketSearch" placeholder="Search synthetic indices…">
+      <div id="marketList"><div class="empty-state">Connecting to Deriv public feed…</div></div>
+    </div>
+  </div>
+
+  <!-- ================= SIGNALS ================= -->
+  <div class="view" id="view-signals">
+    <div class="card">
+      <div class="card-title">Signal History <span class="value" id="signalCountLbl">0</span></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Time</th><th>Market</th><th>Bias</th><th>Contract</th><th>Barrier</th><th>Dur</th><th>Conf</th><th>Grade</th><th>Decision</th></tr></thead>
+          <tbody id="signalTable"><tr><td colspan="9"><div class="empty-state">No signals yet</div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= TRADES ================= -->
+  <div class="view" id="view-trades">
+    <div class="card">
+      <div class="card-title">Trade History <span class="value" id="tradeCountLbl">0</span></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Time</th><th>Market</th><th>Mode</th><th>Contract</th><th>Barrier</th><th>Dur</th><th>Stake</th><th>Conf</th><th>Result</th><th>P/L</th></tr></thead>
+          <tbody id="tradeTable"><tr><td colspan="10"><div class="empty-state">No trades yet</div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= ANALYTICS ================= -->
+  <div class="view" id="view-analytics">
+    <div class="card">
+      <div class="card-title">Performance Overview</div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="k">Total Signals</div><div class="v" id="aSignals">0</div></div>
+        <div class="stat-box"><div class="k">Total Trades</div><div class="v" id="aTrades">0</div></div>
+        <div class="stat-box"><div class="k">Win Rate</div><div class="v" id="aWinRate">0%</div></div>
+        <div class="stat-box"><div class="k">Avg Confidence</div><div class="v" id="aAvgConf">0%</div></div>
+        <div class="stat-box"><div class="k">Avg Barrier Score</div><div class="v" id="aAvgBscore">0</div></div>
+        <div class="stat-box"><div class="k">Avg Duration</div><div class="v" id="aAvgDur">0t</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">By Contract Type</div>
+      <div id="analyticsByContract"><div class="empty-state">No data yet</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">By Market State</div>
+      <div id="analyticsByState"><div class="empty-state">No data yet</div></div>
+    </div>
+  </div>
+
+  <!-- ================= SETTINGS ================= -->
+  <div class="view" id="view-settings">
+    <div class="card">
+      <div class="card-title">Deriv Connection</div>
+      <div class="field-group"><label>Deriv App ID</label><input id="cfgAppId" placeholder="e.g. 341uWsua7737UovLkFhIP"></div>
+      <div class="field-group"><label>Personal Access Token (PAT)</label><input id="cfgToken" type="password" placeholder="pat_xxxxxxxxxxxxxxxx"></div>
+      <div class="field-grid2">
+        <div class="field-group"><label>Account Type</label><select id="cfgAccountType"><option value="demo">Demo</option><option value="real">Real</option></select></div>
+        <div class="field-group"><label>Account ID</label><select id="cfgAccountId"><option value="">Fetch accounts…</option></select></div>
+      </div>
+      <div class="btn-row">
+        <div class="btn" id="btnFetchAccounts">FETCH ACCOUNTS</div>
+        <div class="btn primary" id="btnSaveConn">SAVE &amp; CONNECT</div>
+      </div>
+      <div class="hint">Credentials are stored only in this browser's local storage. Live trading requires a valid PAT with <b>trade</b> scope.</div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Analysis</div>
+      <div class="field-grid2">
+        <div class="field-group"><label>Tick Window</label><input type="number" id="cfgTickWindow" value="20"></div>
+        <div class="field-group"><label>Candle Lookback</label><input type="number" id="cfgCandleLookback" value="60"></div>
+      </div>
+      <div class="field-grid2">
+        <div class="field-group"><label>Min Confidence %</label><input type="number" id="cfgMinConf" value="75"></div>
+        <div class="field-group"><label>Min Barrier Score</label><input type="number" id="cfgMinBscore" value="65"></div>
+      </div>
+
+      <div class="section-label">Duration (Ticks)</div>
+      <div class="field-grid2">
+        <div class="field-group"><label>Minimum Ticks</label><input type="number" id="cfgMinTicks" value="5"></div>
+        <div class="field-group"><label>Maximum Ticks</label><input type="number" id="cfgMaxTicks" value="10"></div>
+      </div>
+
+      <div class="section-label">Barrier Distance (% of spot) — safety rails</div>
+      <div class="field-grid2">
+        <div class="field-group"><label>Min Distance %</label><input type="number" step="0.01" id="cfgMinBarrierDist" value="0.05"></div>
+        <div class="field-group"><label>Max Distance %</label><input type="number" step="0.01" id="cfgMaxBarrierDist" value="0.60"></div>
+      </div>
+      <div class="hint">These are hard clamps. The barrier is placed adaptively inside this range — it doesn't just sit at the midpoint.</div>
+
+      <div class="section-label">Adaptive Barrier Engine</div>
+      <div class="switch-row"><span class="label">Self-Adaptive Barrier Placement</span><div class="switch on" id="swAdaptiveBarrier"><div class="knob"></div></div></div>
+      <div class="field-grid2">
+        <div class="field-group"><label>Touch Target Probability %</label><input type="number" step="1" id="cfgTouchTargetProb" value="55"></div>
+        <div class="field-group"><label>No-Touch Target Probability %</label><input type="number" step="1" id="cfgNotouchTargetProb" value="20"></div>
+      </div>
+      <div class="field-grid2">
+        <div class="field-group"><label>Adaptation Step %</label><input type="number" step="0.5" id="cfgAdaptStep" value="3"></div>
+        <div class="field-group"><label>Candidate Sweep Steps</label><input type="number" id="cfgAdaptSweep" value="7"></div>
+      </div>
+      <div class="hint">The engine estimates each candidate barrier's statistical touch-probability (from live volatility + duration) and picks the one closest to these targets. After every trade it nudges the target — losing TOUCH trades pull the barrier closer, losing NOTOUCH trades push it farther — then slowly mean-reverts back to your baseline.</div>
+      <div class="row" style="margin-top:8px;"><span class="label">Current adaptive state (this market)</span><span class="value" id="adaptiveStateReadout">—</span></div>
+      <div class="btn-row" style="margin-top:8px;">
+        <div class="btn ghost" id="btnResetAdaptive">RESET ADAPTIVE STATE</div>
+      </div>
+
+      <div class="section-label">Risk Management</div>
+      <div class="field-grid2">
+        <div class="field-group"><label>Stake (USD)</label><input type="number" step="0.01" id="cfgStake" value="1"></div>
+        <div class="field-group"><label>Max Trades / Session</label><input type="number" id="cfgMaxTrades" value="20"></div>
+      </div>
+      <div class="field-grid2">
+        <div class="field-group"><label>Max Consecutive Losses</label><input type="number" id="cfgMaxLosses" value="3"></div>
+        <div class="field-group"><label>Daily Loss Limit (USD)</label><input type="number" step="0.01" id="cfgDailyLoss" value="50"></div>
+      </div>
+      <div class="field-grid2">
+        <div class="field-group"><label>Cooldown After Trade (s)</label><input type="number" id="cfgCooldown" value="3"></div>
+        <div class="field-group"><label>Cooldown After Loss (s)</label><input type="number" id="cfgCooldownLoss" value="8"></div>
+      </div>
+
+      <div class="section-label">Decision Weights (%)</div>
+      <div class="field-grid2">
+        <div class="field-group"><label>Prev Candle</label><input type="number" id="wCandle" value="15"></div>
+        <div class="field-group"><label>Two-Candle</label><input type="number" id="wTwoCandle" value="10"></div>
+      </div>
+      <div class="field-grid2">
+        <div class="field-group"><label>Prev High/Low</label><input type="number" id="wPrevHL" value="15"></div>
+        <div class="field-group"><label>Micro Trend</label><input type="number" id="wMicro" value="25"></div>
+      </div>
+      <div class="field-grid2">
+        <div class="field-group"><label>Tick Momentum</label><input type="number" id="wMomentum" value="15"></div>
+        <div class="field-group"><label>Market State</label><input type="number" id="wState" value="10"></div>
+      </div>
+      <div class="field-group"><label>Barrier Quality</label><input type="number" id="wBarrier" value="10"></div>
+      <div class="hint" id="weightSumHint">Total: 100%</div>
+
+      <div class="section-label">Notifications</div>
+      <div class="switch-row"><span class="label">Audio: High-Confidence Signal</span><div class="switch on" id="swAlertSignal"><div class="knob"></div></div></div>
+      <div class="switch-row"><span class="label">Audio: Trade Execution</span><div class="switch on" id="swAlertTrade"><div class="knob"></div></div></div>
+      <div class="switch-row"><span class="label">Audio: Win / Loss</span><div class="switch on" id="swAlertResult"><div class="knob"></div></div></div>
+      <div class="switch-row"><span class="label">Audio: Connection Events</span><div class="switch on" id="swAlertConn"><div class="knob"></div></div></div>
+      <div class="switch-row"><span class="label">Browser Push Notifications</span><div class="switch" id="swBrowserNotif"><div class="knob"></div></div></div>
+
+      <div class="btn-row" style="margin-top:14px;">
+        <div class="btn" id="btnResetStats">RESET STATS</div>
+        <div class="btn primary" id="btnSaveSettings">SAVE SETTINGS</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<div id="bottomnav">
+  <div class="nav-btn active" data-view="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span class="lbl">Home</span></div>
+  <div class="nav-btn" data-view="markets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg><span class="lbl">Markets</span></div>
+  <div class="nav-btn" data-view="signals"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg><span class="lbl">Signals</span></div>
+  <div class="nav-btn" data-view="trades"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span class="lbl">Trades</span></div>
+  <div class="nav-btn" data-view="analytics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-4"/></svg><span class="lbl">Stats</span></div>
+  <div class="nav-btn" data-view="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.32.22.66.24 1H21a2 2 0 010 4h-.09c-.02.34-.1.68-.24 1z"/></svg><span class="lbl">Settings</span></div>
+</div>
+
+<audio id="sndSignal" preload="auto"><source src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=" type="audio/wav"></audio>
+
+<script>
+"use strict";
+/* ============================================================================
+   TOUCHEDGE AI — Microstructure Touch/No Touch Decision Engine
+   Single-file modular MVP. Modules are namespaced as classes/IIFEs below to
+   preserve clean separation of responsibility inside one deployable artifact.
+   ============================================================================ */
+
+/* ---------------------------------------------------------------------------
+   0. UTILS
+--------------------------------------------------------------------------- */
+const MathUtils = {
+  clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),
+  round:(v,d=5)=>{ const p=Math.pow(10,d); return Math.round(v*p)/p; },
+  mean:(arr)=>arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : 0,
+  stdev:(arr)=>{ if(arr.length<2) return 0; const m=MathUtils.mean(arr); return Math.sqrt(MathUtils.mean(arr.map(v=>(v-m)**2))); }
+};
+const TimeUtils = {
+  hms:(ts)=>{ const d=new Date(ts); return d.toLocaleTimeString('en-GB',{hour12:false}); },
+  minuteBucket:(epochSec)=> Math.floor(epochSec/60)*60
+};
+const Logger = (()=>{
+  const lines=[];
+  const panel = ()=>document.getElementById('logPanel');
+  function push(level,msg){
+    const t = new Date().toLocaleTimeString('en-GB',{hour12:false});
+    lines.unshift({t,level,msg});
+    if(lines.length>200) lines.pop();
+    const p = panel();
+    if(p){
+      const div=document.createElement('div');
+      div.className='log-line '+level;
+      div.textContent = `[${t}] ${level} — ${msg}`;
+      p.prepend(div);
+      while(p.children.length>150) p.removeChild(p.lastChild);
+    }
+  }
+  return {
+    info:(m)=>push('INFO',m), debug:(m)=>push('DEBUG',m), warn:(m)=>push('WARNING',m),
+    error:(m)=>push('ERROR',m), trade:(m)=>push('TRADE',m), signal:(m)=>push('SIGNAL',m)
+  };
+})();
+
+/* ---------------------------------------------------------------------------
+   1. CONFIG / PERSISTENCE
+--------------------------------------------------------------------------- */
+const Config = (()=>{
+  const DEFAULTS = {
+    appId:'', patToken:'', accountType:'demo', accountId:'',
+    market:'1HZ100V', marketName:'Volatility 100 Index',
+    tickWindow:20, candleLookback:60,
+    minConfidence:75, minBarrierScore:65,
+    minTicks:5, maxTicks:10,
+    minBarrierDistPct:0.05, maxBarrierDistPct:0.60,
+    stake:1, maxTrades:20, maxConsecLosses:3, dailyLossLimit:50,
+    cooldownSec:3, cooldownLossSec:8,
+    paperMode:true, autoTrade:false,
+    soundOn:true, alertSignal:true, alertTrade:true, alertResult:true, alertConn:true, browserNotif:false,
+    weights:{candle:15,twoCandle:10,prevHL:15,micro:25,momentum:15,state:10,barrier:10},
+    // --- Adaptive Barrier Engine ---
+    adaptiveBarrier:true,
+    touchTargetProb:55,     // % — desired statistical probability the TOUCH barrier gets hit within the chosen duration
+    notouchTargetProb:20,   // % — desired statistical probability the NOTOUCH barrier gets hit (want this LOW)
+    adaptStepPct:3,         // % — how much the target probability nudges per win/loss feedback cycle
+    adaptSweepSteps:7       // number of candidate distances scanned between min/max barrier distance
+  };
+  let cfg = load();
+  function load(){
+    try{ const raw = localStorage.getItem('touchedge_config'); return raw? Object.assign({},DEFAULTS,JSON.parse(raw)) : Object.assign({},DEFAULTS); }
+    catch(e){ return Object.assign({},DEFAULTS); }
+  }
+  function save(){ try{ localStorage.setItem('touchedge_config', JSON.stringify(cfg)); }catch(e){} }
+  return {
+    get:(k)=> k? cfg[k] : cfg,
+    set:(k,v)=>{ cfg[k]=v; save(); },
+    setAll:(obj)=>{ cfg=Object.assign({},cfg,obj); save(); },
+    all:()=>cfg
+  };
+})();
+
+const Store = (()=>{
+  function save(key,val){ try{ localStorage.setItem('touchedge_'+key, JSON.stringify(val)); }catch(e){} }
+  function loadArr(key){ try{ const r=localStorage.getItem('touchedge_'+key); return r? JSON.parse(r):[]; }catch(e){ return []; } }
+  return { save, loadArr };
+})();
+
+/* ---------------------------------------------------------------------------
+   2. UI HELPERS / TOASTS / AUDIO
+--------------------------------------------------------------------------- */
+const AudioAlerts = (()=>{
+  let ctx=null;
+  function beep(freq=880,dur=0.12,type='sine',vol=0.18){
+    if(!Config.get('soundOn')) return;
+    try{
+      if(!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)();
+      const o=ctx.createOscillator(), g=ctx.createGain();
+      o.type=type; o.frequency.value=freq; g.gain.value=vol;
+      o.connect(g); g.connect(ctx.destination);
+      o.start(); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+dur);
+      o.stop(ctx.currentTime+dur+0.02);
+    }catch(e){}
+  }
+  return {
+    signal:()=>{ if(Config.get('alertSignal')){ beep(760,0.1); setTimeout(()=>beep(980,0.12),90); } },
+    tradeOpen:()=>{ if(Config.get('alertTrade')) beep(600,0.14,'square'); },
+    win:()=>{ if(Config.get('alertResult')){ beep(880,0.09); setTimeout(()=>beep(1180,0.14),90); } },
+    loss:()=>{ if(Config.get('alertResult')) beep(320,0.28,'sawtooth',0.15); },
+    connLost:()=>{ if(Config.get('alertConn')) beep(260,0.35,'square',0.15); },
+    connOk:()=>{ if(Config.get('alertConn')) beep(720,0.1); },
+    stop:()=>{ beep(440,0.3,'triangle'); }
+  };
+})();
+
+function toast(type, msg){
+  const wrap=document.getElementById('toastWrap');
+  const el=document.createElement('div');
+  el.className='toast '+type;
+  el.textContent=msg;
+  wrap.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),320); }, 3800);
+  if(Config.get('browserNotif') && 'Notification' in window && Notification.permission==='granted'){
+    try{ new Notification('TOUCHEDGE AI', {body:msg}); }catch(e){}
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   3. CONNECTION MANAGER
+   Handles both the public (unauthenticated) market-data WebSocket and the
+   OTP-authenticated trading WebSocket. Fully decoupled from UI components.
+--------------------------------------------------------------------------- */
+class ConnectionManager {
+  constructor(){
+    this.publicWs=null;
+    this.tradeWs=null;
+    this.publicConnected=false;
+    this.tradeConnected=false;
+    this.reqId=0;
+    this.pending=new Map();
+    this.handlers=new Map();      // msg_type -> [fn]
+    this.subs=new Map();          // key -> command (for resub on reconnect)
+    this.reconnectAttempts=0;
+    this.maxReconnectDelay=30000;
+    this.keepaliveTimer=null;
+    this.publicKeepaliveTimer=null;
+    this.watchdogDeadline=0;
+    this._connectingPublic=false;
+    this._connectingTrade=false;
+  }
+  nextId(){ return ++this.reqId; }
+  on(msgType, fn){
+    if(!this.handlers.has(msgType)) this.handlers.set(msgType,[]);
+    this.handlers.get(msgType).push(fn);
+  }
+  _route(data){
+    // Surface EVERY error unconditionally — previously errors on subscribe-type
+    // requests were silently swallowed because they weren't tracked in `pending`,
+    // which masked the root cause of the market-data pipeline going dark.
+    if(data.error){
+      Logger.error((data.msg_type||data.echo_req?.[Object.keys(data.echo_req||{})[0]]||'request')+' — '+data.error.code+': '+data.error.message);
+      toast('ERROR', (data.error.message||'Request failed'));
+    }
+    if(data.req_id && this.pending.has(data.req_id)){
+      const {resolve,reject}=this.pending.get(data.req_id);
+      this.pending.delete(data.req_id);
+      if(data.error) reject(new Error(data.error.code+': '+data.error.message));
+      else resolve(data);
+    }
+    if(data.msg_type && this.handlers.has(data.msg_type) && !data.error){
+      this.handlers.get(data.msg_type).forEach(fn=>{ try{ fn(data);}catch(e){ Logger.error('handler: '+e.message);} });
+    }
+  }
+
+  /* ---- PUBLIC (market data) socket ---- */
+  connectPublic(){
+    if(this._connectingPublic || (this.publicWs && this.publicWs.readyState===WebSocket.OPEN)) return;
+    this._connectingPublic=true;
+    try{
+      this.publicWs = new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');
+    }catch(e){ Logger.error('public ws init failed: '+e.message); this._connectingPublic=false; this._scheduleReconnectPublic(); return; }
+
+    this.publicWs.onopen = ()=>{
+      this._connectingPublic=false;
+      this.publicConnected=true;
+      this.reconnectAttempts=0;
+      Logger.info('Public market-data WebSocket connected');
+      updateConnStatus();
+      AudioAlerts.connOk();
+      // resubscribe
+      for(const [,cmd] of this.subs){ this._sendRaw(this.publicWs, cmd); }
+      this._startPublicKeepalive();
+    };
+    this.publicWs.onmessage = (ev)=>{
+      let data; try{ data=JSON.parse(ev.data); }catch(e){ Logger.warn('malformed public message'); return; }
+      this._route(data);
+    };
+    this.publicWs.onerror = ()=>{ /* handled by onclose */ };
+    this.publicWs.onclose = ()=>{
+      this._connectingPublic=false;
+      if(this.publicConnected){ Logger.warn('Public WebSocket disconnected'); AudioAlerts.connLost(); toast('WARNING','Connection lost — reconnecting…'); }
+      this.publicConnected=false;
+      this._stopPublicKeepalive();
+      updateConnStatus();
+      this._scheduleReconnectPublic();
+    };
+  }
+  _startPublicKeepalive(){
+    this._stopPublicKeepalive();
+    // Public socket has no account/balance context to ping with, so keep it alive
+    // with a harmless one-shot request every 25s — well under typical idle-timeout windows.
+    this.publicKeepaliveTimer = setInterval(()=>{
+      if(this.publicWs && this.publicWs.readyState===WebSocket.OPEN){
+        this.sendPublic({ ping:1 }).catch(()=>{
+          // Some gateways don't implement `ping` as a command — fall back to a
+          // lightweight, always-valid request so the socket still sees traffic.
+          this.sendPublic({ active_symbols:'brief' }).catch(()=>{});
+        });
+      }
+    }, 25000);
+  }
+  _stopPublicKeepalive(){ if(this.publicKeepaliveTimer){ clearInterval(this.publicKeepaliveTimer); this.publicKeepaliveTimer=null; } }
+  _scheduleReconnectPublic(){
+    const delay = Math.min(1000*Math.pow(2,this.reconnectAttempts), this.maxReconnectDelay);
+    this.reconnectAttempts++;
+    setTimeout(()=>this.connectPublic(), delay);
+  }
+  _sendRaw(ws,cmd){ try{ ws.send(JSON.stringify(cmd)); }catch(e){} }
+
+  sendPublic(cmd){
+    return new Promise((resolve,reject)=>{
+      if(!this.publicWs || this.publicWs.readyState!==WebSocket.OPEN){ reject(new Error('public socket not open')); return; }
+      const id=this.nextId();
+      const subKey = cmd.__subkey;
+      const cleanCmd = Object.assign({},cmd);
+      delete cleanCmd.__subkey; // internal-only bookkeeping field — must NEVER be sent over the wire
+      const msg=Object.assign({},cleanCmd,{req_id:id});
+      if(cmd.subscribe) this.subs.set(subKey || JSON.stringify(cleanCmd), msg);
+      else this.pending.set(id,{resolve,reject});
+      this._sendRaw(this.publicWs, msg);
+      if(cmd.subscribe) resolve(msg);
+    });
+  }
+  forgetAllPublic(type){
+    this.subs.forEach((v,k)=>{ if(v[type]!==undefined || (type==='ticks'&&v.ticks)) this.subs.delete(k); });
+    try{ this._sendRaw(this.publicWs, {forget_all:type, req_id:this.nextId()}); }catch(e){}
+  }
+
+  /* ---- TRADE (OTP-authenticated) socket ---- */
+  async connectTrade(){
+    const appId=Config.get('appId'), token=Config.get('patToken'), accountId=Config.get('accountId');
+    if(!appId || !token || !accountId){ throw new Error('Missing App ID, PAT token, or Account ID'); }
+    // Always fetch a fresh OTP immediately before connecting (OTPs expire ~120s)
+    const otpUrl = `https://api.derivws.com/trading/v1/options/accounts/${accountId}/otp`;
+    const res = await fetch(otpUrl,{ method:'POST', headers:{ 'Authorization':`Bearer ${token}`, 'Deriv-App-ID':appId } });
+    if(!res.ok){ const j=await res.json().catch(()=>({})); throw new Error('OTP request failed: '+(j.errors?.[0]?.message||res.status)); }
+    const { data } = await res.json();
+    const wsUrl = data.url;
+
+    return new Promise((resolve,reject)=>{
+      if(this.tradeWs){ try{ this.tradeWs.close(); }catch(e){} }
+      const ws = new WebSocket(wsUrl);
+      this.tradeWs = ws;
+      const to=setTimeout(()=>{ reject(new Error('trade socket connect timeout')); },10000);
+      ws.onopen = ()=>{
+        clearTimeout(to);
+        this.tradeConnected=true;
+        Logger.info('Authenticated trade WebSocket connected ('+Config.get('accountType')+')');
+        this._startKeepalive();
+        updateConnStatus();
+        resolve(ws);
+      };
+      ws.onmessage = (ev)=>{ let d; try{ d=JSON.parse(ev.data);}catch(e){return;} this._route(d); };
+      ws.onerror = ()=>{};
+      ws.onclose = ()=>{
+        clearTimeout(to);
+        this.tradeConnected=false;
+        this._stopKeepalive();
+        Logger.warn('Trade WebSocket closed');
+        updateConnStatus();
+      };
+    });
+  }
+  _startKeepalive(){
+    this._stopKeepalive();
+    // One-shot balance request every 30s — not a continuous subscription/ping frame
+    this.keepaliveTimer = setInterval(()=>{
+      if(this.tradeWs && this.tradeWs.readyState===WebSocket.OPEN){
+        this.sendTrade({balance:1}).catch(()=>{});
+      }
+    }, 30000);
+  }
+  _stopKeepalive(){ if(this.keepaliveTimer){ clearInterval(this.keepaliveTimer); this.keepaliveTimer=null; } }
+  sendTrade(cmd){
+    return new Promise((resolve,reject)=>{
+      if(!this.tradeWs || this.tradeWs.readyState!==WebSocket.OPEN){ reject(new Error('trade socket not open')); return; }
+      const id=this.nextId();
+      const msg=Object.assign({},cmd,{req_id:id});
+      this.pending.set(id,{resolve,reject});
+      this._sendRaw(this.tradeWs,msg);
+      // safety timeout so a dropped response can't hang a caller forever
+      setTimeout(()=>{ if(this.pending.has(id)){ this.pending.delete(id); reject(new Error('request timeout')); } }, 15000);
+    });
+  }
+  disconnectTrade(){
+    this._stopKeepalive();
+    if(this.tradeWs){ try{ this.tradeWs.close(); }catch(e){} }
+    this.tradeConnected=false;
+  }
+}
+const Conn = new ConnectionManager();
+
+function updateConnStatus(){
+  const dot=document.getElementById('connDot'), txt=document.getElementById('connText');
+  if(Conn.publicConnected){ dot.className='dot live'; txt.textContent = Conn.tradeConnected? 'LIVE LINK':'CONNECTED'; }
+  else{ dot.className='dot bad'; txt.textContent='OFFLINE'; }
+  const badge=document.getElementById('modeBadge');
+  badge.textContent = Config.get('paperMode') ? 'PAPER' : 'LIVE';
+  badge.className = 'paper-badge ' + (Config.get('paperMode') ? 'paper':'live');
+}
+
+/* ---------------------------------------------------------------------------
+   4. MARKET DATA ENGINE — ticks + rolling 1-minute candles
+--------------------------------------------------------------------------- */
+class MarketDataEngine {
+  constructor(){
+    this.symbol=null;
+    this.pipSize=0.01;
+    this.ticks=[];          // {q, epoch}
+    this.candles=[];        // completed candles
+    this.currentCandle=null;
+    this.spot=0;
+    this.tickSeq=0;         // monotonic counter — NEVER reset, used for dedup keys
+    this.onTickCallbacks=[];
+  }
+  reset(symbol,pipSize){
+    this.symbol=symbol; this.pipSize=pipSize||0.01;
+    this.ticks=[]; this.candles=[]; this.currentCandle=null; this.spot=0;
+  }
+  onTick(fn){ this.onTickCallbacks.push(fn); }
+  ingestTick(quote, epoch){
+    this.spot = quote;
+    this.tickSeq++;
+    this.ticks.push({q:quote, epoch, seq:this.tickSeq});
+    const maxTicks = Config.get('tickWindow')*15 || 300;
+    if(this.ticks.length> Math.max(500,maxTicks)) this.ticks.shift();
+
+    const bucket = TimeUtils.minuteBucket(epoch);
+    if(!this.currentCandle || this.currentCandle.t !== bucket){
+      if(this.currentCandle) this._finalizeCandle();
+      this.currentCandle = { t:bucket, o:quote, h:quote, l:quote, c:quote };
+    } else {
+      const cc=this.currentCandle;
+      cc.h=Math.max(cc.h,quote); cc.l=Math.min(cc.l,quote); cc.c=quote;
+    }
+    this.onTickCallbacks.forEach(fn=>{ try{ fn(quote,epoch,this.tickSeq); }catch(e){ Logger.error('tick cb: '+e.message);} });
+  }
+  _finalizeCandle(){
+    const cc=this.currentCandle;
+    const body=Math.abs(cc.c-cc.o), range=Math.max(cc.h-cc.l,1e-9);
+    const candle={
+      ...cc, direction: cc.c>cc.o?'BULL':(cc.c<cc.o?'BEAR':'FLAT'),
+      body, range, bodyRatio: body/range,
+      upperWick: cc.h-Math.max(cc.o,cc.c), lowerWick: Math.min(cc.o,cc.c)-cc.l
+    };
+    this.candles.push(candle);
+    const lb=Config.get('candleLookback')||60;
+    if(this.candles.length>lb) this.candles.shift();
+  }
+  seedHistory(candleArr){
+    this.candles = candleArr.map(c=>{
+      const body=Math.abs(c.c-c.o), range=Math.max(c.h-c.l,1e-9);
+      return {t:c.t,o:c.o,h:c.h,l:c.l,c:c.c, direction:c.c>c.o?'BULL':(c.c<c.o?'BEAR':'FLAT'),
+              body, range, bodyRatio: body/range, upperWick:c.h-Math.max(c.o,c.c), lowerWick:Math.min(c.o,c.c)-c.l};
+    });
+  }
+  recentTickWindow(n){ return this.ticks.slice(-n).map(t=>t.q); }
+  prevCandle(){ return this.candles.length? this.candles[this.candles.length-1] : null; }
+  prevCandle2(){ return this.candles.length>1? this.candles[this.candles.length-2] : null; }
+}
+const Market = new MarketDataEngine();
+
+/* ---------------------------------------------------------------------------
+   5. CANDLE / TWO-CANDLE ANALYZERS
+--------------------------------------------------------------------------- */
+const CandleAnalyzer = {
+  classify(candle, recentCandles){
+    if(!candle) return {label:'NEUTRAL', score:0};
+    const br = candle.bodyRatio;
+    const dir = candle.direction;
+    // relative range vs recent candles
+    const ranges = (recentCandles||[]).map(c=>c.range).filter(r=>r>0);
+    const avgRange = ranges.length? MathUtils.mean(ranges) : candle.range;
+    const relRange = candle.range / (avgRange||candle.range||1);
+
+    let strength = br * 60 + Math.min(relRange,2)*20; // 0..~140
+    strength = MathUtils.clamp(strength,0,100);
+
+    let label='NEUTRAL', score=0;
+    if(dir==='BULL'){
+      if(strength>=70){label='STRONG_BULLISH';score=90;}
+      else if(strength>=45){label='BULLISH';score=60;}
+      else {label='WEAK_BULLISH';score=25;}
+    } else if(dir==='BEAR'){
+      if(strength>=70){label='STRONG_BEARISH';score=-90;}
+      else if(strength>=45){label='BEARISH';score=-60;}
+      else {label='WEAK_BEARISH';score=-25;}
+    } else { label='NEUTRAL'; score=0; }
+    return {label, score, strength:Math.round(strength), bodyRatio:br, relRange:MathUtils.round(relRange,2)};
+  }
+};
+
+const TwoCandleEngine = {
+  analyze(c1,c2){ // c1 = previous candle, c2 = candle before it
+    if(!c1 || !c2) return {structure:'INSUFFICIENT_DATA', score:0};
+    const d1=c1.direction, d2=c2.direction;
+    let structure='CONFLICT', score=0;
+    if(d1==='BULL'&&d2==='BULL'){ structure='BULLISH_CONTINUATION'; score=45; }
+    else if(d1==='BEAR'&&d2==='BEAR'){ structure='BEARISH_CONTINUATION'; score=-45; }
+    else if(d1==='BULL'&&d2==='BEAR'){ structure='BULLISH_REVERSAL'; score=25; }
+    else if(d1==='BEAR'&&d2==='BULL'){ structure='BEARISH_REVERSAL'; score=-25; }
+    else { structure='FLAT_MIX'; score=0; }
+    const avgRange=(c1.range+c2.range)/2;
+    const latestVsPrev = c1.range/(c2.range||c1.range||1);
+    if(avgRange>0 && c1.range<avgRange*0.6 && c2.range<avgRange*0.6){ structure+= '_COMPRESSION'; score*=0.6; }
+    if(latestVsPrev>1.8){ structure+='_EXPANSION'; score*=1.15; }
+    return {structure, score:Math.round(MathUtils.clamp(score,-100,100)), latestVsPrev:MathUtils.round(latestVsPrev,2)};
+  }
+};
+
+/* ---------------------------------------------------------------------------
+   6. PREVIOUS HIGH/LOW REFERENCE SYSTEM
+--------------------------------------------------------------------------- */
+const PrevHLEngine = {
+  analyze(prevCandle, spot){
+    if(!prevCandle) return {high:null,low:null,mid:null,location:'UNKNOWN',score:0};
+    const high=prevCandle.h, low=prevCandle.l, mid=(high+low)/2;
+    const range=Math.max(high-low,1e-9);
+    const distHigh = high-spot, distLow = spot-low;
+    let location='MIDPOINT';
+    if(spot>high) location='ABOVE_HIGH';
+    else if(spot < low) location='BELOW_LOW';
+    else if(distHigh <= range*0.15) location='NEAR_HIGH';
+    else if(distLow <= range*0.15) location='NEAR_LOW';
+    else if(spot>mid) location='UPPER_HALF';
+    else location='LOWER_HALF';
+
+    let score=0;
+    if(location==='ABOVE_HIGH') score=55;
+    else if(location==='NEAR_HIGH') score=40;
+    else if(location==='UPPER_HALF') score=15;
+    else if(location==='MIDPOINT') score=0;
+    else if(location==='LOWER_HALF') score=-15;
+    else if(location==='NEAR_LOW') score=-40;
+    else if(location==='BELOW_LOW') score=-55;
+    return {high,low,mid,location,score,distHigh:MathUtils.round(distHigh),distLow:MathUtils.round(distLow)};
+  }
+};
+
+/* ---------------------------------------------------------------------------
+   7. MICRO TREND + MOMENTUM ENGINES
+--------------------------------------------------------------------------- */
+const MicroTrendEngine = {
+  analyze(ticks){ // array of prices, oldest->newest
+    if(ticks.length<4) return {label:'MICRO_NEUTRAL',score:0,upRatio:0.5,downRatio:0.5,consecUp:0,consecDown:0};
+    let up=0,down=0,consec=0,maxConsecUp=0,maxConsecDown=0,dirRun=0,lastDir=0;
+    for(let i=1;i<ticks.length;i++){
+      const d=ticks[i]-ticks[i-1];
+      if(d>0){ up++; dirRun = lastDir>0? dirRun+1:1; maxConsecUp=Math.max(maxConsecUp,dirRun); lastDir=1; }
+      else if(d<0){ down++; dirRun = lastDir<0? dirRun+1:1; maxConsecDown=Math.max(maxConsecDown,dirRun); lastDir=-1; }
+      else { dirRun=0; lastDir=0; }
+    }
+    const total=up+down || 1;
+    const upRatio=up/total, downRatio=down/total;
+    const slope = (ticks[ticks.length-1]-ticks[0]) / ticks.length;
+    const range = Math.max(...ticks)-Math.min(...ticks) || 1e-9;
+    const normSlope = slope/range;
+
+    let score = (upRatio-downRatio)*70 + MathUtils.clamp(normSlope*400,-30,30);
+    score = MathUtils.clamp(score,-100,100);
+    let label='MICRO_NEUTRAL';
+    if(score>=55) label='MICRO_STRONG_UP';
+    else if(score>=20) label='MICRO_UP';
+    else if(score<=-55) label='MICRO_STRONG_DOWN';
+    else if(score<=-20) label='MICRO_DOWN';
+    return {label, score:Math.round(score), upRatio:MathUtils.round(upRatio,2), downRatio:MathUtils.round(downRatio,2),
+             consecUp:maxConsecUp, consecDown:maxConsecDown, upTicks:up, downTicks:down};
+  }
+};
+
+const MomentumEngine = {
+  analyze(ticks){
+    if(ticks.length<3) return {momentum:0,score:0};
+    const n=ticks.length;
+    const momentum = (ticks[n-1]-ticks[0])/n;
+    const range = Math.max(...ticks)-Math.min(...ticks) || 1e-9;
+    const normalized = momentum/range;
+    const score = MathUtils.clamp(normalized*500,-100,100);
+    return {momentum:MathUtils.round(momentum,6), score:Math.round(score)};
+  }
+};
+
+/* ---------------------------------------------------------------------------
+   8. MARKET STATE ENGINE
+--------------------------------------------------------------------------- */
+const MarketStateEngine = {
+  classify({candleScore, twoCandleScore, microScore, momentumScore, prevHL, ticks}){
+    const signals=[candleScore,twoCandleScore,microScore,momentumScore];
+    const agree = signals.filter(s=>s>10).length;
+    const disagree = signals.filter(s=>s<-10).length;
+    const conflict = agree>0 && disagree>0 && Math.abs(agree-disagree)<=1;
+
+    const volatility = ticks.length>3 ? MathUtils.stdev(ticks)/ (MathUtils.mean(ticks)||1) : 0;
+    let state='RANGE';
+    if(conflict) state='CONFLICT';
+    else if(volatility>0.0015 && Math.abs(microScore)>40) state='EXPANSION';
+    else if(volatility<0.0002) state='COMPRESSION';
+    else if(microScore>=40 && momentumScore>=20) state='TREND_UP';
+    else if(microScore<=-40 && momentumScore<=-20) state='TREND_DOWN';
+    else if(candleScore<0 && microScore>30) state='REVERSAL_UP';
+    else if(candleScore>0 && microScore<-30) state='REVERSAL_DOWN';
+    else if(Math.abs(microScore)<15 && Math.abs(momentumScore)<15) state='RANGE';
+    else state='UNSTABLE';
+
+    const penalty = (state==='UNSTABLE'||state==='CONFLICT') ? -25 : (state==='UNKNOWN'?-40:0);
+    return {state, penalty, volatility:MathUtils.round(volatility,5)};
+  }
+};
+
+/* ---------------------------------------------------------------------------
+   9. BARRIER ENGINE — statistically-grounded, self-adaptive barrier selection
+   Deriv rejects barrier offsets with more than 3 decimal places, so every
+   distance/price produced here is rounded to BARRIER_DECIMALS from the start —
+   the displayed barrier always matches exactly what gets sent to the API.
+--------------------------------------------------------------------------- */
+const BARRIER_DECIMALS = 3;
+const roundBarrier = (v)=>MathUtils.round(v, BARRIER_DECIMALS);
+
+// Standard normal CDF (Abramowitz-Stegun approximation) — used to convert a
+// candidate barrier distance into an estimated probability of being touched
+// within N ticks, via the reflection principle for a driftless random walk.
+function normCDF(x){
+  const t = 1/(1+0.2316419*Math.abs(x));
+  const d = 0.3989423*Math.exp(-x*x/2);
+  let p = d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));
+  p = x>0 ? 1-p : p;
+  return p;
+}
+function estimateTouchProbability(distance, sigmaPerTick, durationTicks){
+  const spread = sigmaPerTick * Math.sqrt(Math.max(durationTicks,1));
+  if(spread<=0) return 0;
+  const z = distance/spread;
+  // P(barrier touched by T) ≈ 2*(1-Φ(z)) — reflection principle, zero-drift approx
+  return MathUtils.clamp(2*(1-normCDF(z)), 0, 1);
+}
+
+/* Self-adaptive state: one volatility estimate + one pair of target touch
+   probabilities (TOUCH / NOTOUCH) per market, persisted across sessions and
+   nudged by real trade outcomes so the bot's barrier placement improves with
+   experience instead of using a single static distance forever. */
+const AdaptiveBarrierEngine = (()=>{
+  let table = Store.loadArr('adaptivebarrier'); // [{market, sigma, touchTarget, notouchTarget}]
+  function stateFor(market){
+    let s = table.find(x=>x.market===market);
+    if(!s){
+      s = { market, sigma:0, touchTarget:Config.get('touchTargetProb')/100, notouchTarget:Config.get('notouchTargetProb')/100 };
+      table.push(s);
+    }
+    return s;
+  }
+  function persist(){ Store.save('adaptivebarrier', table); }
+  function updateVolatility(market, ticks){
+    if(ticks.length<3) return;
+    const s = stateFor(market);
+    const rel=[]; for(let i=1;i<ticks.length;i++){ if(ticks[i-1]>0) rel.push(Math.abs(ticks[i]-ticks[i-1])/ticks[i-1]); }
+    const instant = MathUtils.mean(rel) || 0;
+    // EMA smoothing — alpha fixed at a sensible default (0.15) for responsive-but-stable tracking
+    s.sigma = s.sigma>0 ? (s.sigma*0.85 + instant*0.15) : instant;
+    persist();
+  }
+  function targets(market){
+    const s=stateFor(market);
+    return { touchTarget:s.touchTarget, notouchTarget:s.notouchTarget, sigma:s.sigma };
+  }
+  function recordOutcome(market, contractType, won){
+    const s=stateFor(market);
+    const step = Config.get('adaptStepPct')/100;
+    if(contractType==='TOUCH'){
+      // Lost = barrier wasn't reached often enough -> raise target prob (favor closer barriers next time)
+      // Won  = mean-revert gently back toward the configured baseline
+      s.touchTarget = won
+        ? s.touchTarget + (Config.get('touchTargetProb')/100 - s.touchTarget)*0.2
+        : MathUtils.clamp(s.touchTarget + step, 0.30, 0.80);
+    } else {
+      // Lost = barrier got touched too often -> lower target prob (favor farther barriers next time)
+      // Won  = mean-revert gently back toward the configured baseline
+      s.notouchTarget = won
+        ? s.notouchTarget + (Config.get('notouchTargetProb')/100 - s.notouchTarget)*0.2
+        : MathUtils.clamp(s.notouchTarget - step, 0.05, 0.45);
+    }
+    persist();
+  }
+  function reset(market){
+    table = table.filter(x=>x.market!==market);
+    persist();
+  }
+  return { updateVolatility, targets, recordOutcome, reset };
+})();
+
+const BarrierEngine = {
+  // Sweep a range of candidate distances (not just a single static midpoint)
+  // so scoring has real variance to differentiate between — this is what
+  // fixes barrier scores permanently saturating at 100.
+  candidates(spot, prevHL){
+    const minPct=Config.get('minBarrierDistPct')/100, maxPct=Config.get('maxBarrierDistPct')/100;
+    const minD = spot*minPct, maxD = spot*maxPct;
+    const steps = MathUtils.clamp(Config.get('adaptSweepSteps')||7, 3, 15);
+    const list=[];
+    const mk=(dist,dir)=>({ distance: roundBarrier(dist), price: roundBarrier(dir==='UP'? spot+dist : spot-dist), dir });
+    for(let i=0;i<steps;i++){
+      const pct = minD + (maxD-minD)*(i/(steps-1));
+      list.push(mk(pct,'UP'), mk(pct,'DOWN'));
+    }
+    if(prevHL.high!=null){
+      const dHigh=Math.abs(prevHL.high-spot);
+      if(dHigh>=minD*0.5 && dHigh<=maxD*1.4) list.push(mk(dHigh,'UP'));
+    }
+    if(prevHL.low!=null){
+      const dLow=Math.abs(spot-prevHL.low);
+      if(dLow>=minD*0.5 && dLow<=maxD*1.4) list.push(mk(dLow,'DOWN'));
+    }
+    return {list, minD, maxD};
+  },
+  distanceLabel(dist,minD,maxD){
+    if(dist < minD*0.5) return 'TOO_CLOSE';
+    if(dist < minD) return 'CLOSE';
+    if(dist <= maxD) return 'VALID';
+    if(dist <= maxD*1.5) return 'FAR';
+    return 'TOO_FAR';
+  },
+  // Score a candidate for a SPECIFIC contract type by how close its estimated
+  // touch-probability sits to the current adaptive target for that type.
+  scoreFor(candidate, minD, maxD, contractType, durationTicks, ctx){
+    const label=this.distanceLabel(candidate.distance,minD,maxD);
+    let hardPenalty = 1;
+    if(label==='TOO_CLOSE'||label==='TOO_FAR') hardPenalty=0.2;
+    else if(label==='CLOSE'||label==='FAR') hardPenalty=0.65;
+
+    const sigmaPerTick = ctx.sigma>0 ? ctx.sigma*ctx.spot : Math.max(ctx.spot*0.0004, 1e-9);
+    const touchProb = estimateTouchProbability(candidate.distance, sigmaPerTick, durationTicks);
+    const target = contractType==='TOUCH' ? ctx.touchTarget : ctx.notouchTarget;
+    const probFit = 100 - MathUtils.clamp(Math.abs(touchProb-target)*220, 0, 100);
+
+    const alignBonus = (candidate.dir==='UP'? ctx.microScore : -ctx.microScore) * 0.15;
+    const volAdj = ctx.volatility>0.0018? -6 : 0;
+    const total = MathUtils.clamp((probFit*hardPenalty)*0.8 + 15 + alignBonus + volAdj, 0, 100);
+    return {score:Math.round(total), label, touchProb:Math.round(touchProb*100)};
+  }
+};
+
+/* ---------------------------------------------------------------------------
+   10. BIAS / DURATION / CONFIDENCE ENGINES
+--------------------------------------------------------------------------- */
+const BiasEngine = {
+  combine(parts, weights){
+    const w=weights;
+    const score = (parts.candle*w.candle + parts.twoCandle*w.twoCandle + parts.prevHL*w.prevHL +
+                   parts.micro*w.micro + parts.momentum*w.momentum + parts.state*w.state) / 100;
+    const clamped = MathUtils.clamp(score,-100,100);
+    let label='NEUTRAL';
+    if(clamped>=80) label='VERY_STRONG_BULLISH';
+    else if(clamped>=60) label='STRONG_BULLISH';
+    else if(clamped>=40) label='BULLISH';
+    else if(clamped<=-80) label='VERY_STRONG_BEARISH';
+    else if(clamped<=-60) label='STRONG_BEARISH';
+    else if(clamped<=-40) label='BEARISH';
+    return {score:Math.round(clamped), label};
+  }
+};
+
+const DurationEngine = {
+  choose(microScore, momentumScore, volatility){
+    const min=Config.get('minTicks'), max=Config.get('maxTicks');
+    const strength = (Math.abs(microScore)+Math.abs(momentumScore))/2;
+    let dur;
+    let reason;
+    if(strength>=65){ dur=min; reason='Very strong momentum — shorter duration captures the move efficiently.'; }
+    else if(strength>=35){ dur=Math.round((min+max)/2); reason='Moderate momentum — mid-range duration balances opportunity and risk.'; }
+    else { dur=max; reason='Slower movement — longer duration gives the barrier more time to be resolved.'; }
+    if(volatility>0.0018) { dur=Math.max(min,dur-1); reason+=' Elevated volatility trimmed duration slightly.'; }
+    dur = MathUtils.clamp(dur,min,max);
+    return {duration:dur, reason};
+  }
+};
+
+const ConfidenceEngine = {
+  compute(biasScore, barrierScore, stateOk, agreementCount){
+    let conf = Math.abs(biasScore)*0.55 + barrierScore*0.35 + agreementCount*2.5;
+    if(!stateOk) conf -= 20;
+    // Round FIRST, then grade off the rounded value — grading off the unrounded
+    // figure could show e.g. "60% / NONE" since 59.6 rounds to 60 but grades <60.
+    conf = Math.round(MathUtils.clamp(conf,0,100));
+    let grade='NONE';
+    if(conf>=85) grade='A+'; else if(conf>=78) grade='A'; else if(conf>=70) grade='B'; else if(conf>=60) grade='C';
+    return {confidence:conf, grade};
+  }
+};
+
+/* ---------------------------------------------------------------------------
+   11. DECISION ENGINE — fuses everything into a TradeSignal
+--------------------------------------------------------------------------- */
+let SIGNAL_COUNTER=0;
+const DecisionEngine = {
+  analyze(){
+    const prevC = Market.prevCandle(), prevC2 = Market.prevCandle2();
+    const spot = Market.spot;
+    const tickN = Config.get('tickWindow');
+    const recentTicks = Market.recentTickWindow(tickN);
+
+    if(!prevC || recentTicks.length<5 || !spot){
+      return this._noTrade('Insufficient market data — awaiting candles and ticks.', null);
+    }
+
+    const candle = CandleAnalyzer.classify(prevC, Market.candles.slice(-10));
+    const twoCandle = TwoCandleEngine.analyze(prevC, prevC2);
+    const prevHL = PrevHLEngine.analyze(prevC, spot);
+    const micro = MicroTrendEngine.analyze(recentTicks);
+    const momentum = MomentumEngine.analyze(recentTicks);
+    const marketState = MarketStateEngine.classify({
+      candleScore:candle.score, twoCandleScore:twoCandle.score, microScore:micro.score,
+      momentumScore:momentum.score, prevHL, ticks:recentTicks
+    });
+
+    const weights = Config.get('weights');
+    const bias = BiasEngine.combine({
+      candle:candle.score, twoCandle:twoCandle.score, prevHL:prevHL.score,
+      micro:micro.score, momentum:momentum.score, state:marketState.penalty
+    }, weights);
+
+    const stateOk = !(marketState.state==='UNSTABLE'||marketState.state==='CONFLICT'||marketState.state==='UNKNOWN');
+
+    // Duration is chosen BEFORE the barrier so barrier distance can be sized
+    // against the actual time window it has to be reached (statistically).
+    const { duration, reason:durReason } = DurationEngine.choose(micro.score, momentum.score, marketState.volatility);
+
+    // Feed the adaptive volatility estimator and pull current self-adaptive targets
+    const marketSym = Config.get('market');
+    if(Config.get('adaptiveBarrier')) AdaptiveBarrierEngine.updateVolatility(marketSym, recentTicks);
+    const adaptive = AdaptiveBarrierEngine.targets(marketSym);
+    const barrierCtx = {
+      spot, microScore:micro.score, volatility:marketState.volatility,
+      sigma: Config.get('adaptiveBarrier') ? adaptive.sigma : 0,
+      touchTarget: Config.get('adaptiveBarrier') ? adaptive.touchTarget : Config.get('touchTargetProb')/100,
+      notouchTarget: Config.get('adaptiveBarrier') ? adaptive.notouchTarget : Config.get('notouchTargetProb')/100
+    };
+
+    // Sweep candidate distances and independently score every one for BOTH
+    // contract types — this is what gives real, differentiated barrier scores
+    // instead of a single static "optimal" candidate saturating at 100.
+    const {list, minD, maxD} = BarrierEngine.candidates(spot, prevHL);
+    const touchScored = list.map(c=>Object.assign({},c,BarrierEngine.scoreFor(c,minD,maxD,'TOUCH',duration,barrierCtx))).sort((a,b)=>b.score-a.score);
+    const notouchScored = list.map(c=>Object.assign({},c,BarrierEngine.scoreFor(c,minD,maxD,'NOTOUCH',duration,barrierCtx))).sort((a,b)=>b.score-a.score);
+    const bestTouchBarrier = touchScored[0] || null;
+    const bestNotouchBarrier = notouchScored[0] || null;
+
+    // agreement count for confidence
+    const dirs=[candle.score,twoCandle.score,prevHL.score,micro.score,momentum.score];
+    const agreeSign = Math.sign(bias.score)||1;
+    const agreementCount = dirs.filter(d=>Math.sign(d)===agreeSign && d!==0).length;
+
+    // Contract comparison: best TOUCH candidate vs best NOTOUCH candidate
+    const candidates=[];
+    if(bestTouchBarrier){
+      const touchAligned = (bestTouchBarrier.dir==='UP' && bias.score>0) || (bestTouchBarrier.dir==='DOWN' && bias.score<0);
+      const touchConf = ConfidenceEngine.compute(touchAligned? bias.score : bias.score*0.4, bestTouchBarrier.score, stateOk, agreementCount);
+      candidates.push({type:'TOUCH', dir:bestTouchBarrier.dir, barrier:bestTouchBarrier, confidence:touchConf.confidence, grade:touchConf.grade});
+    }
+    if(bestNotouchBarrier){
+      const notouchAligned = (bestNotouchBarrier.dir==='UP' && bias.score<0) || (bestNotouchBarrier.dir==='DOWN' && bias.score>0);
+      const notouchConf = ConfidenceEngine.compute(notouchAligned? Math.abs(bias.score)*0.7 : bias.score*0.3, bestNotouchBarrier.score, stateOk, agreementCount);
+      candidates.push({type:'NOTOUCH', dir:bestNotouchBarrier.dir, barrier:bestNotouchBarrier, confidence:notouchConf.confidence, grade:notouchConf.grade});
+    }
+    candidates.sort((a,b)=>b.confidence-a.confidence);
+    const top = candidates[0];
+    const bestBarrier = top ? top.barrier : null;
+
+    const minConf=Config.get('minConfidence'), minBscore=Config.get('minBarrierScore');
+    const reasons=[], warnings=[];
+    let decision='NO_TRADE', noTradeReason=null;
+
+    if(!stateOk){ noTradeReason=`Market state unstable (${marketState.state}).`; warnings.push('Unstable/conflicting market state'); }
+    else if(!top || !bestBarrier){ noTradeReason='No acceptable barrier found within configured range.'; }
+    else if(top.confidence < minConf){ noTradeReason=`Confidence below threshold. Current: ${top.confidence}% — Required: ${minConf}%.`; }
+    else if(top.barrier.score < minBscore){ noTradeReason=`Barrier score below threshold. Current: ${top.barrier.score} — Required: ${minBscore}.`; }
+    else if((candle.score>15 && micro.score<-15) || (candle.score<-15 && micro.score>15)){
+      noTradeReason='Signal conflict: previous candle direction contradicts micro trend.'; warnings.push('Candle vs micro-trend conflict');
+    } else {
+      decision='TRADE';
+      reasons.push(`${micro.label.replace('MICRO_','').replace('_',' ')} micro trend`);
+      reasons.push(`${Math.round(micro.upRatio*100)}% directional tick pressure`);
+      reasons.push(`${candle.label.replace('_',' ')} previous candle`);
+      reasons.push(`Barrier distance within acceptable range (${bestBarrier.label}, ~${bestBarrier.touchProb}% estimated touch probability)`);
+      reasons.push(`${duration}-tick duration selected — ${durReason}`);
+      if(Config.get('adaptiveBarrier')) reasons.push(`Adaptive barrier targeting ${top.type==='TOUCH'?Math.round(barrierCtx.touchTarget*100):Math.round(barrierCtx.notouchTarget*100)}% touch probability (self-tuned from recent outcomes)`);
+      if(marketState.volatility>0.0015) warnings.push('Volatility elevated');
+      if(agreementCount<3) warnings.push('Partial signal agreement — monitor closely');
+    }
+
+    const signal={
+      id:'sig_'+(++SIGNAL_COUNTER)+'_'+Market.tickSeq,
+      tickSeq:Market.tickSeq,
+      market:Config.get('market'), marketName:Config.get('marketName'),
+      timestamp:Date.now(), spotPrice:spot,
+      previousHigh:prevHL.high, previousLow:prevHL.low, previousMid:prevHL.mid,
+      candleBias:candle.label, twoCandleBias:twoCandle.structure, microTrend:micro.label, marketState:marketState.state,
+      directionalBias:bias.score, biasLabel:bias.label,
+      contractType: decision==='TRADE'? top.type : (top? top.type : null),
+      direction: decision==='TRADE'? top.dir : (top? top.dir : null),
+      barrier: decision==='TRADE'? top.barrier.price : (top? top.barrier.price : null),
+      barrierDistance: decision==='TRADE'? top.barrier.distance : (top? top.barrier.distance : null),
+      barrierScore: decision==='TRADE'? top.barrier.score : (top? top.barrier.score : null),
+      durationTicks:duration, durationReason:durReason,
+      confidence: top? top.confidence : 0, grade: top? top.grade : 'NONE',
+      reasons, warnings, decision, noTradeReason,
+      factors:{candle,twoCandle,prevHL,micro,momentum,marketState},
+      staleAfterTickSeq: Market.tickSeq + 3 // signal lifetime = 3 ticks
+    };
+    return signal;
+  },
+  _noTrade(reason){
+    return {
+      id:'sig_'+(++SIGNAL_COUNTER), tickSeq:Market.tickSeq, market:Config.get('market'), marketName:Config.get('marketName'),
+      timestamp:Date.now(), spotPrice:Market.spot, candleBias:'NEUTRAL', twoCandleBias:'—', microTrend:'MICRO_NEUTRAL',
+      marketState:'UNKNOWN', directionalBias:0, biasLabel:'NEUTRAL', contractType:null, direction:null,
+      barrier:null, barrierDistance:null, barrierScore:null, durationTicks:null, confidence:0, grade:'NONE',
+      reasons:[], warnings:[], decision:'NO_TRADE', noTradeReason:reason, factors:null, staleAfterTickSeq:0
+    };
+  }
+};
+
+/* ---------------------------------------------------------------------------
+   12. TRADE VALIDATOR
+--------------------------------------------------------------------------- */
+const TradeValidator = {
+  validate(signal){
+    const errs=[];
+    if(!Conn.publicConnected) errs.push('Market feed disconnected');
+    if(!Config.get('paperMode') && !Conn.tradeConnected) errs.push('Live trade socket not connected');
+    if(!signal || signal.decision!=='TRADE') errs.push('No valid trade signal');
+    if(signal && Market.tickSeq > signal.staleAfterTickSeq) errs.push('Signal stale');
+    if(signal && !signal.barrier) errs.push('Invalid barrier');
+    if(signal && (signal.durationTicks < Config.get('minTicks') || signal.durationTicks > Config.get('maxTicks'))) errs.push('Invalid duration');
+    if(signal && signal.confidence < Config.get('minConfidence')) errs.push('Confidence dropped below threshold');
+    if(!Config.get('autoTrade')) errs.push('Auto-trade disabled');
+    return {valid:errs.length===0, errors:errs};
+  }
+};
+
+/* ---------------------------------------------------------------------------
+   13. RISK MANAGER + COOLDOWN
+--------------------------------------------------------------------------- */
+const RiskManager = (()=>{
+  let state = { tradesToday:0, consecLosses:0, dailyPnl:0, cooldownUntil:0, day: new Date().toDateString() };
+  function rollDay(){
+    const today=new Date().toDateString();
+    if(state.day!==today){ state={tradesToday:0,consecLosses:0,dailyPnl:0,cooldownUntil:0,day:today}; }
+  }
+  function canTrade(){
+    rollDay();
+    if(state.tradesToday >= Config.get('maxTrades')) return {ok:false, reason:'Max trades per session reached'};
+    if(state.consecLosses >= Config.get('maxConsecLosses')) return {ok:false, reason:'Max consecutive losses reached — bot paused'};
+    if(state.dailyPnl <= -Config.get('dailyLossLimit')) return {ok:false, reason:'Daily loss limit reached'};
+    if(Date.now() < state.cooldownUntil) return {ok:false, reason:'Cooldown active'};
+    return {ok:true};
+  }
+  function recordTrade(){ rollDay(); state.tradesToday++; }
+  function recordResult(pnl, won){
+    rollDay();
+    state.dailyPnl += pnl;
+    state.consecLosses = won? 0 : state.consecLosses+1;
+    const cd = won? Config.get('cooldownSec') : Config.get('cooldownLossSec');
+    state.cooldownUntil = Date.now() + cd*1000;
+  }
+  function reset(){ state={tradesToday:0,consecLosses:0,dailyPnl:0,cooldownUntil:0,day:new Date().toDateString()}; }
+  function getState(){ rollDay(); return state; }
+  return { canTrade, recordTrade, recordResult, reset, getState };
+})();
+
+/* ---------------------------------------------------------------------------
+   14. EXECUTION ENGINE (paper + live)
+   - Global trade mutex with Date.now() deadline watchdog (never a decrementing
+     counter) so it force-releases correctly even under mobile throttling.
+   - Paper settlement is tick-event driven — zero setInterval/setTimeout polling.
+--------------------------------------------------------------------------- */
+const ExecutionEngine = (()=>{
+  let mutexLocked=false, mutexDeadline=0;
+  const MUTEX_TIMEOUT_MS=15000;
+  const pendingPaper=[]; // {sig, entrySpot, entrySeq, targetSeq, high, low}
+  const lastExecutedSignalIds=new Set();
+  let consecutiveConnFailures=0, lastConnWarnAt=0;
+  const CONN_WARN_THROTTLE_MS=5000, MAX_CONSEC_CONN_FAILURES=5;
+
+  function lockMutex(){
+    if(mutexLocked && Date.now() < mutexDeadline) return false;
+    mutexLocked=true; mutexDeadline=Date.now()+MUTEX_TIMEOUT_MS;
+    updateMutexUI();
+    return true;
+  }
+  function unlockMutex(){ mutexLocked=false; updateMutexUI(); }
+  function updateMutexUI(){
+    const el=document.getElementById('rMutex'); if(!el) return;
+    el.textContent = mutexLocked? 'Locked' : 'Free';
+    el.style.color = mutexLocked? 'var(--warn)':'var(--txt)';
+  }
+  // Watchdog: check every tick (event-driven) whether mutex deadline passed
+  function watchdogCheck(){
+    if(mutexLocked && Date.now() >= mutexDeadline){
+      Logger.warn('Trade mutex force-released by watchdog (deadline exceeded)');
+      unlockMutex();
+    }
+  }
+
+  async function execute(signal){
+    if(lastExecutedSignalIds.has(signal.id)) return; // dedup by unique signal id
+
+    // Pre-flight connection guard, throttled and auto-disabling — prevents the
+    // error-spam + wasted-attempt loop seen when auto-trade is left ON in Live
+    // mode while the trade socket isn't connected yet.
+    if(!Config.get('paperMode') && !Conn.tradeConnected){
+      consecutiveConnFailures++;
+      const now=Date.now();
+      if(now-lastConnWarnAt > CONN_WARN_THROTTLE_MS){
+        lastConnWarnAt=now;
+        Logger.warn('Live trade socket not connected — auto-trade attempt blocked ('+consecutiveConnFailures+' consecutive)');
+        toast('WARNING','Live trade socket not connected — connect your account in Settings');
+      }
+      if(consecutiveConnFailures>=MAX_CONSEC_CONN_FAILURES){
+        Config.set('autoTrade', false);
+        const swAuto=document.getElementById('swAuto'); if(swAuto) swAuto.classList.remove('on');
+        Logger.error('Auto-trade auto-disabled after repeated connection failures — reconnect and re-enable manually');
+        toast('ERROR','Auto-trade disabled: live socket never connected. Reconnect in Settings, then re-enable.');
+        consecutiveConnFailures=0;
+      }
+      return; // no mutex lock, no risk-budget consumption — this was never a real attempt
+    }
+    consecutiveConnFailures=0;
+
+    if(!lockMutex()){ Logger.warn('Execution skipped — mutex locked'); return; }
+    lastExecutedSignalIds.add(signal.id);
+    if(lastExecutedSignalIds.size>500){ const first=lastExecutedSignalIds.values().next().value; lastExecutedSignalIds.delete(first); }
+
+    try{
+      const stake=Config.get('stake');
+      if(Config.get('paperMode')){
+        openPaperTrade(signal, stake); // records into RiskManager only on real open
+      } else {
+        await openLiveTrade(signal, stake); // records into RiskManager only after a confirmed buy
+      }
+    }catch(e){
+      Logger.error('Execution failed: '+e.message);
+      toast('ERROR','Trade execution failed: '+e.message);
+    } finally {
+      unlockMutex();
+    }
+  }
+
+  function openPaperTrade(signal, stake){
+    RiskManager.recordTrade();
+    const trade={
+      id:'trd_'+Date.now()+'_'+signal.tickSeq, signalId:signal.id, mode:'PAPER',
+      market:signal.marketName, marketSymbol:signal.market, contractType:signal.contractType, direction:signal.direction,
+      barrier:signal.barrier, duration:signal.durationTicks, stake, confidence:signal.confidence,
+      entrySpot:signal.spotPrice, entrySeq:Market.tickSeq, targetSeq:Market.tickSeq+signal.durationTicks,
+      timestamp:Date.now(), status:'OPEN', touched:false
+    };
+    pendingPaper.push(trade);
+    TradeStore.addOpen(trade);
+    Logger.trade(`PAPER ${trade.contractType} ${trade.direction} @ ${trade.barrier} · ${trade.duration}t · $${stake}`);
+    AudioAlerts.tradeOpen();
+    toast('TRADE',`Paper trade opened: ${trade.contractType} ${trade.direction} (${trade.confidence}%)`);
+  }
+
+  // Resolved synchronously inside onTick — never via setInterval (mobile throttling safe)
+  function onTickSettlement(quote, epoch, seq){
+    watchdogCheck();
+    if(!pendingPaper.length) return;
+    for(let i=pendingPaper.length-1;i>=0;i--){
+      const t=pendingPaper[i];
+      if(t.contractType==='TOUCH'){
+        const hit = t.direction==='UP'? quote>=t.barrier : quote<=t.barrier;
+        if(hit) t.touched=true;
+      } else { // NOTOUCH
+        const hit = t.direction==='UP'? quote>=t.barrier : quote<=t.barrier;
+        if(hit) t.touched=true;
+      }
+      if(seq >= t.targetSeq){
+        let won;
+        if(t.contractType==='TOUCH') won = t.touched;
+        else won = !t.touched;
+        settlePaper(t, won, quote);
+        pendingPaper.splice(i,1);
+      }
+    }
+  }
+
+  function settlePaper(trade, won, exitSpot){
+    const payoutMultiplier=0.85; // approximate MVP payout assumption
+    const pnl = won? MathUtils.round(trade.stake*payoutMultiplier,2) : -trade.stake;
+    trade.status='CLOSED'; trade.result= won? 'WIN':'LOSS'; trade.pnl=pnl; trade.exitSpot=exitSpot; trade.closedAt=Date.now();
+    RiskManager.recordResult(pnl, won);
+    if(Config.get('adaptiveBarrier')) AdaptiveBarrierEngine.recordOutcome(trade.marketSymbol||trade.market, trade.contractType, won);
+    TradeStore.close(trade);
+    won? AudioAlerts.win() : AudioAlerts.loss();
+    toast(won?'WIN':'LOSS', `${trade.contractType} ${trade.direction} → ${won?'WIN':'LOSS'} (${pnl>=0?'+':''}${pnl.toFixed(2)})`);
+    Logger.trade(`Settled ${trade.id}: ${trade.result} P/L ${pnl.toFixed(2)}`);
+    refreshRiskPanel(); refreshStats(); renderTradeTable();
+  }
+
+  async function openLiveTrade(signal, stake){
+    if(!Conn.tradeConnected){ throw new Error('Trade WebSocket not connected — connect account in Settings'); }
+    // Deriv rejects barrier offsets with more than 3 decimal places — always
+    // format to BARRIER_DECIMALS, matching what's shown on screen exactly.
+    const barrierOffset = (signal.direction==='UP'?'+':'-') + roundBarrier(Math.abs(signal.barrierDistance)).toFixed(BARRIER_DECIMALS);
+    const proposalReq = {
+      proposal:1, amount:stake, basis:'stake', contract_type: signal.contractType==='TOUCH'?'ONETOUCH':'NOTOUCH',
+      currency:'USD', duration:signal.durationTicks, duration_unit:'t',
+      barrier: barrierOffset, underlying_symbol: signal.market
+    };
+    const propRes = await Conn.sendTrade(proposalReq);
+    if(!propRes.proposal){ throw new Error('No proposal returned'); }
+    const proposalId=propRes.proposal.id;
+    const askPrice=Number(propRes.proposal.ask_price);
+
+    const buyRes = await Conn.sendTrade({ buy: proposalId, price: askPrice });
+    if(!buyRes.buy){ throw new Error('Buy failed'); }
+    const contractId = buyRes.buy.contract_id;
+    const buyPrice = Number(buyRes.buy.buy_price);
+
+    // Only counts against the daily trade budget once a contract is actually bought.
+    RiskManager.recordTrade();
+
+    const trade={
+      id:'trd_'+contractId, signalId:signal.id, mode:'LIVE', contractId,
+      market:signal.marketName, marketSymbol:signal.market, contractType:signal.contractType, direction:signal.direction,
+      barrier:signal.barrier, duration:signal.durationTicks, stake:buyPrice, confidence:signal.confidence,
+      entrySpot:signal.spotPrice, timestamp:Date.now(), status:'OPEN'
+    };
+    TradeStore.addOpen(trade);
+    Logger.trade(`LIVE ${trade.contractType} ${trade.direction} contract #${contractId} bought @ ${buyPrice}`);
+    AudioAlerts.tradeOpen();
+    toast('TRADE',`Live trade opened: ${trade.contractType} ${trade.direction}`);
+
+    // Event-driven monitoring via subscription — never polling
+    Conn.sendTrade({ proposal_open_contract:1, contract_id:contractId, subscribe:1 }).catch(e=>Logger.error(e.message));
+  }
+
+  // Handle live contract updates pushed by the authenticated socket
+  Conn.on('proposal_open_contract', (data)=>{
+    const c=data.proposal_open_contract;
+    if(!c || !c.is_sold) return;
+    const trade = TradeStore.findOpenByContractId(c.contract_id);
+    if(!trade) return;
+    const pnl = Number(c.profit);
+    const won = pnl>0;
+    trade.status='CLOSED'; trade.result=won?'WIN':'LOSS'; trade.pnl=MathUtils.round(pnl,2); trade.closedAt=Date.now();
+    RiskManager.recordResult(pnl, won);
+    if(Config.get('adaptiveBarrier')) AdaptiveBarrierEngine.recordOutcome(trade.marketSymbol||trade.market, trade.contractType, won);
+    TradeStore.close(trade);
+    won? AudioAlerts.win() : AudioAlerts.loss();
+    toast(won?'WIN':'LOSS', `LIVE ${trade.contractType} → ${won?'WIN':'LOSS'} (${pnl>=0?'+':''}${pnl.toFixed(2)})`);
+    refreshRiskPanel(); refreshStats(); renderTradeTable();
+  });
+
+  return { execute, onTickSettlement, lockMutex, unlockMutex, watchdogCheck };
+})();
+
+/* ---------------------------------------------------------------------------
+   15. STORES — signals + trades + stats (localStorage persisted)
+--------------------------------------------------------------------------- */
+const SignalStore = (()=>{
+  let list = Store.loadArr('signals');
+  function add(sig){ list.unshift(sig); if(list.length>300) list.pop(); Store.save('signals',list); }
+  function all(){ return list; }
+  function reset(){ list=[]; Store.save('signals',list); }
+  return {add, all, reset};
+})();
+
+const TradeStore = (()=>{
+  let list = Store.loadArr('trades');
+  function addOpen(t){ list.unshift(t); if(list.length>300) list.pop(); Store.save('trades',list); }
+  function findOpenByContractId(id){ return list.find(t=>t.contractId===id && t.status==='OPEN'); }
+  function close(t){ Store.save('trades',list); }
+  function all(){ return list; }
+  function reset(){ list=[]; Store.save('trades',list); }
+  return {addOpen, findOpenByContractId, close, all, reset};
+})();
+
+/* ---------------------------------------------------------------------------
+   16. UI RENDERING
+--------------------------------------------------------------------------- */
+function factorBadgeClass(score){ if(score>10) return 'b-up'; if(score<-10) return 'b-down'; return 'b-neu'; }
+
+function renderSignal(sig){
+  document.getElementById('dSpot').textContent = sig.spotPrice? MathUtils.round(sig.spotPrice,5) : '0.00000';
+  const biasEl=document.getElementById('biasValue');
+  biasEl.textContent = sig.biasLabel.replace(/_/g,' ');
+  biasEl.className='bias-value ' + (sig.directionalBias>10?'bull':(sig.directionalBias<-10?'bear':'neutral'));
+
+  document.getElementById('confValue').textContent = sig.decision==='TRADE'? sig.confidence+'%':'—';
+  const gradeEl=document.getElementById('confGrade');
+  const gradeClass = sig.grade==='A+'?'grade-Ap':sig.grade==='A'?'grade-A':sig.grade==='B'?'grade-B':sig.grade==='C'?'grade-C':'grade-NONE';
+  gradeEl.className='confidence-grade '+gradeClass;
+  gradeEl.textContent = sig.decision==='TRADE'? sig.grade+' SETUP' : 'NO TRADE';
+
+  const pickEl=document.getElementById('contractPick');
+  if(sig.decision==='TRADE'){
+    pickEl.className='contract-pick '+(sig.contractType==='TOUCH'?'touch':'notouch');
+    pickEl.textContent = `${sig.contractType} ${sig.direction==='UP'?'↑':'↓'}`;
+  } else { pickEl.className='contract-pick none'; pickEl.textContent='—'; }
+
+  document.getElementById('mBarrier').textContent = sig.barrier? MathUtils.round(sig.barrier,5) : '—';
+  document.getElementById('mDist').textContent = sig.barrierDistance!=null? MathUtils.round(sig.barrierDistance,5) : '—';
+  document.getElementById('mDur').textContent = sig.durationTicks? sig.durationTicks+' ticks' : '—';
+  document.getElementById('mBscore').textContent = sig.barrierScore!=null? sig.barrierScore+'/100' : '—';
+
+  const tag=document.getElementById('decisionTag');
+  tag.className='decision-tag '+(sig.decision==='TRADE'?'TRADE':'NOTRADE');
+  tag.textContent = sig.decision==='TRADE'?'TRADE ELIGIBLE':'NO TRADE';
+  document.getElementById('noTradeReason').textContent = sig.decision==='TRADE'? (sig.warnings.length? '⚠ '+sig.warnings.join(' · '):'') : (sig.noTradeReason||'');
+
+  document.getElementById('signalCard').className = 'signal-card'+(sig.decision==='TRADE'?' trade':'');
+
+  // factors panel
+  if(sig.factors){
+    const f=sig.factors;
+    const rows=[
+      ['Previous Candle', f.candle.label.replace(/_/g,' '), f.candle.score],
+      ['Two-Candle Structure', f.twoCandle.structure.replace(/_/g,' '), f.twoCandle.score],
+      ['Micro Trend', f.micro.label.replace('MICRO_','').replace('_',' '), f.micro.score],
+      ['Tick Momentum', f.momentum.score>0?'POSITIVE':(f.momentum.score<0?'NEGATIVE':'FLAT'), f.momentum.score],
+      ['Market State', f.marketState.state.replace(/_/g,' '), f.marketState.penalty],
+      ['Prev High Proximity', sig.factors.prevHL.location.replace(/_/g,' '), sig.factors.prevHL.score],
+      ['Barrier Score', (sig.barrierScore??'—')+'/100', sig.barrierScore-50||0]
+    ];
+    document.getElementById('factorsPanel').innerHTML = rows.map(r=>`
+      <div class="factor-row"><span class="label">${r[0]}</span><span class="factor-badge ${factorBadgeClass(r[2])}">${r[1]}</span></div>
+    `).join('');
+  }
+
+  // AI explanation
+  const explainEl=document.getElementById('aiExplain');
+  if(sig.decision==='TRADE'){
+    explainEl.innerHTML = `<b style="color:var(--accent)">${sig.contractType} ${sig.direction}</b> selected because:<br>`+
+      sig.reasons.map(r=>'+ '+r).join('<br>') +
+      (sig.warnings.length? '<br><br><span style="color:var(--warn)">Risk factors:</span><br>'+sig.warnings.map(w=>'– '+w).join('<br>') : '');
+  } else {
+    explainEl.innerHTML = `<b style="color:var(--txt-dim)">NO TRADE</b><br>${sig.noTradeReason||'Insufficient edge for a qualifying setup.'}`;
+  }
+
+  drawPriceMap(sig);
+}
+
+function renderTicks(){
+  const ticks=Market.ticks.slice(-20);
+  const strip=document.getElementById('tickStrip');
+  let up=0,down=0,html='';
+  for(let i=1;i<ticks.length;i++){
+    const d=ticks[i].q-ticks[i-1].q;
+    if(d>0){up++; html+='<span class="u">↑</span>';} else if(d<0){down++; html+='<span class="d">↓</span>';} else html+='<span>·</span>';
+  }
+  strip.innerHTML = html || '— — — — — — — — — —';
+  document.getElementById('upTicks').textContent=up;
+  document.getElementById('downTicks').textContent=down;
+  const total=up+down||1;
+  const strength=Math.round((Math.max(up,down)/total)*100);
+  document.getElementById('dirStrength').textContent=strength+'%';
+  document.getElementById('barUp').style.width=(up/total*100)+'%';
+  document.getElementById('barDown').style.width=(down/total*100)+'%';
+  document.getElementById('tickCountLbl').textContent = Market.ticks.length+' ticks buffered';
+}
+
+function drawPriceMap(sig){
+  const cvs=document.getElementById('priceMap');
+  const dpr=window.devicePixelRatio||1;
+  const w=cvs.clientWidth, h=cvs.clientHeight||220;
+  cvs.width=w*dpr; cvs.height=h*dpr;
+  const ctx=cvs.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  if(!sig.spotPrice) return;
+
+  const spot=sig.spotPrice;
+  const prevHigh=sig.previousHigh, prevLow=sig.previousLow, mid=sig.previousMid;
+  const barrier=sig.barrier;
+  let vals=[spot,prevHigh,prevLow,mid].filter(v=>v!=null);
+  if(barrier) vals.push(barrier);
+  if(vals.length<2) return;
+  const pad = (Math.max(...vals)-Math.min(...vals))*0.35 || spot*0.002;
+  const top=Math.max(...vals)+pad, bottom=Math.min(...vals)-pad;
+  const y = (v)=> h - ((v-bottom)/(top-bottom))*h;
+
+  const lines=[];
+  if(barrier) lines.push({v:barrier,label: sig.direction==='UP'?'UP BARRIER':'DOWN BARRIER', color: sig.contractType==='TOUCH'?'#00d1a0':'#4d9fff'});
+  if(prevHigh!=null) lines.push({v:prevHigh,label:'PREV HIGH',color:'#93a3b8'});
+  if(mid!=null) lines.push({v:mid,label:'PREV MID',color:'#5b6b80'});
+  if(prevLow!=null) lines.push({v:prevLow,label:'PREV LOW',color:'#93a3b8'});
+
+  ctx.font='9.5px monospace';
+  lines.forEach(l=>{
+    const yy=y(l.v);
+    ctx.strokeStyle=l.color; ctx.globalAlpha=0.7; ctx.setLineDash([4,3]); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(70,yy); ctx.lineTo(w-6,yy); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha=1; ctx.fillStyle=l.color;
+    ctx.fillText(l.label, 4, yy+3);
+    ctx.fillText(MathUtils.round(l.v,4), w-64, yy-3);
+  });
+  // spot line (solid, bright)
+  const sy=y(spot);
+  ctx.strokeStyle='#e7edf5'; ctx.lineWidth=2; ctx.globalAlpha=1;
+  ctx.beginPath(); ctx.moveTo(70,sy); ctx.lineTo(w-6,sy); ctx.stroke();
+  ctx.fillStyle='#e7edf5'; ctx.font='bold 10px monospace';
+  ctx.fillText('SPOT', 4, sy+3);
+  ctx.beginPath(); ctx.arc(w-14, sy, 4, 0, Math.PI*2); ctx.fillStyle='#00d1a0'; ctx.fill();
+}
+
+function renderSignalTable(){
+  const rows=SignalStore.all().slice(0,80);
+  document.getElementById('signalCountLbl').textContent=SignalStore.all().length;
+  const tb=document.getElementById('signalTable');
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="9"><div class="empty-state">No signals yet</div></td></tr>'; return; }
+  tb.innerHTML = rows.map(s=>`
+    <tr>
+      <td>${TimeUtils.hms(s.timestamp)}</td>
+      <td>${s.marketName||s.market}</td>
+      <td>${(s.biasLabel||'').replace(/_/g,' ')}</td>
+      <td>${s.contractType? s.contractType+' '+(s.direction||'') : '—'}</td>
+      <td>${s.barrier? MathUtils.round(s.barrier,4):'—'}</td>
+      <td>${s.durationTicks||'—'}</td>
+      <td>${s.confidence}%</td>
+      <td>${s.grade}</td>
+      <td><span class="tag ${s.decision==='TRADE'?'WIN':'NOTRADE'}">${s.decision}</span></td>
+    </tr>`).join('');
+}
+
+function renderTradeTable(){
+  const rows=TradeStore.all().slice(0,80);
+  document.getElementById('tradeCountLbl').textContent=TradeStore.all().length;
+  const tb=document.getElementById('tradeTable');
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="10"><div class="empty-state">No trades yet</div></td></tr>'; return; }
+  tb.innerHTML = rows.map(t=>`
+    <tr>
+      <td>${TimeUtils.hms(t.timestamp)}</td>
+      <td>${t.market}</td>
+      <td>${t.mode}</td>
+      <td>${t.contractType} ${t.direction}</td>
+      <td>${t.barrier? MathUtils.round(t.barrier,4):'—'}</td>
+      <td>${t.duration}</td>
+      <td>${(t.stake||0).toFixed(2)}</td>
+      <td>${t.confidence}%</td>
+      <td><span class="tag ${t.status==='OPEN'?'OPEN':t.result}">${t.status==='OPEN'?'OPEN':t.result}</span></td>
+      <td style="color:${(t.pnl||0)>=0?'var(--up)':'var(--down)'}">${t.pnl!=null? (t.pnl>=0?'+':'')+t.pnl.toFixed(2) : '—'}</td>
+    </tr>`).join('');
+}
+
+function refreshStats(){
+  const trades=TradeStore.all().filter(t=>t.status==='CLOSED');
+  const wins=trades.filter(t=>t.result==='WIN').length, losses=trades.filter(t=>t.result==='LOSS').length;
+  const net=trades.reduce((a,t)=>a+(t.pnl||0),0);
+  const wr = trades.length? Math.round(wins/trades.length*100):0;
+  document.getElementById('stSignals').textContent=SignalStore.all().length;
+  document.getElementById('stTrades').textContent=TradeStore.all().length;
+  document.getElementById('stWinRate').textContent=wr+'%';
+  document.getElementById('stWins').textContent=wins;
+  document.getElementById('stLosses').textContent=losses;
+  const netEl=document.getElementById('stNet'); netEl.textContent=net.toFixed(2); netEl.style.color = net>=0?'var(--up)':'var(--down)';
+
+  // analytics view
+  document.getElementById('aSignals').textContent=SignalStore.all().length;
+  document.getElementById('aTrades').textContent=TradeStore.all().length;
+  document.getElementById('aWinRate').textContent=wr+'%';
+  const sigConf = SignalStore.all().map(s=>s.confidence).filter(c=>c>0);
+  document.getElementById('aAvgConf').textContent = (sigConf.length? Math.round(MathUtils.mean(sigConf)):0)+'%';
+  const bscores = SignalStore.all().map(s=>s.barrierScore).filter(v=>v!=null);
+  document.getElementById('aAvgBscore').textContent = bscores.length? Math.round(MathUtils.mean(bscores)):0;
+  const durs = SignalStore.all().map(s=>s.durationTicks).filter(v=>v!=null);
+  document.getElementById('aAvgDur').textContent = (durs.length? MathUtils.round(MathUtils.mean(durs),1):0)+'t';
+
+  const byContract={};
+  trades.forEach(t=>{ const k=t.contractType+' '+t.direction; byContract[k]=byContract[k]||{w:0,l:0}; t.result==='WIN'?byContract[k].w++:byContract[k].l++; });
+  const bcEl=document.getElementById('analyticsByContract');
+  const bcKeys=Object.keys(byContract);
+  bcEl.innerHTML = bcKeys.length? bcKeys.map(k=>{ const v=byContract[k]; const tot=v.w+v.l; return `<div class="factor-row"><span class="label">${k}</span><span class="factor-badge ${v.w>=v.l?'b-up':'b-down'}">${v.w}W / ${v.l}L (${tot?Math.round(v.w/tot*100):0}%)</span></div>`; }).join('') : '<div class="empty-state">No data yet</div>';
+
+  const byState={};
+  SignalStore.all().forEach(s=>{ const k=s.marketState; if(!k) return; byState[k]=(byState[k]||0)+1; });
+  const bsEl=document.getElementById('analyticsByState');
+  const bsKeys=Object.keys(byState);
+  bsEl.innerHTML = bsKeys.length? bsKeys.map(k=>`<div class="factor-row"><span class="label">${k.replace(/_/g,' ')}</span><span class="factor-badge b-neu">${byState[k]}</span></div>`).join('') : '<div class="empty-state">No data yet</div>';
+}
+
+function refreshRiskPanel(){
+  const s=RiskManager.getState();
+  document.getElementById('rTrades').textContent=`${s.tradesToday} / ${Config.get('maxTrades')}`;
+  document.getElementById('rLosses').textContent=`${s.consecLosses} / ${Config.get('maxConsecLosses')}`;
+  const dEl=document.getElementById('rDaily'); dEl.textContent=s.dailyPnl.toFixed(2); dEl.style.color=s.dailyPnl>=0?'var(--up)':'var(--down)';
+  const remaining=Math.max(0, Math.ceil((s.cooldownUntil-Date.now())/1000));
+  document.getElementById('rCooldown').textContent = remaining>0? remaining+'s' : 'Ready';
+}
+setInterval(refreshRiskPanel, 1000); // UI-only clock tick, not used for trade logic/settlement
+
+/* ---------------------------------------------------------------------------
+   17. MARKET LIST / SELECTION
+--------------------------------------------------------------------------- */
+let availableMarkets=[];
+function loadMarketList(){
+  // NOTE: never include product_type in active_symbols requests — the gateway rejects it.
+  Conn.sendPublic({ active_symbols:'brief' }).catch(e=>Logger.warn('active_symbols failed: '+e.message));
+}
+Conn.on('active_symbols', (data)=>{
+  const syms=data.active_symbols||[];
+  availableMarkets = syms.filter(s=>{
+    const mkt=(s.market||'')+''; const sub=(s.submarket||s.subgroup||'')+'';
+    return /synthetic/i.test(mkt) || /volatility|boom|crash|step|jump/i.test(s.underlying_symbol_name||s.display_name||'');
+  }).map(s=>({
+    symbol: s.underlying_symbol || s.symbol || s.underlying || s.code,
+    name: s.underlying_symbol_name || s.display_name || s.underlying_symbol,
+    pip: s.pip_size || 0.01
+  })).filter(s=>s.symbol);
+  if(!availableMarkets.length){
+    availableMarkets = syms.map(s=>({symbol:s.underlying_symbol||s.symbol, name:s.underlying_symbol_name||s.display_name||s.underlying_symbol, pip:s.pip_size||0.01})).filter(s=>s.symbol);
+  }
+  renderMarketList();
+  if(!Config.get('market') && availableMarkets.length) selectMarket(availableMarkets[0]);
+  Logger.info(`Loaded ${availableMarkets.length} tradeable synthetic markets`);
+});
+
+function renderMarketList(filter){
+  const wrap=document.getElementById('marketList');
+  let list=availableMarkets;
+  if(filter) list=list.filter(m=>m.name.toLowerCase().includes(filter.toLowerCase())||m.symbol.toLowerCase().includes(filter.toLowerCase()));
+  if(!list.length){ wrap.innerHTML='<div class="empty-state">No markets found</div>'; return; }
+  wrap.innerHTML = list.map(m=>`
+    <div class="market-item ${m.symbol===Config.get('market')?'selected':''}" data-symbol="${m.symbol}">
+      <span class="mname">${m.name}</span><span class="mprice mono">${m.symbol}</span>
+    </div>`).join('');
+  wrap.querySelectorAll('.market-item').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const sym=el.getAttribute('data-symbol');
+      const m=availableMarkets.find(x=>x.symbol===sym);
+      if(m) selectMarket(m);
+    });
+  });
+}
+document.getElementById('marketSearch').addEventListener('input', (e)=>renderMarketList(e.target.value));
+
+function selectMarket(m){
+  // unsubscribe old
+  Conn.forgetAllPublic('ticks');
+  Config.set('market', m.symbol); Config.set('marketName', m.name);
+  Market.reset(m.symbol, m.pip);
+  document.getElementById('dMarketName').textContent=m.name;
+  renderMarketList();
+  subscribeToMarket(m.symbol);
+  Logger.info('Market selected: '+m.name+' ('+m.symbol+')');
+}
+
+function subscribeToMarket(symbol){
+  Conn.sendPublic({ ticks_history: symbol, count:120, end:'latest', style:'candles', granularity:60 }).then(res=>{
+    const rawCandles = res.candles || res.history?.candles;
+    if(rawCandles && rawCandles.length){
+      Market.seedHistory(rawCandles.map(c=>({
+        t: Number(c.epoch ?? c.time ?? c.t),
+        o: Number(c.open ?? c.o), h: Number(c.high ?? c.h), l: Number(c.low ?? c.l), c: Number(c.close ?? c.c)
+      })).filter(c=>isFinite(c.o)&&isFinite(c.h)&&isFinite(c.l)&&isFinite(c.c)));
+      Logger.info('Seeded '+rawCandles.length+' historical candles');
+    } else {
+      Logger.warn('No historical candle data returned — building candles live from ticks instead');
+    }
+  }).catch(e=>Logger.warn('candle history unavailable ('+e.message+') — building candles live from ticks instead'));
+
+  Conn.sendPublic({ ticks: symbol, subscribe:1, __subkey:'ticks_'+symbol }).catch(e=>Logger.error('tick sub failed: '+e.message));
+  Logger.info('Subscribed to live ticks for '+symbol);
+}
+
+Conn.on('tick', (data)=>{
+  const t=data.tick; if(!t) return;
+  const tSym = (t.symbol || t.underlying_symbol || '').toString().trim();
+  const wanted = (Config.get('market')||'').toString().trim();
+  if(tSym && wanted && tSym.toLowerCase() !== wanted.toLowerCase()) return;
+  const quote = Number(t.quote ?? t.price ?? t.value);
+  const epoch = Number(t.epoch ?? t.time ?? Math.floor(Date.now()/1000));
+  if(!isFinite(quote)) { Logger.warn('Received tick with unreadable quote: '+JSON.stringify(t)); return; }
+  Market.ingestTick(quote, epoch);
+});
+
+/* ---------------------------------------------------------------------------
+   18. MAIN ANALYSIS / TRADE LOOP (event-driven on every tick)
+--------------------------------------------------------------------------- */
+let lastSignal=null;
+let lastCommittedKey=null;
+Market.onTick((quote, epoch, seq)=>{
+  renderTicks();
+  document.getElementById('dSpot').textContent=MathUtils.round(quote,5);
+
+  const sig = DecisionEngine.analyze();
+  lastSignal = sig;
+  renderSignal(sig);
+
+  // Only commit/record a NEW signal (avoid flooding history every tick) when the
+  // decision materially changes or every few ticks while a TRADE stands.
+  const key = sig.decision+'_'+sig.contractType+'_'+sig.direction+'_'+sig.grade;
+  if(key !== lastCommittedKey){
+    lastCommittedKey=key;
+    SignalStore.add(sig);
+    renderSignalTable(); refreshStats();
+    if(sig.decision==='TRADE'){
+      AudioAlerts.signal();
+      toast('SIGNAL', `${sig.grade} setup: ${sig.contractType} ${sig.direction} (${sig.confidence}%)`);
+      Logger.signal(`${sig.contractType} ${sig.direction} conf=${sig.confidence}% grade=${sig.grade} bscore=${sig.barrierScore}`);
+    }
+  }
+
+  // Auto-trade path
+  if(sig.decision==='TRADE' && Config.get('autoTrade')){
+    const risk = RiskManager.canTrade();
+    const val = TradeValidator.validate(sig);
+    if(risk.ok && val.valid){
+      ExecutionEngine.execute(sig);
+    } else if(!risk.ok){
+      Logger.debug('Auto-trade blocked by risk manager: '+risk.reason);
+    }
+  }
+
+  // paper settlement — tick-event-driven, zero timers
+  ExecutionEngine.onTickSettlement(quote, epoch, seq);
+});
+
+/* ---------------------------------------------------------------------------
+   19. VIEW / NAV WIRING
+--------------------------------------------------------------------------- */
+document.querySelectorAll('#bottomnav .nav-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#bottomnav .nav-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    document.getElementById('view-'+btn.getAttribute('data-view')).classList.add('active');
+    if(btn.getAttribute('data-view')==='markets') renderMarketList();
+    if(btn.getAttribute('data-view')==='signals') renderSignalTable();
+    if(btn.getAttribute('data-view')==='trades') renderTradeTable();
+    if(btn.getAttribute('data-view')==='analytics') refreshStats();
+  });
+});
+
+/* ---------------------------------------------------------------------------
+   20. CONTROLS WIRING
+--------------------------------------------------------------------------- */
+function toggleSwitch(el, cfgKey, onChange){
+  el.addEventListener('click', ()=>{
+    const on = !el.classList.contains('on');
+    el.classList.toggle('on', on);
+    if(cfgKey) Config.set(cfgKey, on);
+    if(onChange) onChange(on);
+    updateConnStatus();
+  });
+}
+toggleSwitch(document.getElementById('swPaper'),'paperMode',(on)=>{ toast('WARNING', on?'Paper mode enabled':'⚠ LIVE MODE ENABLED — real funds at risk'); });
+toggleSwitch(document.getElementById('swAuto'),'autoTrade',(on)=>{ toast(on?'TRADE':'WARNING', 'Auto Trade '+(on?'ENABLED':'disabled')); });
+toggleSwitch(document.getElementById('swSound'),'soundOn');
+toggleSwitch(document.getElementById('swAlertSignal'),'alertSignal');
+toggleSwitch(document.getElementById('swAlertTrade'),'alertTrade');
+toggleSwitch(document.getElementById('swAlertResult'),'alertResult');
+toggleSwitch(document.getElementById('swAlertConn'),'alertConn');
+toggleSwitch(document.getElementById('swBrowserNotif'),'browserNotif',(on)=>{
+  if(on && 'Notification' in window && Notification.permission!=='granted'){ Notification.requestPermission(); }
+});
+toggleSwitch(document.getElementById('swAdaptiveBarrier'),'adaptiveBarrier',(on)=>{
+  toast('SIGNAL','Adaptive barrier placement '+(on?'enabled':'disabled — using static configured range'));
+});
+
+document.getElementById('btnResetAdaptive').addEventListener('click', ()=>{
+  const sym=Config.get('market');
+  if(!confirm('Reset the self-adaptive barrier state for '+ (Config.get('marketName')||sym) +'? It will restart from your baseline targets.')) return;
+  AdaptiveBarrierEngine.reset(sym);
+  updateAdaptiveReadout();
+  toast('WARNING','Adaptive barrier state reset for this market');
+});
+function updateAdaptiveReadout(){
+  const el=document.getElementById('adaptiveStateReadout'); if(!el) return;
+  const t=AdaptiveBarrierEngine.targets(Config.get('market'));
+  el.textContent = `σ=${(t.sigma*100).toFixed(3)}% · touch→${Math.round(t.touchTarget*100)}% · notouch→${Math.round(t.notouchTarget*100)}%`;
+}
+setInterval(updateAdaptiveReadout, 2000);
+
+document.getElementById('btnAnalyze').addEventListener('click', ()=>{
+  const sig=DecisionEngine.analyze(); lastSignal=sig; renderSignal(sig);
+  toast('SIGNAL','Manual analysis refreshed');
+});
+document.getElementById('btnManualTrade').addEventListener('click', ()=>{
+  if(!lastSignal || lastSignal.decision!=='TRADE'){ toast('WARNING','No valid trade-eligible signal right now'); return; }
+  const risk=RiskManager.canTrade();
+  if(!risk.ok){ toast('WARNING', risk.reason); return; }
+  ExecutionEngine.execute(lastSignal);
+});
+document.getElementById('btnStop').addEventListener('click', ()=>{
+  Config.set('autoTrade', false);
+  document.getElementById('swAuto').classList.remove('on');
+  AudioAlerts.stop();
+  toast('WARNING','BOT STOPPED — auto-trade disabled, history preserved');
+  Logger.warn('STOP BOT pressed — auto-trade halted');
+});
+
+/* ---------------------------------------------------------------------------
+   21. SETTINGS WIRING
+--------------------------------------------------------------------------- */
+function loadSettingsForm(){
+  const c=Config.all();
+  document.getElementById('cfgAppId').value=c.appId||'';
+  document.getElementById('cfgToken').value=c.patToken||'';
+  document.getElementById('cfgAccountType').value=c.accountType||'demo';
+  document.getElementById('cfgTickWindow').value=c.tickWindow;
+  document.getElementById('cfgCandleLookback').value=c.candleLookback;
+  document.getElementById('cfgMinConf').value=c.minConfidence;
+  document.getElementById('cfgMinBscore').value=c.minBarrierScore;
+  document.getElementById('cfgMinTicks').value=c.minTicks;
+  document.getElementById('cfgMaxTicks').value=c.maxTicks;
+  document.getElementById('cfgMinBarrierDist').value=c.minBarrierDistPct;
+  document.getElementById('cfgMaxBarrierDist').value=c.maxBarrierDistPct;
+  document.getElementById('cfgTouchTargetProb').value=c.touchTargetProb;
+  document.getElementById('cfgNotouchTargetProb').value=c.notouchTargetProb;
+  document.getElementById('cfgAdaptStep').value=c.adaptStepPct;
+  document.getElementById('cfgAdaptSweep').value=c.adaptSweepSteps;
+  document.getElementById('swAdaptiveBarrier').classList.toggle('on', c.adaptiveBarrier);
+  document.getElementById('cfgStake').value=c.stake;
+  document.getElementById('cfgMaxTrades').value=c.maxTrades;
+  document.getElementById('cfgMaxLosses').value=c.maxConsecLosses;
+  document.getElementById('cfgDailyLoss').value=c.dailyLossLimit;
+  document.getElementById('cfgCooldown').value=c.cooldownSec;
+  document.getElementById('cfgCooldownLoss').value=c.cooldownLossSec;
+  document.getElementById('wCandle').value=c.weights.candle;
+  document.getElementById('wTwoCandle').value=c.weights.twoCandle;
+  document.getElementById('wPrevHL').value=c.weights.prevHL;
+  document.getElementById('wMicro').value=c.weights.micro;
+  document.getElementById('wMomentum').value=c.weights.momentum;
+  document.getElementById('wState').value=c.weights.state;
+  document.getElementById('wBarrier').value=c.weights.barrier;
+  document.getElementById('swPaper').classList.toggle('on', c.paperMode);
+  document.getElementById('swAuto').classList.toggle('on', c.autoTrade);
+  document.getElementById('swSound').classList.toggle('on', c.soundOn);
+  document.getElementById('swAlertSignal').classList.toggle('on', c.alertSignal);
+  document.getElementById('swAlertTrade').classList.toggle('on', c.alertTrade);
+  document.getElementById('swAlertResult').classList.toggle('on', c.alertResult);
+  document.getElementById('swAlertConn').classList.toggle('on', c.alertConn);
+  document.getElementById('swBrowserNotif').classList.toggle('on', c.browserNotif);
+  updateWeightSum();
+}
+function updateWeightSum(){
+  const ids=['wCandle','wTwoCandle','wPrevHL','wMicro','wMomentum','wState','wBarrier'];
+  const sum=ids.reduce((a,id)=>a+(Number(document.getElementById(id).value)||0),0);
+  const hint=document.getElementById('weightSumHint');
+  hint.textContent='Total: '+sum+'%'; hint.style.color = sum===100? 'var(--txt-faint)':'var(--warn)';
+}
+['wCandle','wTwoCandle','wPrevHL','wMicro','wMomentum','wState','wBarrier'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', updateWeightSum);
+});
+
+document.getElementById('btnFetchAccounts').addEventListener('click', async ()=>{
+  const appId=document.getElementById('cfgAppId').value.trim();
+  const token=document.getElementById('cfgToken').value.trim();
+  if(!appId||!token){ toast('WARNING','Enter App ID and PAT token first'); return; }
+  try{
+    const res=await fetch('https://api.derivws.com/trading/v1/options/accounts', { headers:{ 'Authorization':`Bearer ${token}`, 'Deriv-App-ID':appId } });
+    if(!res.ok){ const j=await res.json().catch(()=>({})); throw new Error(j.errors?.[0]?.message||('HTTP '+res.status)); }
+    const { data } = await res.json();
+    const sel=document.getElementById('cfgAccountId');
+    sel.innerHTML = data.map(a=>`<option value="${a.account_id}">${a.account_id} — ${a.account_type} — ${a.balance} ${a.currency}</option>`).join('');
+    toast('SIGNAL', `Loaded ${data.length} account(s)`);
+    Logger.info('Fetched '+data.length+' Deriv accounts');
+  }catch(e){ toast('ERROR','Account fetch failed: '+e.message); Logger.error('accounts fetch: '+e.message); }
+});
+
+document.getElementById('btnSaveConn').addEventListener('click', async ()=>{
+  const appId=document.getElementById('cfgAppId').value.trim();
+  const token=document.getElementById('cfgToken').value.trim();
+  const accountType=document.getElementById('cfgAccountType').value;
+  const accountId=document.getElementById('cfgAccountId').value;
+  Config.setAll({appId, patToken:token, accountType, accountId});
+  if(!accountId){ toast('WARNING','Fetch and select an account before connecting'); return; }
+  try{
+    await Conn.connectTrade();
+    toast('TRADE','Authenticated trade connection established');
+  }catch(e){ toast('ERROR','Connection failed: '+e.message); Logger.error('trade connect: '+e.message); }
+});
+
+document.getElementById('btnSaveSettings').addEventListener('click', ()=>{
+  Config.setAll({
+    tickWindow:+document.getElementById('cfgTickWindow').value,
+    candleLookback:+document.getElementById('cfgCandleLookback').value,
+    minConfidence:+document.getElementById('cfgMinConf').value,
+    minBarrierScore:+document.getElementById('cfgMinBscore').value,
+    minTicks:+document.getElementById('cfgMinTicks').value,
+    maxTicks:+document.getElementById('cfgMaxTicks').value,
+    minBarrierDistPct:+document.getElementById('cfgMinBarrierDist').value,
+    maxBarrierDistPct:+document.getElementById('cfgMaxBarrierDist').value,
+    adaptiveBarrier: document.getElementById('swAdaptiveBarrier').classList.contains('on'),
+    touchTargetProb:+document.getElementById('cfgTouchTargetProb').value,
+    notouchTargetProb:+document.getElementById('cfgNotouchTargetProb').value,
+    adaptStepPct:+document.getElementById('cfgAdaptStep').value,
+    adaptSweepSteps:+document.getElementById('cfgAdaptSweep').value,
+    stake:+document.getElementById('cfgStake').value,
+    maxTrades:+document.getElementById('cfgMaxTrades').value,
+    maxConsecLosses:+document.getElementById('cfgMaxLosses').value,
+    dailyLossLimit:+document.getElementById('cfgDailyLoss').value,
+    cooldownSec:+document.getElementById('cfgCooldown').value,
+    cooldownLossSec:+document.getElementById('cfgCooldownLoss').value,
+    weights:{
+      candle:+document.getElementById('wCandle').value, twoCandle:+document.getElementById('wTwoCandle').value,
+      prevHL:+document.getElementById('wPrevHL').value, micro:+document.getElementById('wMicro').value,
+      momentum:+document.getElementById('wMomentum').value, state:+document.getElementById('wState').value,
+      barrier:+document.getElementById('wBarrier').value
+    }
+  });
+  refreshRiskPanel();
+  toast('TRADE','Settings saved');
+  Logger.info('Settings updated');
+});
+document.getElementById('btnResetStats').addEventListener('click', ()=>{
+  if(!confirm('Reset all signal history, trade history and statistics?')) return;
+  SignalStore.reset(); TradeStore.reset(); RiskManager.reset();
+  renderSignalTable(); renderTradeTable(); refreshStats(); refreshRiskPanel();
+  toast('WARNING','All statistics reset');
+});
+
+/* ---------------------------------------------------------------------------
+   22. BOOTSTRAP — auto-restart friendly startup
+--------------------------------------------------------------------------- */
+function boot(){
+  loadSettingsForm();
+  updateConnStatus();
+  refreshRiskPanel();
+  renderSignalTable();
+  renderTradeTable();
+  refreshStats();
+  Logger.info('TOUCHEDGE AI initializing…');
+  Conn.connectPublic();
+  const waitFeed = setInterval(()=>{
+    if(Conn.publicConnected){
+      clearInterval(waitFeed);
+      loadMarketList();
+      const m={symbol:Config.get('market'), name:Config.get('marketName'), pip:0.01};
+      document.getElementById('dMarketName').textContent=m.name;
+      subscribeToMarket(m.symbol);
+    }
+  }, 400);
+
+  // Visibility-based resume: mobile browsers throttle background tabs, so on
+  // returning to foreground we proactively verify connection health.
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState==='visible'){
+      if(!Conn.publicConnected) Conn.connectPublic();
+      ExecutionEngine.watchdogCheck();
+    }
+  });
+}
+window.addEventListener('DOMContentLoaded', boot);
+</script>
+</body>
+</html>

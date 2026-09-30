@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PENTASTRIKE · Digit Matches Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0c0a10;
+  --panel:#151220;
+  --panel2:#1b1729;
+  --line:#2a2438;
+  --violet:#8b5cf6;
+  --violet-dim:#5b3fa3;
+  --amber:#f5a623;
+  --green:#3ddc97;
+  --red:#ff5470;
+  --text:#e9e4f5;
+  --sub:#8f88a8;
+  --mono:'JetBrains Mono',monospace;
+  --disp:'Space Grotesk',sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--disp);overflow-x:hidden;}
+body{padding-bottom:78px;min-height:100vh;}
+input,select,button{font-family:inherit;-webkit-appearance:none;appearance:none;font-size:16px;}
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+
+/* HEADER */
+.topbar{position:sticky;top:0;z-index:50;background:linear-gradient(180deg,#131020,#0c0a10 90%);border-bottom:1px solid var(--line);padding:14px 16px 12px;}
+.brand{display:flex;align-items:center;justify-content:space-between;}
+.brand-name{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.02em;display:flex;align-items:center;gap:8px;}
+.brand-name .dot{width:8px;height:8px;border-radius:50%;background:var(--violet);box-shadow:0 0 8px var(--violet);}
+.brand-sub{font-size:10.5px;color:var(--sub);letter-spacing:.03em;margin-top:2px;font-family:var(--mono);}
+.status-pill{font-family:var(--mono);font-size:11px;padding:5px 10px;border-radius:20px;border:1px solid var(--line);display:flex;align-items:center;gap:6px;}
+.status-pill.off{color:var(--sub);}
+.status-pill.on{color:var(--green);border-color:rgba(61,220,151,.3);background:rgba(61,220,151,.07);}
+.status-pill .blink{width:6px;height:6px;border-radius:50%;background:currentColor;}
+.status-pill.on .blink{animation:pulse 1.4s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.25;}}
+
+/* TABS */
+.tabs{display:flex;gap:2px;padding:10px 12px 0;background:var(--bg);position:sticky;top:64px;z-index:40;border-bottom:1px solid var(--line);}
+.tab{flex:1;text-align:center;padding:10px 4px;font-size:12px;font-weight:600;color:var(--sub);border-bottom:2px solid transparent;cursor:pointer;letter-spacing:.02em;}
+.tab.active{color:var(--violet);border-color:var(--violet);}
+
+.view{display:none;padding:14px 14px 6px;}
+.view.active{display:block;}
+
+/* CARD */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px;}
+.card-title{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--sub);margin-bottom:10px;font-weight:600;}
+.row{display:flex;gap:10px;}
+.row>*{flex:1;}
+.field{margin-bottom:10px;}
+.field label{display:block;font-size:11.5px;color:var(--sub);margin-bottom:5px;}
+.field input,.field select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 11px;color:var(--text);font-family:var(--mono);font-size:14px;}
+.field input:focus,.field select:focus{outline:none;border-color:var(--violet);}
+
+/* SWITCH */
+.switchrow{display:flex;align-items:center;justify-content:space-between;padding:8px 2px;}
+.switchrow .lbl{font-size:13px;}
+.switchrow .lbl small{display:block;color:var(--sub);font-size:10.5px;margin-top:1px;}
+.sw{position:relative;width:44px;height:25px;border-radius:20px;background:var(--panel2);border:1px solid var(--line);cursor:pointer;flex-shrink:0;}
+.sw.on{background:var(--violet-dim);border-color:var(--violet);}
+.sw::after{content:'';position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:#c9c2e0;transition:transform .15s;}
+.sw.on::after{transform:translateX(19px);background:#fff;}
+
+.segrow{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:3px;gap:3px;}
+.seg{flex:1;text-align:center;padding:8px 4px;font-size:12.5px;border-radius:6px;color:var(--sub);cursor:pointer;font-weight:600;}
+.seg.active{background:var(--violet);color:#fff;}
+
+/* BIG NUM DISPLAY */
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+.stat-box{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;}
+.stat-box .k{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
+.stat-box .v{font-family:var(--mono);font-size:20px;font-weight:700;}
+.v.pos{color:var(--green);}
+.v.neg{color:var(--red);}
+.v.amber{color:var(--amber);}
+
+/* DIGIT DISPLAY */
+.digitline{display:flex;gap:5px;overflow-x:auto;padding:8px 2px;}
+.digitline::-webkit-scrollbar{display:none;}
+.dchip{min-width:30px;height:30px;border-radius:8px;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:600;color:var(--sub);flex-shrink:0;}
+.dchip.target{background:var(--violet);color:#fff;border-color:var(--violet);box-shadow:0 0 10px rgba(139,92,246,.5);}
+
+.targets-wrap{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+.target-pill{background:rgba(139,92,246,.12);border:1px solid var(--violet-dim);border-radius:10px;padding:8px 12px;font-family:var(--mono);font-size:13px;display:flex;align-items:center;gap:8px;}
+.target-pill .n{font-size:17px;font-weight:800;color:var(--violet);}
+.target-pill .f{font-size:10px;color:var(--sub);}
+
+/* BUTTON */
+.btn{width:100%;padding:14px;border-radius:12px;border:none;font-weight:700;font-size:14.5px;letter-spacing:.01em;cursor:pointer;font-family:var(--disp);}
+.btn-primary{background:linear-gradient(135deg,var(--violet),#6d3fd4);color:#fff;}
+.btn-danger{background:var(--red);color:#fff;}
+.btn-ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line);}
+.btn:disabled{opacity:.4;}
+.btn-row{display:flex;gap:10px;}
+
+/* LOG */
+.logitem{display:flex;justify-content:space-between;align-items:center;padding:9px 4px;border-bottom:1px solid var(--line);font-size:12.5px;}
+.logitem:last-child{border-bottom:none;}
+.logitem .left{display:flex;flex-direction:column;}
+.logitem .contract{font-family:var(--mono);font-weight:600;}
+.logitem .time{color:var(--sub);font-size:10.5px;margin-top:1px;}
+.logitem .pnl{font-family:var(--mono);font-weight:700;font-size:13.5px;}
+.badge{display:inline-block;padding:2px 7px;border-radius:6px;font-size:10px;font-weight:700;margin-left:6px;}
+.badge.win{background:rgba(61,220,151,.15);color:var(--green);}
+.badge.loss{background:rgba(255,84,112,.15);color:var(--red);}
+.badge.open{background:rgba(245,166,35,.15);color:var(--amber);}
+
+/* BOTTOM NAV */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;background:#100e18;border-top:1px solid var(--line);display:flex;z-index:60;padding:6px 4px calc(6px + env(safe-area-inset-bottom));}
+.navitem{flex:1;text-align:center;padding:8px 2px;font-size:10.5px;color:var(--sub);cursor:pointer;}
+.navitem.active{color:var(--violet);}
+.navitem .ico{font-size:18px;display:block;margin-bottom:2px;}
+
+/* TOAST */
+.toast-wrap{position:fixed;top:70px;left:12px;right:12px;z-index:100;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+.toast{background:var(--panel2);border:1px solid var(--violet);border-radius:10px;padding:11px 14px;font-size:12.5px;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:slidein .2s ease;}
+.toast.win{border-color:var(--green);}
+.toast.loss{border-color:var(--red);}
+@keyframes slidein{from{transform:translateY(-10px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+
+.hint{font-size:11px;color:var(--sub);line-height:1.5;margin-top:6px;}
+.section-gap{height:8px;}
+textarea{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px;color:var(--text);font-family:var(--mono);font-size:12px;min-height:70px;}
+
+.locked-overlay{opacity:.5;pointer-events:none;}
+</style>
+</head>
+<body>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<div class="topbar">
+  <div class="brand">
+    <div>
+      <div class="brand-name"><span class="dot"></span>PENTASTRIKE</div>
+      <div class="brand-sub">DIGIT MATCHES · MULTI-STRIKE ENGINE</div>
+    </div>
+    <div class="status-pill off" id="connPill"><span class="blink"></span><span id="connText">Offline</span></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-view="trade">Trade</div>
+  <div class="tab" data-view="config">Setup</div>
+  <div class="tab" data-view="log">Log</div>
+  <div class="tab" data-view="account">Account</div>
+</div>
+
+<!-- TRADE VIEW -->
+<div class="view active" id="view-trade">
+
+  <div class="card">
+    <div class="card-title">Cycle P&amp;L</div>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="k">Cycle P&amp;L</div><div class="v" id="cyclePnl">$0.00</div></div>
+      <div class="stat-box"><div class="k">Lifetime P&amp;L</div><div class="v" id="lifePnl">$0.00</div></div>
+      <div class="stat-box"><div class="k">Balance</div><div class="v amber" id="balDisp">—</div></div>
+      <div class="stat-box"><div class="k">Win Rate</div><div class="v" id="winRate">0%</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Live Digit Stream — <span id="symLabel">1HZ100V</span></div>
+    <div class="digitline" id="digitLine"></div>
+    <div class="hint">Last <span id="rangeLabel">120</span> ticks analyzed. Threshold digit: <b id="threshLabel">5</b>, mode: <b id="modeLabel">Above</b></div>
+    <div class="targets-wrap" id="targetsWrap"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Engine Control</div>
+    <div class="switchrow">
+      <div class="lbl">Auto-Trade Engine<small>Fires proposals when targets are locked</small></div>
+      <div class="sw" id="swEngine"></div>
+    </div>
+    <div class="switchrow">
+      <div class="lbl">Auto-Restart on TP<small>Banks cycle P&amp;L, resets, resumes</small></div>
+      <div class="sw on" id="swAutoRestart"></div>
+    </div>
+    <div class="section-gap"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnStart">Start Engine</button>
+      <button class="btn btn-danger" id="btnStop" disabled>Stop</button>
+    </div>
+  </div>
+
+  <div class="card" id="hardStopCard" style="display:none;border-color:var(--red);">
+    <div class="card-title" style="color:var(--red);">⚠ Hard Stop Triggered</div>
+    <div id="hardStopMsg" style="font-size:13px;margin-bottom:10px;"></div>
+    <button class="btn btn-ghost" id="btnAckStop">Acknowledge &amp; Reset</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Open Contracts</div>
+    <div id="openList"><div class="hint">No open contracts.</div></div>
+  </div>
+</div>
+
+<!-- CONFIG VIEW -->
+<div class="view" id="view-config">
+
+  <div class="card">
+    <div class="card-title">Connection</div>
+    <div class="field"><label>App ID</label><input id="cfgAppId" placeholder="341uWsua7737UovLkFhIP"></div>
+    <div class="field"><label>Personal Access Token (PAT)</label><input id="cfgPat" type="password" placeholder="pat_xxxxxxxxxxxx"></div>
+    <div class="field"><label>Account ID</label>
+      <select id="cfgAccountId"><option value="">Connect first to load accounts</option></select>
+    </div>
+    <button class="btn btn-ghost" id="btnConnect">Connect</button>
+    <div class="hint" id="connHint"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Symbol &amp; Sample</div>
+    <div class="field"><label>Symbol</label>
+      <select id="cfgSymbol">
+        <option value="1HZ100V">Volatility 100 (1s) Index</option>
+        <option value="1HZ75V">Volatility 75 (1s) Index</option>
+        <option value="1HZ50V">Volatility 50 (1s) Index</option>
+        <option value="1HZ25V">Volatility 25 (1s) Index</option>
+        <option value="1HZ10V">Volatility 10 (1s) Index</option>
+        <option value="R_100">Volatility 100 Index</option>
+        <option value="R_75">Volatility 75 Index</option>
+        <option value="R_50">Volatility 50 Index</option>
+      </select>
+    </div>
+    <div class="field"><label>Sample Range (10–500 ticks)</label>
+      <input type="number" id="cfgRange" min="10" max="500" value="120">
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Target Digit Logic</div>
+    <div class="field"><label>Threshold Digit</label>
+      <div class="segrow">
+        <div class="seg active" data-thresh="5">5</div>
+        <div class="seg" data-thresh="8">8</div>
+      </div>
+    </div>
+    <div class="field"><label>Direction</label>
+      <div class="segrow">
+        <div class="seg active" data-mode="above">Above Threshold</div>
+        <div class="seg" data-mode="below">Below Threshold</div>
+      </div>
+    </div>
+    <div class="field"><label>Number of Simultaneous Match Trades</label>
+      <div class="segrow" id="tradeCountRow">
+        <div class="seg" data-count="5">5</div>
+        <div class="seg active" data-count="6">6</div>
+        <div class="seg" data-count="7">7</div>
+        <div class="seg" data-count="8">8</div>
+      </div>
+    </div>
+    <div class="hint">Engine ranks digits by frequency, restricted to the chosen side of the threshold, then selects the top N most-frequent digits as simultaneous Matches targets.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Stake &amp; Risk</div>
+    <div class="row">
+      <div class="field"><label>Stake per trade ($)</label><input type="number" id="cfgStake" value="0.50" step="0.10" min="0.35"></div>
+      <div class="field"><label>Duration (ticks)</label><input type="number" id="cfgDuration" value="1" min="1" max="10"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Take Profit ($)</label><input type="number" id="cfgTP" value="5"></div>
+      <div class="field"><label>Stop Loss ($)</label><input type="number" id="cfgSL" value="10"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Max Consecutive Losses</label><input type="number" id="cfgMaxLoss" value="6"></div>
+      <div class="field"><label>Daily Drawdown Limit ($)</label><input type="number" id="cfgDD" value="25"></div>
+    </div>
+    <div class="switchrow">
+      <div class="lbl">Real Account Trading<small>Requires manual confirmation each session</small></div>
+      <div class="sw" id="swRealAccount"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Notifications</div>
+    <div class="switchrow">
+      <div class="lbl">Mobile Alerts<small>TP / SL / errors / disconnects</small></div>
+      <div class="sw on" id="swNotify"></div>
+    </div>
+    <button class="btn btn-ghost" id="btnNotifyPerm">Enable Browser Notifications</button>
+  </div>
+
+  <button class="btn btn-primary" id="btnSaveCfg">Save Settings</button>
+</div>
+
+<!-- LOG VIEW -->
+<div class="view" id="view-log">
+  <div class="card">
+    <div class="card-title">Trade Journal</div>
+    <div id="journalList"><div class="hint">No trades yet this session.</div></div>
+  </div>
+  <button class="btn btn-ghost" id="btnClearLog">Clear Journal</button>
+</div>
+
+<!-- ACCOUNT VIEW -->
+<div class="view" id="view-account">
+  <div class="card">
+    <div class="card-title">Account</div>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="k">Login ID</div><div class="v" id="accLogin" style="font-size:14px;">—</div></div>
+      <div class="stat-box"><div class="k">Type</div><div class="v" id="accType" style="font-size:14px;">—</div></div>
+      <div class="stat-box"><div class="k">Currency</div><div class="v" id="accCur" style="font-size:14px;">—</div></div>
+      <div class="stat-box"><div class="k">Balance</div><div class="v amber" id="accBal">—</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Session Stats</div>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="k">Total Trades</div><div class="v" id="statTotal">0</div></div>
+      <div class="stat-box"><div class="k">Wins</div><div class="v pos" id="statWins">0</div></div>
+      <div class="stat-box"><div class="k">Losses</div><div class="v neg" id="statLosses">0</div></div>
+      <div class="stat-box"><div class="k">Consecutive Losses</div><div class="v amber" id="statConsec">0</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Engine Log</div>
+    <textarea id="engineLog" readonly></textarea>
+  </div>
+</div>
+
+<div class="bottomnav">
+  <div class="navitem active" data-view="trade"><span class="ico">▲</span>Trade</div>
+  <div class="navitem" data-view="config"><span class="ico">⚙</span>Setup</div>
+  <div class="navitem" data-view="log"><span class="ico">≡</span>Log</div>
+  <div class="navitem" data-view="account"><span class="ico">◈</span>Account</div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- STATE ---------- */
+const S = {
+  ws: null,
+  otpUrl: null,
+  connected: false,
+  reqId: 0,
+  pending: new Map(),
+  handlers: {},
+  subs: new Map(),
+  reconnectAttempts: 0,
+
+  appId: '', pat: '', accountId: '',
+  accounts: [],
+  balance: null, currency: 'USD',
+
+  symbol: '1HZ100V',
+  range: 120,
+  threshold: 5,
+  mode: 'above',
+  tradeCount: 6,
+  stake: 0.5,
+  duration: 1,
+  tp: 5, sl: 10, maxLoss: 6, dd: 25,
+  realAccount: false,
+  notify: true,
+  autoRestart: true,
+
+  ticks: [],
+  targets: [],
+  engineOn: false,
+  tradeMutex: false,
+  watchdog: null,
+
+  cyclePnl: 0,
+  lifePnl: 0,
+  consecLosses: 0,
+  wins: 0, losses: 0, total: 0,
+  openContracts: new Map(),
+  journal: [],
+  hardStopped: false,
+  balanceKeepalive: null
+};
+
+function log(msg){
+  const el = document.getElementById('engineLog');
+  const t = new Date().toLocaleTimeString();
+  el.value += `[${t}] ${msg}\n`;
+  el.scrollTop = el.scrollHeight;
+}
+
+/* ---------- PERSISTENCE ---------- */
+function saveSettings(){
+  const cfg = {
+    appId:S.appId, accountId:S.accountId, symbol:S.symbol, range:S.range,
+    threshold:S.threshold, mode:S.mode, tradeCount:S.tradeCount, stake:S.stake,
+    duration:S.duration, tp:S.tp, sl:S.sl, maxLoss:S.maxLoss, dd:S.dd,
+    realAccount:S.realAccount, notify:S.notify, autoRestart:S.autoRestart,
+    lifePnl:S.lifePnl
+  };
+  localStorage.setItem('pentastrike_cfg', JSON.stringify(cfg));
+}
+function loadSettings(){
+  try{
+    const raw = localStorage.getItem('pentastrike_cfg');
+    if(!raw) return;
+    const cfg = JSON.parse(raw);
+    Object.assign(S, cfg);
+  }catch(e){}
+}
+function loadJournal(){
+  try{
+    const raw = localStorage.getItem('pentastrike_journal');
+    if(raw) S.journal = JSON.parse(raw);
+  }catch(e){}
+}
+function saveJournal(){
+  localStorage.setItem('pentastrike_journal', JSON.stringify(S.journal.slice(-200)));
+}
+
+/* ---------- TOAST / NOTIFY ---------- */
+function toast(msg, kind){
+  const wrap = document.getElementById('toastWrap');
+  const el = document.createElement('div');
+  el.className = 'toast' + (kind ? ' '+kind : '');
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(()=>el.remove(), 4200);
+  if(S.notify) notify(msg);
+}
+function notify(msg){
+  if('Notification' in window && Notification.permission === 'granted'){
+    try{ new Notification('PENTASTRIKE', {body: msg}); }catch(e){}
+  }
+  if(navigator.vibrate) navigator.vibrate(60);
+}
+
+/* ---------- WS PLUMBING ---------- */
+function nextReqId(){ return ++S.reqId; }
+
+function wsSend(cmd){
+  return new Promise((resolve, reject)=>{
+    if(!S.ws || S.ws.readyState !== 1){ reject(new Error('not connected')); return; }
+    const id = nextReqId();
+    const msg = Object.assign({}, cmd, {req_id:id});
+    if(cmd.subscribe){ S.subs.set(id, cmd); }
+    else { S.pending.set(id, {resolve, reject}); }
+    S.ws.send(JSON.stringify(msg));
+    if(cmd.subscribe) resolve(id);
+  });
+}
+
+function onMsg(type, fn){ S.handlers[type] = fn; }
+
+function handleMessage(data){
+  if(data.req_id && S.pending.has(data.req_id)){
+    const {resolve, reject} = S.pending.get(data.req_id);
+    S.pending.delete(data.req_id);
+    if(data.error) reject(new Error(data.error.code+': '+data.error.message));
+    else resolve(data);
+  }
+  if(data.msg_type && S.handlers[data.msg_type]) S.handlers[data.msg_type](data);
+  if(data.error && !data.req_id){ log('API error: '+data.error.code+' '+data.error.message); }
+}
+
+async function fetchOtp(){
+  const res = await fetch(`https://api.derivws.com/trading/v1/options/accounts/${S.accountId}/otp`, {
+    method:'POST',
+    headers:{ 'Authorization': `Bearer ${S.pat}`, 'Deriv-App-ID': S.appId }
+  });
+  if(!res.ok){
+    const err = await res.json().catch(()=>({}));
+    throw new Error('OTP failed: '+(err.errors?.[0]?.message || res.status));
+  }
+  const body = await res.json();
+  return body.data.url;
+}
+
+async function connectWs(){
+  const url = await fetchOtp();
+  S.otpUrl = url;
+  return new Promise((resolve, reject)=>{
+    const ws = new WebSocket(url);
+    S.ws = ws;
+    ws.onopen = ()=>{
+      S.connected = true;
+      S.reconnectAttempts = 0;
+      setConnPill(true);
+      log('WebSocket connected.');
+      resubscribeAfterReconnect();
+      startKeepalive();
+      resolve();
+    };
+    ws.onmessage = (ev)=>{
+      try{ handleMessage(JSON.parse(ev.data)); }catch(e){}
+    };
+    ws.onerror = (e)=>{ log('WS error.'); };
+    ws.onclose = ()=>{
+      S.connected = false;
+      setConnPill(false);
+      stopKeepalive();
+      log('WebSocket closed.');
+      if(S.engineOn) scheduleReconnect();
+    };
+  });
+}
+
+function scheduleReconnect(){
+  const delay = Math.min(1000*Math.pow(2, S.reconnectAttempts), 30000);
+  S.reconnectAttempts++;
+  log(`Reconnecting in ${delay}ms (attempt ${S.reconnectAttempts})`);
+  toast('Connection lost — reconnecting…', 'loss');
+  setTimeout(async ()=>{
+    try{ await connectWs(); }
+    catch(e){ log('Reconnect failed: '+e.message); scheduleReconnect(); }
+  }, delay);
+}
+
+function resubscribeAfterReconnect(){
+  wsSend({balance:1, subscribe:1}).catch(()=>{});
+  if(S.engineOn){
+    wsSend({ticks:S.symbol, subscribe:1}).catch(()=>{});
+  }
+}
+
+function startKeepalive(){
+  stopKeepalive();
+  S.balanceKeepalive = setInterval(()=>{
+    wsSend({balance:1}).catch(()=>{});
+  }, 30000);
+}
+function stopKeepalive(){
+  if(S.balanceKeepalive){ clearInterval(S.balanceKeepalive); S.balanceKeepalive=null; }
+}
+
+/* ---------- HANDLERS (registered once) ---------- */
+onMsg('balance', (data)=>{
+  const bal = Number(data.balance.balance);
+  S.balance = bal;
+  S.currency = data.balance.currency;
+  document.getElementById('balDisp').textContent = `${bal.toFixed(2)} ${S.currency}`;
+  document.getElementById('accBal').textContent = `${bal.toFixed(2)} ${S.currency}`;
+});
+
+onMsg('tick', (data)=>{
+  const q = data.tick.quote;
+  const str = String(q);
+  const lastDigit = Number(str[str.length-1]);
+  S.ticks.push(lastDigit);
+  if(S.ticks.length > S.range) S.ticks.shift();
+  renderDigitStream();
+  computeTargets();
+  if(S.engineOn && S.targets.length && !S.tradeMutex && S.ticks.length >= Math.min(20, S.range)){
+    fireTradeCycle();
+  }
+});
+
+onMsg('proposal', (data)=>{
+  // handled inline via promise
+});
+
+onMsg('buy', (data)=>{});
+
+onMsg('proposal_open_contract', (data)=>{
+  const c = data.proposal_open_contract;
+  updateOpenContract(c);
+  if(c.is_sold){
+    postSettlement(c);
+  }
+});
+
+/* ---------- DIGIT ANALYSIS ---------- */
+function computeTargets(){
+  if(S.ticks.length < Math.min(20, S.range)) { S.targets = []; renderTargets(); return; }
+  const counts = new Array(10).fill(0);
+  for(const d of S.ticks) counts[d]++;
+  let candidates = [];
+  for(let d=0; d<=9; d++){
+    if(S.mode === 'above' && d > S.threshold) candidates.push({d, f:counts[d]});
+    if(S.mode === 'below' && d < S.threshold) candidates.push({d, f:counts[d]});
+  }
+  candidates.sort((a,b)=>b.f - a.f);
+  S.targets = candidates.slice(0, S.tradeCount);
+  renderTargets();
+}
+
+/* ---------- TRADING ---------- */
+async function fireTradeCycle(){
+  if(S.hardStopped || S.tradeMutex) return;
+  S.tradeMutex = true;
+  clearTimeout(S.watchdog);
+  S.watchdog = setTimeout(()=>{
+    log('Watchdog: force-releasing trade mutex (stall).');
+    S.tradeMutex = false;
+  }, 20000);
+
+  try{
+    const targets = S.targets.slice(0, S.tradeCount);
+    log(`Firing ${targets.length} MATCHES trades: [${targets.map(t=>t.d).join(', ')}]`);
+    const proposals = await Promise.allSettled(targets.map(t=>getProposal(t.d)));
+    const buys = [];
+    for(let i=0;i<proposals.length;i++){
+      const p = proposals[i];
+      if(p.status === 'fulfilled' && p.value){
+        buys.push(buyContract(p.value, targets[i].d));
+      }
+    }
+    await Promise.allSettled(buys);
+  }catch(e){
+    log('Trade cycle error: '+e.message);
+  }finally{
+    clearTimeout(S.watchdog);
+    S.tradeMutex = false;
+  }
+}
+
+async function getProposal(digit){
+  const res = await wsSend({
+    proposal: 1,
+    amount: S.stake,
+    basis: 'stake',
+    contract_type: 'DIGITMATCH',
+    currency: S.currency || 'USD',
+    duration: S.duration,
+    duration_unit: 't',
+    barrier: String(digit),
+    underlying_symbol: S.symbol
+  });
+  if(res.error) throw new Error(res.error.message);
+  return res.proposal;
+}
+
+async function buyContract(proposal, digit){
+  try{
+    const res = await wsSend({ buy: proposal.id, price: Number(proposal.ask_price) });
+    const buy = res.buy;
+    S.openContracts.set(buy.contract_id, {
+      contract_id: buy.contract_id, digit, buy_price: Number(buy.buy_price),
+      profit: 0, is_sold:0, status:'open'
+    });
+    renderOpenList();
+    wsSend({ proposal_open_contract:1, contract_id: buy.contract_id, subscribe:1 }).catch(()=>{});
+    log(`Bought digit=${digit} contract=${buy.contract_id} price=${buy.buy_price}`);
+  }catch(e){
+    log(`Buy failed digit=${digit}: ${e.message}`);
+  }
+}
+
+function updateOpenContract(c){
+  const existing = S.openContracts.get(c.contract_id) || {};
+  S.openContracts.set(c.contract_id, Object.assign(existing, {
+    contract_id: c.contract_id,
+    digit: existing.digit,
+    profit: Number(c.profit),
+    is_sold: c.is_sold,
+    status: c.status,
+    sell_price: c.sell_price !== undefined ? Number(c.sell_price) : undefined
+  }));
+  renderOpenList();
+}
+
+/* single authoritative settlement point */
+function postSettlement(c){
+  const rec = S.openContracts.get(c.contract_id);
+  if(!rec || rec.settled) return;
+  rec.settled = true;
+  const profit = Number(c.profit);
+  const win = profit >= 0;
+
+  S.cyclePnl += profit;
+  S.lifePnl += profit;
+  S.total++;
+  if(win){ S.wins++; S.consecLosses = 0; }
+  else { S.losses++; S.consecLosses++; }
+
+  S.journal.unshift({
+    time: new Date().toLocaleTimeString(),
+    contract_id: c.contract_id,
+    digit: rec.digit,
+    profit,
+    win
+  });
+  saveJournal();
+  S.openContracts.delete(c.contract_id);
+
+  toast(`Digit ${rec.digit} ${win?'WON':'LOST'} — ${profit>=0?'+':''}${profit.toFixed(2)}`, win?'win':'loss');
+  renderStats();
+  renderOpenList();
+  renderJournal();
+  saveSettings();
+
+  checkRiskGates();
+}
+
+function checkRiskGates(){
+  if(S.hardStopped) return;
+
+  // Hard stops — manual acknowledgment required, no auto-restart
+  if(S.consecLosses >= S.maxLoss){
+    triggerHardStop(`Max consecutive losses reached (${S.consecLosses}/${S.maxLoss}).`);
+    return;
+  }
+  if(S.cyclePnl <= -Math.abs(S.sl)){
+    triggerHardStop(`Stop loss hit: cycle P&L ${S.cyclePnl.toFixed(2)} ≤ -${S.sl}.`);
+    return;
+  }
+  if(S.lifePnl <= -Math.abs(S.dd)){
+    triggerHardStop(`Daily drawdown limit hit: lifetime P&L ${S.lifePnl.toFixed(2)}.`);
+    return;
+  }
+
+  // Soft stop — take profit: bank cycle, reset, auto-resume
+  if(S.cyclePnl >= Math.abs(S.tp)){
+    log(`Take profit hit: +${S.cyclePnl.toFixed(2)}. Banking cycle, resetting.`);
+    toast(`Take profit hit! +$${S.cyclePnl.toFixed(2)} banked.`, 'win');
+    S.cyclePnl = 0;
+    S.consecLosses = 0;
+    saveSettings();
+    if(!S.autoRestart){
+      stopEngine();
+    }
+    // else engine continues automatically
+  }
+}
+
+function triggerHardStop(msg){
+  S.hardStopped = true;
+  stopEngine(true);
+  document.getElementById('hardStopCard').style.display = 'block';
+  document.getElementById('hardStopMsg').textContent = msg;
+  toast('HARD STOP: '+msg, 'loss');
+  log('HARD STOP: '+msg);
+}
+
+/* ---------- ENGINE START/STOP ---------- */
+async function startEngine(){
+  if(S.realAccount && !confirm('You are trading on a REAL account. Confirm to proceed?')) return;
+  if(!S.connected){
+    try{ await connectWs(); }
+    catch(e){ toast('Connect failed: '+e.message, 'loss'); log('Connect failed: '+e.message); return; }
+  }
+  S.hardStopped = false;
+  document.getElementById('hardStopCard').style.display = 'none';
+  S.engineOn = true;
+  document.getElementById('btnStart').disabled = true;
+  document.getElementById('btnStop').disabled = false;
+  document.getElementById('swEngine').classList.add('on');
+  await wsSend({ticks:S.symbol, subscribe:1}).catch(e=>log('Tick sub failed: '+e.message));
+  log(`Engine started on ${S.symbol}. Threshold=${S.threshold} mode=${S.mode} trades=${S.tradeCount}`);
+  toast('Engine started.');
+}
+
+function stopEngine(silent){
+  S.engineOn = false;
+  document.getElementById('btnStart').disabled = false;
+  document.getElementById('btnStop').disabled = true;
+  document.getElementById('swEngine').classList.remove('on');
+  if(!silent){ log('Engine stopped by user.'); toast('Engine stopped.'); }
+}
+
+/* ---------- RENDER ---------- */
+function setConnPill(on){
+  const pill = document.getElementById('connPill');
+  const text = document.getElementById('connText');
+  pill.className = 'status-pill ' + (on ? 'on' : 'off');
+  text.textContent = on ? 'Live' : 'Offline';
+}
+
+function renderDigitStream(){
+  const wrap = document.getElementById('digitLine');
+  const targetDigits = new Set(S.targets.map(t=>t.d));
+  const recent = S.ticks.slice(-30);
+  wrap.innerHTML = recent.map(d=>`<div class="dchip${targetDigits.has(d)?' target':''}">${d}</div>`).join('');
+  wrap.scrollLeft = wrap.scrollWidth;
+  document.getElementById('rangeLabel').textContent = S.ticks.length;
+}
+
+function renderTargets(){
+  const wrap = document.getElementById('targetsWrap');
+  if(!S.targets.length){ wrap.innerHTML = '<div class="hint">Gathering samples…</div>'; return; }
+  wrap.innerHTML = S.targets.map(t=>`<div class="target-pill"><span class="n">${t.d}</span><span class="f">×${t.f}</span></div>`).join('');
+}
+
+function renderOpenList(){
+  const wrap = document.getElementById('openList');
+  const list = Array.from(S.openContracts.values());
+  if(!list.length){ wrap.innerHTML = '<div class="hint">No open contracts.</div>'; return; }
+  wrap.innerHTML = list.map(c=>`
+    <div class="logitem">
+      <div class="left"><div class="contract">Digit ${c.digit} · #${c.contract_id}</div><div class="time">Stake ${S.stake.toFixed(2)}</div></div>
+      <div class="pnl ${c.profit>=0?'v pos':'v neg'}">${c.profit>=0?'+':''}${c.profit.toFixed(2)}<span class="badge open">OPEN</span></div>
+    </div>
+  `).join('');
+}
+
+function renderJournal(){
+  const wrap = document.getElementById('journalList');
+  if(!S.journal.length){ wrap.innerHTML = '<div class="hint">No trades yet this session.</div>'; return; }
+  wrap.innerHTML = S.journal.slice(0,80).map(j=>`
+    <div class="logitem">
+      <div class="left"><div class="contract">Digit ${j.digit} · #${j.contract_id}</div><div class="time">${j.time}</div></div>
+      <div class="pnl ${j.win?'v pos':'v neg'}">${j.profit>=0?'+':''}${j.profit.toFixed(2)}<span class="badge ${j.win?'win':'loss'}">${j.win?'WIN':'LOSS'}</span></div>
+    </div>
+  `).join('');
+}
+
+function renderStats(){
+  document.getElementById('cyclePnl').textContent = `${S.cyclePnl>=0?'+':''}${S.cyclePnl.toFixed(2)}`;
+  document.getElementById('cyclePnl').className = 'v ' + (S.cyclePnl>=0?'pos':'neg');
+  document.getElementById('lifePnl').textContent = `${S.lifePnl>=0?'+':''}${S.lifePnl.toFixed(2)}`;
+  document.getElementById('lifePnl').className = 'v ' + (S.lifePnl>=0?'pos':'neg');
+  const wr = S.total ? Math.round(100*S.wins/S.total) : 0;
+  document.getElementById('winRate').textContent = wr+'%';
+  document.getElementById('statTotal').textContent = S.total;
+  document.getElementById('statWins').textContent = S.wins;
+  document.getElementById('statLosses').textContent = S.losses;
+  document.getElementById('statConsec').textContent = S.consecLosses;
+}
+
+/* ---------- UI WIRING ---------- */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>switchView(t.dataset.view));
+});
+document.querySelectorAll('.navitem').forEach(t=>{
+  t.addEventListener('click', ()=>switchView(t.dataset.view));
+});
+function switchView(v){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.view===v));
+  document.querySelectorAll('.navitem').forEach(t=>t.classList.toggle('active', t.dataset.view===v));
+  document.querySelectorAll('.view').forEach(el=>el.classList.toggle('active', el.id==='view-'+v));
+}
+
+document.getElementById('swAutoRestart').addEventListener('click', function(){
+  this.classList.toggle('on'); S.autoRestart = this.classList.contains('on'); saveSettings();
+});
+document.getElementById('swRealAccount').addEventListener('click', function(){
+  this.classList.toggle('on'); S.realAccount = this.classList.contains('on'); saveSettings();
+});
+document.getElementById('swNotify').addEventListener('click', function(){
+  this.classList.toggle('on'); S.notify = this.classList.contains('on'); saveSettings();
+});
+document.getElementById('btnNotifyPerm').addEventListener('click', ()=>{
+  if('Notification' in window) Notification.requestPermission();
+});
+
+document.querySelectorAll('[data-thresh]').forEach(el=>{
+  el.addEventListener('click', function(){
+    document.querySelectorAll('[data-thresh]').forEach(x=>x.classList.remove('active'));
+    this.classList.add('active');
+    S.threshold = Number(this.dataset.thresh);
+    document.getElementById('threshLabel').textContent = S.threshold;
+  });
+});
+document.querySelectorAll('[data-mode]').forEach(el=>{
+  el.addEventListener('click', function(){
+    document.querySelectorAll('[data-mode]').forEach(x=>x.classList.remove('active'));
+    this.classList.add('active');
+    S.mode = this.dataset.mode;
+    document.getElementById('modeLabel').textContent = S.mode==='above'?'Above':'Below';
+  });
+});
+document.querySelectorAll('[data-count]').forEach(el=>{
+  el.addEventListener('click', function(){
+    document.querySelectorAll('[data-count]').forEach(x=>x.classList.remove('active'));
+    this.classList.add('active');
+    S.tradeCount = Number(this.dataset.count);
+  });
+});
+
+document.getElementById('btnSaveCfg').addEventListener('click', ()=>{
+  S.appId = document.getElementById('cfgAppId').value.trim();
+  S.pat = document.getElementById('cfgPat').value.trim();
+  S.accountId = document.getElementById('cfgAccountId').value;
+  S.symbol = document.getElementById('cfgSymbol').value;
+  S.range = Math.max(10, Math.min(500, Number(document.getElementById('cfgRange').value)||120));
+  S.stake = Number(document.getElementById('cfgStake').value)||0.5;
+  S.duration = Number(document.getElementById('cfgDuration').value)||1;
+  S.tp = Number(document.getElementById('cfgTP').value)||5;
+  S.sl = Number(document.getElementById('cfgSL').value)||10;
+  S.maxLoss = Number(document.getElementById('cfgMaxLoss').value)||6;
+  S.dd = Number(document.getElementById('cfgDD').value)||25;
+  document.getElementById('symLabel').textContent = S.symbol;
+  document.getElementById('rangeLabel').textContent = S.range;
+  saveSettings();
+  toast('Settings saved.');
+});
+
+document.getElementById('btnConnect').addEventListener('click', async ()=>{
+  const hint = document.getElementById('connHint');
+  S.appId = document.getElementById('cfgAppId').value.trim();
+  S.pat = document.getElementById('cfgPat').value.trim();
+  if(!S.appId || !S.pat){ hint.textContent = 'Enter App ID and PAT token.'; return; }
+  hint.textContent = 'Fetching accounts…';
+  try{
+    const res = await fetch('https://api.derivws.com/trading/v1/options/accounts', {
+      headers: { 'Authorization': `Bearer ${S.pat}`, 'Deriv-App-ID': S.appId }
+    });
+    if(!res.ok){
+      const err = await res.json().catch(()=>({}));
+      throw new Error(err.errors?.[0]?.message || res.status);
+    }
+    const body = await res.json();
+    S.accounts = body.data || [];
+    const sel = document.getElementById('cfgAccountId');
+    sel.innerHTML = S.accounts.map(a=>`<option value="${a.account_id}">${a.account_id} · ${a.account_type} · ${a.balance} ${a.currency}</option>`).join('');
+    if(S.accounts.length){
+      S.accountId = S.accounts[0].account_id;
+      document.getElementById('accLogin').textContent = S.accounts[0].account_id;
+      document.getElementById('accType').textContent = S.accounts[0].account_type;
+      document.getElementById('accCur').textContent = S.accounts[0].currency;
+    }
+    hint.textContent = `Loaded ${S.accounts.length} account(s). Select one, then Start Engine.`;
+    saveSettings();
+  }catch(e){
+    hint.textContent = 'Connection failed: '+e.message;
+    log('Connect error: '+e.message);
+  }
+});
+document.getElementById('cfgAccountId').addEventListener('change', function(){
+  S.accountId = this.value;
+  const acc = S.accounts.find(a=>a.account_id===S.accountId);
+  if(acc){
+    document.getElementById('accLogin').textContent = acc.account_id;
+    document.getElementById('accType').textContent = acc.account_type;
+    document.getElementById('accCur').textContent = acc.currency;
+  }
+  saveSettings();
+});
+
+document.getElementById('btnStart').addEventListener('click', startEngine);
+document.getElementById('btnStop').addEventListener('click', ()=>stopEngine(false));
+document.getElementById('btnAckStop').addEventListener('click', ()=>{
+  S.hardStopped = false;
+  S.cyclePnl = 0;
+  S.consecLosses = 0;
+  document.getElementById('hardStopCard').style.display = 'none';
+  saveSettings();
+  renderStats();
+  toast('Hard stop acknowledged. Ready to restart.');
+  log('Hard stop acknowledged and reset.');
+});
+document.getElementById('btnClearLog').addEventListener('click', ()=>{
+  S.journal = [];
+  saveJournal();
+  renderJournal();
+});
+document.getElementById('swEngine').addEventListener('click', function(){
+  if(S.engineOn) stopEngine(false); else startEngine();
+});
+
+/* ---------- INIT ---------- */
+function initFromSettings(){
+  document.getElementById('cfgAppId').value = S.appId || '';
+  document.getElementById('cfgSymbol').value = S.symbol;
+  document.getElementById('cfgRange').value = S.range;
+  document.getElementById('cfgStake').value = S.stake;
+  document.getElementById('cfgDuration').value = S.duration;
+  document.getElementById('cfgTP').value = S.tp;
+  document.getElementById('cfgSL').value = S.sl;
+  document.getElementById('cfgMaxLoss').value = S.maxLoss;
+  document.getElementById('cfgDD').value = S.dd;
+  document.getElementById('symLabel').textContent = S.symbol;
+  document.getElementById('rangeLabel').textContent = S.range;
+  document.getElementById('threshLabel').textContent = S.threshold;
+  document.getElementById('modeLabel').textContent = S.mode==='above'?'Above':'Below';
+  document.querySelectorAll('[data-thresh]').forEach(x=>x.classList.toggle('active', Number(x.dataset.thresh)===S.threshold));
+  document.querySelectorAll('[data-mode]').forEach(x=>x.classList.toggle('active', x.dataset.mode===S.mode));
+  document.querySelectorAll('[data-count]').forEach(x=>x.classList.toggle('active', Number(x.dataset.count)===S.tradeCount));
+  if(S.autoRestart) document.getElementById('swAutoRestart').classList.add('on'); else document.getElementById('swAutoRestart').classList.remove('on');
+  if(S.notify) document.getElementById('swNotify').classList.add('on'); else document.getElementById('swNotify').classList.remove('on');
+  renderStats();
+}
+
+loadSettings();
+loadJournal();
+initFromSettings();
+renderJournal();
+log('PENTASTRIKE initialized. Configure connection in Setup tab.');
+
+})();
+</script>
+</body>
+</html>

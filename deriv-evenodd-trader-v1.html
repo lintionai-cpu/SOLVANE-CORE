@@ -1,0 +1,1894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#080D1A">
+<title>D‑Trader · Even/Odd</title>
+<style>
+/* ═══════════════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════════════ */
+:root {
+  --bg0:#080D1A; --bg1:#0F1628; --bg2:#182038; --bg3:#1F2A47;
+  --border:#263156;
+  --cyan:#00D2E6;   --cyan-dim:rgba(0,210,230,0.12);
+  --green:#00E676;  --green-dim:rgba(0,230,118,0.12);
+  --red:#FF3D57;    --red-dim:rgba(255,61,87,0.12);
+  --amber:#FFB300;  --amber-dim:rgba(255,179,0,0.12);
+  --purple:#9B59F5; --purple-dim:rgba(155,89,245,0.12);
+  --txt0:#E8EDF8; --txt1:#9BA8CC; --txt2:#5A6A99;
+  --mono:'SF Mono','Fira Code','Cascadia Code',ui-monospace,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  --r:10px; --rs:6px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{font-family:var(--sans);background:var(--bg0);color:var(--txt0);font-size:14px;
+  line-height:1.4;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;}
+button{font-family:inherit;cursor:pointer;border:none;outline:none;}
+input,select{font-family:inherit;outline:none;}
+*{-webkit-font-smoothing:antialiased;}
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* ═══ LAYOUT ═══ */
+#app{display:flex;flex-direction:column;height:100%;}
+
+/* ═══ LOGIN ═══ */
+#login-screen{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;padding:24px;background:var(--bg0);}
+.login-logo{
+  width:52px;height:52px;background:linear-gradient(135deg,var(--cyan),#7B2FFF);
+  border-radius:16px;display:flex;align-items:center;justify-content:center;
+  font-size:22px;margin-bottom:20px;box-shadow:0 0 32px rgba(0,210,230,0.3);}
+.login-title{font-size:22px;font-weight:700;margin-bottom:6px;}
+.login-sub{font-size:13px;color:var(--txt1);margin-bottom:32px;text-align:center;}
+.login-card{
+  width:100%;max-width:380px;background:var(--bg1);border:1px solid var(--border);
+  border-radius:16px;padding:24px;}
+.field-label{font-size:11px;font-weight:600;color:var(--txt1);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;}
+.field-input{
+  width:100%;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--rs);color:var(--txt0);font-size:14px;transition:border-color .2s;}
+.field-input:focus{border-color:var(--cyan);}
+.field-hint{font-size:11px;color:var(--txt2);margin-top:5px;}
+.field-group{margin-bottom:16px;}
+.btn-connect{
+  width:100%;padding:14px;background:linear-gradient(135deg,var(--cyan),#1A7AFF);
+  border-radius:var(--r);color:#080D1A;font-size:15px;font-weight:700;
+  transition:opacity .2s,transform .1s;margin-top:8px;}
+.btn-connect:active{opacity:.85;transform:scale(.98);}
+.btn-connect:disabled{opacity:.4;cursor:not-allowed;}
+.login-error{
+  margin-top:12px;padding:10px 14px;background:var(--red-dim);
+  border:1px solid rgba(255,61,87,.3);border-radius:var(--rs);
+  font-size:13px;color:var(--red);display:none;}
+
+/* ═══ MAIN ═══ */
+#main-screen{display:none;flex-direction:column;height:100%;}
+
+/* ═══ STATUS BAR ═══ */
+#status-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px 8px;background:var(--bg1);
+  border-bottom:1px solid var(--border);flex-shrink:0;}
+.status-left{display:flex;align-items:center;gap:8px;}
+.conn-dot{width:7px;height:7px;border-radius:50%;background:var(--red);transition:background .3s;}
+.conn-dot.live{background:var(--green);box-shadow:0 0 6px var(--green);}
+.conn-label{font-size:12px;color:var(--txt1);font-weight:500;}
+.status-right{display:flex;align-items:center;gap:12px;}
+.header-balance{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--cyan);}
+.header-currency{font-size:10px;color:var(--txt2);margin-top:1px;}
+.btn-logout{
+  background:transparent;padding:4px 8px;border-radius:var(--rs);
+  border:1px solid var(--border);font-size:11px;color:var(--txt1);transition:all .2s;}
+.btn-logout:active{background:var(--bg3);}
+.loginid-tag{font-size:11px;color:var(--txt2);}
+
+/* CYCLE BADGE in status bar */
+.cycle-badge{
+  display:none;align-items:center;gap:4px;
+  background:var(--purple-dim);border:1px solid rgba(155,89,245,.35);
+  border-radius:20px;padding:3px 8px;font-size:11px;font-weight:700;color:var(--purple);}
+.cycle-badge.visible{display:flex;}
+
+/* ═══ TAB CONTENT ═══ */
+#tab-content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+.tab-pane{display:none;padding:0 0 16px;}
+.tab-pane.active{display:block;}
+
+/* ═══ BOTTOM NAV ═══ */
+#bottom-nav{
+  display:flex;background:var(--bg1);border-top:1px solid var(--border);
+  flex-shrink:0;padding-bottom:env(safe-area-inset-bottom,0px);}
+.nav-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:10px 4px;background:transparent;color:var(--txt2);font-size:10px;
+  font-weight:500;gap:4px;transition:color .2s;}
+.nav-btn svg{width:20px;height:20px;}
+.nav-btn.active{color:var(--cyan);}
+
+/* ═══ TICKER ═══ */
+.ticker-section{
+  background:var(--bg1);border-bottom:1px solid var(--border);padding:14px 16px;}
+.ticker-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.ticker-symbol{font-size:12px;font-weight:700;color:var(--txt1);letter-spacing:.06em;text-transform:uppercase;}
+.ticker-price-block{text-align:right;}
+.ticker-price{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--txt0);transition:color .15s;}
+.ticker-price.up{color:var(--green);}
+.ticker-price.down{color:var(--red);}
+.ticker-time{font-size:10px;color:var(--txt2);margin-top:2px;}
+.digit-tape{display:flex;gap:6px;justify-content:center;align-items:center;}
+.digit-pill{
+  width:28px;height:34px;border-radius:7px;display:flex;align-items:center;
+  justify-content:center;font-family:var(--mono);font-size:16px;font-weight:700;
+  transition:all .2s;opacity:.45;}
+.digit-pill:last-child{opacity:1;transform:scale(1.1);}
+.digit-pill.even{background:var(--green-dim);color:var(--green);}
+.digit-pill.odd{background:var(--red-dim);color:var(--red);}
+.digit-tape-label{font-size:10px;color:var(--txt2);text-align:center;margin-top:6px;}
+
+/* ═══ CARDS ═══ */
+.card{
+  background:var(--bg1);border:1px solid var(--border);
+  border-radius:var(--r);padding:16px;margin:12px 14px 0;}
+.card-title{
+  font-size:11px;font-weight:700;color:var(--txt1);letter-spacing:.07em;
+  text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:6px;}
+.card-title .dot{width:5px;height:5px;border-radius:50%;background:var(--cyan);}
+
+/* ═══ DIRECTION ═══ */
+.direction-row{display:flex;gap:10px;margin-bottom:14px;}
+.dir-btn{
+  flex:1;padding:14px 10px;border-radius:var(--r);background:var(--bg2);
+  border:2px solid var(--border);font-size:15px;font-weight:700;transition:all .2s;}
+.dir-btn.even-btn{color:var(--green);}
+.dir-btn.odd-btn{color:var(--red);}
+.dir-btn.active.even-btn{background:var(--green-dim);border-color:var(--green);}
+.dir-btn.active.odd-btn{background:var(--red-dim);border-color:var(--red);}
+
+/* ═══ STAKE ═══ */
+.stake-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.stake-label{font-size:12px;color:var(--txt1);min-width:42px;}
+.stake-adj{
+  width:36px;height:36px;border-radius:var(--rs);background:var(--bg2);
+  border:1px solid var(--border);color:var(--txt0);font-size:20px;font-weight:300;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s;}
+.stake-adj:active{background:var(--bg3);}
+.stake-display{
+  flex:1;text-align:center;font-family:var(--mono);font-size:22px;font-weight:700;
+  color:var(--cyan);background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--rs);padding:8px 4px;cursor:pointer;}
+.quick-stakes{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+.qs-btn{
+  padding:6px 12px;border-radius:20px;background:var(--bg2);border:1px solid var(--border);
+  color:var(--txt1);font-size:12px;font-weight:600;transition:all .15s;}
+.qs-btn:active{background:var(--cyan-dim);border-color:var(--cyan);color:var(--cyan);}
+
+/* ═══ STATS ═══ */
+.stats-row{display:flex;gap:8px;margin:12px 14px 0;}
+.stat-pill{
+  flex:1;background:var(--bg1);border:1px solid var(--border);
+  border-radius:var(--r);padding:12px 10px;text-align:center;}
+.stat-val{font-family:var(--mono);font-size:16px;font-weight:700;margin-bottom:3px;}
+.stat-lbl{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em;}
+.stat-val.pos{color:var(--green);}
+.stat-val.neg{color:var(--red);}
+.stat-val.neu{color:var(--cyan);}
+
+/* CUMULATIVE BAR */
+.cumulative-bar{
+  margin:10px 14px 0;background:var(--bg1);border:1px solid var(--border);
+  border-radius:var(--r);padding:12px 14px;
+  display:none;}
+.cumulative-bar.visible{display:block;}
+.cumul-row{display:flex;justify-content:space-between;align-items:center;}
+.cumul-label{font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;}
+.cumul-val{font-family:var(--mono);font-size:15px;font-weight:700;}
+.cumul-sub{font-size:11px;color:var(--txt1);margin-top:4px;}
+
+/* ═══ BUY BUTTON ═══ */
+.btn-trade{
+  width:calc(100% - 28px);margin:14px 14px 0;padding:18px;border-radius:var(--r);
+  font-size:17px;font-weight:800;letter-spacing:.04em;transition:all .2s;
+  position:relative;overflow:hidden;}
+.btn-trade::after{
+  content:'';position:absolute;inset:0;background:rgba(255,255,255,.1);
+  opacity:0;transition:opacity .15s;}
+.btn-trade:active::after{opacity:1;}
+.btn-trade.even-trade{background:linear-gradient(135deg,#00C46A,#00E676);color:#061a0f;}
+.btn-trade.odd-trade{background:linear-gradient(135deg,#E62845,#FF3D57);color:#1a0609;}
+.btn-trade:disabled{opacity:.35;cursor:not-allowed;}
+
+/* ═══ RESULT TOAST ═══ */
+#result-toast{
+  position:fixed;top:70px;left:50%;transform:translateX(-50%) translateY(-20px);
+  padding:12px 24px;border-radius:30px;font-size:15px;font-weight:700;
+  opacity:0;transition:all .3s;z-index:900;pointer-events:none;white-space:nowrap;}
+#result-toast.win{background:var(--green);color:#061a0f;box-shadow:0 4px 24px rgba(0,230,118,.4);}
+#result-toast.loss{background:var(--red);color:#fff;box-shadow:0 4px 24px rgba(255,61,87,.4);}
+#result-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ═══════════════════════════════════════════════════
+   TP CELEBRATION OVERLAY  ← NEW
+═══════════════════════════════════════════════════ */
+#tp-overlay{
+  position:fixed;inset:0;z-index:800;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(0,10,20,.92);backdrop-filter:blur(8px);
+  opacity:0;pointer-events:none;transition:opacity .35s;}
+#tp-overlay.show{opacity:1;pointer-events:all;}
+
+.tp-ring{
+  width:110px;height:110px;border-radius:50%;margin-bottom:24px;
+  background:radial-gradient(circle,rgba(0,230,118,.25),transparent 70%);
+  display:flex;align-items:center;justify-content:center;
+  border:2px solid rgba(0,230,118,.6);
+  box-shadow:0 0 40px rgba(0,230,118,.4),inset 0 0 30px rgba(0,230,118,.1);
+  animation:ringPulse 1.2s ease-in-out infinite;}
+@keyframes ringPulse{
+  0%,100%{box-shadow:0 0 40px rgba(0,230,118,.4),inset 0 0 30px rgba(0,230,118,.1);}
+  50%{box-shadow:0 0 70px rgba(0,230,118,.7),inset 0 0 50px rgba(0,230,118,.2);}
+}
+.tp-ring-icon{font-size:44px;}
+.tp-title{font-size:28px;font-weight:900;color:var(--green);letter-spacing:.04em;margin-bottom:8px;}
+.tp-subtitle{font-size:13px;color:var(--txt1);margin-bottom:24px;text-align:center;}
+.tp-amount{
+  font-family:var(--mono);font-size:40px;font-weight:900;color:var(--green);
+  margin-bottom:6px;text-shadow:0 0 20px rgba(0,230,118,.5);}
+.tp-cycle-pnl{font-size:14px;color:var(--txt1);margin-bottom:20px;font-family:var(--mono);}
+.tp-cumul{
+  background:var(--bg2);border:1px solid rgba(155,89,245,.4);
+  border-radius:var(--r);padding:14px 24px;text-align:center;margin-bottom:24px;min-width:220px;}
+.tp-cumul-label{font-size:11px;color:var(--purple);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.tp-cumul-val{font-family:var(--mono);font-size:22px;font-weight:800;color:var(--purple);}
+.tp-countdown{
+  font-size:13px;color:var(--txt1);text-align:center;margin-bottom:16px;}
+.tp-countdown-num{
+  font-family:var(--mono);font-size:32px;font-weight:900;color:var(--amber);
+  display:block;line-height:1;margin:4px 0;}
+.tp-bar-bg{
+  width:220px;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;}
+.tp-bar-fill{
+  height:100%;background:linear-gradient(90deg,var(--green),var(--amber));
+  border-radius:2px;transition:width .1s linear;width:100%;}
+.tp-cancel-btn{
+  margin-top:20px;padding:10px 24px;border-radius:30px;
+  background:transparent;border:1px solid var(--border);
+  color:var(--txt2);font-size:13px;cursor:pointer;transition:all .2s;}
+.tp-cancel-btn:active{background:var(--bg3);}
+.tp-cycle-badge{
+  position:absolute;top:20px;right:20px;
+  background:var(--purple-dim);border:1px solid rgba(155,89,245,.4);
+  border-radius:20px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--purple);}
+
+/* ═══ AUTO TAB ═══ */
+.section-head{
+  padding:16px 14px 8px;font-size:11px;font-weight:700;color:var(--txt2);
+  letter-spacing:.08em;text-transform:uppercase;}
+.field-row{margin:0 14px 10px;}
+.inline-input{
+  width:100%;padding:11px 13px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--rs);color:var(--txt0);font-size:15px;font-family:var(--mono);
+  transition:border-color .2s;}
+.inline-input:focus{border-color:var(--cyan);}
+.row-two{display:flex;gap:10px;margin:0 14px 10px;}
+.row-two .field-row{flex:1;margin:0;}
+
+/* ═══ TOGGLE ═══ */
+.toggle-row{
+  display:flex;align-items:center;justify-content:space-between;
+  margin:0 14px 10px;padding:13px;background:var(--bg1);
+  border:1px solid var(--border);border-radius:var(--r);}
+.toggle-title{font-size:13px;font-weight:600;margin-bottom:2px;}
+.toggle-desc{font-size:11px;color:var(--txt2);}
+.toggle-switch{position:relative;width:44px;height:24px;flex-shrink:0;}
+.toggle-switch input{opacity:0;width:0;height:0;}
+.toggle-track{
+  position:absolute;inset:0;background:var(--bg3);border-radius:12px;
+  border:1px solid var(--border);cursor:pointer;transition:all .3s;}
+.toggle-track::before{
+  content:'';position:absolute;width:18px;height:18px;left:2px;top:2px;
+  background:var(--txt2);border-radius:50%;transition:all .3s;}
+.toggle-switch input:checked+.toggle-track{background:var(--cyan-dim);border-color:var(--cyan);}
+.toggle-switch input:checked+.toggle-track::before{background:var(--cyan);transform:translateX(20px);}
+
+/* ═══ MARTINGALE VIZ ═══ */
+.mart-viz{margin:0 14px 12px;}
+.mart-steps{display:flex;gap:5px;}
+.mart-step{flex:1;height:6px;border-radius:3px;background:var(--bg3);transition:all .3s;}
+.mart-step.active{background:var(--amber);box-shadow:0 0 6px var(--amber);}
+.mart-step.done{background:var(--red-dim);border:1px solid var(--red);}
+.mart-step.win{background:var(--green);}
+.mart-info{display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--txt2);}
+.mart-next-stake{font-family:var(--mono);color:var(--amber);font-weight:700;}
+
+/* ═══ AUTO CONTROLS ═══ */
+.auto-controls{margin:0 14px;display:flex;gap:10px;}
+.btn-auto-start{
+  flex:1;padding:16px;border-radius:var(--r);font-size:16px;font-weight:800;
+  background:linear-gradient(135deg,var(--cyan),#1A7AFF);color:#080D1A;transition:all .2s;}
+.btn-auto-start:active{opacity:.85;transform:scale(.98);}
+.btn-auto-start.running{
+  background:linear-gradient(135deg,#FF3D57,#E62845);color:#fff;
+  animation:pulseRed 2s infinite;}
+@keyframes pulseRed{
+  0%,100%{box-shadow:0 0 0 0 rgba(255,61,87,.4);}
+  50%{box-shadow:0 0 0 8px rgba(255,61,87,0);}
+}
+.btn-auto-start.resetting{
+  background:linear-gradient(135deg,var(--amber),#FF8C00);color:#1a0f00;
+  animation:pulseAmber 0.6s infinite;}
+@keyframes pulseAmber{
+  0%,100%{box-shadow:0 0 0 0 rgba(255,179,0,.5);}
+  50%{box-shadow:0 0 0 10px rgba(255,179,0,0);}
+}
+
+/* ═══ PROGRESS BAR ═══ */
+.progress-wrap{margin:12px 14px 0;}
+.progress-bar-bg{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;}
+.progress-bar-fill{
+  height:100%;background:linear-gradient(90deg,var(--cyan),var(--green));
+  border-radius:2px;transition:width .5s;width:0%;}
+.progress-label{display:flex;justify-content:space-between;font-size:11px;color:var(--txt2);margin-top:5px;}
+
+/* SESSION STATUS BAR on Auto tab */
+.session-status{
+  margin:8px 14px 0;padding:10px 14px;
+  background:var(--bg1);border:1px solid var(--border);border-radius:var(--r);
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+.ss-item{text-align:center;}
+.ss-val{font-family:var(--mono);font-size:13px;font-weight:700;}
+.ss-lbl{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em;margin-top:2px;}
+
+/* ═══ HISTORY ═══ */
+.history-summary{display:flex;gap:8px;padding:12px 14px 0;}
+.trade-row{
+  display:flex;align-items:center;padding:12px 14px;
+  border-bottom:1px solid var(--border);gap:12px;}
+.trade-icon{
+  width:36px;height:36px;border-radius:10px;display:flex;align-items:center;
+  justify-content:center;font-size:16px;flex-shrink:0;}
+.trade-icon.win{background:var(--green-dim);color:var(--green);}
+.trade-icon.loss{background:var(--red-dim);color:var(--red);}
+.trade-info{flex:1;min-width:0;}
+.trade-type{font-size:13px;font-weight:600;}
+.trade-meta{font-size:11px;color:var(--txt2);margin-top:1px;}
+.trade-right{text-align:right;flex-shrink:0;}
+.trade-pnl{font-family:var(--mono);font-size:14px;font-weight:700;}
+.trade-pnl.pos{color:var(--green);}
+.trade-pnl.neg{color:var(--red);}
+.trade-stake{font-size:11px;color:var(--txt2);margin-top:1px;font-family:var(--mono);}
+.trade-digit{
+  width:28px;height:28px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-family:var(--mono);font-size:14px;font-weight:700;flex-shrink:0;}
+.trade-digit.even{background:var(--green-dim);color:var(--green);}
+.trade-digit.odd{background:var(--red-dim);color:var(--red);}
+.trade-cycle-tag{
+  font-size:10px;color:var(--purple);font-weight:700;
+  background:var(--purple-dim);border-radius:3px;padding:1px 4px;}
+.empty-state{text-align:center;padding:48px 24px;color:var(--txt2);font-size:14px;}
+.empty-state .empty-icon{font-size:40px;margin-bottom:12px;}
+
+/* ═══ SETTINGS ═══ */
+.settings-group{margin:12px 14px 0;}
+.settings-group-title{
+  font-size:11px;font-weight:700;color:var(--txt2);letter-spacing:.07em;
+  text-transform:uppercase;margin-bottom:10px;}
+.settings-item{
+  display:flex;align-items:center;justify-content:space-between;background:var(--bg1);
+  border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:8px;gap:12px;}
+.settings-item-left{flex:1;min-width:0;}
+.settings-item-title{font-size:13px;font-weight:600;}
+.settings-item-val{font-size:12px;color:var(--txt1);font-family:var(--mono);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.settings-select{
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--rs);
+  padding:8px 10px;color:var(--txt0);font-size:13px;font-family:var(--mono);
+  -webkit-appearance:none;min-width:90px;}
+.danger-btn{
+  width:100%;padding:13px;margin:8px 0;background:var(--red-dim);
+  border:1px solid rgba(255,61,87,.3);border-radius:var(--r);
+  color:var(--red);font-size:14px;font-weight:600;transition:all .2s;}
+.danger-btn:active{background:rgba(255,61,87,.25);}
+.version-tag{text-align:center;padding:24px;font-size:12px;color:var(--txt2);}
+
+/* ═══ LOADING OVERLAY ═══ */
+#loading-overlay{
+  position:fixed;inset:0;background:rgba(8,13,26,.9);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  z-index:1000;backdrop-filter:blur(4px);}
+.spinner{
+  width:40px;height:40px;border-radius:50%;border:3px solid var(--bg3);
+  border-top-color:var(--cyan);animation:spin .8s linear infinite;margin-bottom:16px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-text{font-size:14px;color:var(--txt1);}
+
+/* ═══ STAKE MODAL ═══ */
+#modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);
+  display:flex;align-items:flex-end;justify-content:center;
+  z-index:500;opacity:0;pointer-events:none;transition:opacity .25s;}
+#modal-overlay.open{opacity:1;pointer-events:all;}
+.modal-sheet{
+  width:100%;max-width:480px;background:var(--bg1);border-radius:20px 20px 0 0;
+  padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));
+  transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);}
+#modal-overlay.open .modal-sheet{transform:translateY(0);}
+.modal-handle{width:40px;height:4px;background:var(--bg3);border-radius:2px;margin:0 auto 16px;}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:16px;}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.numpad-btn{
+  padding:16px;border-radius:var(--r);background:var(--bg2);border:1px solid var(--border);
+  color:var(--txt0);font-size:18px;font-weight:500;font-family:var(--mono);transition:background .15s;}
+.numpad-btn:active{background:var(--bg3);}
+.numpad-btn.action{color:var(--cyan);font-size:14px;font-weight:700;}
+.numpad-btn.del{color:var(--red);}
+.numpad-display{
+  font-family:var(--mono);font-size:32px;font-weight:700;color:var(--cyan);
+  text-align:center;padding:16px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--r);margin-bottom:12px;}
+.numpad-confirm{
+  width:100%;padding:15px;border-radius:var(--r);
+  background:linear-gradient(135deg,var(--cyan),#1A7AFF);
+  color:#080D1A;font-size:15px;font-weight:800;margin-top:4px;}
+
+/* MISC */
+.tag{display:inline-flex;align-items:center;padding:3px 8px;border-radius:4px;
+  font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;}
+.tag.live{background:var(--green-dim);color:var(--green);border:1px solid rgba(0,230,118,.3);}
+.tag.cycling{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(155,89,245,.3);}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+.fade-in{animation:fadeIn .25s ease forwards;}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ LOGIN ══════════════ -->
+<div id="login-screen">
+  <div class="login-logo">📈</div>
+  <div class="login-title">D‑Trader</div>
+  <div class="login-sub">Even/Odd · Martingale · Auto-Cycle · Deriv API v3</div>
+  <div class="login-card">
+    <div class="field-group">
+      <div class="field-label">API Token</div>
+      <input id="inp-token" class="field-input" type="password"
+        placeholder="Paste your Deriv API token" autocomplete="off" spellcheck="false">
+      <div class="field-hint">app.deriv.com → Settings → API Token (Trade scope)</div>
+    </div>
+    <div class="field-group">
+      <div class="field-label">App ID</div>
+      <input id="inp-appid" class="field-input" type="number" value="1089"
+        placeholder="e.g. 1089">
+      <div class="field-hint">Register your own at developers.deriv.com for production</div>
+    </div>
+    <button id="btn-connect" class="btn-connect" onclick="onConnectClick()">Connect to Deriv</button>
+    <div id="login-error" class="login-error"></div>
+  </div>
+</div>
+
+<!-- ══════════════ MAIN ══════════════ -->
+<div id="main-screen">
+
+  <!-- STATUS BAR -->
+  <div id="status-bar">
+    <div class="status-left">
+      <div class="conn-dot" id="conn-dot"></div>
+      <span class="conn-label" id="conn-label">Connecting…</span>
+      <span class="loginid-tag" id="loginid-tag"></span>
+      <span class="cycle-badge" id="cycle-badge">Cycle 0</span>
+    </div>
+    <div class="status-right">
+      <div>
+        <div class="header-balance" id="header-balance">0.00</div>
+        <div class="header-currency" id="header-currency">USD</div>
+      </div>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <!-- TAB CONTENT -->
+  <div id="tab-content">
+
+    <!-- ── TRADE TAB ── -->
+    <div id="tab-trade" class="tab-pane active">
+      <div class="ticker-section">
+        <div class="ticker-header">
+          <div>
+            <div class="ticker-symbol" id="tick-symbol">R_100</div>
+            <div class="tag live" id="tick-status-tag">LIVE</div>
+          </div>
+          <div class="ticker-price-block">
+            <div class="ticker-price" id="tick-price">—</div>
+            <div class="ticker-time" id="tick-time">Waiting…</div>
+          </div>
+        </div>
+        <div class="digit-tape" id="digit-tape"></div>
+        <div class="digit-tape-label">Last 10 digits · Green = Even · Red = Odd</div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-pill"><div class="stat-val neu" id="stat-wins">0</div><div class="stat-lbl">Wins</div></div>
+        <div class="stat-pill"><div class="stat-val neg" id="stat-losses">0</div><div class="stat-lbl">Losses</div></div>
+        <div class="stat-pill"><div class="stat-val" id="stat-profit" style="color:var(--txt0)">0.00</div><div class="stat-lbl">Cycle P&amp;L</div></div>
+        <div class="stat-pill"><div class="stat-val neu" id="stat-streak">0</div><div class="stat-lbl">Streak</div></div>
+      </div>
+
+      <!-- Cumulative across all cycles -->
+      <div class="cumulative-bar" id="cumul-bar">
+        <div class="cumul-row">
+          <span class="cumul-label">Cumulative P&amp;L</span>
+          <span class="cumul-val" id="cumul-pnl">+$0.00</span>
+        </div>
+        <div class="cumul-sub" id="cumul-sub">0 cycles completed</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>Place Trade</div>
+        <div class="direction-row">
+          <button class="dir-btn even-btn active" id="btn-even" onclick="setDirection('DIGITEVEN')">EVEN · 0 2 4 6 8</button>
+          <button class="dir-btn odd-btn" id="btn-odd" onclick="setDirection('DIGITODD')">ODD · 1 3 5 7 9</button>
+        </div>
+        <div class="stake-row">
+          <span class="stake-label">Stake</span>
+          <button class="stake-adj" onclick="adjustStake(-1)">−</button>
+          <div class="stake-display" id="stake-display" onclick="openStakeModal()">1.00</div>
+          <button class="stake-adj" onclick="adjustStake(1)">+</button>
+        </div>
+        <div class="quick-stakes">
+          <button class="qs-btn" onclick="setStake(0.35)">0.35</button>
+          <button class="qs-btn" onclick="setStake(1)">1.00</button>
+          <button class="qs-btn" onclick="setStake(5)">5.00</button>
+          <button class="qs-btn" onclick="setStake(10)">10.00</button>
+          <button class="qs-btn" onclick="setStake(25)">25.00</button>
+        </div>
+      </div>
+
+      <button id="btn-manual-trade" class="btn-trade even-trade" onclick="manualTrade()" disabled>
+        BUY EVEN · $1.00
+      </button>
+    </div>
+
+    <!-- ── AUTO TAB ── -->
+    <div id="tab-auto" class="tab-pane">
+      <div class="section-head">Auto-Trader Configuration</div>
+
+      <div class="toggle-row" style="margin:0 14px 10px;">
+        <div class="toggle-info">
+          <div class="toggle-title">Martingale Mode</div>
+          <div class="toggle-desc">Multiply stake on each loss</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="tog-martingale" checked onchange="saveSettings()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row" style="margin:0 14px 10px;">
+        <div class="toggle-info">
+          <div class="toggle-title">Alternate Direction</div>
+          <div class="toggle-desc">Flip Even↔Odd after each loss</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="tog-alternate" onchange="saveSettings()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="row-two">
+        <div class="field-row">
+          <div class="field-label">Initial Stake ($)</div>
+          <input id="inp-init-stake" class="inline-input" type="number" value="1" min="0.35" step="0.01" oninput="onAutoSettingChange()">
+        </div>
+        <div class="field-row">
+          <div class="field-label">Multiplier</div>
+          <input id="inp-multiplier" class="inline-input" type="number" value="2.1" min="1.1" max="10" step="0.1" oninput="onAutoSettingChange()">
+        </div>
+      </div>
+
+      <div class="row-two">
+        <div class="field-row">
+          <div class="field-label">Max Steps</div>
+          <input id="inp-max-steps" class="inline-input" type="number" value="5" min="1" max="15" oninput="onAutoSettingChange()">
+        </div>
+        <div class="field-row">
+          <div class="field-label">Delay (ms)</div>
+          <input id="inp-delay" class="inline-input" type="number" value="500" min="0" max="5000" step="100" oninput="saveSettings()">
+        </div>
+      </div>
+
+      <div class="row-two">
+        <div class="field-row">
+          <div class="field-label">Take Profit ($)</div>
+          <input id="inp-tp" class="inline-input" type="number" value="10" min="0.01" step="0.01" oninput="saveSettings()">
+        </div>
+        <div class="field-row">
+          <div class="field-label">Stop Loss ($)</div>
+          <input id="inp-sl" class="inline-input" type="number" value="20" min="0.01" step="0.01" oninput="saveSettings()">
+        </div>
+      </div>
+
+      <!-- Session Status -->
+      <div class="session-status" id="session-status-bar">
+        <div class="ss-item">
+          <div class="ss-val neu" id="ss-cycle">0</div>
+          <div class="ss-lbl">Cycles</div>
+        </div>
+        <div class="ss-item">
+          <div class="ss-val" id="ss-cumul" style="color:var(--txt0)">$0.00</div>
+          <div class="ss-lbl">Total P&amp;L</div>
+        </div>
+        <div class="ss-item">
+          <div class="ss-val neu" id="ss-step">0/5</div>
+          <div class="ss-lbl">Mart Step</div>
+        </div>
+        <div class="ss-item">
+          <div class="ss-val" id="ss-next-stake" style="color:var(--amber)">$1.00</div>
+          <div class="ss-lbl">Next Stake</div>
+        </div>
+      </div>
+
+      <!-- Martingale Progression -->
+      <div class="card">
+        <div class="card-title"><span class="dot" style="background:var(--amber)"></span>Martingale Progression</div>
+        <div class="mart-viz">
+          <div class="mart-steps" id="mart-steps"></div>
+          <div class="mart-info">
+            <span id="mart-step-label">Step: 0 / 5</span>
+            <span>Next: <span class="mart-next-stake" id="mart-next-stake">$1.00</span></span>
+          </div>
+        </div>
+        <div id="mart-table"></div>
+      </div>
+
+      <!-- Progress Bar (Session TP/SL) -->
+      <div class="progress-wrap">
+        <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+          <span style="font-size:11px;color:var(--txt2)">Cycle P&amp;L Progress</span>
+          <span id="progress-label-text" style="font-size:11px;color:var(--txt1);font-family:var(--mono)">$0.00</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="pnl-bar"></div>
+        </div>
+        <div class="progress-label">
+          <span>-$<span id="prog-sl">20.00</span> SL</span>
+          <span>+$<span id="prog-tp">10.00</span> TP</span>
+        </div>
+      </div>
+
+      <div style="height:14px;"></div>
+      <div class="auto-controls">
+        <button id="btn-auto-start" class="btn-auto-start" onclick="toggleAutoTrade()">▶ START AUTO</button>
+      </div>
+      <div style="height:20px;"></div>
+    </div>
+
+    <!-- ── HISTORY TAB ── -->
+    <div id="tab-history" class="tab-pane">
+      <div class="history-summary" id="history-summary"></div>
+      <div id="trade-list">
+        <div class="empty-state">
+          <div class="empty-icon">📋</div>
+          No trades yet.<br>Place your first trade to get started.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SETTINGS TAB ── -->
+    <div id="tab-settings" class="tab-pane">
+      <div class="settings-group">
+        <div class="settings-group-title">Connection</div>
+        <div class="settings-item">
+          <div class="settings-item-left">
+            <div class="settings-item-title">API Token</div>
+            <div class="settings-item-val" id="s-token-val">••••••••</div>
+          </div>
+        </div>
+        <div class="settings-item">
+          <div class="settings-item-left">
+            <div class="settings-item-title">App ID</div>
+            <div class="settings-item-val" id="s-appid-val">1089</div>
+          </div>
+        </div>
+        <div class="settings-item">
+          <div class="settings-item-left">
+            <div class="settings-item-title">Account</div>
+            <div class="settings-item-val" id="s-loginid-val">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-group-title">Symbol</div>
+        <div class="settings-item">
+          <div class="settings-item-left">
+            <div class="settings-item-title">Trading Instrument</div>
+            <div class="settings-item-val" id="s-symbol-val">R_100</div>
+          </div>
+          <div class="settings-item-right">
+            <select class="settings-select" id="set-symbol" onchange="onSymbolChange()">
+              <option value="R_10">R_10 (Vol 10)</option>
+              <option value="R_25">R_25 (Vol 25)</option>
+              <option value="R_50">R_50 (Vol 50)</option>
+              <option value="R_75">R_75 (Vol 75)</option>
+              <option value="R_100" selected>R_100 (Vol 100)</option>
+              <option value="1HZ10V">HZ10 (1s)</option>
+              <option value="1HZ25V">HZ25 (1s)</option>
+              <option value="1HZ50V">HZ50 (1s)</option>
+              <option value="1HZ75V">HZ75 (1s)</option>
+              <option value="1HZ100V">HZ100 (1s)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-group-title">Session</div>
+        <button class="danger-btn" onclick="clearHistory()">🗑 Clear Trade History</button>
+        <button class="danger-btn" onclick="resetCumulativeStats()">↺ Reset Cumulative Stats</button>
+        <button class="danger-btn" onclick="logout()">⏻ Disconnect &amp; Logout</button>
+      </div>
+      <div class="version-tag">D‑Trader v2.0 · Deriv API v3<br>Even/Odd · Martingale · Auto-Cycle Engine</div>
+    </div>
+
+  </div><!-- /tab-content -->
+
+  <!-- BOTTOM NAV -->
+  <div id="bottom-nav">
+    <button class="nav-btn active" id="nav-trade" onclick="switchTab('trade')">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M3 17l4-8 4 4 4-6 4 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Trade
+    </button>
+    <button class="nav-btn" id="nav-auto" onclick="switchTab('auto')">
+      <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a1 1 0 011 1v1.07A8.001 8.001 0 0112 20a8 8 0 01-1-15.93V3a1 1 0 011-1zm0 4a6 6 0 100 12A6 6 0 0012 6zm0 2a4 4 0 110 8 4 4 0 010-8z"/></svg>
+      Auto
+    </button>
+    <button class="nav-btn" id="nav-history" onclick="switchTab('history')">
+      <svg viewBox="0 0 24 24"><path fill="currentColor" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+      History
+    </button>
+    <button class="nav-btn" id="nav-settings" onclick="switchTab('settings')">
+      <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 15.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7zm7.43-2.23c.04-.32.07-.65.07-.98s-.03-.66-.07-1l2.14-1.68c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.52 1.01c-.52-.4-1.08-.73-1.69-.98l-.38-2.69A.49.49 0 0014 3h-4c-.25 0-.46.18-.49.42l-.38 2.69c-.61.25-1.17.59-1.69.98L4.96 6.08c-.22-.08-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.61 12c-.04.34-.07.67-.07 1s.03.66.07 1l-2.14 1.68c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.52-1.01c.52.4 1.08.73 1.69.98l.38 2.69c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.69c.61-.25 1.17-.59 1.69-.98l2.52 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.14-1.68z"/></svg>
+      Settings
+    </button>
+  </div>
+</div>
+
+<!-- LOADING OVERLAY -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Connecting to Deriv…</div>
+</div>
+
+<!-- RESULT TOAST -->
+<div id="result-toast"></div>
+
+<!-- ══════════════ TP CELEBRATION OVERLAY ══════════════ -->
+<div id="tp-overlay">
+  <div class="tp-cycle-badge" id="tp-cycle-badge">Cycle 1 Complete</div>
+  <div class="tp-ring"><div class="tp-ring-icon">🎯</div></div>
+  <div class="tp-title">TAKE PROFIT!</div>
+  <div class="tp-subtitle">Cycle target reached · Resetting &amp; restarting</div>
+  <div class="tp-amount" id="tp-amount">+$0.00</div>
+  <div class="tp-cycle-pnl" id="tp-cycle-pnl">Cycle profit banked</div>
+  <div class="tp-cumul">
+    <div class="tp-cumul-label">Total Cumulative P&amp;L</div>
+    <div class="tp-cumul-val" id="tp-cumul-val">+$0.00</div>
+  </div>
+  <div class="tp-countdown">
+    Restarting in
+    <span class="tp-countdown-num" id="tp-countdown-num">3</span>
+    seconds
+  </div>
+  <div class="tp-bar-bg"><div class="tp-bar-fill" id="tp-bar-fill"></div></div>
+  <button class="tp-cancel-btn" onclick="cancelCycleRestart()">✕ Cancel Auto-Restart</button>
+</div>
+
+<!-- STAKE MODAL -->
+<div id="modal-overlay" onclick="closeModalOnBg(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Enter Stake Amount</div>
+    <div class="numpad-display" id="numpad-display">1.00</div>
+    <div class="numpad">
+      <button class="numpad-btn" onclick="numpadInput('1')">1</button>
+      <button class="numpad-btn" onclick="numpadInput('2')">2</button>
+      <button class="numpad-btn" onclick="numpadInput('3')">3</button>
+      <button class="numpad-btn" onclick="numpadInput('4')">4</button>
+      <button class="numpad-btn" onclick="numpadInput('5')">5</button>
+      <button class="numpad-btn" onclick="numpadInput('6')">6</button>
+      <button class="numpad-btn" onclick="numpadInput('7')">7</button>
+      <button class="numpad-btn" onclick="numpadInput('8')">8</button>
+      <button class="numpad-btn" onclick="numpadInput('9')">9</button>
+      <button class="numpad-btn action" onclick="numpadInput('.')">.</button>
+      <button class="numpad-btn" onclick="numpadInput('0')">0</button>
+      <button class="numpad-btn del" onclick="numpadDel()">⌫</button>
+    </div>
+    <button class="numpad-confirm" onclick="confirmStake()">Set Stake</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     JAVASCRIPT ENGINE v2.0 — CYCLE AUTO-RESET SYSTEM
+═══════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════ */
+const WS_URL      = 'wss://ws.binaryws.com/websockets/v3';
+const PING_MS     = 25000;
+const RECONNECT_DELAY = 4000;
+const MAX_RETRIES     = 20;
+const MIN_STAKE       = 0.35;
+const TP_COUNTDOWN_S  = 3;    // seconds before auto-restart after TP
+const WATCHDOG_MS     = 45000; // force-unlock mutex after this long
+
+/* ═══════════════════════════════════════════
+   GLOBAL STATE
+═══════════════════════════════════════════ */
+const S = {
+  /* Connection */
+  ws: null, appId: '1089', token: '',
+  authorized: false, connected: false,
+  reconnectCount: 0,
+  pingTimer: null, reconnectTimer: null, watchdogTimer: null,
+  reqId: 1, requests: {}, subscriptions: {},
+
+  /* Account */
+  balance: 0, currency: 'USD', loginid: '',
+
+  /* Ticks */
+  tickSub: null, lastTicks: [], lastPrice: null, prevPrice: null,
+
+  /* Manual trade */
+  direction: 'DIGITEVEN', stake: 1.00, symbol: 'R_100',
+
+  /* ── Cycle Engine ── */
+  // Cycle counters (persist across TP resets, never cleared until manual reset)
+  cycleCount: 0,
+  cumulativeProfit: 0,
+
+  // Per-cycle (session) state — cleared on every TP cycle reset
+  sessionProfit: 0,
+  sessionWins: 0,
+  sessionLosses: 0,
+  streak: 0,
+
+  // Martingale
+  martingaleStep: 0,
+  currentStake: 1.00,
+  consecutiveLosses: 0,
+
+  /* Auto trader */
+  autoRunning: false,
+
+  /* Trade mutex — held from propose→buy→settle */
+  _tradeLocked: false,
+
+  /* Cycle restart control */
+  _cycleRestartTimer: null,   // setTimeout handle for auto-restart after TP
+  _countdownTimer: null,      // setInterval for countdown display
+  _cancelRestart: false,      // if true, restart is cancelled by user
+
+  /* History */
+  trades: [],
+};
+
+/* ═══════════════════════════════════════════
+   SETTINGS
+═══════════════════════════════════════════ */
+let CFG = {
+  martingaleEnabled: true,
+  alternateDir: false,
+  initStake: 1.00,
+  multiplier: 2.1,
+  maxSteps: 5,
+  delayMs: 500,
+  takeProfit: 10,
+  stopLoss: 20,
+  symbol: 'R_100',
+};
+
+function loadSettings() {
+  try { const s = localStorage.getItem('dtrader_cfg'); if (s) CFG = {...CFG,...JSON.parse(s)}; } catch(e){}
+}
+function saveSettings() {
+  CFG.martingaleEnabled = document.getElementById('tog-martingale').checked;
+  CFG.alternateDir      = document.getElementById('tog-alternate').checked;
+  CFG.initStake   = Math.max(MIN_STAKE, parseFloat(document.getElementById('inp-init-stake').value) || 1);
+  CFG.multiplier  = parseFloat(document.getElementById('inp-multiplier').value) || 2;
+  CFG.maxSteps    = parseInt(document.getElementById('inp-max-steps').value)    || 5;
+  CFG.delayMs     = parseInt(document.getElementById('inp-delay').value)        || 500;
+  CFG.takeProfit  = parseFloat(document.getElementById('inp-tp').value)         || 10;
+  CFG.stopLoss    = parseFloat(document.getElementById('inp-sl').value)         || 20;
+  try { localStorage.setItem('dtrader_cfg', JSON.stringify(CFG)); } catch(e){}
+  updateProgressBar();
+  renderMartingaleTable();
+  document.getElementById('prog-sl').textContent = CFG.stopLoss.toFixed(2);
+  document.getElementById('prog-tp').textContent = CFG.takeProfit.toFixed(2);
+}
+function applySettingsToUI() {
+  document.getElementById('tog-martingale').checked = CFG.martingaleEnabled;
+  document.getElementById('tog-alternate').checked  = CFG.alternateDir;
+  document.getElementById('inp-init-stake').value   = CFG.initStake;
+  document.getElementById('inp-multiplier').value   = CFG.multiplier;
+  document.getElementById('inp-max-steps').value    = CFG.maxSteps;
+  document.getElementById('inp-delay').value        = CFG.delayMs;
+  document.getElementById('inp-tp').value           = CFG.takeProfit;
+  document.getElementById('inp-sl').value           = CFG.stopLoss;
+  document.getElementById('set-symbol').value       = CFG.symbol;
+  document.getElementById('prog-sl').textContent    = CFG.stopLoss.toFixed(2);
+  document.getElementById('prog-tp').textContent    = CFG.takeProfit.toFixed(2);
+  S.symbol       = CFG.symbol;
+  S.currentStake = CFG.initStake;
+  S.stake        = CFG.initStake;
+  updateStakeUI();
+}
+function onAutoSettingChange() {
+  saveSettings();
+  S.martingaleStep = 0;
+  S.currentStake   = CFG.initStake;
+  renderMartingaleSteps();
+}
+
+/* ═══════════════════════════════════════════
+   WEBSOCKET LAYER
+═══════════════════════════════════════════ */
+function wsConnect(token, appId) {
+  if (S.ws) { S.ws.onclose = null; S.ws.close(); S.ws = null; }
+  S.token = token; S.appId = appId;
+  showLoading('Connecting to Deriv…');
+
+  const url = `${WS_URL}?app_id=${encodeURIComponent(appId)}&l=en&brand=deriv`;
+  S.ws = new WebSocket(url);
+
+  S.ws.onopen = () => {
+    S.connected = true; S.reconnectCount = 0;
+    updateConnStatus(true); startPing();
+    wsSend({ authorize: token });
+  };
+  S.ws.onmessage = (evt) => {
+    try { handleMessage(JSON.parse(evt.data)); } catch(e) { console.error('Parse error', e); }
+  };
+  S.ws.onerror = () => {};
+  S.ws.onclose = () => {
+    S.connected = false; S.authorized = false;
+    stopPing(); stopWatchdog(); updateConnStatus(false);
+    if (S.autoRunning) {
+      // Don't cancel auto — reconnect will resume
+    }
+    if (S.token && S.reconnectCount < MAX_RETRIES) {
+      S.reconnectCount++;
+      setConnLabel(`Reconnecting (${S.reconnectCount})…`);
+      S.reconnectTimer = setTimeout(() => wsConnect(S.token, S.appId), RECONNECT_DELAY);
+    }
+  };
+}
+
+function wsSend(payload) {
+  if (!S.ws || S.ws.readyState !== WebSocket.OPEN)
+    return Promise.reject(new Error('Not connected'));
+  const id = S.reqId++;
+  payload.req_id = id;
+  return new Promise((resolve, reject) => {
+    S.requests[id] = { resolve, reject };
+    S.ws.send(JSON.stringify(payload));
+    // Auto-reject after 30s to prevent hanging promises
+    setTimeout(() => {
+      if (S.requests[id]) {
+        delete S.requests[id];
+        reject(new Error('Request timeout'));
+      }
+    }, 30000);
+  });
+}
+
+function startPing() {
+  stopPing();
+  S.pingTimer = setInterval(() => {
+    if (S.ws && S.ws.readyState === WebSocket.OPEN)
+      S.ws.send(JSON.stringify({ ping: 1 }));
+  }, PING_MS);
+}
+function stopPing() {
+  if (S.pingTimer) { clearInterval(S.pingTimer); S.pingTimer = null; }
+}
+
+/* ═══════════════════════════════════════════
+   WATCHDOG — force-unlocks stuck mutex
+═══════════════════════════════════════════ */
+function startWatchdog() {
+  stopWatchdog();
+  S.watchdogTimer = setTimeout(() => {
+    if (S._tradeLocked) {
+      console.warn('[WATCHDOG] Force-unlocking stuck trade mutex');
+      S._tradeLocked = false;
+      setBuyBtnLoading(false);
+      if (S.autoRunning) scheduleNextTrade();
+    }
+  }, WATCHDOG_MS);
+}
+function stopWatchdog() {
+  if (S.watchdogTimer) { clearTimeout(S.watchdogTimer); S.watchdogTimer = null; }
+}
+
+/* ═══════════════════════════════════════════
+   MESSAGE ROUTER
+═══════════════════════════════════════════ */
+function handleMessage(msg) {
+  if (msg.req_id && S.requests[msg.req_id]) {
+    const { resolve, reject } = S.requests[msg.req_id];
+    delete S.requests[msg.req_id];
+    if (msg.error) reject(msg.error); else resolve(msg);
+  }
+  switch(msg.msg_type) {
+    case 'authorize':
+      if (msg.error) { onAuthError(msg.error); return; }
+      onAuthorized(msg.authorize); break;
+    case 'balance':   onBalance(msg.balance); break;
+    case 'tick':      onTick(msg.tick); break;
+    case 'buy':
+      if (msg.error) onBuyError(msg.error); else onBuyConfirm(msg.buy); break;
+    case 'proposal_open_contract':
+      onContractUpdate(msg.proposal_open_contract); break;
+    case 'transaction':
+      if (msg.transaction && msg.transaction.balance !== undefined) {
+        S.balance = parseFloat(msg.transaction.balance);
+        updateBalanceUI();
+      }
+      break;
+    case 'ping': break;
+    default: break;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   AUTH
+═══════════════════════════════════════════ */
+function onAuthorized(data) {
+  S.authorized = true;
+  S.loginid    = data.loginid || '';
+  S.balance    = parseFloat(data.balance || 0);
+  S.currency   = data.currency || 'USD';
+  hideLoading();
+  showMainApp();
+  updateBalanceUI();
+  updateConnStatus(true);
+  document.getElementById('loginid-tag').textContent    = S.loginid;
+  document.getElementById('s-loginid-val').textContent  = S.loginid;
+  document.getElementById('s-appid-val').textContent    = S.appId;
+  document.getElementById('s-token-val').textContent    = S.token.substring(0,6) + '••••••';
+  document.getElementById('header-currency').textContent = S.currency;
+  wsSend({ balance: 1, subscribe: 1 });
+  wsSend({ transaction: 1, subscribe: 1 });
+  subscribeToTicks(S.symbol);
+  // Restore auto-trade if it was running before disconnect
+  if (S.autoRunning && !S._tradeLocked) scheduleNextTrade();
+}
+function onAuthError(err) {
+  hideLoading();
+  showLoginError(err.message || 'Authorization failed. Check your token.');
+  showLoginScreen();
+}
+
+/* ═══════════════════════════════════════════
+   BALANCE
+═══════════════════════════════════════════ */
+function onBalance(data) {
+  if (!data) return;
+  S.balance  = parseFloat(data.balance || 0);
+  S.currency = data.currency || S.currency;
+  updateBalanceUI();
+}
+function updateBalanceUI() {
+  document.getElementById('header-balance').textContent  = S.balance.toFixed(2);
+  document.getElementById('header-currency').textContent = S.currency;
+}
+
+/* ═══════════════════════════════════════════
+   TICKS
+═══════════════════════════════════════════ */
+function subscribeToTicks(symbol) {
+  if (S.tickSub) { wsSend({ forget: S.tickSub }).catch(()=>{}); S.tickSub = null; }
+  S.lastTicks = [];
+  renderDigitTape();
+  wsSend({ ticks: symbol, subscribe: 1 })
+    .then(msg => { if (msg.subscription) S.tickSub = msg.subscription.id; })
+    .catch(e => console.warn('Tick subscribe error', e));
+}
+function onTick(tick) {
+  if (!tick) return;
+  const price    = tick.quote;
+  const priceStr = price.toString();
+  const digit    = parseInt(priceStr[priceStr.length - 1]);
+  S.prevPrice = S.lastPrice;
+  S.lastPrice = price;
+  S.lastTicks.push(digit);
+  if (S.lastTicks.length > 10) S.lastTicks.shift();
+  renderDigitTape();
+  const el = document.getElementById('tick-price');
+  const dec = priceStr.includes('.') ? priceStr.split('.')[1].length : 2;
+  el.textContent = price.toFixed(dec);
+  el.className = 'ticker-price ' + (S.prevPrice === null ? '' : price > S.prevPrice ? 'up' : price < S.prevPrice ? 'down' : '');
+  const now = new Date();
+  document.getElementById('tick-time').textContent =
+    now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+function renderDigitTape() {
+  const tape = document.getElementById('digit-tape');
+  if (S.lastTicks.length === 0) {
+    tape.innerHTML = '<span style="color:var(--txt2);font-size:12px;">Waiting for ticks…</span>';
+    return;
+  }
+  tape.innerHTML = S.lastTicks.map((d, i) => {
+    const isEven = d % 2 === 0;
+    const isLast = i === S.lastTicks.length - 1;
+    const op = isLast ? '' : `opacity:${0.2 + i * 0.08}`;
+    return `<div class="digit-pill ${isEven?'even':'odd'}" style="${op}">${d}</div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════
+   TRADE PLACEMENT
+═══════════════════════════════════════════ */
+async function placeTrade(stakeOverride, dirOverride) {
+  if (S._tradeLocked) return;
+  if (!S.authorized || !S.connected) { showToast('Not connected', 'loss'); return; }
+
+  const stake = parseFloat((stakeOverride || S.stake).toFixed(2));
+  const dir   = dirOverride || S.direction;
+
+  if (stake < MIN_STAKE)    { showToast(`Min stake: $${MIN_STAKE}`, 'loss'); return; }
+  if (stake > S.balance)    { showToast('Insufficient balance', 'loss'); stopAutoIfRunning(); return; }
+
+  // Acquire mutex
+  S._tradeLocked = true;
+  setBuyBtnLoading(true);
+  startWatchdog();
+
+  try {
+    const resp = await wsSend({
+      buy: 1,
+      price: stake,
+      parameters: {
+        amount: stake,
+        basis: 'stake',
+        contract_type: dir,
+        currency: S.currency,
+        duration: 1,
+        duration_unit: 't',
+        symbol: S.symbol,
+      }
+    });
+    const contractId = resp.buy.contract_id;
+    wsSend({ proposal_open_contract: 1, contract_id: contractId, subscribe: 1 });
+  } catch(err) {
+    console.error('[TRADE] Buy failed:', err);
+    showToast((err.message || 'Trade failed') + ' · Retrying…', 'loss');
+    S._tradeLocked = false;
+    stopWatchdog();
+    setBuyBtnLoading(false);
+    if (S.autoRunning) scheduleNextTrade(2000); // retry after delay
+  }
+}
+
+function onBuyConfirm(buy) {
+  // Contract is live — awaiting settlement via proposal_open_contract
+  // Watchdog remains armed until settlement
+}
+
+function onBuyError(err) {
+  S._tradeLocked = false;
+  stopWatchdog();
+  setBuyBtnLoading(false);
+  showToast(err.message || 'Trade failed', 'loss');
+  if (S.autoRunning) scheduleNextTrade(2000);
+}
+
+/* ═══════════════════════════════════════════
+   SETTLEMENT — SINGLE AUTHORITATIVE DECISION POINT
+   All stop/restart logic lives here and ONLY here.
+═══════════════════════════════════════════ */
+function onContractUpdate(contract) {
+  if (!contract || !contract.is_sold) return; // not yet settled
+
+  // Release mutex
+  S._tradeLocked = false;
+  stopWatchdog();
+  setBuyBtnLoading(false);
+
+  // Unsubscribe from this contract
+  if (contract.subscription && contract.subscription.id)
+    wsSend({ forget: contract.subscription.id }).catch(()=>{});
+
+  const isWin      = parseFloat(contract.profit) > 0;
+  const profit     = parseFloat(contract.profit || 0);
+  const stake      = parseFloat(contract.buy_price || 0);
+  const exitDigit  = contract.exit_tick_display_value
+    ? parseInt(contract.exit_tick_display_value.slice(-1)) : null;
+  const direction  = contract.contract_type;
+
+  // ── 1. Update session stats ──
+  S.sessionProfit += profit;
+  S.balance        = parseFloat(contract.balance_after || (S.balance + profit));
+  if (isWin) { S.sessionWins++; S.streak = S.streak > 0 ? S.streak + 1 : 1; }
+  else        { S.sessionLosses++; S.streak = S.streak < 0 ? S.streak - 1 : -1; }
+  updateBalanceUI();
+  updateStatsUI();
+  updateProgressBar();
+
+  // ── 2. Record trade ──
+  addTradeToHistory({
+    id: contract.contract_id,
+    direction, stake, profit, isWin, exitDigit,
+    time: new Date(),
+    step: S.martingaleStep,
+    cycleNum: S.cycleCount + 1,
+  });
+
+  // ── 3. Show result toast ──
+  const sign = profit >= 0 ? '+' : '';
+  showToast(`${isWin ? '✓ WIN' : '✗ LOSS'} ${sign}$${profit.toFixed(2)}`, isWin ? 'win' : 'loss');
+
+  // ── 4. Auto-trader decision chain (priority order) ──
+  if (!S.autoRunning) return;  // manual mode — nothing else to do
+
+  postSettlement(isWin, profit, stake);
+}
+
+/* ════════════════════════════════════════════════════
+   POST-SETTLEMENT DECISION CHAIN
+   Priority: LowBalance > StopLoss > TakeProfit > Continue
+════════════════════════════════════════════════════ */
+function postSettlement(isWin, profit, stake) {
+
+  // Priority 1 — Balance too low for next trade (HARD STOP)
+  const nextStakePreview = isWin
+    ? CFG.initStake
+    : parseFloat((CFG.initStake * Math.pow(CFG.multiplier, Math.min(S.martingaleStep + 1, CFG.maxSteps - 1))).toFixed(2));
+
+  if (S.balance < Math.max(MIN_STAKE, nextStakePreview * 0.5)) {
+    hardStop('⚠ Balance too low to continue');
+    return;
+  }
+
+  // Priority 2 — Stop Loss (HARD STOP, no auto-restart)
+  if (S.sessionProfit <= -Math.abs(CFG.stopLoss)) {
+    hardStop(`🛑 Stop Loss -$${Math.abs(S.sessionProfit).toFixed(2)}`);
+    return;
+  }
+
+  // Priority 3 — Take Profit (SOFT STOP → cycle reset → auto-restart)
+  if (S.sessionProfit >= Math.abs(CFG.takeProfit)) {
+    onTakeProfit();
+    return;
+  }
+
+  // Priority 4 — Continue: advance martingale and schedule next trade
+  advanceMartingale(isWin);
+  scheduleNextTrade();
+}
+
+/* ═══════════════════════════════════════════
+   HARD STOP (Stop Loss / low balance)
+═══════════════════════════════════════════ */
+function hardStop(message) {
+  S.autoRunning = false;
+  updateAutoBtn();
+  showToast(message, 'loss');
+  renderMartingaleSteps();
+}
+
+/* ═══════════════════════════════════════════
+   TAKE PROFIT HANDLER → triggers cycle reset
+═══════════════════════════════════════════ */
+function onTakeProfit() {
+  const cycleProfit = S.sessionProfit;
+
+  // Mark state: still autoRunning=true, but block any new trades during reset
+  S._cancelRestart = false;
+
+  // Accumulate into cumulative counters immediately
+  S.cycleCount++;
+  S.cumulativeProfit = parseFloat((S.cumulativeProfit + cycleProfit).toFixed(2));
+
+  // Update Auto tab session status bar
+  updateSessionStatusBar();
+
+  // Show TP overlay with countdown, then trigger cycleReset
+  showTPCelebration(cycleProfit, S.cumulativeProfit, S.cycleCount, () => {
+    // This callback fires only if restart was NOT cancelled
+    if (!S._cancelRestart && S.autoRunning) {
+      cycleReset();
+      scheduleNextTrade(100); // near-instant restart
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════
+   CYCLE RESET — clears session state, keeps auto running
+═══════════════════════════════════════════ */
+function cycleReset() {
+  // Cancel any dangling timers
+  if (S._cycleRestartTimer) { clearTimeout(S._cycleRestartTimer); S._cycleRestartTimer = null; }
+  if (S._countdownTimer)    { clearInterval(S._countdownTimer);  S._countdownTimer    = null; }
+
+  // Reset all per-cycle session state
+  S.sessionProfit     = 0;
+  S.sessionWins       = 0;
+  S.sessionLosses     = 0;
+  S.streak            = 0;
+  S.martingaleStep    = 0;
+  S.currentStake      = CFG.initStake;
+  S.consecutiveLosses = 0;
+  S._tradeLocked      = false; // force-clear in case anything stale
+
+  // Sync manual stake display with reset
+  S.stake = CFG.initStake;
+
+  // Refresh all UI
+  updateStatsUI();
+  updateStakeUI();
+  renderMartingaleSteps();
+  updateProgressBar();
+  updateCumulativeUI();
+  updateSessionStatusBar();
+  updateCycleBadge();
+  setBuyBtnLoading(false);
+
+  console.log(`[CYCLE] Reset complete. Cycle ${S.cycleCount} banked. Cumulative: $${S.cumulativeProfit.toFixed(2)}`);
+}
+
+/* ═══════════════════════════════════════════
+   TP CELEBRATION OVERLAY
+═══════════════════════════════════════════ */
+function showTPCelebration(cycleProfit, cumulativeProfit, cycleNum, onComplete) {
+  const overlay     = document.getElementById('tp-overlay');
+  const amountEl    = document.getElementById('tp-amount');
+  const cyclePnlEl  = document.getElementById('tp-cycle-pnl');
+  const cumulEl     = document.getElementById('tp-cumul-val');
+  const countdownEl = document.getElementById('tp-countdown-num');
+  const barEl       = document.getElementById('tp-bar-fill');
+  const badgeEl     = document.getElementById('tp-cycle-badge');
+
+  // Populate data
+  const sign = cycleProfit >= 0 ? '+' : '';
+  amountEl.textContent   = `${sign}$${cycleProfit.toFixed(2)}`;
+  cyclePnlEl.textContent = `Cycle ${cycleNum} profit banked`;
+  const csign = cumulativeProfit >= 0 ? '+' : '';
+  cumulEl.textContent    = `${csign}$${cumulativeProfit.toFixed(2)}`;
+  badgeEl.textContent    = `Cycle ${cycleNum} Complete`;
+
+  // Show overlay
+  overlay.classList.add('show');
+
+  let remaining = TP_COUNTDOWN_S;
+  countdownEl.textContent = remaining;
+  barEl.style.width = '100%';
+
+  // Clear any previous countdown
+  if (S._countdownTimer) { clearInterval(S._countdownTimer); S._countdownTimer = null; }
+
+  const totalMs  = TP_COUNTDOWN_S * 1000;
+  const startTs  = Date.now();
+
+  S._countdownTimer = setInterval(() => {
+    if (S._cancelRestart) {
+      clearInterval(S._countdownTimer); S._countdownTimer = null;
+      hideTPOverlay();
+      return;
+    }
+    const elapsed = Date.now() - startTs;
+    const pct     = Math.max(0, 100 - (elapsed / totalMs * 100));
+    barEl.style.width = pct + '%';
+    remaining = Math.max(0, Math.ceil((totalMs - elapsed) / 1000));
+    countdownEl.textContent = remaining;
+
+    if (elapsed >= totalMs) {
+      clearInterval(S._countdownTimer); S._countdownTimer = null;
+      hideTPOverlay();
+      if (!S._cancelRestart) onComplete();
+    }
+  }, 80); // 80ms tick for smooth bar
+
+  // Safety backstop — fires after countdown + 500ms buffer
+  if (S._cycleRestartTimer) clearTimeout(S._cycleRestartTimer);
+  S._cycleRestartTimer = setTimeout(() => {
+    S._cycleRestartTimer = null;
+    if (!S._cancelRestart && S.autoRunning) {
+      hideTPOverlay();
+      onComplete();
+    }
+  }, totalMs + 600);
+}
+
+function hideTPOverlay() {
+  document.getElementById('tp-overlay').classList.remove('show');
+}
+
+function cancelCycleRestart() {
+  S._cancelRestart = true;
+  S.autoRunning    = false;
+  if (S._countdownTimer)    { clearInterval(S._countdownTimer);  S._countdownTimer    = null; }
+  if (S._cycleRestartTimer) { clearTimeout(S._cycleRestartTimer); S._cycleRestartTimer = null; }
+  hideTPOverlay();
+  cycleReset(); // still reset the session state cleanly
+  updateAutoBtn();
+  showToast('Auto-restart cancelled · Restarted manually', 'loss');
+}
+
+/* ═══════════════════════════════════════════
+   MARTINGALE ENGINE
+═══════════════════════════════════════════ */
+function advanceMartingale(isWin) {
+  if (isWin || !CFG.martingaleEnabled) {
+    S.martingaleStep    = 0;
+    S.currentStake      = CFG.initStake;
+    S.consecutiveLosses = 0;
+  } else {
+    S.consecutiveLosses++;
+    const nextStep = S.martingaleStep + 1;
+    if (nextStep >= CFG.maxSteps) {
+      // Max steps reached — reset (not a hard stop in auto mode)
+      S.martingaleStep    = 0;
+      S.currentStake      = CFG.initStake;
+      S.consecutiveLosses = 0;
+      showToast('⚠ Max mart steps hit · Stake reset', 'loss');
+    } else {
+      S.martingaleStep = nextStep;
+      S.currentStake   = parseFloat((CFG.initStake * Math.pow(CFG.multiplier, nextStep)).toFixed(2));
+    }
+  }
+  renderMartingaleSteps();
+}
+
+function renderMartingaleSteps() {
+  const el    = document.getElementById('mart-steps');
+  const steps = CFG.maxSteps;
+  const cur   = S.martingaleStep;
+  let html = '';
+  for (let i = 0; i < steps; i++) {
+    let cls = 'mart-step';
+    if (i < cur)       cls += ' done';
+    else if (i === cur && S.autoRunning) cls += ' active';
+    html += `<div class="${cls}"></div>`;
+  }
+  el.innerHTML = html;
+  document.getElementById('mart-step-label').textContent  = `Step: ${cur} / ${steps}`;
+  document.getElementById('mart-next-stake').textContent  = `$${S.currentStake.toFixed(2)}`;
+}
+
+function renderMartingaleTable() {
+  const tb    = document.getElementById('mart-table');
+  const steps = parseInt(CFG.maxSteps) || 5;
+  const mult  = parseFloat(CFG.multiplier) || 2;
+  const init  = parseFloat(CFG.initStake) || 1;
+  let rows = ''; let totalRisk = 0;
+  for (let i = 0; i < steps; i++) {
+    const stake  = parseFloat((init * Math.pow(mult, i)).toFixed(2));
+    totalRisk   += stake;
+    const win    = parseFloat((stake * 0.95).toFixed(2));
+    rows += `<tr>
+      <td style="padding:5px 8px;color:var(--txt2);font-size:11px;">Step ${i+1}</td>
+      <td style="padding:5px 8px;font-family:var(--mono);font-size:11px;color:var(--amber);">$${stake.toFixed(2)}</td>
+      <td style="padding:5px 8px;font-family:var(--mono);font-size:11px;color:var(--green);">+$${win.toFixed(2)}</td>
+      <td style="padding:5px 8px;font-family:var(--mono);font-size:11px;color:var(--txt1);">$${totalRisk.toFixed(2)}</td>
+    </tr>`;
+  }
+  tb.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+    <thead><tr>
+      <th style="text-align:left;padding:5px 8px;font-size:10px;color:var(--txt2);font-weight:600;">STEP</th>
+      <th style="text-align:left;padding:5px 8px;font-size:10px;color:var(--txt2);font-weight:600;">STAKE</th>
+      <th style="text-align:left;padding:5px 8px;font-size:10px;color:var(--txt2);font-weight:600;">WIN</th>
+      <th style="text-align:left;padding:5px 8px;font-size:10px;color:var(--txt2);font-weight:600;">CUMULATIVE RISK</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+/* ═══════════════════════════════════════════
+   AUTO TRADER
+═══════════════════════════════════════════ */
+function toggleAutoTrade() {
+  if (!S.authorized) { showToast('Not connected', 'loss'); return; }
+
+  if (S.autoRunning) {
+    // STOP
+    stopAutoIfRunning();
+  } else {
+    // START — full fresh cycle
+    S.autoRunning       = true;
+    S._cancelRestart    = false;
+    // Reset per-cycle state but NOT cumulative
+    S.sessionProfit     = 0;
+    S.sessionWins       = 0;
+    S.sessionLosses     = 0;
+    S.streak            = 0;
+    S.martingaleStep    = 0;
+    S.currentStake      = CFG.initStake;
+    S.consecutiveLosses = 0;
+    S._tradeLocked      = false;
+    S.stake             = CFG.initStake;
+    updateStakeUI();
+    updateStatsUI();
+    updateProgressBar();
+    renderMartingaleSteps();
+    updateAutoBtn();
+    scheduleNextTrade(200);
+  }
+}
+
+function stopAutoIfRunning() {
+  if (!S.autoRunning) return;
+  S.autoRunning    = false;
+  S._cancelRestart = true;
+  if (S._cycleRestartTimer) { clearTimeout(S._cycleRestartTimer); S._cycleRestartTimer = null; }
+  if (S._countdownTimer)    { clearInterval(S._countdownTimer);  S._countdownTimer    = null; }
+  hideTPOverlay();
+  updateAutoBtn();
+  showToast('Auto trade stopped', 'loss');
+}
+
+function scheduleNextTrade(delayOverride) {
+  if (!S.autoRunning) return;
+  const delay = (delayOverride !== undefined) ? delayOverride : Math.max(50, CFG.delayMs);
+
+  setTimeout(() => {
+    if (!S.autoRunning || S._tradeLocked) return;
+    // Determine direction
+    let dir = S.direction;
+    if (CFG.alternateDir && S.streak <= -2) {
+      dir = S.direction === 'DIGITEVEN' ? 'DIGITODD' : 'DIGITEVEN';
+    }
+    placeTrade(S.currentStake, dir);
+  }, delay);
+}
+
+function updateAutoBtn() {
+  const btn = document.getElementById('btn-auto-start');
+  if (S.autoRunning) {
+    btn.className   = 'btn-auto-start running';
+    btn.textContent = '■ STOP AUTO';
+  } else {
+    btn.className   = 'btn-auto-start';
+    btn.textContent = '▶ START AUTO';
+  }
+}
+
+/* ═══════════════════════════════════════════
+   MANUAL TRADE (trade tab)
+═══════════════════════════════════════════ */
+function manualTrade() {
+  if (S.autoRunning) { showToast('Stop auto first', 'loss'); return; }
+  placeTrade(S.stake, S.direction);
+}
+
+/* ═══════════════════════════════════════════
+   UI UPDATES
+═══════════════════════════════════════════ */
+function updateStatsUI() {
+  document.getElementById('stat-wins').textContent   = S.sessionWins;
+  document.getElementById('stat-losses').textContent = S.sessionLosses;
+  const p   = S.sessionProfit;
+  const pEl = document.getElementById('stat-profit');
+  pEl.textContent = (p >= 0 ? '+' : '') + p.toFixed(2);
+  pEl.style.color = p > 0 ? 'var(--green)' : p < 0 ? 'var(--red)' : 'var(--txt0)';
+  const sEl = document.getElementById('stat-streak');
+  sEl.textContent = Math.abs(S.streak);
+  sEl.style.color = S.streak > 0 ? 'var(--green)' : S.streak < 0 ? 'var(--red)' : 'var(--txt0)';
+}
+
+function updateProgressBar() {
+  const p     = S.sessionProfit;
+  const tp    = CFG.takeProfit;
+  const sl    = CFG.stopLoss;
+  const total = tp + sl;
+  const pos   = sl + p;
+  const pct   = Math.max(0, Math.min(100, (pos / total) * 100));
+  document.getElementById('pnl-bar').style.width         = pct + '%';
+  const lEl = document.getElementById('progress-label-text');
+  lEl.textContent = (p >= 0 ? '+' : '') + '$' + p.toFixed(2);
+  lEl.style.color = p >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('prog-sl').textContent = sl.toFixed(2);
+  document.getElementById('prog-tp').textContent = tp.toFixed(2);
+}
+
+function updateCumulativeUI() {
+  const cp   = S.cumulativeProfit;
+  const sign = cp >= 0 ? '+' : '';
+  const col  = cp >= 0 ? 'var(--green)' : 'var(--red)';
+  const cEl  = document.getElementById('cumul-pnl');
+  cEl.textContent  = `${sign}$${cp.toFixed(2)}`;
+  cEl.style.color  = col;
+  document.getElementById('cumul-sub').textContent = `${S.cycleCount} cycle${S.cycleCount === 1 ? '' : 's'} completed`;
+  const bar = document.getElementById('cumul-bar');
+  if (S.cycleCount > 0) bar.classList.add('visible'); else bar.classList.remove('visible');
+}
+
+function updateSessionStatusBar() {
+  const cp   = S.cumulativeProfit;
+  const sign = cp >= 0 ? '+' : '';
+  document.getElementById('ss-cycle').textContent       = S.cycleCount;
+  const ssCumul = document.getElementById('ss-cumul');
+  ssCumul.textContent  = `${sign}$${cp.toFixed(2)}`;
+  ssCumul.style.color  = cp >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('ss-step').textContent        = `${S.martingaleStep}/${CFG.maxSteps}`;
+  document.getElementById('ss-next-stake').textContent  = `$${S.currentStake.toFixed(2)}`;
+}
+
+function updateCycleBadge() {
+  const badge = document.getElementById('cycle-badge');
+  badge.textContent = `Cycle ${S.cycleCount}`;
+  if (S.cycleCount > 0) badge.classList.add('visible'); else badge.classList.remove('visible');
+}
+
+/* ═══════════════════════════════════════════
+   DIRECTION & STAKE UI
+═══════════════════════════════════════════ */
+function setDirection(dir) {
+  S.direction = dir;
+  document.getElementById('btn-even').classList.toggle('active', dir === 'DIGITEVEN');
+  document.getElementById('btn-odd').classList.toggle('active',  dir === 'DIGITODD');
+  updateBuyBtn();
+}
+function adjustStake(delta) {
+  const steps = [0.35,0.5,1,2,3,5,10,15,20,25,50,100,200,500,1000];
+  let idx = steps.findIndex(v => v >= S.stake);
+  if (idx < 0) idx = steps.length - 1;
+  idx = Math.max(0, Math.min(steps.length - 1, idx + delta));
+  setStake(steps[idx]);
+}
+function setStake(val) {
+  S.stake = Math.max(MIN_STAKE, parseFloat(val));
+  updateStakeUI();
+}
+function updateStakeUI() {
+  document.getElementById('stake-display').textContent = S.stake.toFixed(2);
+  updateBuyBtn();
+}
+function updateBuyBtn() {
+  const btn = document.getElementById('btn-manual-trade');
+  const dir = S.direction === 'DIGITEVEN' ? 'EVEN' : 'ODD';
+  btn.textContent = `BUY ${dir} · $${S.stake.toFixed(2)}`;
+  btn.className   = `btn-trade ${S.direction === 'DIGITEVEN' ? 'even-trade' : 'odd-trade'}`;
+  btn.disabled    = !S.authorized;
+}
+function setBuyBtnLoading(loading) {
+  const btn = document.getElementById('btn-manual-trade');
+  btn.disabled    = loading;
+  btn.textContent = loading
+    ? '⏳ Trading…'
+    : `BUY ${S.direction === 'DIGITEVEN' ? 'EVEN' : 'ODD'} · $${S.stake.toFixed(2)}`;
+}
+
+/* ═══════════════════════════════════════════
+   STAKE NUMPAD MODAL
+═══════════════════════════════════════════ */
+let _numpadVal = '';
+function openStakeModal() {
+  _numpadVal = S.stake.toFixed(2);
+  document.getElementById('numpad-display').textContent = _numpadVal;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+function closeModalOnBg(e) { if (e.target === document.getElementById('modal-overlay')) closeModal(); }
+function numpadInput(val) {
+  if (val === '.' && _numpadVal.includes('.')) return;
+  if (_numpadVal === '0' && val !== '.') _numpadVal = val;
+  else _numpadVal += val;
+  if (_numpadVal.length > 10) return;
+  document.getElementById('numpad-display').textContent = _numpadVal || '0';
+}
+function numpadDel() {
+  _numpadVal = _numpadVal.slice(0, -1);
+  document.getElementById('numpad-display').textContent = _numpadVal || '0';
+}
+function confirmStake() {
+  const val = parseFloat(_numpadVal);
+  if (!isNaN(val) && val >= MIN_STAKE) setStake(val);
+  else showToast(`Minimum: $${MIN_STAKE}`, 'loss');
+  closeModal();
+}
+
+/* ═══════════════════════════════════════════
+   HISTORY
+═══════════════════════════════════════════ */
+function addTradeToHistory(trade) {
+  S.trades.unshift(trade);
+  if (S.trades.length > 200) S.trades.pop();
+  try { localStorage.setItem('dtrader_history', JSON.stringify(S.trades.slice(0, 100))); } catch(e){}
+  if (document.getElementById('tab-history').classList.contains('active')) renderHistory();
+}
+function loadHistory() {
+  try { const s = localStorage.getItem('dtrader_history'); if (s) S.trades = JSON.parse(s); } catch(e){}
+}
+function renderHistory() {
+  const el    = document.getElementById('trade-list');
+  const sumEl = document.getElementById('history-summary');
+  const total  = S.trades.reduce((a,t) => a + t.profit, 0);
+  const wins   = S.trades.filter(t => t.isWin).length;
+  const losses = S.trades.length - wins;
+  const wr     = S.trades.length > 0 ? ((wins / S.trades.length)*100).toFixed(0) : 0;
+  const tsign  = total >= 0 ? '+' : '';
+  sumEl.innerHTML = `
+    <div class="stat-pill"><div class="stat-val pos">${wins}</div><div class="stat-lbl">Wins</div></div>
+    <div class="stat-pill"><div class="stat-val neg">${losses}</div><div class="stat-lbl">Losses</div></div>
+    <div class="stat-pill"><div class="stat-val neu">${wr}%</div><div class="stat-lbl">Win Rate</div></div>
+    <div class="stat-pill"><div class="stat-val" style="color:${total>=0?'var(--green)':'var(--red)'}">${tsign}${total.toFixed(2)}</div><div class="stat-lbl">Total</div></div>`;
+  if (!S.trades.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div>No trades yet.</div>`;
+    return;
+  }
+  el.innerHTML = S.trades.map(t => {
+    const d      = t.exitDigit !== null && t.exitDigit !== undefined ? t.exitDigit : '?';
+    const isEven = d % 2 === 0;
+    const ts     = new Date(t.time).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const psign  = t.profit >= 0 ? '+' : '';
+    const dlbl   = t.direction === 'DIGITEVEN' ? 'EVEN' : 'ODD';
+    return `<div class="trade-row fade-in">
+      <div class="trade-icon ${t.isWin?'win':'loss'}">${t.isWin?'✓':'✗'}</div>
+      <div class="trade-info">
+        <div class="trade-type">${dlbl} · Mart ${t.step||0} <span class="trade-cycle-tag">C${t.cycleNum||1}</span></div>
+        <div class="trade-meta">${ts}</div>
+      </div>
+      <div class="trade-digit ${isEven?'even':'odd'}">${d}</div>
+      <div class="trade-right">
+        <div class="trade-pnl ${t.profit>=0?'pos':'neg'}">${psign}$${t.profit.toFixed(2)}</div>
+        <div class="trade-stake">$${t.stake.toFixed(2)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function clearHistory() {
+  if (!confirm('Clear all trade history?')) return;
+  S.trades = [];
+  try { localStorage.removeItem('dtrader_history'); } catch(e){}
+  renderHistory();
+}
+function resetCumulativeStats() {
+  if (!confirm('Reset cumulative P&L and cycle count?')) return;
+  S.cycleCount       = 0;
+  S.cumulativeProfit = 0;
+  updateCumulativeUI();
+  updateSessionStatusBar();
+  updateCycleBadge();
+  showToast('Cumulative stats reset', 'loss');
+}
+
+/* ═══════════════════════════════════════════
+   SYMBOL
+═══════════════════════════════════════════ */
+function onSymbolChange() {
+  const sym = document.getElementById('set-symbol').value;
+  CFG.symbol = sym; S.symbol = sym;
+  document.getElementById('s-symbol-val').textContent   = sym;
+  document.getElementById('tick-symbol').textContent    = sym;
+  saveSettings();
+  if (S.authorized) subscribeToTicks(sym);
+}
+
+/* ═══════════════════════════════════════════
+   TABS
+═══════════════════════════════════════════ */
+function switchTab(name) {
+  ['trade','auto','history','settings'].forEach(t => {
+    document.getElementById(`tab-${t}`).classList.toggle('active', t === name);
+    document.getElementById(`nav-${t}`).classList.toggle('active', t === name);
+  });
+  if (name === 'history') renderHistory();
+  if (name === 'auto') {
+    renderMartingaleSteps();
+    renderMartingaleTable();
+    updateProgressBar();
+    updateSessionStatusBar();
+  }
+}
+
+/* ═══════════════════════════════════════════
+   TOASTS
+═══════════════════════════════════════════ */
+let _toastTimer = null;
+function showToast(msg, type) {
+  const el = document.getElementById('result-toast');
+  el.textContent = msg;
+  el.className   = `result-toast ${type}`;
+  void el.offsetWidth;
+  el.classList.add('show');
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+/* ═══════════════════════════════════════════
+   CONN STATUS
+═══════════════════════════════════════════ */
+function updateConnStatus(live) {
+  document.getElementById('conn-dot').className     = 'conn-dot' + (live ? ' live' : '');
+  document.getElementById('conn-label').textContent = live ? 'Live' : 'Offline';
+}
+function setConnLabel(lbl) { document.getElementById('conn-label').textContent = lbl; }
+
+/* ═══════════════════════════════════════════
+   LOADING
+═══════════════════════════════════════════ */
+function showLoading(txt) {
+  document.getElementById('loading-text').textContent = txt || 'Loading…';
+  document.getElementById('loading-overlay').style.display = 'flex';
+}
+function hideLoading() { document.getElementById('loading-overlay').style.display = 'none'; }
+
+/* ═══════════════════════════════════════════
+   SCREENS
+═══════════════════════════════════════════ */
+function showLoginScreen() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('main-screen').style.display  = 'none';
+}
+function showMainApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('main-screen').style.display  = 'flex';
+  updateBuyBtn();
+  document.getElementById('tick-symbol').textContent = S.symbol;
+  renderDigitTape();
+  updateCumulativeUI();
+  updateCycleBadge();
+}
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+/* ═══════════════════════════════════════════
+   LOGIN / LOGOUT
+═══════════════════════════════════════════ */
+function onConnectClick() {
+  const token = document.getElementById('inp-token').value.trim();
+  const appId = document.getElementById('inp-appid').value.trim() || '1089';
+  if (!token) { showLoginError('Please enter your API token.'); return; }
+  document.getElementById('login-error').style.display = 'none';
+  document.getElementById('btn-connect').disabled = true;
+  try { localStorage.setItem('dtrader_token', token); localStorage.setItem('dtrader_appid', appId); } catch(e){}
+  wsConnect(token, appId);
+}
+function logout() {
+  stopAutoIfRunning();
+  stopPing(); stopWatchdog();
+  if (S.reconnectTimer) { clearTimeout(S.reconnectTimer); S.reconnectTimer = null; }
+  if (S._cycleRestartTimer) { clearTimeout(S._cycleRestartTimer); S._cycleRestartTimer = null; }
+  if (S._countdownTimer) { clearInterval(S._countdownTimer); S._countdownTimer = null; }
+  S.token = ''; S.authorized = false;
+  if (S.ws) { S.ws.onclose = null; S.ws.close(); S.ws = null; }
+  try { localStorage.removeItem('dtrader_token'); localStorage.removeItem('dtrader_appid'); } catch(e){}
+  document.getElementById('btn-connect').disabled = false;
+  document.getElementById('inp-token').value = '';
+  hideTPOverlay();
+  showLoginScreen();
+}
+
+/* ═══════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════ */
+(function init() {
+  loadSettings();
+  loadHistory();
+  applySettingsToUI();
+  renderMartingaleTable();
+  renderMartingaleSteps();
+  renderDigitTape();
+  updateAutoBtn();
+  updateCycleBadge();
+
+  try {
+    const savedToken = localStorage.getItem('dtrader_token');
+    const savedAppId = localStorage.getItem('dtrader_appid') || '1089';
+    if (savedToken) {
+      document.getElementById('inp-token').value = savedToken;
+      document.getElementById('inp-appid').value  = savedAppId;
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('main-screen').style.display  = 'flex';
+      wsConnect(savedToken, savedAppId);
+    }
+  } catch(e) {}
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INSAIT — Institutional Market Intelligence Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#0a0b10;
+    --bg-1:#0f1119;
+    --bg-2:#151827;
+    --bg-3:#1b1f33;
+    --line:#262b42;
+    --line-soft:#1d2135;
+    --violet:#8b6bf0;
+    --violet-soft:#8b6bf022;
+    --amber:#f0a83f;
+    --teal:#2dd6b0;
+    --rose:#f0526b;
+    --txt-0:#eef0fb;
+    --txt-1:#a7acc7;
+    --txt-2:#6a6f8c;
+    --mono:'JetBrains Mono', monospace;
+    --sans:'Inter', sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{background:var(--bg-0); color:var(--txt-0); font-family:var(--sans); min-height:100vh;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, #8b6bf01a, transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 0%, #2dd6b012, transparent 55%),
+      var(--bg-0);
+    padding-bottom:60px;
+  }
+  ::-webkit-scrollbar{width:8px; height:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px;}
+
+  /* ---------- HEADER ---------- */
+  header{
+    position:sticky; top:0; z-index:50;
+    background:linear-gradient(180deg, #0d0f18ee, #0d0f18cc);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line-soft);
+    padding:14px 22px;
+    display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand-mark{
+    width:34px; height:34px; border-radius:9px;
+    background:linear-gradient(135deg, var(--violet), #5a3fd6);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--mono); font-weight:800; font-size:14px; color:#fff;
+    box-shadow:0 0 22px #8b6bf055;
+    flex-shrink:0;
+  }
+  .brand-text .name{font-weight:800; font-size:15px; letter-spacing:0.5px;}
+  .brand-text .sub{font-size:10.5px; color:var(--txt-2); letter-spacing:1.2px; text-transform:uppercase; margin-top:1px;}
+  .status-pill{
+    display:flex; align-items:center; gap:7px;
+    background:var(--bg-2); border:1px solid var(--line);
+    padding:6px 12px; border-radius:20px; font-size:12px; color:var(--txt-1);
+    font-family:var(--mono);
+  }
+  .dot{width:7px; height:7px; border-radius:50%; background:var(--txt-2); flex-shrink:0;}
+  .dot.live{background:var(--teal); box-shadow:0 0 8px var(--teal); animation:pulse 1.8s infinite;}
+  .dot.warn{background:var(--amber); box-shadow:0 0 8px var(--amber);}
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:.4;}}
+  header .spacer{flex:1;}
+  select, button.ctl{
+    background:var(--bg-2); color:var(--txt-0); border:1px solid var(--line);
+    padding:8px 12px; border-radius:9px; font-family:var(--mono); font-size:12.5px;
+    cursor:pointer; outline:none;
+  }
+  select:hover, button.ctl:hover{border-color:var(--violet);}
+
+  /* ---------- LAYOUT ---------- */
+  main{max-width:1320px; margin:0 auto; padding:22px;}
+  .grid{display:grid; gap:16px;}
+  .g-6{grid-template-columns:repeat(6,1fr);}
+  .g-3{grid-template-columns:repeat(3,1fr);}
+  .g-2{grid-template-columns:2fr 1fr;}
+  @media(max-width:1100px){.g-6{grid-template-columns:repeat(3,1fr);} .g-2{grid-template-columns:1fr;}}
+  @media(max-width:680px){.g-6{grid-template-columns:repeat(2,1fr);} .g-3{grid-template-columns:1fr;}}
+
+  .card{
+    background:linear-gradient(180deg, var(--bg-2), var(--bg-1));
+    border:1px solid var(--line-soft);
+    border-radius:14px;
+    padding:16px;
+    position:relative;
+    overflow:hidden;
+  }
+  .card::before{
+    content:""; position:absolute; top:0; left:0; right:0; height:1px;
+    background:linear-gradient(90deg, transparent, #ffffff14, transparent);
+  }
+  .card-h{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+  .card-title{font-size:11px; letter-spacing:1.1px; text-transform:uppercase; color:var(--txt-2); font-weight:700;}
+  .tag{font-size:9.5px; padding:2px 7px; border-radius:20px; font-family:var(--mono); letter-spacing:.5px;}
+  .tag.live{background:#2dd6b01a; color:var(--teal); border:1px solid #2dd6b040;}
+
+  /* ---------- PRICE / CHART ---------- */
+  .price-row{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;}
+  .price-big{font-family:var(--mono); font-size:34px; font-weight:700; letter-spacing:-0.5px;}
+  .price-chg{font-family:var(--mono); font-size:14px; font-weight:600; padding:3px 9px; border-radius:7px;}
+  .up{color:var(--teal); background:#2dd6b014;}
+  .down{color:var(--rose); background:#f0526b14;}
+  canvas#sparkline{width:100%; height:110px; display:block; margin-top:10px;}
+
+  /* ---------- ENGINE CARDS ---------- */
+  .engine-card .card-title{color:var(--txt-1);}
+  .engine-name{font-weight:700; font-size:13.5px; margin-bottom:2px;}
+  .engine-weight{font-size:10.5px; color:var(--txt-2); font-family:var(--mono);}
+  .engine-score{font-family:var(--mono); font-size:24px; font-weight:800; margin:8px 0 4px;}
+  .bar-track{height:6px; background:var(--bg-3); border-radius:4px; overflow:hidden; margin-top:6px;}
+  .bar-fill{height:100%; border-radius:4px; transition:width .5s ease;}
+  .bull{background:linear-gradient(90deg, #2dd6b0, #1fa88a);}
+  .bear{background:linear-gradient(90deg, #f0526b, #c23a54);}
+  .engine-conf{font-size:10px; color:var(--txt-2); margin-top:7px; font-family:var(--mono);}
+
+  /* ---------- FUSION HERO ---------- */
+  .fusion-hero{
+    background:linear-gradient(135deg, #1b1730, #0f1119 60%);
+    border:1px solid #8b6bf033;
+  }
+  .fusion-top{display:flex; justify-content:space-between; align-items:flex-start; gap:20px; flex-wrap:wrap;}
+  .fusion-verdict{font-size:38px; font-weight:800; letter-spacing:-1px; font-family:var(--sans);}
+  .fusion-verdict.buy{color:var(--teal);}
+  .fusion-verdict.sell{color:var(--rose);}
+  .fusion-verdict.range{color:var(--amber);}
+  .fusion-prob{font-family:var(--mono); font-size:15px; color:var(--txt-1); margin-top:4px;}
+  .gauge-wrap{display:flex; flex-direction:column; align-items:center; gap:6px;}
+  .gauge-label{font-size:10px; color:var(--txt-2); font-family:var(--mono);}
+  .fusion-bar{height:14px; border-radius:8px; background:var(--bg-3); overflow:hidden; margin-top:16px; display:flex;}
+  .fusion-bar .seg{height:100%; transition:width .6s ease;}
+  .fusion-legend{display:flex; justify-content:space-between; font-family:var(--mono); font-size:10.5px; color:var(--txt-2); margin-top:6px;}
+
+  /* ---------- SUB PANELS ---------- */
+  .kv-row{display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--line-soft); font-size:12.5px;}
+  .kv-row:last-child{border-bottom:none;}
+  .kv-label{color:var(--txt-1);}
+  .kv-val{font-family:var(--mono); font-weight:600;}
+
+  .regime-badge{
+    display:inline-flex; align-items:center; gap:8px;
+    background:var(--violet-soft); border:1px solid #8b6bf040; color:var(--violet);
+    padding:8px 14px; border-radius:10px; font-weight:700; font-size:14px; margin-bottom:10px;
+  }
+
+  .bayes-flow{display:flex; align-items:center; gap:10px; margin:14px 0;}
+  .bayes-box{flex:1; text-align:center; background:var(--bg-3); border-radius:10px; padding:10px 6px;}
+  .bayes-box .lbl{font-size:9.5px; color:var(--txt-2); text-transform:uppercase; letter-spacing:.7px;}
+  .bayes-box .val{font-family:var(--mono); font-size:19px; font-weight:800; margin-top:3px;}
+  .bayes-arrow{color:var(--txt-2); font-size:16px;}
+
+  .anomaly-banner{
+    display:none; align-items:center; gap:10px;
+    background:linear-gradient(90deg,#f0a83f22,#f0a83f08); border:1px solid #f0a83f55;
+    padding:10px 14px; border-radius:10px; margin-bottom:14px; font-size:12.5px; color:var(--amber); font-weight:600;
+  }
+  .anomaly-banner.show{display:flex;}
+  .anomaly-banner.crit{background:linear-gradient(90deg,#f0526b22,#f0526b08); border-color:#f0526b55; color:var(--rose);}
+
+  .conf-metric{margin-bottom:12px;}
+  .conf-metric .lbl{display:flex; justify-content:space-between; font-size:11.5px; color:var(--txt-1); margin-bottom:5px;}
+  .conf-metric .lbl b{font-family:var(--mono); color:var(--txt-0);}
+  .conf-track{height:5px; background:var(--bg-3); border-radius:3px; overflow:hidden;}
+  .conf-fill{height:100%; background:linear-gradient(90deg, var(--violet), #6a4fd8); border-radius:3px; transition:width .5s ease;}
+
+  .attr-row{display:flex; align-items:center; gap:10px; margin-bottom:9px;}
+  .attr-name{font-size:11.5px; width:150px; color:var(--txt-1); flex-shrink:0;}
+  .attr-track{flex:1; height:8px; background:var(--bg-3); border-radius:4px; overflow:hidden;}
+  .attr-fill{height:100%; border-radius:4px; background:linear-gradient(90deg, var(--amber), #d68b2a);}
+  .attr-pct{font-family:var(--mono); font-size:11px; width:38px; text-align:right; color:var(--txt-2);}
+
+  .reasoning-list{list-style:none; margin-top:10px;}
+  .reasoning-list li{
+    font-size:12.5px; color:var(--txt-1); padding:7px 0 7px 18px; position:relative; line-height:1.4;
+    border-bottom:1px solid var(--line-soft);
+  }
+  .reasoning-list li:last-child{border-bottom:none;}
+  .reasoning-list li::before{content:"▸"; position:absolute; left:0; color:var(--violet);}
+
+  /* ---------- SCENARIOS ---------- */
+  .scenario-card{border-top:3px solid var(--line);}
+  .scenario-card.primary{border-top-color:var(--teal);}
+  .scenario-card.secondary{border-top-color:var(--amber);}
+  .scenario-card.risk{border-top-color:var(--rose);}
+  .scenario-tag{font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--txt-2); font-weight:700;}
+  .scenario-name{font-size:17px; font-weight:800; margin:6px 0;}
+  .scenario-prob{font-family:var(--mono); font-size:28px; font-weight:800;}
+  .scenario-horizon{font-size:11px; color:var(--txt-2); margin-top:6px; font-family:var(--mono);}
+
+  footer{max-width:1320px; margin:8px auto 0; padding:0 22px; text-align:center;}
+  .disclaimer{
+    font-size:11px; color:var(--txt-2); line-height:1.6; padding:16px;
+    border:1px dashed var(--line); border-radius:12px; margin-top:6px;
+  }
+  .disclaimer b{color:var(--txt-1);}
+
+  .footer-tags{display:flex; justify-content:center; gap:14px; flex-wrap:wrap; margin-top:14px; font-family:var(--mono); font-size:10.5px; color:var(--txt-2);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-mark">IS</div>
+    <div class="brand-text">
+      <div class="name">INSAIT</div>
+      <div class="sub">Institutional Market Intelligence</div>
+    </div>
+  </div>
+
+  <div class="status-pill">
+    <div class="dot" id="connDot"></div>
+    <span id="connText">Connecting…</span>
+  </div>
+
+  <div class="spacer"></div>
+
+  <select id="symbolSelect">
+    <optgroup label="Synthetic Indices">
+      <option value="R_10">Volatility 10 Index</option>
+      <option value="R_25">Volatility 25 Index</option>
+      <option value="R_50">Volatility 50 Index</option>
+      <option value="R_75" selected>Volatility 75 Index</option>
+      <option value="R_100">Volatility 100 Index</option>
+      <option value="1HZ100V">Volatility 100 (1s) Index</option>
+    </optgroup>
+    <optgroup label="Forex">
+      <option value="frxEURUSD">EUR/USD</option>
+      <option value="frxGBPUSD">GBP/USD</option>
+      <option value="frxUSDJPY">USD/JPY</option>
+      <option value="frxXAUUSD">Gold (XAU/USD)</option>
+    </optgroup>
+  </select>
+  <button class="ctl" id="resetBtn">Reset Session</button>
+</header>
+
+<main>
+
+  <!-- PRICE + CHART -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-h">
+      <div class="card-title" id="symbolLabel">Volatility 75 Index — Live Feed</div>
+      <div class="tag live" id="feedTag">● STREAMING</div>
+    </div>
+    <div class="price-row">
+      <div class="price-big" id="priceBig">—</div>
+      <div class="price-chg up" id="priceChg">+0.00%</div>
+      <div style="flex:1"></div>
+      <div style="font-family:var(--mono); font-size:11px; color:var(--txt-2);" id="tickCount">0 ticks buffered</div>
+    </div>
+    <canvas id="sparkline"></canvas>
+  </div>
+
+  <!-- CORE ANALYTICS ENGINES -->
+  <div class="grid g-6" id="engineGrid" style="margin-bottom:16px;"></div>
+
+  <!-- PROBABILITY FUSION HERO -->
+  <div class="card fusion-hero" style="margin-bottom:16px;">
+    <div class="card-h">
+      <div class="card-title" style="color:var(--violet);">Decision Fusion Engine</div>
+      <div class="tag live">6-ENGINE WEIGHTED ENSEMBLE</div>
+    </div>
+    <div class="fusion-top">
+      <div>
+        <div class="fusion-verdict range" id="verdictText">CALIBRATING</div>
+        <div class="fusion-prob" id="verdictProb">awaiting sufficient tick data…</div>
+      </div>
+    </div>
+    <div class="fusion-bar">
+      <div class="seg" id="segBuy" style="width:33%; background:linear-gradient(90deg,#2dd6b0,#1fa88a);"></div>
+      <div class="seg" id="segRange" style="width:34%; background:linear-gradient(90deg,#f0a83f,#d68b2a);"></div>
+      <div class="seg" id="segSell" style="width:33%; background:linear-gradient(90deg,#f0526b,#c23a54);"></div>
+    </div>
+    <div class="fusion-legend">
+      <span id="legBuy">BUY 33%</span>
+      <span id="legRange">RANGE 34%</span>
+      <span id="legSell">SELL 33%</span>
+    </div>
+  </div>
+
+  <!-- REGIME + BAYES + ANOMALY -->
+  <div class="grid g-3" style="margin-bottom:16px;">
+    <div class="card">
+      <div class="card-h"><div class="card-title">Market Regime Evolution</div></div>
+      <div class="regime-badge" id="regimeBadge">Detecting…</div>
+      <div class="kv-row"><span class="kv-label">Regime Confidence</span><span class="kv-val" id="regimeConf">—</span></div>
+      <div class="kv-row"><span class="kv-label">Likely Next Regime</span><span class="kv-val" id="regimeNext">—</span></div>
+      <div class="kv-row"><span class="kv-label">Volatility State</span><span class="kv-val" id="volState">—</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><div class="card-title">Bayesian Probability Update</div></div>
+      <div class="bayes-flow">
+        <div class="bayes-box"><div class="lbl">Prior</div><div class="val" id="bayesPrior">50%</div></div>
+        <div class="bayes-arrow">→</div>
+        <div class="bayes-box"><div class="lbl">Evidence Δ</div><div class="val" id="bayesDelta">+0%</div></div>
+        <div class="bayes-arrow">→</div>
+        <div class="bayes-box"><div class="lbl">Posterior</div><div class="val" id="bayesPosterior">50%</div></div>
+      </div>
+      <div class="kv-row"><span class="kv-label">Evidence Sources Weighed</span><span class="kv-val">6 engines</span></div>
+      <div class="kv-row"><span class="kv-label">Log-Odds Update</span><span class="kv-val" id="bayesLogOdds">0.00</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><div class="card-title">Anomaly Detection</div></div>
+      <div class="anomaly-banner" id="anomalyBanner">⚠ Anomalous price velocity detected</div>
+      <div class="kv-row"><span class="kv-label">Return Z-Score</span><span class="kv-val" id="anomZ">0.00σ</span></div>
+      <div class="kv-row"><span class="kv-label">Status</span><span class="kv-val" id="anomStatus">Normal</span></div>
+      <div class="kv-row"><span class="kv-label">Confidence Suppression</span><span class="kv-val" id="anomSuppress">None</span></div>
+    </div>
+  </div>
+
+  <!-- CONFIDENCE + XAI -->
+  <div class="grid g-2" style="margin-bottom:16px;">
+    <div class="card">
+      <div class="card-h"><div class="card-title">Explainable AI — Feature Attribution</div></div>
+      <div id="attrList"></div>
+      <ul class="reasoning-list" id="reasoningList"></ul>
+    </div>
+    <div class="card">
+      <div class="card-h"><div class="card-title">Institutional Confidence Intelligence</div></div>
+      <div class="conf-metric"><div class="lbl">Prediction Confidence <b id="cPred">—</b></div><div class="conf-track"><div class="conf-fill" id="cPredFill"></div></div></div>
+      <div class="conf-metric"><div class="lbl">Data Quality Confidence <b id="cData">—</b></div><div class="conf-track"><div class="conf-fill" id="cDataFill"></div></div></div>
+      <div class="conf-metric"><div class="lbl">Model Agreement <b id="cAgree">—</b></div><div class="conf-track"><div class="conf-fill" id="cAgreeFill"></div></div></div>
+      <div class="conf-metric"><div class="lbl">Regime Confidence <b id="cRegime">—</b></div><div class="conf-track"><div class="conf-fill" id="cRegimeFill"></div></div></div>
+      <div class="conf-metric"><div class="lbl">Forecast Stability <b id="cStable">—</b></div><div class="conf-track"><div class="conf-fill" id="cStableFill"></div></div></div>
+      <div class="kv-row" style="margin-top:6px; border-top:1px solid var(--line-soft); padding-top:12px;">
+        <span class="kv-label" style="font-weight:700;">Overall Confidence</span>
+        <span class="kv-val" style="font-size:16px; color:var(--violet);" id="cOverall">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- FORECAST SCENARIOS -->
+  <div class="grid g-3">
+    <div class="card scenario-card primary">
+      <div class="scenario-tag">Primary Scenario</div>
+      <div class="scenario-name" id="scPrimaryName">—</div>
+      <div class="scenario-prob" id="scPrimaryProb">—</div>
+      <div class="scenario-horizon" id="scPrimaryHorizon">Horizon: —</div>
+    </div>
+    <div class="card scenario-card secondary">
+      <div class="scenario-tag">Secondary Scenario</div>
+      <div class="scenario-name" id="scSecondaryName">Range Consolidation</div>
+      <div class="scenario-prob" id="scSecondaryProb">—</div>
+      <div class="scenario-horizon" id="scSecondaryHorizon">Horizon: —</div>
+    </div>
+    <div class="card scenario-card risk">
+      <div class="scenario-tag">Risk Scenario</div>
+      <div class="scenario-name" id="scRiskName">—</div>
+      <div class="scenario-prob" id="scRiskProb">—</div>
+      <div class="scenario-horizon" id="scRiskHorizon">Invalidation on regime flip</div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <div class="disclaimer">
+    <b>Decision-support disclaimer.</b> INSAIT computes its Trend, Momentum, Structure, Volatility, Statistical and Multi-Window
+    engines directly from the live public tick stream using standard technical transforms (EMA, RSI, rolling z-score, swing detection).
+    The Bayesian, Regime, Anomaly, Confidence and Explainability layers are deterministic statistical fusions of those six real engine
+    outputs — not trained neural networks. All outputs are probabilistic estimates for informational purposes only and are not
+    financial advice or a guarantee of future performance.
+  </div>
+  <div class="footer-tags">
+    <span>DERIV PUBLIC WEBSOCKET</span><span>·</span><span>NO AUTH REQUIRED</span><span>·</span><span>REAL-TIME TICK ANALYTICS</span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  // ============================================================
+  // CONFIG
+  // ============================================================
+  const SYMBOL_NAMES = {
+    R_10:"Volatility 10 Index", R_25:"Volatility 25 Index", R_50:"Volatility 50 Index",
+    R_75:"Volatility 75 Index", R_100:"Volatility 100 Index", "1HZ100V":"Volatility 100 (1s) Index",
+    frxEURUSD:"EUR/USD", frxGBPUSD:"GBP/USD", frxUSDJPY:"USD/JPY", frxXAUUSD:"Gold (XAU/USD)"
+  };
+  const MAX_TICKS = 300;
+  const WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public";
+
+  const ENGINES = [
+    { key:"structure", name:"Market Structure", weight:0.20 },
+    { key:"trend",      name:"Trend Engine",      weight:0.18 },
+    { key:"momentum",   name:"Momentum / RSI",    weight:0.16 },
+    { key:"multiwin",   name:"Multi-Window Consensus", weight:0.16 },
+    { key:"volatility", name:"Volatility Engine", weight:0.15 },
+    { key:"statistical",name:"Statistical Engine",weight:0.15 }
+  ];
+
+  // ============================================================
+  // STATE
+  // ============================================================
+  let ws = null, reqId = 1, currentSymbol = "R_75";
+  let ticks = [];              // {epoch, quote}
+  let fusionHistory = [];      // rolling fused bullish% for stability calc
+  let reconnectDelay = 1000;
+  let reconnectTimer = null;
+  let keepaliveTimer = null;
+
+  // ============================================================
+  // DOM
+  // ============================================================
+  const $ = id => document.getElementById(id);
+  const connDot = $("connDot"), connText = $("connText");
+  const engineGrid = $("engineGrid");
+
+  // build engine cards once
+  ENGINES.forEach(e=>{
+    const card = document.createElement("div");
+    card.className = "card engine-card";
+    card.innerHTML = `
+      <div class="card-title">Core Engine</div>
+      <div class="engine-name">${e.name}</div>
+      <div class="engine-weight">weight ${(e.weight*100).toFixed(0)}%</div>
+      <div class="engine-score" id="score-${e.key}">—</div>
+      <div class="bar-track"><div class="bar-fill bull" id="bar-${e.key}" style="width:50%"></div></div>
+      <div class="engine-conf" id="conf-${e.key}">confidence —</div>
+    `;
+    engineGrid.appendChild(card);
+  });
+
+  $("symbolSelect").addEventListener("change", e=>{
+    currentSymbol = e.target.value;
+    resetSession();
+    subscribeSymbol();
+  });
+  $("resetBtn").addEventListener("click", ()=>{
+    if(confirm("Reset the current analysis session? This clears the tick buffer and all computed engine state.")){
+      resetSession();
+      subscribeSymbol();
+    }
+  });
+
+  function resetSession(){
+    ticks = [];
+    fusionHistory = [];
+    $("tickCount").textContent = "0 ticks buffered";
+    $("symbolLabel").textContent = SYMBOL_NAMES[currentSymbol] + " — Live Feed";
+  }
+
+  // ============================================================
+  // WEBSOCKET LIFECYCLE
+  // ============================================================
+  function connect(){
+    setConn("connecting", "Connecting…");
+    try{ ws = new WebSocket(WS_URL); } catch(err){ scheduleReconnect(); return; }
+
+    ws.onopen = ()=>{
+      setConn("live", "Live · Public Feed");
+      reconnectDelay = 1000;
+      subscribeSymbol();
+      keepaliveTimer = setInterval(()=>{
+        if(ws && ws.readyState === WebSocket.OPEN){
+          ws.send(JSON.stringify({ ping:1, req_id: reqId++ }));
+        }
+      }, 30000);
+    };
+
+    ws.onmessage = (event)=>{
+      let data;
+      try{ data = JSON.parse(event.data); } catch(e){ return; }
+      if(data.error){ return; }
+      if(data.msg_type === "history" && data.history){
+        const prices = data.history.prices || [];
+        const times = data.history.times || [];
+        ticks = prices.map((p,i)=>({ epoch: times[i], quote: Number(p) || 0 })).slice(-MAX_TICKS);
+        renderAll();
+      }
+      if(data.msg_type === "tick" && data.tick){
+        ticks.push({ epoch: data.tick.epoch, quote: Number(data.tick.quote) || 0 });
+        if(ticks.length > MAX_TICKS) ticks.shift();
+        renderAll();
+      }
+    };
+
+    ws.onerror = ()=>{ setConn("warn", "Connection error"); };
+
+    ws.onclose = ()=>{
+      setConn("warn", "Disconnected · reconnecting…");
+      clearInterval(keepaliveTimer);
+      scheduleReconnect();
+    };
+  }
+
+  function scheduleReconnect(){
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(()=>{
+      reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+      connect();
+    }, reconnectDelay);
+  }
+
+  function subscribeSymbol(){
+    if(!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ forget_all: "ticks", req_id: reqId++ }));
+    ws.send(JSON.stringify({
+      ticks_history: currentSymbol, count: 120, end: "latest", style: "ticks", req_id: reqId++
+    }));
+    ws.send(JSON.stringify({ ticks: currentSymbol, subscribe: 1, req_id: reqId++ }));
+  }
+
+  function setConn(state, text){
+    connDot.className = "dot" + (state==="live" ? " live" : state==="warn" ? " warn" : "");
+    connText.textContent = text;
+    $("feedTag").textContent = state==="live" ? "● STREAMING" : "○ OFFLINE";
+  }
+
+  // ============================================================
+  // MATH HELPERS
+  // ============================================================
+  function ema(arr, period){
+    if(arr.length === 0) return [];
+    const k = 2/(period+1);
+    const out = [arr[0]];
+    for(let i=1;i<arr.length;i++) out.push(arr[i]*k + out[i-1]*(1-k));
+    return out;
+  }
+  function mean(arr){ return arr.reduce((a,b)=>a+b,0) / (arr.length||1); }
+  function stdev(arr){
+    const m = mean(arr);
+    return Math.sqrt(mean(arr.map(v=>(v-m)*(v-m))));
+  }
+  function clamp(v,lo,hi){ return Math.max(lo, Math.min(hi, v)); }
+  function sigmoid(x){ return 1/(1+Math.exp(-x)); }
+
+  function rsi(closes, period){
+    if(closes.length < period+1) return 50;
+    let gains=0, losses=0;
+    for(let i=closes.length-period;i<closes.length;i++){
+      const diff = closes[i]-closes[i-1];
+      if(diff>=0) gains += diff; else losses -= diff;
+    }
+    const avgG = gains/period, avgL = losses/period;
+    if(avgL===0) return 100;
+    const rs = avgG/avgL;
+    return 100 - (100/(1+rs));
+  }
+
+  // ============================================================
+  // ENGINE COMPUTATION
+  // ============================================================
+  function computeEngines(){
+    const closes = ticks.map(t=>t.quote);
+    const n = closes.length;
+    const dataFrac = clamp(n / 60, 0, 1); // data-quality basis
+
+    if(n < 8){
+      return null;
+    }
+
+    // returns
+    const returns = [];
+    for(let i=1;i<n;i++) returns.push(closes[i]-closes[i-1]);
+    const lastReturn = returns[returns.length-1] || 0;
+    const retStd = stdev(returns) || 1e-9;
+    const zScore = lastReturn / retStd;
+
+    // --- Trend Engine: EMA9 vs EMA21 relation + slope ---
+    const ema9 = ema(closes, Math.min(9, Math.max(3,Math.floor(n/3))));
+    const ema21 = ema(closes, Math.min(21, Math.max(5,Math.floor(n/1.5))));
+    const emaGapPct = ((ema9[n-1]-ema21[n-1]) / (ema21[n-1]||1)) * 100;
+    const slopeWindow = Math.min(10, n-1);
+    const emaSlope = ema21[n-1] - ema21[n-1-slopeWindow];
+    const trendScoreRaw = sigmoid((emaGapPct*30) + (emaSlope/retStd)*0.15);
+    const trend = { bullish: trendScoreRaw*100, confidence: clamp(Math.abs(emaGapPct)*40,10,95)*dataFrac };
+
+    // --- Momentum / RSI Engine ---
+    const rsiVal = rsi(closes, Math.min(14, Math.max(4,Math.floor(n/2))));
+    const momentum = { bullish: rsiVal, confidence: clamp(Math.abs(rsiVal-50)*2.2,10,95)*dataFrac };
+
+    // --- Structure Engine: swing HH/HL vs LH/LL over recent window ---
+    const swWindow = closes.slice(-Math.min(40,n));
+    let hh=0, hl=0, lh=0, ll=0;
+    for(let i=2;i<swWindow.length;i++){
+      const a=swWindow[i-2], b=swWindow[i-1], c=swWindow[i];
+      if(b>a && b>c){ // local high
+        if(c>a) hh++; else lh++;
+      }
+      if(b<a && b<c){ // local low
+        if(c<a) ll++; else hl++;
+      }
+    }
+    const structBullVotes = hh+hl, structBearVotes = lh+ll;
+    const structTotal = structBullVotes+structBearVotes;
+    const structBull = structTotal>0 ? (structBullVotes/structTotal)*100 : 50;
+    const structure = { bullish: structBull, confidence: clamp(structTotal*8,10,95)*dataFrac };
+
+    // --- Multi-Window Consensus: fast/med/slow EMA cross agreement ---
+    const winSizes = [Math.max(3,Math.floor(n*0.1)), Math.max(5,Math.floor(n*0.25)), Math.max(8,Math.floor(n*0.5))];
+    let agreeSum = 0;
+    winSizes.forEach(w=>{
+      const e = ema(closes, w);
+      const dir = e[n-1] > e[Math.max(0,n-1-w)] ? 1 : -1;
+      agreeSum += dir;
+    });
+    const mwBull = 50 + (agreeSum/winSizes.length)*40;
+    const mwAgreement = Math.abs(agreeSum)/winSizes.length; // 0..1
+    const multiwin = { bullish: clamp(mwBull,2,98), confidence: clamp(mwAgreement*90,15,95)*dataFrac };
+
+    // --- Volatility Engine: ATR-proxy percentile ---
+    const atrProxy = stdev(returns.slice(-Math.min(20,returns.length)));
+    const atrLong = stdev(returns) || 1e-9;
+    const volRatio = atrProxy/atrLong;
+    // volatility engine doesn't have inherent direction -> lean on recent return sign, scaled by expansion
+    const volBull = 50 + clamp((lastReturn/retStd)*8,-30,30) * clamp(volRatio,0.5,1.5);
+    const volatility = { bullish: clamp(volBull,5,95), confidence: clamp(Math.abs(volRatio-1)*120,10,90)*dataFrac, ratio: volRatio };
+
+    // --- Statistical Engine: z-score mean reversion / continuation blend ---
+    const meanRecent = mean(closes.slice(-Math.min(30,n)));
+    const distFromMean = (closes[n-1]-meanRecent)/ (retStd*Math.sqrt(Math.min(30,n)) || 1);
+    const statBull = 50 + clamp(zScore*10,-25,25) - clamp(distFromMean*4,-15,15);
+    const statistical = { bullish: clamp(statBull,5,95), confidence: clamp(Math.abs(zScore)*30,10,90)*dataFrac };
+
+    return { trend, momentum, structure, multiwin, volatility, statistical, zScore, atrProxy, atrLong, volRatio, dataFrac, lastReturn, retStd };
+  }
+
+  // ============================================================
+  // FUSION + BAYES + REGIME + ANOMALY + CONFIDENCE
+  // ============================================================
+  function fuse(engines){
+    let weightedSum = 0, weightTotal = 0;
+    const scores = {};
+    ENGINES.forEach(e=>{
+      const eng = engines[e.key];
+      const w = e.weight * clamp(eng.confidence/100, 0.15, 1);
+      weightedSum += eng.bullish * w;
+      weightTotal += w;
+      scores[e.key] = eng.bullish;
+    });
+    const fusedBullish = weightTotal>0 ? weightedSum/weightTotal : 50;
+    return { fusedBullish, scores };
+  }
+
+  function bayesianUpdate(engines, priorBullish){
+    // log-odds evidence combination
+    const priorP = clamp(priorBullish/100, 0.02, 0.98);
+    let logOdds = Math.log(priorP/(1-priorP));
+    ENGINES.forEach(e=>{
+      const eng = engines[e.key];
+      const p = clamp(eng.bullish/100, 0.02, 0.98);
+      const evidenceLL = Math.log(p/(1-p));
+      logOdds += evidenceLL * e.weight * clamp(eng.confidence/100,0.1,1) * 0.35;
+    });
+    const posteriorP = 1/(1+Math.exp(-logOdds));
+    return { posterior: posteriorP*100, logOdds };
+  }
+
+  function detectRegime(engines){
+    const trendStrength = Math.abs(engines.trend.bullish-50);
+    const volRatio = engines.volRatio;
+    const mwAgree = engines.multiwin.confidence;
+
+    let regime, next, transitionNote;
+    if(volRatio > 1.35){
+      regime = "Volatility Expansion"; next = "Strong Trend"; transitionNote="Expansion often precedes directional continuation";
+    } else if(volRatio < 0.7){
+      regime = "Volatility Compression"; next = "Breakout"; transitionNote="Compression frequently resolves into a breakout";
+    } else if(trendStrength > 20 && mwAgree > 60){
+      regime = "Strong Trend"; next = "Volatility Expansion"; transitionNote="Extended trends often see volatility expansion";
+    } else if(trendStrength > 8){
+      regime = "Weak Trend"; next = "Range"; transitionNote="Weak trends frequently decay into ranges";
+    } else {
+      regime = "Range"; next = "Breakout"; transitionNote="Prolonged ranges build pressure toward breakout";
+    }
+    const confidence = clamp(40 + trendStrength*1.2 + Math.abs(volRatio-1)*30, 20, 96);
+    return { regime, next, confidence, transitionNote, volRatio };
+  }
+
+  function anomalyCheck(zScore){
+    const az = Math.abs(zScore);
+    let status="Normal", suppress="None", level="";
+    if(az > 3.5){ status="Critical Anomaly"; suppress="Confidence -40%"; level="crit"; }
+    else if(az > 2.2){ status="Elevated Anomaly"; suppress="Confidence -15%"; level="warn"; }
+    return { az, status, suppress, level };
+  }
+
+  // ============================================================
+  // RENDER
+  // ============================================================
+  function renderAll(){
+    $("tickCount").textContent = ticks.length + " ticks buffered";
+    renderPrice();
+
+    const engines = computeEngines();
+    if(!engines){
+      return; // not enough data yet
+    }
+
+    renderEngines(engines);
+    const { fusedBullish, scores } = fuse(engines);
+    fusionHistory.push(fusedBullish);
+    if(fusionHistory.length > 40) fusionHistory.shift();
+
+    renderFusion(fusedBullish);
+
+    const prevPosterior = fusionHistory.length>1 ? fusionHistory[fusionHistory.length-2] : 50;
+    const bayes = bayesianUpdate(engines, prevPosterior);
+    renderBayes(prevPosterior, bayes);
+
+    const regime = detectRegime(engines);
+    renderRegime(regime);
+
+    const anomaly = anomalyCheck(engines.zScore);
+    renderAnomaly(anomaly);
+
+    renderConfidence(engines, scores, fusedBullish, regime, anomaly);
+    renderExplainability(engines, scores, fusedBullish);
+    renderScenarios(fusedBullish, regime, anomaly);
+    drawSparkline();
+  }
+
+  function renderPrice(){
+    if(ticks.length===0) return;
+    const last = ticks[ticks.length-1].quote;
+    const first = ticks[0].quote;
+    const chg = first!==0 ? ((last-first)/first)*100 : 0;
+    $("priceBig").textContent = last.toFixed(last<100 ? 5 : 2);
+    const chgEl = $("priceChg");
+    chgEl.textContent = (chg>=0?"+":"") + chg.toFixed(3) + "%";
+    chgEl.className = "price-chg " + (chg>=0 ? "up" : "down");
+  }
+
+  function renderEngines(engines){
+    ENGINES.forEach(e=>{
+      const eng = engines[e.key];
+      const bull = clamp(eng.bullish,0,100);
+      $("score-"+e.key).textContent = bull.toFixed(1) + "% " + (bull>=50 ? "Bullish" : "Bearish");
+      $("score-"+e.key).style.color = bull>=50 ? "var(--teal)" : "var(--rose)";
+      const bar = $("bar-"+e.key);
+      bar.style.width = clamp(bull>=50 ? bull : 100-bull, 5, 100) + "%";
+      bar.className = "bar-fill " + (bull>=50 ? "bull" : "bear");
+      $("conf-"+e.key).textContent = "confidence " + clamp(eng.confidence,0,100).toFixed(0) + "%";
+    });
+  }
+
+  function renderFusion(fusedBullish){
+    const buy = clamp(fusedBullish,0,100);
+    const sell = 100-buy;
+    const rangeZone = clamp(30 - Math.abs(buy-50), 4, 30); // wider "range" band near 50
+    let buyPct, sellPct, rangePct;
+    if(Math.abs(buy-50) < 8){
+      rangePct = 100 - Math.abs(buy-50)*2;
+      const remainder = 100-rangePct;
+      buyPct = remainder * (buy/100);
+      sellPct = remainder * (sell/100);
+    } else {
+      rangePct = clamp(rangeZone,4,25);
+      const remainder = 100-rangePct;
+      buyPct = remainder * (buy/100);
+      sellPct = remainder * (sell/100);
+    }
+
+    $("segBuy").style.width = buyPct.toFixed(1)+"%";
+    $("segRange").style.width = rangePct.toFixed(1)+"%";
+    $("segSell").style.width = sellPct.toFixed(1)+"%";
+    $("legBuy").textContent = "BUY " + buyPct.toFixed(0) + "%";
+    $("legRange").textContent = "RANGE " + rangePct.toFixed(0) + "%";
+    $("legSell").textContent = "SELL " + sellPct.toFixed(0) + "%";
+
+    const verdict = $("verdictText");
+    if(Math.abs(buy-50) < 6){
+      verdict.textContent = "RANGE / NEUTRAL"; verdict.className = "fusion-verdict range";
+      $("verdictProb").textContent = "Fused bias " + buy.toFixed(1) + "% bullish — insufficient directional conviction";
+    } else if(buy > 50){
+      verdict.textContent = "BUY BIAS"; verdict.className = "fusion-verdict buy";
+      $("verdictProb").textContent = "Ensemble bullish probability: " + buy.toFixed(1) + "%";
+    } else {
+      verdict.textContent = "SELL BIAS"; verdict.className = "fusion-verdict sell";
+      $("verdictProb").textContent = "Ensemble bearish probability: " + sell.toFixed(1) + "%";
+    }
+  }
+
+  function renderBayes(prior, bayes){
+    $("bayesPrior").textContent = prior.toFixed(1)+"%";
+    $("bayesPosterior").textContent = bayes.posterior.toFixed(1)+"%";
+    const delta = bayes.posterior - prior;
+    const dEl = $("bayesDelta");
+    dEl.textContent = (delta>=0?"+":"") + delta.toFixed(1) + "%";
+    dEl.style.color = delta>=0 ? "var(--teal)" : "var(--rose)";
+    $("bayesLogOdds").textContent = bayes.logOdds.toFixed(3);
+  }
+
+  function renderRegime(regime){
+    $("regimeBadge").textContent = regime.regime;
+    $("regimeConf").textContent = regime.confidence.toFixed(0)+"%";
+    $("regimeNext").textContent = regime.next;
+    $("volState").textContent = regime.volRatio > 1.15 ? "Expanding (" + regime.volRatio.toFixed(2) + "x)"
+      : regime.volRatio < 0.85 ? "Compressing (" + regime.volRatio.toFixed(2) + "x)"
+      : "Stable (" + regime.volRatio.toFixed(2) + "x)";
+  }
+
+  function renderAnomaly(anomaly){
+    $("anomZ").textContent = anomaly.az.toFixed(2)+"σ";
+    $("anomStatus").textContent = anomaly.status;
+    $("anomStatus").style.color = anomaly.level==="crit" ? "var(--rose)" : anomaly.level==="warn" ? "var(--amber)" : "var(--txt-0)";
+    $("anomSuppress").textContent = anomaly.suppress;
+    const banner = $("anomalyBanner");
+    if(anomaly.level){
+      banner.className = "anomaly-banner show" + (anomaly.level==="crit" ? " crit" : "");
+      banner.textContent = anomaly.level==="crit"
+        ? "⚠ Critical price velocity anomaly — forecast confidence suppressed"
+        : "⚠ Elevated price velocity — treat signals with added caution";
+    } else {
+      banner.className = "anomaly-banner";
+    }
+  }
+
+  function renderConfidence(engines, scores, fusedBullish, regime, anomaly){
+    const predConf = clamp(Math.abs(fusedBullish-50)*2,0,100);
+    const dataQual = clamp(engines.dataFrac*100,0,100);
+    const vals = Object.values(scores);
+    const agreement = clamp(100 - stdev(vals)*1.4, 0, 100);
+    const stability = fusionHistory.length>3 ? clamp(100 - stdev(fusionHistory.slice(-10))*3,0,100) : 30;
+    let suppression = anomaly.level==="crit" ? 0.6 : anomaly.level==="warn" ? 0.85 : 1;
+
+    const overall = (predConf*0.28 + dataQual*0.16 + agreement*0.22 + regime.confidence*0.16 + stability*0.18) * suppression;
+
+    setMetric("cPred","cPredFill", predConf);
+    setMetric("cData","cDataFill", dataQual);
+    setMetric("cAgree","cAgreeFill", agreement);
+    setMetric("cRegime","cRegimeFill", regime.confidence);
+    setMetric("cStable","cStableFill", stability);
+    $("cOverall").textContent = clamp(overall,0,100).toFixed(0)+"%";
+  }
+  function setMetric(labelId, fillId, val){
+    val = clamp(val,0,100);
+    $(labelId).textContent = val.toFixed(0)+"%";
+    $(fillId).style.width = val+"%";
+  }
+
+  function renderExplainability(engines, scores, fusedBullish){
+    const contributions = ENGINES.map(e=>{
+      const eng = engines[e.key];
+      const contribution = e.weight * (Math.abs(eng.bullish-50)/50) * clamp(eng.confidence/100,0.1,1);
+      return { name:e.name, key:e.key, contribution, bullish:eng.bullish };
+    }).sort((a,b)=>b.contribution-a.contribution);
+
+    const total = contributions.reduce((s,c)=>s+c.contribution,0) || 1;
+    const list = $("attrList");
+    list.innerHTML = "";
+    contributions.forEach(c=>{
+      const pct = (c.contribution/total)*100;
+      const row = document.createElement("div");
+      row.className = "attr-row";
+      row.innerHTML = `
+        <div class="attr-name">${c.name}</div>
+        <div class="attr-track"><div class="attr-fill" style="width:${clamp(pct,2,100)}%"></div></div>
+        <div class="attr-pct">${pct.toFixed(0)}%</div>
+      `;
+      list.appendChild(row);
+    });
+
+    // reasoning text
+    const reasons = [];
+    const top = contributions[0];
+    const dirWord = v => v>=50 ? "bullish" : "bearish";
+    reasons.push(`${top.name} is the dominant driver at ${((top.contribution/total)*100).toFixed(0)}% attribution, currently ${dirWord(top.bullish)} (${top.bullish.toFixed(1)}%).`);
+    if(contributions[1]) reasons.push(`${contributions[1].name} reinforces this with a ${dirWord(contributions[1].bullish)} reading of ${contributions[1].bullish.toFixed(1)}%.`);
+    const disagreeing = contributions.find(c => (c.bullish>=50) !== (top.bullish>=50));
+    if(disagreeing) reasons.push(`${disagreeing.name} diverges from consensus at ${disagreeing.bullish.toFixed(1)}%, moderating overall confidence.`);
+    reasons.push(`Fused ensemble probability stands at ${fusedBullish.toFixed(1)}% bullish across all six weighted engines.`);
+
+    const rl = $("reasoningList");
+    rl.innerHTML = "";
+    reasons.forEach(r=>{
+      const li = document.createElement("li");
+      li.textContent = r;
+      rl.appendChild(li);
+    });
+  }
+
+  function renderScenarios(fusedBullish, regime, anomaly){
+    const buy = clamp(fusedBullish,0,100);
+    const sell = 100-buy;
+    const bullishBias = buy>=50;
+    const primaryProb = clamp(Math.max(buy,sell) * (anomaly.level==="crit"?0.75:anomaly.level==="warn"?0.9:1), 5, 96);
+    const rangeProb = clamp(100 - Math.abs(buy-50)*1.6, 4, 60);
+    const riskProb = clamp(100 - primaryProb - rangeProb, 2, 40);
+
+    // normalize to 100
+    const sum = primaryProb + rangeProb + riskProb;
+    const pProb = (primaryProb/sum)*100, rProb=(rangeProb/sum)*100, riskP=(riskProb/sum)*100;
+
+    $("scPrimaryName").textContent = bullishBias ? "Bullish Continuation" : "Bearish Continuation";
+    $("scPrimaryProb").textContent = pProb.toFixed(0)+"%";
+    $("scPrimaryProb").style.color = bullishBias ? "var(--teal)" : "var(--rose)";
+    $("scPrimaryHorizon").textContent = "Horizon: 15–30 ticks · Regime: " + regime.regime;
+
+    $("scSecondaryName").textContent = "Range Consolidation";
+    $("scSecondaryProb").textContent = rProb.toFixed(0)+"%";
+    $("scSecondaryProb").style.color = "var(--amber)";
+    $("scSecondaryHorizon").textContent = "Horizon: near-term · Low directional conviction";
+
+    $("scRiskName").textContent = bullishBias ? "Bearish Reversal" : "Bullish Reversal";
+    $("scRiskProb").textContent = riskP.toFixed(0)+"%";
+    $("scRiskProb").style.color = "var(--rose)";
+    $("scRiskHorizon").textContent = "Invalidation on " + regime.next.toLowerCase() + " transition";
+  }
+
+  // ============================================================
+  // SPARKLINE CHART (canvas)
+  // ============================================================
+  function drawSparkline(){
+    const canvas = $("sparkline");
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    if(rect.width===0) return;
+    canvas.width = rect.width*dpr;
+    canvas.height = rect.height*dpr;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(dpr,dpr);
+    ctx.clearRect(0,0,rect.width,rect.height);
+
+    if(ticks.length < 2) return;
+    const vals = ticks.map(t=>t.quote);
+    const min = Math.min(...vals), max = Math.max(...vals);
+    const range = (max-min) || 1;
+    const w = rect.width, h = rect.height, pad=6;
+
+    const pts = vals.map((v,i)=>{
+      const x = pad + (i/(vals.length-1))*(w-pad*2);
+      const y = h-pad - ((v-min)/range)*(h-pad*2);
+      return [x,y];
+    });
+
+    const up = vals[vals.length-1] >= vals[0];
+    const color = up ? "#2dd6b0" : "#f0526b";
+
+    // fill
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], h);
+    pts.forEach(p=>ctx.lineTo(p[0],p[1]));
+    ctx.lineTo(pts[pts.length-1][0], h);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0,0,0,h);
+    grad.addColorStop(0, color+"33");
+    grad.addColorStop(1, color+"00");
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // line
+    ctx.beginPath();
+    pts.forEach((p,i)=> i===0 ? ctx.moveTo(p[0],p[1]) : ctx.lineTo(p[0],p[1]));
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+
+    // last point dot
+    const lp = pts[pts.length-1];
+    ctx.beginPath();
+    ctx.arc(lp[0], lp[1], 3, 0, Math.PI*2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+
+  window.addEventListener("resize", ()=>{ if(ticks.length>1) drawSparkline(); });
+
+  // ============================================================
+  // BOOT
+  // ============================================================
+  resetSession();
+  connect();
+
+})();
+</script>
+</body>
+</html>

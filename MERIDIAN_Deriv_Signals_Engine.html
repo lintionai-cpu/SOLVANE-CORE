@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>MERIDIAN — Deriv Signals Intelligence Engine</title>
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiTUVSSURJQU4iLCJzaG9ydF9uYW1lIjoiTUVSSURJQU4iLCJzdGFydF91cmwiOiIuIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJiYWNrZ3JvdW5kX2NvbG9yIjoiIzBhMGUxNCIsInRoZW1lX2NvbG9yIjoiIzBhMGUxNCJ9">
+<style>
+:root{
+  --bg:#0a0e14; --bg2:#0f1420; --surface:#131926; --surface2:#1a2233;
+  --border:#232c3d; --text:#e8ecf3; --text-dim:#8b96ab; --text-faint:#5b6478;
+  --accent:#3ecf8e; --accent2:#5ab4ff; --gold:#d4af5a;
+  --buy:#3ecf8e; --sell:#ef5a6f; --neutral:#8b96ab;
+  --warn:#e8a13e; --risk-bg:#1a1420;
+  --radius:10px;
+  --mono:'SF Mono',Consolas,'Roboto Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  min-height:100vh; overflow-x:hidden;
+}
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-track{background:var(--bg2);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+
+/* ===== Header ===== */
+header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 20px; background:linear-gradient(180deg,var(--bg2),var(--bg));
+  border-bottom:1px solid var(--border); position:sticky; top:0; z-index:50;
+  flex-wrap:wrap; gap:10px;
+}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-mark{
+  width:34px;height:34px;border-radius:8px;
+  background:linear-gradient(135deg,var(--gold),var(--accent2));
+  display:flex;align-items:center;justify-content:center;font-weight:800;color:#0a0e14;font-size:15px;
+}
+.brand-text h1{font-size:15px;letter-spacing:2px;font-weight:700;}
+.brand-text span{font-size:10px;color:var(--text-dim);letter-spacing:1px;}
+.status-strip{display:flex;align-items:center;gap:14px;font-size:11px;color:var(--text-dim);}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--text-faint);display:inline-block;margin-right:5px;}
+.status-dot.live{background:var(--accent);box-shadow:0 0 8px var(--accent);}
+.status-dot.down{background:var(--sell);}
+.status-dot.sim{background:var(--warn);}
+
+/* ===== Layout ===== */
+.app{display:grid;grid-template-columns:220px 1fr 340px;gap:1px;background:var(--border);min-height:calc(100vh - 63px);}
+@media(max-width:1100px){.app{grid-template-columns:1fr;} .col-watchlist,.col-signals{max-height:none;}}
+.col{background:var(--bg);overflow-y:auto;}
+.col-watchlist{max-height:calc(100vh - 63px);}
+.col-signals{max-height:calc(100vh - 63px);}
+
+/* ===== Watchlist ===== */
+.section-title{
+  padding:12px 14px 8px; font-size:10px; letter-spacing:1.5px; color:var(--text-faint);
+  text-transform:uppercase; font-weight:700;
+}
+.market-group{margin-bottom:4px;}
+.market-group-label{padding:6px 14px;font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;}
+.symbol-row{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:9px 14px; cursor:pointer; border-left:2px solid transparent;
+  transition:.12s;
+}
+.symbol-row:hover{background:var(--surface);}
+.symbol-row.active{background:var(--surface2);border-left-color:var(--accent2);}
+.symbol-name{font-size:12px;font-weight:600;}
+.symbol-sub{font-size:9.5px;color:var(--text-faint);}
+.symbol-bias{font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;letter-spacing:.5px;}
+.bias-buy{background:rgba(62,207,142,.15);color:var(--buy);}
+.bias-sell{background:rgba(239,90,111,.15);color:var(--sell);}
+.bias-neutral{background:rgba(139,150,171,.12);color:var(--neutral);}
+
+/* ===== Center ===== */
+.center-toolbar{
+  display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid var(--border);
+  flex-wrap:wrap; background:var(--bg2);
+}
+.tf-btn{
+  background:var(--surface); border:1px solid var(--border); color:var(--text-dim);
+  padding:5px 10px; font-size:11px; border-radius:6px; cursor:pointer; font-family:var(--mono);
+}
+.tf-btn.active{background:var(--accent2);color:#0a0e14;border-color:var(--accent2);font-weight:700;}
+.sym-title{font-size:15px;font-weight:700;margin-right:auto;}
+.sym-title small{color:var(--text-faint);font-weight:400;font-size:11px;margin-left:8px;}
+#chart-container{width:100%;height:420px;}
+.market-state-bar{
+  display:flex;gap:0;padding:14px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px;
+}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:12px 14px;flex:1;min-width:140px;
+}
+.stat-card .label{font-size:9.5px;color:var(--text-faint);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;}
+.stat-card .value{font-size:17px;font-weight:800;}
+.stat-card .sub{font-size:10.5px;color:var(--text-dim);margin-top:3px;}
+
+.tf-panel-wrap{padding:14px;}
+.tf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;}
+.tf-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;
+  position:relative;overflow:hidden;
+}
+.tf-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;}
+.tf-card.b::before{background:var(--buy);}
+.tf-card.s::before{background:var(--sell);}
+.tf-card.n::before{background:var(--neutral);}
+.tf-card .tfname{font-size:11px;font-weight:700;font-family:var(--mono);color:var(--text-dim);}
+.tf-card .tfbias{font-size:13px;font-weight:800;margin:4px 0 2px;}
+.tf-card .tfconf{font-size:10.5px;color:var(--text-dim);}
+.tf-card .barrow{height:3px;background:var(--bg2);border-radius:2px;margin-top:6px;overflow:hidden;}
+.tf-card .barfill{height:100%;background:var(--gold);}
+
+.engine-panel-wrap{padding:0 14px 14px;}
+.engine-list{display:flex;flex-direction:column;gap:6px;}
+.engine-row{
+  display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);
+  border-radius:7px;padding:8px 10px;
+}
+.engine-row .ename{font-size:11px;width:150px;flex-shrink:0;color:var(--text-dim);}
+.engine-row .esig{font-size:11px;font-weight:800;width:56px;flex-shrink:0;}
+.engine-row .erationale{font-size:10.5px;color:var(--text-faint);flex:1;}
+.engine-row .econf{font-size:10px;color:var(--text-dim);width:38px;text-align:right;font-family:var(--mono);}
+.engine-row.dim{opacity:.4;}
+
+/* ===== Signals column ===== */
+.consensus-box{margin:14px;padding:16px;border-radius:var(--radius);background:linear-gradient(160deg,var(--surface2),var(--surface));border:1px solid var(--border);}
+.consensus-box .cb-label{font-size:10px;letter-spacing:1.5px;color:var(--text-faint);text-transform:uppercase;}
+.consensus-box .cb-bias{font-size:26px;font-weight:900;margin:6px 0;}
+.consensus-box .cb-row{display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);padding:3px 0;}
+.consensus-box .cb-row b{color:var(--text);}
+
+.validity-box{margin:0 14px 14px;padding:12px 14px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border);font-size:11px;}
+.validity-box .vt-title{font-size:10px;color:var(--text-faint);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;}
+.validity-box .vt-row{display:flex;justify-content:space-between;padding:2px 0;color:var(--text-dim);}
+.validity-box .vt-row b{color:var(--text);}
+
+.signal-feed{padding:0 14px 20px;}
+.signal-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:12px;margin-bottom:10px;border-left:3px solid var(--gold);
+}
+.signal-card.buy{border-left-color:var(--buy);}
+.signal-card.sell{border-left-color:var(--sell);}
+.signal-card .sc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.signal-card .sc-sym{font-weight:700;font-size:12px;}
+.signal-card .sc-time{font-size:9.5px;color:var(--text-faint);font-family:var(--mono);}
+.signal-card .sc-bias{font-size:15px;font-weight:900;}
+.signal-card .sc-zone{font-size:10.5px;color:var(--text-dim);margin-top:4px;line-height:1.6;}
+.signal-card .sc-reasons{font-size:10px;color:var(--text-faint);margin-top:6px;font-style:italic;}
+.empty-state{padding:30px 20px;text-align:center;color:var(--text-faint);font-size:11.5px;line-height:1.6;}
+
+/* ===== Risk-visual separation for disclosures ===== */
+.disclosure{
+  margin:14px;padding:12px 14px;border-radius:var(--radius);
+  background:var(--risk-bg);border:1px solid #3a2340;font-size:10.5px;color:#c9a8d6;line-height:1.6;
+}
+
+footer{
+  padding:10px 20px;text-align:center;font-size:10px;color:var(--text-faint);
+  border-top:1px solid var(--border);
+}
+
+.toggle-btn{background:var(--surface);border:1px solid var(--border);color:var(--text-dim);
+  padding:5px 10px;font-size:10.5px;border-radius:6px;cursor:pointer;}
+.toggle-btn.on{background:var(--accent);color:#0a0e14;border-color:var(--accent);font-weight:700;}
+
+.badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;letter-spacing:.5px;}
+.badge.sim{background:rgba(232,161,62,.15);color:var(--warn);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-mark">M</div>
+    <div class="brand-text">
+      <h1>MERIDIAN</h1>
+      <span>DERIV SIGNALS INTELLIGENCE ENGINE · v1.0</span>
+    </div>
+  </div>
+  <div class="status-strip">
+    <span id="conn-status"><span class="status-dot" id="conn-dot"></span><span id="conn-text">Connecting…</span></span>
+    <span id="sim-badge" style="display:none" class="badge sim">SIMULATION MODE</span>
+    <button class="toggle-btn" id="chart-engine-badge" disabled></button>
+    <span id="clock" style="font-family:var(--mono);color:var(--text-dim);"></span>
+  </div>
+</header>
+
+<div class="app">
+  <!-- WATCHLIST -->
+  <div class="col col-watchlist" id="watchlist"></div>
+
+  <!-- CENTER -->
+  <div class="col col-center">
+    <div class="center-toolbar">
+      <div class="sym-title" id="active-sym-title">Loading…</div>
+      <div id="tf-selector"></div>
+    </div>
+    <div id="chart-container"></div>
+
+    <div class="market-state-bar" id="market-state-bar"></div>
+
+    <div class="tf-panel-wrap">
+      <div class="section-title">Timeframe Bias Engine — All Timeframes</div>
+      <div class="tf-grid" id="tf-grid"></div>
+    </div>
+
+    <div class="engine-panel-wrap">
+      <div class="section-title" id="engine-panel-title">Analytics Modules — Active Timeframe</div>
+      <div class="engine-list" id="engine-list"></div>
+    </div>
+  </div>
+
+  <!-- SIGNALS -->
+  <div class="col col-signals">
+    <div class="section-title">Multi-Timeframe Consensus</div>
+    <div class="consensus-box" id="consensus-box"></div>
+
+    <div class="section-title">Time-Sensitive Bias Window</div>
+    <div class="validity-box" id="validity-box"></div>
+
+    <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;padding-right:14px;">
+      <span>Signal Feed</span>
+      <button class="toggle-btn" id="export-csv">Export CSV</button>
+    </div>
+    <div class="signal-feed" id="signal-feed">
+      <div class="empty-state">No qualifying signals yet.<br>Signals appear when confidence ≥ threshold and multi-timeframe agreement is sufficient.</div>
+    </div>
+
+    <div class="disclosure">
+      <b>Analytics only — no trade execution.</b> MERIDIAN is a read-only market intelligence engine. It does not place trades, hold credentials, or connect to any account. All output is probabilistic analysis of public market data, not financial advice.
+    </div>
+  </div>
+</div>
+
+<footer>MERIDIAN v1.0 · Deriv Volatility Indices · Synthetic Metals/Forex feeds · Public market data only · No authentication required</footer>
+
+<script>
+'use strict';
+
+/* =========================================================
+   CONFIG
+   ========================================================= */
+const CONFIG = {
+  WS_URL_PRIMARY: 'wss://api.derivws.com/trading/v1/options/ws/public',
+  RECONNECT_BASE_MS: 1000,
+  RECONNECT_MAX_MS: 30000,
+  HEARTBEAT_MS: 25000,
+  HISTORY_COUNT: 300,
+  MIN_COVERAGE: 0.3,
+  SIGNAL_CONF_THRESHOLD: 0.85,
+  SIGNAL_AGREEMENT_THRESHOLD: 0.80,
+
+  MARKETS: [
+    { group: 'Volatility Indices', symbols: [
+      { symbol: '1HZ100V', name: 'Volatility 100 (1s)' },
+      { symbol: '1HZ75V',  name: 'Volatility 75 (1s)'  },
+      { symbol: '1HZ50V',  name: 'Volatility 50 (1s)'  },
+      { symbol: '1HZ25V',  name: 'Volatility 25 (1s)'  },
+      { symbol: '1HZ10V',  name: 'Volatility 10 (1s)'  },
+      { symbol: 'R_100',   name: 'Volatility 100'      },
+      { symbol: 'R_75',    name: 'Volatility 75'       },
+      { symbol: 'R_50',    name: 'Volatility 50'       },
+    ]},
+    { group: 'Metals', symbols: [
+      { symbol: 'frxXAUUSD', name: 'Gold / USD' },
+    ]},
+    { group: 'Major Forex', symbols: [
+      { symbol: 'frxEURUSD', name: 'EUR / USD' },
+      { symbol: 'frxGBPUSD', name: 'GBP / USD' },
+      { symbol: 'frxUSDJPY', name: 'USD / JPY' },
+      { symbol: 'frxAUDUSD', name: 'AUD / USD' },
+      { symbol: 'frxUSDCAD', name: 'USD / CAD' },
+    ]},
+  ],
+
+  TIMEFRAMES: [
+    { key: 'M1',  gran: 60,    label: 'M1',  weight: 0.02 },
+    { key: 'M2',  gran: 120,   label: 'M2',  weight: 0.03 },
+    { key: 'M3',  gran: 180,   label: 'M3',  weight: 0.05 },
+    { key: 'M5',  gran: 300,   label: 'M5',  weight: 0.08 },
+    { key: 'M10', gran: 600,   label: 'M10', weight: 0.10 },
+    { key: 'M15', gran: 900,   label: 'M15', weight: 0.12 },
+    { key: 'M30', gran: 1800,  label: 'M30', weight: 0.15 },
+    { key: 'H1',  gran: 3600,  label: 'H1',  weight: 0.18 },
+    { key: 'H2',  gran: 7200,  label: 'H2',  weight: 0.12 },
+    { key: 'H4',  gran: 14400, label: 'H4',  weight: 0.10 },
+    { key: 'H8',  gran: 28800, label: 'H8',  weight: 0.03 },
+    { key: 'D1',  gran: 86400, label: 'D1',  weight: 0.02 },
+  ],
+
+  // Timeframes actively streamed live for the FOCUSED symbol (full engine set).
+  // Watchlist symbols get a lighter single-timeframe scan (M5) to keep subscription
+  // count manageable, per deriv-app-architecture guidance on scoping live load.
+  FULL_ENGINE_TFS: ['M1','M3','M5','M15','M30','H1','H4','D1'],
+  WATCHLIST_SCAN_TF: 'M5',
+
+  ENGINE_WEIGHTS: {
+    fibonacci: 1.0, supportResistance: 1.3, supplyDemand: 1.1, volume: 0.8,
+    volatility: 0.9, breakout: 1.2, retest: 0.9, candlePattern: 0.7,
+    candleFormation: 0.8, session: 0.5, marketStructure: 1.4, priceAction: 1.1,
+  },
+};
+
+/* =========================================================
+   STATE
+   ========================================================= */
+const State = {
+  ws: null,
+  connected: false,
+  usingSimulation: false,
+  reconnectAttempts: 0,
+  reqIdCounter: 0,
+  pending: new Map(),      // req_id -> {resolve,reject}
+  subs: new Map(),         // subKey -> {symbol, gran, subscriptionId, reqId}
+  candles: {},             // candles[symbol][gran] = [{epoch,open,high,low,close}]
+  activeSymbol: '1HZ100V',
+  activeTF: 'M15',
+  watchlistBias: {},       // symbol -> {bias,confidence}
+  chart: null,
+  signalLog: [],           // in-memory + persisted signal journal
+  lastConsensus: {},       // per-symbol last consensus result, for change detection
+};
+
+function nextId(){ State.reqIdCounter += 1; return State.reqIdCounter; }
+
+/* =========================================================
+   CONNECTION LAYER
+   ========================================================= */
+function wsSend(command){
+  return new Promise((resolve, reject) => {
+    if (State.usingSimulation) { resolve(null); return; }
+    if (!State.ws || State.ws.readyState !== WebSocket.OPEN) { reject(new Error('WS not open')); return; }
+    const reqId = nextId();
+    const msg = Object.assign({}, command, { req_id: reqId });
+    if (!command.subscribe) {
+      State.pending.set(reqId, { resolve, reject });
+    } else {
+      resolve(reqId);
+    }
+    try { State.ws.send(JSON.stringify(msg)); }
+    catch(e){ if(!command.subscribe) State.pending.delete(reqId); reject(e); }
+  });
+}
+
+let heartbeatTimer = null;
+
+function connect(){
+  setConnStatus('connecting');
+  let ws;
+  try { ws = new WebSocket(CONFIG.WS_URL_PRIMARY); }
+  catch(e){ enterSimulation(); return; }
+  State.ws = ws;
+
+  const openTimeout = setTimeout(() => {
+    if (ws.readyState !== WebSocket.OPEN) { try{ws.close();}catch(e){} }
+  }, 8000);
+
+  ws.onopen = () => {
+    clearTimeout(openTimeout);
+    State.connected = true;
+    State.usingSimulation = false;
+    State.reconnectAttempts = 0;
+    setConnStatus('live');
+    document.getElementById('sim-badge').style.display = 'none';
+    startHeartbeat();
+    onConnectedBootstrap();
+  };
+
+  ws.onmessage = (event) => {
+    let data;
+    try { data = JSON.parse(event.data); } catch(e){ return; }
+    routeMessage(data);
+  };
+
+  ws.onerror = () => {};
+
+  ws.onclose = () => {
+    clearTimeout(openTimeout);
+    State.connected = false;
+    stopHeartbeat();
+    setConnStatus('down');
+    scheduleReconnect();
+  };
+}
+
+function startHeartbeat(){
+  stopHeartbeat();
+  heartbeatTimer = setInterval(() => {
+    if (State.ws && State.ws.readyState === WebSocket.OPEN) {
+      wsSend({ ping: 1 }).catch(()=>{});
+    }
+  }, CONFIG.HEARTBEAT_MS);
+}
+function stopHeartbeat(){ if(heartbeatTimer) clearInterval(heartbeatTimer); heartbeatTimer = null; }
+
+function scheduleReconnect(){
+  State.reconnectAttempts += 1;
+  if (State.reconnectAttempts > 6 && !State.usingSimulation) {
+    // Network appears genuinely unreachable — fall back to simulation so the
+    // app remains usable/demoable rather than showing a dead UI.
+    enterSimulation();
+    return;
+  }
+  const delay = Math.min(CONFIG.RECONNECT_BASE_MS * Math.pow(2, State.reconnectAttempts), CONFIG.RECONNECT_MAX_MS);
+  setTimeout(connect, delay);
+}
+
+function routeMessage(data){
+  if (data.req_id && State.pending.has(data.req_id)) {
+    const { resolve, reject } = State.pending.get(data.req_id);
+    State.pending.delete(data.req_id);
+    if (data.error) reject(new Error(data.error.code + ': ' + data.error.message));
+    else resolve(data);
+  }
+  if (data.error) { return; } // already routed above if it had a pending req_id
+  switch (data.msg_type) {
+    case 'candles': handleCandlesSnapshot(data); break;
+    case 'ohlc': handleOhlcUpdate(data); break;
+    case 'active_symbols': /* not required for this build's static symbol list */ break;
+  }
+}
+
+async function onConnectedBootstrap(){
+  await subscribeSymbol(State.activeSymbol, true);
+  for (const group of CONFIG.MARKETS) {
+    for (const s of group.symbols) {
+      if (s.symbol === State.activeSymbol) continue;
+      subscribeWatchlistScan(s.symbol);
+    }
+  }
+}
+
+/* =========================================================
+   MARKET DATA LAYER
+   ========================================================= */
+function subKey(symbol, gran){ return symbol + ':' + gran; }
+
+async function subscribeSymbol(symbol, isFocused){
+  const tfs = isFocused ? CONFIG.FULL_ENGINE_TFS : [CONFIG.WATCHLIST_SCAN_TF];
+  for (const tfKey of tfs) {
+    const tf = CONFIG.TIMEFRAMES.find(t => t.key === tfKey);
+    await subscribeCandles(symbol, tf.gran);
+  }
+}
+
+function subscribeWatchlistScan(symbol){
+  const tf = CONFIG.TIMEFRAMES.find(t => t.key === CONFIG.WATCHLIST_SCAN_TF);
+  subscribeCandles(symbol, tf.gran).catch(()=>{});
+}
+
+async function subscribeCandles(symbol, gran){
+  const key = subKey(symbol, gran);
+  if (State.subs.has(key)) return; // already subscribed — never orphan duplicate subs
+  try {
+    const res = await wsSend({
+      ticks_history: symbol,
+      end: 'latest',
+      count: CONFIG.HISTORY_COUNT,
+      style: 'candles',
+      granularity: gran,
+      subscribe: 1,
+    });
+    State.subs.set(key, { symbol, gran, subscriptionId: res && res.subscription ? res.subscription.id : null });
+    if (res && res.candles) {
+      ingestCandles(symbol, gran, res.candles.map(normalizeCandle));
+    }
+  } catch(e) {
+    // Symbol/timeframe may be unavailable (e.g. forex market closed) — degrade gracefully
+  }
+}
+
+function normalizeCandle(c){
+  return {
+    epoch: Number(c.epoch),
+    open: Number(c.open), high: Number(c.high),
+    low: Number(c.low), close: Number(c.close),
+  };
+}
+
+function ingestCandles(symbol, gran, candles){
+  if (!State.candles[symbol]) State.candles[symbol] = {};
+  State.candles[symbol][gran] = candles;
+  onDataUpdated(symbol, gran);
+}
+
+function handleCandlesSnapshot(data){
+  // Some server responses may deliver the initial snapshot asynchronously rather
+  // than in the direct send() response above; handle both paths.
+  const echo = findSubByReqId(data.req_id);
+  if (!echo) return;
+  ingestCandles(echo.symbol, echo.gran, (data.candles || []).map(normalizeCandle));
+}
+
+function handleOhlcUpdate(data){
+  const o = data.ohlc;
+  if (!o) return;
+  const symbol = o.symbol;
+  const gran = Number(o.granularity);
+  if (!State.candles[symbol] || !State.candles[symbol][gran]) return;
+  const arr = State.candles[symbol][gran];
+  const candle = {
+    epoch: Number(o.open_time || o.epoch),
+    open: Number(o.open), high: Number(o.high),
+    low: Number(o.low), close: Number(o.close),
+  };
+  const last = arr[arr.length - 1];
+  if (last && last.epoch === candle.epoch) arr[arr.length - 1] = candle;
+  else { arr.push(candle); if (arr.length > CONFIG.HISTORY_COUNT + 5) arr.shift(); }
+  onDataUpdated(symbol, gran);
+}
+
+function findSubByReqId(reqId){
+  // req_id isn't stored per-sub post-facto in this simplified map; fallback lookup
+  // by scanning subs for the most recently created without a resolved snapshot.
+  // Since subscribeCandles already ingests on direct response, this path is a
+  // defensive no-op in normal operation.
+  return null;
+}
+
+function onDataUpdated(symbol, gran){
+  if (symbol === State.activeSymbol) {
+    renderAll();
+  } else {
+    // lightweight scan for watchlist bias pill
+    const tf = CONFIG.TIMEFRAMES.find(t => t.gran === gran);
+    const candles = State.candles[symbol] && State.candles[symbol][gran];
+    if (candles && candles.length > 20 && tf && tf.key === CONFIG.WATCHLIST_SCAN_TF) {
+      const results = runAllEngines(candles);
+      const bias = timeframeBiasEngine(results, CONFIG.ENGINE_WEIGHTS);
+      State.watchlistBias[symbol] = bias;
+      renderWatchlist();
+    }
+  }
+}
+
+/* =========================================================
+   SIMULATION MODE (network-restricted fallback)
+   ========================================================= */
+function enterSimulation(){
+  State.usingSimulation = true;
+  State.connected = true;
+  setConnStatus('sim');
+  document.getElementById('sim-badge').style.display = 'inline-block';
+  stopHeartbeat();
+
+  const allSymbols = CONFIG.MARKETS.flatMap(g => g.symbols.map(s => s.symbol));
+  allSymbols.forEach(sym => {
+    if (!State.candles[sym]) State.candles[sym] = {};
+    CONFIG.TIMEFRAMES.forEach(tf => {
+      State.candles[sym][tf.gran] = generateSyntheticCandles(sym, tf.gran, CONFIG.HISTORY_COUNT);
+    });
+  });
+
+  setInterval(() => {
+    allSymbols.forEach(sym => {
+      const relevantTFs = sym === State.activeSymbol ? CONFIG.FULL_ENGINE_TFS : [CONFIG.WATCHLIST_SCAN_TF];
+      relevantTFs.forEach(tfKey => {
+        const tf = CONFIG.TIMEFRAMES.find(t => t.key === tfKey);
+        const arr = State.candles[sym][tf.gran];
+        advanceSyntheticCandle(arr, tf.gran);
+      });
+    });
+    onDataUpdated(State.activeSymbol, CONFIG.TIMEFRAMES.find(t=>t.key===State.activeTF).gran);
+    Object.keys(State.candles).forEach(sym => {
+      if (sym !== State.activeSymbol) onDataUpdated(sym, CONFIG.TIMEFRAMES.find(t=>t.key===CONFIG.WATCHLIST_SCAN_TF).gran);
+    });
+  }, 2000);
+
+  renderAll();
+  renderWatchlist();
+}
+
+function seededRandom(seedStr){
+  let h = 0;
+  for (let i=0;i<seedStr.length;i++){ h = Math.imul(31,h) + seedStr.charCodeAt(i) | 0; }
+  return function(){
+    h ^= h << 13; h ^= h >>> 17; h ^= h << 5;
+    return ((h >>> 0) / 4294967296);
+  };
+}
+
+function generateSyntheticCandles(symbol, gran, count){
+  const rand = seededRandom(symbol + gran);
+  let price = symbol.includes('XAU') ? 2400 : (symbol.startsWith('frx') ? 1.1 : 100 + rand()*900);
+  const vol = symbol.includes('XAU') ? 3 : (symbol.startsWith('frx') ? 0.0015 : price*0.004);
+  const out = [];
+  let epoch = Math.floor(Date.now()/1000) - gran*count;
+  let trend = (rand()-0.5)*0.4;
+  for (let i=0;i<count;i++){
+    if (i % 40 === 0) trend = (rand()-0.5)*0.6;
+    const drift = trend*vol*0.3;
+    const open = price;
+    const close = open + drift + (rand()-0.5)*vol;
+    const high = Math.max(open,close) + rand()*vol*0.5;
+    const low = Math.min(open,close) - rand()*vol*0.5;
+    out.push({ epoch, open, high, low, close });
+    price = close; epoch += gran;
+  }
+  return out;
+}
+
+function advanceSyntheticCandle(arr, gran){
+  if (!arr || !arr.length) return;
+  const rand = Math.random;
+  const last = arr[arr.length-1];
+  const vol = Math.abs(last.high-last.low) || last.close*0.002;
+  const nowEpoch = Math.floor(Date.now()/1000/gran)*gran;
+  if (last.epoch === nowEpoch) {
+    const close = last.close + (rand()-0.5)*vol*0.4;
+    last.close = close;
+    last.high = Math.max(last.high, close);
+    last.low = Math.min(last.low, close);
+  } else {
+    const open = last.close;
+    const close = open + (rand()-0.5)*vol*0.4;
+    arr.push({ epoch: nowEpoch, open, high: Math.max(open,close), low: Math.min(open,close), close });
+    if (arr.length > CONFIG.HISTORY_COUNT + 5) arr.shift();
+  }
+}
+
+/* =========================================================
+   ANALYTICS ENGINES (pure functions — candles in, signal out)
+   Each: (candles) => { engineId, signal, confidence, fired, rationale }
+   ========================================================= */
+function safeEngine(id, fn, candles){
+  try {
+    if (!candles || candles.length < 15) return { engineId:id, signal:'NEUTRAL', confidence:0, fired:false, rationale:'Insufficient data' };
+    const r = fn(candles);
+    return Object.assign({ engineId:id, fired:true }, r);
+  } catch(e) {
+    return { engineId:id, signal:'NEUTRAL', confidence:0, fired:false, rationale:'Engine error' };
+  }
+}
+
+function swingPoints(candles, lookback=5){
+  const highs=[], lows=[];
+  for (let i=lookback;i<candles.length-lookback;i++){
+    const window = candles.slice(i-lookback,i+lookback+1);
+    if (candles[i].high === Math.max(...window.map(c=>c.high))) highs.push({i,price:candles[i].high});
+    if (candles[i].low === Math.min(...window.map(c=>c.low))) lows.push({i,price:candles[i].low});
+  }
+  return { highs, lows };
+}
+
+function engineFibonacci(candles){
+  const { highs, lows } = swingPoints(candles);
+  if (!highs.length || !lows.length) return { signal:'NEUTRAL', confidence:0.2, rationale:'No clear swing detected' };
+  const swingHigh = Math.max(...highs.map(h=>h.price));
+  const swingLow = Math.min(...lows.map(l=>l.price));
+  const range = swingHigh - swingLow || 1e-9;
+  const last = candles[candles.length-1].close;
+  const retr = (swingHigh - last) / range; // 0 at high, 1 at low
+  const levels = [0.236,0.382,0.5,0.618,0.705,0.786,0.886];
+  const nearest = levels.reduce((a,b)=> Math.abs(retr-b)<Math.abs(retr-a)?b:a);
+  const nearDist = Math.abs(retr-nearest);
+  const goldenZone = nearest>=0.5 && nearest<=0.705;
+  const uptrend = candles[candles.length-1].close > candles[Math.max(0,candles.length-20)].close;
+  let signal = 'NEUTRAL', confidence = 0.3;
+  if (nearDist < 0.05 && goldenZone) {
+    signal = uptrend ? 'BUY' : 'SELL';
+    confidence = 0.55 + (1-nearDist*10)*0.25;
+  } else if (retr < 0.1) { signal = uptrend?'SELL':'NEUTRAL'; confidence = 0.35; }
+  else if (retr > 0.9) { signal = uptrend?'BUY':'NEUTRAL'; confidence = 0.35; }
+  return { signal, confidence: Math.min(confidence,0.95), rationale: `Retracement ${(nearest*100).toFixed(1)}% zone` };
+}
+
+function engineSupportResistance(candles){
+  const { highs, lows } = swingPoints(candles, 4);
+  const last = candles[candles.length-1].close;
+  const cluster = (points) => {
+    const prices = points.map(p=>p.price).sort((a,b)=>a-b);
+    return prices;
+  };
+  const resistances = cluster(highs).filter(p=>p>last).slice(0,3);
+  const supports = cluster(lows).filter(p=>p<last).slice(-3);
+  const nearestR = resistances.length ? Math.min(...resistances) : null;
+  const nearestS = supports.length ? Math.max(...supports) : null;
+  const atrEst = averageRange(candles.slice(-14));
+  let signal='NEUTRAL', confidence=0.3, rationale='No level in range';
+  if (nearestS !== null && (last - nearestS) < atrEst*1.2) {
+    signal='BUY'; confidence=0.6; rationale=`Near support ${nearestS.toFixed(4)}`;
+  } else if (nearestR !== null && (nearestR - last) < atrEst*1.2) {
+    signal='SELL'; confidence=0.6; rationale=`Near resistance ${nearestR.toFixed(4)}`;
+  }
+  return { signal, confidence, rationale };
+}
+
+function engineSupplyDemand(candles){
+  const recent = candles.slice(-30);
+  const rangePct = c => Math.abs(c.close-c.open)/((c.high-c.low)||1e-9);
+  let demandZone=null, supplyZone=null;
+  for (let i=1;i<recent.length-1;i++){
+    const c=recent[i];
+    if (rangePct(c) > 0.6 && c.close>c.open) demandZone = c;
+    if (rangePct(c) > 0.6 && c.close<c.open) supplyZone = c;
+  }
+  const last = recent[recent.length-1].close;
+  let signal='NEUTRAL', confidence=0.25, rationale='No fresh zone identified';
+  if (demandZone && last <= demandZone.high*1.005 && last >= demandZone.low*0.995) {
+    signal='BUY'; confidence=0.58; rationale='Price reacting to fresh demand zone';
+  } else if (supplyZone && last >= supplyZone.low*0.995 && last <= supplyZone.high*1.005) {
+    signal='SELL'; confidence=0.58; rationale='Price reacting to fresh supply zone';
+  }
+  return { signal, confidence, rationale };
+}
+
+function engineVolume(candles){
+  // Deriv candle feed has no true volume field for synthetics/forex; use range-based
+  // proxy (tick range as participation proxy) which is a documented substitute
+  // pattern for volumeless feeds.
+  const ranges = candles.slice(-20).map(c=>c.high-c.low);
+  const avg = ranges.reduce((a,b)=>a+b,0)/ranges.length;
+  const lastRange = ranges[ranges.length-1];
+  const relVol = lastRange/(avg||1e-9);
+  const last = candles[candles.length-1];
+  const bullish = last.close>last.open;
+  let signal='NEUTRAL', confidence=0.25, rationale='Normal participation';
+  if (relVol > 1.6) {
+    signal = bullish?'BUY':'SELL';
+    confidence = Math.min(0.4+relVol*0.12, 0.85);
+    rationale = `Volume spike (${relVol.toFixed(2)}x avg range)`;
+  } else if (relVol < 0.5) {
+    rationale = 'Low participation — exhaustion risk'; confidence=0.2;
+  }
+  return { signal, confidence, rationale };
+}
+
+function averageRange(candles){
+  if (!candles.length) return 1e-9;
+  return candles.reduce((s,c)=>s+(c.high-c.low),0)/candles.length;
+}
+
+function engineVolatility(candles){
+  const atrShort = averageRange(candles.slice(-14));
+  const atrLong = averageRange(candles.slice(-50 < -candles.length ? 0 : -50));
+  const ratio = atrShort/(atrLong||1e-9);
+  let regime='Normal', confidence=0.3;
+  if (ratio > 1.5) regime='High';
+  else if (ratio > 2.2) regime='Extreme';
+  else if (ratio < 0.6) regime='Low';
+  const signal='NEUTRAL'; // volatility engine informs sizing/state, not direction
+  return { signal, confidence: 0.4, rationale: `Regime: ${regime} (${ratio.toFixed(2)}x)`, regime, atr: atrShort };
+}
+
+function engineBreakout(candles){
+  const lookback = candles.slice(-25,-1);
+  const rangeHigh = Math.max(...lookback.map(c=>c.high));
+  const rangeLow = Math.min(...lookback.map(c=>c.low));
+  const last = candles[candles.length-1];
+  let signal='NEUTRAL', confidence=0.25, rationale='Inside prior range';
+  if (last.close > rangeHigh) {
+    const strength = Math.min((last.close-rangeHigh)/((rangeHigh-rangeLow)||1e-9),1);
+    signal='BUY'; confidence=0.5+strength*0.35; rationale='Confirmed breakout above range high';
+  } else if (last.close < rangeLow) {
+    const strength = Math.min((rangeLow-last.close)/((rangeHigh-rangeLow)||1e-9),1);
+    signal='SELL'; confidence=0.5+strength*0.35; rationale='Confirmed breakout below range low';
+  }
+  return { signal, confidence: Math.min(confidence,0.92), rationale };
+}
+
+function engineRetest(candles){
+  const lookback = candles.slice(-30,-3);
+  if (!lookback.length) return { signal:'NEUTRAL', confidence:0.2, rationale:'Insufficient history' };
+  const rangeHigh = Math.max(...lookback.map(c=>c.high));
+  const rangeLow = Math.min(...lookback.map(c=>c.low));
+  const last3 = candles.slice(-3);
+  const last = last3[last3.length-1];
+  let signal='NEUTRAL', confidence=0.25, rationale='No retest in progress';
+  if (Math.abs(last.close-rangeHigh)/rangeHigh < 0.003 && last.close > rangeHigh*0.998) {
+    signal='BUY'; confidence=0.55; rationale='Retest of broken resistance as support';
+  } else if (Math.abs(last.close-rangeLow)/rangeLow < 0.003 && last.close < rangeLow*1.002) {
+    signal='SELL'; confidence=0.55; rationale='Retest of broken support as resistance';
+  }
+  return { signal, confidence, rationale };
+}
+
+function engineCandlePattern(candles){
+  const c = candles[candles.length-1];
+  const p = candles[candles.length-2];
+  const body = Math.abs(c.close-c.open);
+  const range = (c.high-c.low)||1e-9;
+  const upperWick = c.high-Math.max(c.open,c.close);
+  const lowerWick = Math.min(c.open,c.close)-c.low;
+  let signal='NEUTRAL', confidence=0.2, rationale='No significant pattern';
+
+  if (body/range < 0.12) { signal='NEUTRAL'; confidence=0.3; rationale='Doji — indecision'; }
+  else if (lowerWick > body*2 && upperWick < body*0.5) { signal='BUY'; confidence=0.55; rationale='Hammer / pin bar (bullish rejection)'; }
+  else if (upperWick > body*2 && lowerWick < body*0.5) { signal='SELL'; confidence=0.55; rationale='Shooting star / pin bar (bearish rejection)'; }
+  else if (p && c.close>c.open && p.close<p.open && c.close>p.open && c.open<p.close) { signal='BUY'; confidence=0.6; rationale='Bullish engulfing'; }
+  else if (p && c.close<c.open && p.close>p.open && c.close<p.open && c.open>p.close) { signal='SELL'; confidence=0.6; rationale='Bearish engulfing'; }
+  else if (body/range > 0.85) { signal = c.close>c.open?'BUY':'SELL'; confidence=0.45; rationale='Marubozu (strong directional close)'; }
+  return { signal, confidence, rationale };
+}
+
+function engineCandleFormation(candles){
+  const recent = candles.slice(-10);
+  const closes = recent.map(c=>c.close);
+  const ranges = recent.map(c=>c.high-c.low);
+  const avgRangeRecent = ranges.reduce((a,b)=>a+b,0)/ranges.length;
+  const priorRanges = candles.slice(-30,-10).map(c=>c.high-c.low);
+  const avgRangePrior = priorRanges.length ? priorRanges.reduce((a,b)=>a+b,0)/priorRanges.length : avgRangeRecent;
+  const compression = avgRangeRecent/(avgRangePrior||1e-9);
+  const trend = closes[closes.length-1]-closes[0];
+  let signal='NEUTRAL', confidence=0.25, rationale='Range-bound formation';
+  if (compression < 0.55) { rationale='Compression — potential expansion pending'; confidence=0.35; }
+  else if (compression > 1.6) {
+    signal = trend>0?'BUY':'SELL'; confidence=0.5; rationale='Expansion phase — impulsive move';
+  } else if (Math.abs(trend) > avgRangeRecent*3) {
+    signal = trend>0?'BUY':'SELL'; confidence=0.45; rationale='Sustained impulse leg';
+  }
+  return { signal, confidence, rationale };
+}
+
+function engineSession(candles){
+  const now = new Date();
+  const h = now.getUTCHours();
+  let session='Off-hours', vol=0.3;
+  if (h>=0 && h<7) { session='Asian'; vol=0.4; }
+  else if (h>=7 && h<12) { session='London'; vol=0.75; }
+  else if (h>=12 && h<16) { session='London/NY Overlap'; vol=0.95; }
+  else if (h>=16 && h<21) { session='New York'; vol=0.7; }
+  else { session='Pre-Asian'; vol=0.35; }
+  return { signal:'NEUTRAL', confidence: vol*0.4, rationale:`${session} session (rel. volatility ${(vol*100).toFixed(0)}%)`, session };
+}
+
+function engineMarketStructure(candles){
+  const { highs, lows } = swingPoints(candles, 4);
+  if (highs.length<2 || lows.length<2) return { signal:'NEUTRAL', confidence:0.25, rationale:'Insufficient structure data' };
+  const lastHighs = highs.slice(-2), lastLows = lows.slice(-2);
+  const hh = lastHighs[1].price > lastHighs[0].price;
+  const hl = lastLows[1].price > lastLows[0].price;
+  const lh = lastHighs[1].price < lastHighs[0].price;
+  const ll = lastLows[1].price < lastLows[0].price;
+  let signal='NEUTRAL', confidence=0.3, rationale='Structure unclear';
+  if (hh && hl) { signal='BUY'; confidence=0.68; rationale='HH/HL — bullish structure intact'; }
+  else if (lh && ll) { signal='SELL'; confidence=0.68; rationale='LH/LL — bearish structure intact'; }
+  else if (hh && ll) { confidence=0.35; rationale='Expansion both ways — volatile structure'; }
+  else if (lh && hl) { confidence=0.3; rationale='Contracting structure — possible reversal setup'; }
+  return { signal, confidence, rationale };
+}
+
+function engineTrendStrength(candles){
+  const closes = candles.slice(-20).map(c=>c.close);
+  const x = closes.map((_,i)=>i);
+  const n = x.length;
+  const sumX=x.reduce((a,b)=>a+b,0), sumY=closes.reduce((a,b)=>a+b,0);
+  const sumXY=x.reduce((s,xi,i)=>s+xi*closes[i],0), sumXX=x.reduce((s,xi)=>s+xi*xi,0);
+  const slope = (n*sumXY-sumX*sumY)/((n*sumXX-sumX*sumX)||1e-9);
+  const meanY = sumY/n;
+  const normSlope = slope*n/(meanY||1e-9);
+  return normSlope;
+}
+
+function enginePriceAction(candles){
+  const slope = engineTrendStrength(candles);
+  const last5 = candles.slice(-5);
+  const momentum = last5[last5.length-1].close - last5[0].close;
+  let signal='NEUTRAL', confidence=0.3, rationale='Balanced price action';
+  const strength = Math.min(Math.abs(slope)*8,1);
+  if (Math.abs(slope) > 0.01) {
+    signal = slope>0?'BUY':'SELL';
+    confidence = 0.4+strength*0.4;
+    rationale = `${signal==='BUY'?'Bullish':'Bearish'} momentum, trend strength ${(strength*100).toFixed(0)}%`;
+  }
+  return { signal, confidence: Math.min(confidence,0.9), rationale };
+}
+
+const ENGINES = [
+  ['fibonacci', engineFibonacci],
+  ['supportResistance', engineSupportResistance],
+  ['supplyDemand', engineSupplyDemand],
+  ['volume', engineVolume],
+  ['volatility', engineVolatility],
+  ['breakout', engineBreakout],
+  ['retest', engineRetest],
+  ['candlePattern', engineCandlePattern],
+  ['candleFormation', engineCandleFormation],
+  ['session', engineSession],
+  ['marketStructure', engineMarketStructure],
+  ['priceAction', enginePriceAction],
+];
+
+function runAllEngines(candles){
+  return ENGINES.map(([id,fn]) => safeEngine(id, fn, candles));
+}
+
+/* =========================================================
+   MARKET STATE ENGINE
+   ========================================================= */
+function marketStateEngine(candles, results){
+  const structure = results.find(r=>r.engineId==='marketStructure');
+  const volat = results.find(r=>r.engineId==='volatility');
+  const formation = results.find(r=>r.engineId==='candleFormation');
+  const slope = engineTrendStrength(candles);
+  const strength = Math.min(Math.abs(slope)*8,1);
+
+  let state='Consolidation', confidence=0.4;
+  if (volat && volat.regime==='Extreme') { state='High Volatility'; confidence=0.65; }
+  else if (volat && volat.regime==='Low' && formation && formation.rationale.includes('Compression')) { state='Compression'; confidence=0.6; }
+  else if (structure && structure.signal==='BUY' && strength>0.4) { state = strength>0.7?'Strong Bull Trend':'Weak Bull Trend'; confidence=0.5+strength*0.3; }
+  else if (structure && structure.signal==='SELL' && strength>0.4) { state = strength>0.7?'Strong Bear Trend':'Weak Bear Trend'; confidence=0.5+strength*0.3; }
+  else if (formation && formation.rationale.includes('Expansion')) { state='Expansion'; confidence=0.5; }
+  else if (structure && structure.rationale.includes('reversal')) { state='Transition'; confidence=0.4; }
+  else if (strength<0.15) { state='Indecision'; confidence=0.4; }
+
+  return { state, confidence: Math.min(confidence,0.95) };
+}
+
+/* =========================================================
+   TIMEFRAME BIAS ENGINE (per-timeframe weighted confluence)
+   ========================================================= */
+function computeWeightedConfidence(results, weights){
+  const fired = results.filter(r=>r.fired && r.signal!=='NEUTRAL');
+  if (!fired.length) return { confidence:0, coverage:0, rawConfidence:0 };
+  const totalWeight = fired.reduce((s,r)=>s+(weights[r.engineId]||1),0);
+  const weightedSum = fired.reduce((s,r)=>s+r.confidence*(weights[r.engineId]||1),0);
+  const rawConfidence = weightedSum/totalWeight;
+  const coverage = results.filter(r=>r.fired).length/results.length;
+  return { confidence: rawConfidence, coverage, rawConfidence };
+}
+function applyCoveragePenalty(rawConfidence, coverage, minCoverage=CONFIG.MIN_COVERAGE){
+  if (coverage < minCoverage) return 0;
+  return rawConfidence * Math.sqrt(coverage);
+}
+function detectConflict(results){
+  const fired = results.filter(r=>r.fired && r.signal!=='NEUTRAL');
+  const buys = fired.filter(r=>r.signal==='BUY').length;
+  const sells = fired.filter(r=>r.signal==='SELL').length;
+  if (!buys && !sells) return { conflictRatio:0, dominant:'NEUTRAL', buys:0, sells:0 };
+  const total = buys+sells;
+  const dominant = buys>=sells?'BUY':'SELL';
+  const conflictRatio = Math.min(buys,sells)/total;
+  return { conflictRatio, dominant, buys, sells };
+}
+
+function timeframeBiasEngine(results, weights){
+  const { confidence:rawConfidence, coverage } = computeWeightedConfidence(results, weights);
+  const penalized = applyCoveragePenalty(rawConfidence, coverage);
+  const conflict = detectConflict(results);
+  const bias = coverage < CONFIG.MIN_COVERAGE ? 'NEUTRAL' : conflict.dominant;
+
+  const scoreFor = (ids) => {
+    const subset = results.filter(r=>ids.includes(r.engineId) && r.fired);
+    if (!subset.length) return 0;
+    return subset.reduce((s,r)=>s+r.confidence,0)/subset.length;
+  };
+
+  return {
+    bias, confidence: penalized, coverage, conflictRatio: conflict.conflictRatio,
+    trendScore: scoreFor(['marketStructure','priceAction']),
+    momentumScore: scoreFor(['priceAction','breakout']),
+    volatilityScore: scoreFor(['volatility']),
+    patternScore: scoreFor(['candlePattern','candleFormation']),
+    structureScore: scoreFor(['marketStructure','supportResistance']),
+    riskScore: 1 - penalized,
+    results,
+  };
+}
+
+/* =========================================================
+   MULTI-TIMEFRAME CONSENSUS ENGINE
+   ========================================================= */
+function mtfConsensusEngine(biasByTF, tfWeights){
+  const keys = Object.keys(biasByTF);
+  if (!keys.length) return { bias:'NEUTRAL', strength:0, stability:0, agreement:0, conflict:0 };
+  let totalW=0, buyW=0, sellW=0, confSum=0, confWSum=0;
+  keys.forEach(k => {
+    const w = tfWeights[k] || 0.05;
+    const b = biasByTF[k];
+    totalW += w;
+    if (b.bias==='BUY') buyW += w*b.confidence;
+    else if (b.bias==='SELL') sellW += w*b.confidence;
+    confSum += b.confidence; confWSum += b.confidence*w;
+  });
+  const dominant = buyW>=sellW ? 'BUY':'SELL';
+  const strength = totalW ? Math.abs(buyW-sellW)/totalW : 0;
+  const agreementCount = keys.filter(k=>biasByTF[k].bias===dominant).length;
+  const agreement = agreementCount/keys.length;
+  const avgConf = confSum/keys.length;
+  const stability = avgConf * agreement;
+  const conflict = 1 - agreement;
+  const bias = (buyW===0 && sellW===0) ? 'NEUTRAL' : dominant;
+  return { bias, strength: Math.min(strength,1), stability, agreement, conflict, avgConfidence: avgConf };
+}
+
+/* =========================================================
+   TIME-SENSITIVE BIAS ENGINE
+   ========================================================= */
+function timeSensitiveBiasEngine(consensus, activeTFGran, volatilityRegime){
+  const baseMinutes = Math.max(activeTFGran/60, 1);
+  const stabilityFactor = 0.5 + consensus.stability*1.5;
+  const volFactor = volatilityRegime==='Extreme' ? 0.5 : volatilityRegime==='High' ? 0.7 : volatilityRegime==='Low' ? 1.4 : 1.0;
+  const expectedMinutes = baseMinutes * 3 * stabilityFactor * volFactor;
+  const low = Math.round(expectedMinutes*0.6);
+  const high = Math.round(expectedMinutes*1.4);
+  const nextReview = Math.round(expectedMinutes*0.35);
+  const decay = Math.max(0, 1 - (consensus.conflict*0.6 + (1-consensus.agreement)*0.4));
+  const continuationProb = Math.min(0.95, consensus.avgConfidence*decay + consensus.agreement*0.15);
+  return {
+    startTime: new Date(),
+    expectedLow: low, expectedHigh: high,
+    nextReviewMinutes: Math.max(nextReview,1),
+    confidenceDecay: decay,
+    continuationProbability: continuationProb,
+  };
+}
+
+/* =========================================================
+   SIGNAL DECISION ENGINE
+   ========================================================= */
+function signalDecisionEngine(symbol, consensus, biasByTF, candles, marketState, timeWindow){
+  const meetsConfidence = consensus.avgConfidence >= CONFIG.SIGNAL_CONF_THRESHOLD;
+  const meetsAgreement = consensus.agreement >= CONFIG.SIGNAL_AGREEMENT_THRESHOLD;
+  const actionable = !['Indecision','Compression'].includes(marketState.state);
+  const h1 = biasByTF['H1'], m15 = biasByTF['M15'];
+  const noHTFConflict = !h1 || h1.bias==='NEUTRAL' || h1.bias===consensus.bias;
+  const confirmation = (m15 && (m15.results.find(r=>r.engineId==='breakout').signal===consensus.bias)) ||
+                        (h1 && (h1.results.find(r=>r.engineId==='marketStructure').signal===consensus.bias));
+
+  if (!(meetsConfidence && meetsAgreement && noHTFConflict && actionable)) return null;
+
+  const last = candles[candles.length-1].close;
+  const atr = averageRange(candles.slice(-14));
+  const entryLow = consensus.bias==='BUY' ? last-atr*0.15 : last-atr*0.15;
+  const entryHigh = consensus.bias==='BUY' ? last+atr*0.15 : last+atr*0.15;
+  const sl = consensus.bias==='BUY' ? last-atr*1.5 : last+atr*1.5;
+  const tp1 = consensus.bias==='BUY' ? last+atr*1.5 : last-atr*1.5;
+  const tp2 = consensus.bias==='BUY' ? last+atr*2.75 : last-atr*2.75;
+
+  const reasons = [];
+  if (confirmation) reasons.push('breakout/structure confirmation present');
+  reasons.push(`${(consensus.agreement*100).toFixed(0)}% timeframe agreement`);
+  reasons.push(`market state: ${marketState.state}`);
+
+  return {
+    symbol, time: new Date(), marketState: marketState.state, bias: consensus.bias,
+    confidence: consensus.avgConfidence, entryLow, entryHigh, sl, tp1, tp2,
+    validityWindow: `${timeWindow.expectedLow}-${timeWindow.expectedHigh}m`,
+    reasons: reasons.join('; '),
+    risk: marketState.state.includes('High') || marketState.state==='Extreme' ? 'Elevated' : 'Standard',
+  };
+}
+
+/* =========================================================
+   NLG SUMMARY
+   ========================================================= */
+function summarizeConsensus(c){
+  if (c.avgConfidence < 0.3) return 'Insufficient data — too few engines reporting confidently.';
+  if (c.conflict > 0.35) return `Mixed signals (${c.bias} leaning) — timeframes disagree significantly.`;
+  if (c.avgConfidence > 0.7 && c.agreement >= 0.66) return `Strong ${c.bias} — high confluence across timeframes.`;
+  if (c.avgConfidence > 0.5) return `Moderate ${c.bias} — reasonable confluence, monitor for confirmation.`;
+  return 'Weak/no clear signal — confidence too low to act on.';
+}
+
+/* =========================================================
+   RENDERING
+   ========================================================= */
+function setConnStatus(state){
+  const dot = document.getElementById('conn-dot');
+  const text = document.getElementById('conn-text');
+  dot.className = 'status-dot';
+  if (state==='live'){ dot.classList.add('live'); text.textContent='Live — Public Feed'; }
+  else if (state==='down'){ dot.classList.add('down'); text.textContent='Disconnected — reconnecting…'; }
+  else if (state==='sim'){ dot.classList.add('sim'); text.textContent='Simulation Mode'; }
+  else { text.textContent='Connecting…'; }
+}
+
+function initWatchlist(){
+  const el = document.getElementById('watchlist');
+  el.innerHTML = '';
+  CONFIG.MARKETS.forEach(group => {
+    const g = document.createElement('div'); g.className='market-group';
+    g.innerHTML = `<div class="market-group-label">${group.group}</div>`;
+    group.symbols.forEach(s => {
+      const row = document.createElement('div');
+      row.className = 'symbol-row' + (s.symbol===State.activeSymbol?' active':'');
+      row.dataset.symbol = s.symbol;
+      row.innerHTML = `
+        <div><div class="symbol-name">${s.symbol}</div><div class="symbol-sub">${s.name}</div></div>
+        <div class="symbol-bias bias-neutral" id="wl-bias-${s.symbol}">…</div>`;
+      row.addEventListener('click', () => selectSymbol(s.symbol));
+      g.appendChild(row);
+    });
+    el.appendChild(g);
+  });
+}
+
+function renderWatchlist(){
+  Object.keys(State.watchlistBias).forEach(sym => {
+    const el = document.getElementById('wl-bias-'+sym);
+    if (!el) return;
+    const b = State.watchlistBias[sym];
+    el.textContent = b.bias + (b.confidence?` ${(b.confidence*100).toFixed(0)}%`:'');
+    el.className = 'symbol-bias ' + (b.bias==='BUY'?'bias-buy':b.bias==='SELL'?'bias-sell':'bias-neutral');
+  });
+}
+
+async function selectSymbol(symbol){
+  if (symbol === State.activeSymbol) return;
+  State.activeSymbol = symbol;
+  document.querySelectorAll('.symbol-row').forEach(r => r.classList.toggle('active', r.dataset.symbol===symbol));
+  document.getElementById('active-sym-title').textContent = symbol;
+  if (!State.usingSimulation) await subscribeSymbol(symbol, true);
+  renderAll();
+}
+
+function initTFSelector(){
+  const el = document.getElementById('tf-selector');
+  el.innerHTML = '';
+  CONFIG.FULL_ENGINE_TFS.forEach(k => {
+    const btn = document.createElement('button');
+    btn.className = 'tf-btn' + (k===State.activeTF?' active':'');
+    btn.textContent = k;
+    btn.addEventListener('click', () => {
+      State.activeTF = k;
+      document.querySelectorAll('.tf-btn').forEach(b=>b.classList.toggle('active', b.textContent===k));
+      renderAll();
+    });
+    el.appendChild(btn);
+  });
+}
+
+const CHART_CDN_URLS = [
+  'https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js',
+  'https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/4.1.3/lightweight-charts.standalone.production.js',
+];
+
+function loadScriptWithFallback(urls, onDone){
+  let i = 0;
+  function tryNext(){
+    if (typeof LightweightCharts !== 'undefined') { onDone(true); return; }
+    if (i >= urls.length) { onDone(false); return; }
+    const s = document.createElement('script');
+    s.src = urls[i++];
+    s.onload = () => setTimeout(tryNext, 50);
+    s.onerror = tryNext;
+    document.head.appendChild(s);
+  }
+  tryNext();
+}
+
+function initChart(){
+  loadScriptWithFallback(CHART_CDN_URLS, (loaded) => {
+    if (!loaded || typeof LightweightCharts === 'undefined') {
+      console.warn('LightweightCharts unavailable after trying all CDNs — using Canvas fallback');
+      State.chart = initCanvasFallbackChart(document.getElementById('chart-container'));
+      document.getElementById('chart-engine-badge').textContent = 'Canvas Renderer';
+      return;
+    }
+    buildLightweightChart();
+  });
+}
+
+function buildLightweightChart(){
+  const container = document.getElementById('chart-container');
+  const chart = LightweightCharts.createChart(container, {
+    layout: { background: { color: '#0a0e14' }, textColor: '#8b96ab' },
+    grid: { vertLines: { color:'#171e2b' }, horzLines: { color:'#171e2b' } },
+    timeScale: { timeVisible: true, secondsVisible: false, borderColor:'#232c3d' },
+    rightPriceScale: { borderColor:'#232c3d' },
+    crosshair: { mode: 0 },
+  });
+  const series = chart.addCandlestickSeries({
+    upColor:'#3ecf8e', downColor:'#ef5a6f', borderVisible:false,
+    wickUpColor:'#3ecf8e', wickDownColor:'#ef5a6f',
+  });
+  window.addEventListener('resize', () => chart.applyOptions({ width: container.clientWidth }));
+  State.chart = {
+    engine:'lightweight-charts',
+    setData:(candles)=>series.setData(candles.map(c=>({time:c.epoch,open:c.open,high:c.high,low:c.low,close:c.close}))),
+  };
+  document.getElementById('chart-engine-badge').textContent = 'Lightweight Charts';
+}
+
+function initCanvasFallbackChart(containerEl){
+  containerEl.innerHTML = '';
+  const canvas = document.createElement('canvas');
+  canvas.width = containerEl.clientWidth; canvas.height = containerEl.clientHeight || 420;
+  containerEl.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  function setData(candles){
+    if (!candles.length) return;
+    ctx.fillStyle = '#0a0e14'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    const prices = candles.flatMap(c=>[c.high,c.low]);
+    const max = Math.max(...prices), min = Math.min(...prices);
+    const scaleY = v => canvas.height - ((v-min)/((max-min)||1e-9))*canvas.height;
+    const barWidth = canvas.width/candles.length;
+    candles.forEach((c,i) => {
+      const x = i*barWidth;
+      const up = c.close>=c.open;
+      ctx.strokeStyle = ctx.fillStyle = up ? '#3ecf8e':'#ef5a6f';
+      ctx.beginPath(); ctx.moveTo(x+barWidth/2, scaleY(c.high)); ctx.lineTo(x+barWidth/2, scaleY(c.low)); ctx.stroke();
+      ctx.fillRect(x+1, scaleY(Math.max(c.open,c.close)), Math.max(barWidth-2,1), Math.abs(scaleY(c.open)-scaleY(c.close))||1);
+    });
+  }
+  return { engine:'canvas', setData };
+}
+
+function renderAll(){
+  const symbol = State.activeSymbol;
+  const symbolCandles = State.candles[symbol];
+  if (!symbolCandles) return;
+
+  const activeGran = CONFIG.TIMEFRAMES.find(t=>t.key===State.activeTF).gran;
+  const activeCandles = symbolCandles[activeGran];
+  if (activeCandles && activeCandles.length>10 && State.chart) State.chart.setData(activeCandles);
+
+  const marketInfo = CONFIG.MARKETS.flatMap(g=>g.symbols).find(s=>s.symbol===symbol);
+  document.getElementById('active-sym-title').textContent = `${symbol}  ·  ${marketInfo?marketInfo.name:''}`;
+
+  // Compute bias per available timeframe for this symbol
+  const biasByTF = {};
+  CONFIG.FULL_ENGINE_TFS.forEach(k => {
+    const tf = CONFIG.TIMEFRAMES.find(t=>t.key===k);
+    const candles = symbolCandles[tf.gran];
+    if (candles && candles.length>15) {
+      const results = runAllEngines(candles);
+      biasByTF[k] = timeframeBiasEngine(results, CONFIG.ENGINE_WEIGHTS);
+    }
+  });
+
+  const tfWeightMap = {}; CONFIG.TIMEFRAMES.forEach(t=>tfWeightMap[t.key]=t.weight);
+  const consensus = mtfConsensusEngine(biasByTF, tfWeightMap);
+
+  const activeResults = biasByTF[State.activeTF] ? biasByTF[State.activeTF].results : (activeCandles?runAllEngines(activeCandles):[]);
+  const marketState = activeCandles && activeCandles.length>15 ? marketStateEngine(activeCandles, activeResults) : {state:'—',confidence:0};
+  const volEngine = activeResults.find(r=>r.engineId==='volatility');
+  const timeWindow = timeSensitiveBiasEngine(consensus, activeGran, volEngine?volEngine.regime:'Normal');
+
+  renderMarketStateBar(marketState, consensus, activeCandles);
+  renderTFGrid(biasByTF);
+  renderEngineList(activeResults, State.activeTF);
+  renderConsensusBox(consensus, symbol);
+  renderValidityBox(timeWindow);
+
+  // Signal decision — only emit on qualifying, de-duplicated state changes
+  const decision = signalDecisionEngine(symbol, consensus, biasByTF, activeCandles||[], marketState, timeWindow);
+  maybeLogSignal(symbol, decision);
+}
+
+function renderMarketStateBar(marketState, consensus, candles){
+  const atr = candles && candles.length>14 ? averageRange(candles.slice(-14)) : 0;
+  const el = document.getElementById('market-state-bar');
+  el.innerHTML = `
+    <div class="stat-card"><div class="label">Market State</div><div class="value">${marketState.state}</div><div class="sub">${(marketState.confidence*100).toFixed(0)}% confidence</div></div>
+    <div class="stat-card"><div class="label">Overall Bias</div><div class="value" style="color:${biasColor(consensus.bias)}">${consensus.bias}</div><div class="sub">Strength ${(consensus.strength*100).toFixed(0)}%</div></div>
+    <div class="stat-card"><div class="label">Confidence</div><div class="value">${(consensus.avgConfidence*100).toFixed(0)}%</div><div class="sub">Stability ${(consensus.stability*100).toFixed(0)}%</div></div>
+    <div class="stat-card"><div class="label">TF Agreement</div><div class="value">${(consensus.agreement*100).toFixed(0)}%</div><div class="sub">Conflict ${(consensus.conflict*100).toFixed(0)}%</div></div>
+    <div class="stat-card"><div class="label">ATR (active TF)</div><div class="value">${atr?atr.toFixed(4):'—'}</div><div class="sub">Volatility proxy</div></div>
+  `;
+}
+
+function biasColor(b){ return b==='BUY'?'var(--buy)':b==='SELL'?'var(--sell)':'var(--neutral)'; }
+
+function renderTFGrid(biasByTF){
+  const el = document.getElementById('tf-grid');
+  el.innerHTML = '';
+  CONFIG.FULL_ENGINE_TFS.forEach(k => {
+    const b = biasByTF[k];
+    const cls = !b || b.bias==='NEUTRAL' ? 'n' : b.bias==='BUY' ? 'b':'s';
+    const card = document.createElement('div');
+    card.className = 'tf-card '+cls;
+    card.innerHTML = `
+      <div class="tfname">${k}</div>
+      <div class="tfbias" style="color:${b?biasColor(b.bias):'var(--neutral)'}">${b?b.bias:'—'}</div>
+      <div class="tfconf">${b?(b.confidence*100).toFixed(0)+'% conf · '+(b.coverage*100).toFixed(0)+'% coverage':'no data'}</div>
+      <div class="barrow"><div class="barfill" style="width:${b?(b.confidence*100).toFixed(0):0}%"></div></div>
+    `;
+    card.addEventListener('click', () => {
+      State.activeTF = k;
+      document.querySelectorAll('.tf-btn').forEach(btn=>btn.classList.toggle('active', btn.textContent===k));
+      renderAll();
+    });
+    el.appendChild(card);
+  });
+}
+
+const ENGINE_LABELS = {
+  fibonacci:'Fibonacci Engine', supportResistance:'Support & Resistance', supplyDemand:'Supply & Demand',
+  volume:'Volume Analytics', volatility:'Volatility Engine', breakout:'Breakout Engine', retest:'Retest Engine',
+  candlePattern:'Candle Pattern', candleFormation:'Candle Formation', session:'Session Engine',
+  marketStructure:'Market Structure', priceAction:'Price Action',
+};
+
+function renderEngineList(results, tfKey){
+  document.getElementById('engine-panel-title').textContent = `Analytics Modules — ${tfKey}`;
+  const el = document.getElementById('engine-list');
+  el.innerHTML = '';
+  results.forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'engine-row' + (r.fired?'':' dim');
+    row.innerHTML = `
+      <div class="ename">${ENGINE_LABELS[r.engineId]||r.engineId}</div>
+      <div class="esig" style="color:${biasColor(r.signal)}">${r.signal}</div>
+      <div class="erationale">${r.rationale||''}</div>
+      <div class="econf">${(r.confidence*100).toFixed(0)}%</div>
+    `;
+    el.appendChild(row);
+  });
+}
+
+function renderConsensusBox(consensus, symbol){
+  const el = document.getElementById('consensus-box');
+  el.innerHTML = `
+    <div class="cb-label">${symbol}</div>
+    <div class="cb-bias" style="color:${biasColor(consensus.bias)}">${consensus.bias}</div>
+    <div class="cb-row"><span>Confidence</span><b>${(consensus.avgConfidence*100).toFixed(1)}%</b></div>
+    <div class="cb-row"><span>Bias Strength</span><b>${(consensus.strength*100).toFixed(1)}%</b></div>
+    <div class="cb-row"><span>Bias Stability</span><b>${(consensus.stability*100).toFixed(1)}%</b></div>
+    <div class="cb-row"><span>Timeframe Agreement</span><b>${(consensus.agreement*100).toFixed(1)}%</b></div>
+    <div class="cb-row"><span>Timeframe Conflict</span><b>${(consensus.conflict*100).toFixed(1)}%</b></div>
+    <div style="margin-top:10px;font-size:11px;color:var(--text-dim);line-height:1.5;">${summarizeConsensus(consensus)}</div>
+  `;
+}
+
+function renderValidityBox(tw){
+  const el = document.getElementById('validity-box');
+  el.innerHTML = `
+    <div class="vt-title">Bias Validity Estimate</div>
+    <div class="vt-row"><span>Expected Duration</span><b>${tw.expectedLow}–${tw.expectedHigh} min</b></div>
+    <div class="vt-row"><span>Next Re-evaluation</span><b>${tw.nextReviewMinutes} min</b></div>
+    <div class="vt-row"><span>Confidence Decay</span><b>${(tw.confidenceDecay*100).toFixed(0)}%</b></div>
+    <div class="vt-row"><span>Continuation Probability</span><b>${(tw.continuationProbability*100).toFixed(0)}%</b></div>
+  `;
+}
+
+/* =========================================================
+   SIGNAL LOG (dedupe + render + persistence)
+   ========================================================= */
+function maybeLogSignal(symbol, decision){
+  if (!decision) return;
+  const last = State.lastConsensus[symbol];
+  const sig = `${decision.bias}:${Math.round(decision.confidence*20)}`; // coarse dedupe bucket
+  if (last === sig) return;
+  State.lastConsensus[symbol] = sig;
+  State.signalLog.unshift(decision);
+  if (State.signalLog.length > 200) State.signalLog.pop();
+  persistSignal(decision);
+  renderSignalFeed();
+}
+
+function renderSignalFeed(){
+  const el = document.getElementById('signal-feed');
+  if (!State.signalLog.length) {
+    el.innerHTML = '<div class="empty-state">No qualifying signals yet.<br>Signals appear when confidence ≥ threshold and multi-timeframe agreement is sufficient.</div>';
+    return;
+  }
+  el.innerHTML = State.signalLog.slice(0,40).map(s => `
+    <div class="signal-card ${s.bias==='BUY'?'buy':'sell'}">
+      <div class="sc-top"><span class="sc-sym">${s.symbol}</span><span class="sc-time">${new Date(s.time).toLocaleTimeString()}</span></div>
+      <div class="sc-bias" style="color:${biasColor(s.bias)}">${s.bias} · ${(s.confidence*100).toFixed(0)}%</div>
+      <div class="sc-zone">
+        Entry: ${s.entryLow.toFixed(4)}–${s.entryHigh.toFixed(4)}<br>
+        SL: ${s.sl.toFixed(4)} · TP1: ${s.tp1.toFixed(4)} · TP2: ${s.tp2.toFixed(4)}<br>
+        Validity: ${s.validityWindow} · Risk: ${s.risk}
+      </div>
+      <div class="sc-reasons">${s.reasons}</div>
+    </div>
+  `).join('');
+}
+
+/* =========================================================
+   PERSISTENCE — IndexedDB signal journal + CSV export
+   ========================================================= */
+let dbInstance = null;
+function openDB(){
+  return new Promise((resolve,reject) => {
+    if (dbInstance) { resolve(dbInstance); return; }
+    const req = indexedDB.open('meridian_journal', 1);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('signals')) {
+        const store = db.createObjectStore('signals', { keyPath:'id', autoIncrement:true });
+        store.createIndex('symbol','symbol');
+        store.createIndex('time','time');
+      }
+    };
+    req.onsuccess = (e) => { dbInstance = e.target.result; resolve(dbInstance); };
+    req.onerror = () => reject(req.error);
+  });
+}
+async function persistSignal(decision){
+  try {
+    const db = await openDB();
+    const tx = db.transaction('signals','readwrite');
+    tx.objectStore('signals').add(Object.assign({}, decision, { time: decision.time.toISOString() }));
+  } catch(e) { /* IndexedDB unavailable — in-memory log still works */ }
+}
+async function exportSignalsCSV(){
+  const header = 'symbol,time,marketState,bias,confidence,entryLow,entryHigh,sl,tp1,tp2,validityWindow,risk,reasons\n';
+  const rows = State.signalLog.map(s => [
+    s.symbol, new Date(s.time).toISOString(), s.marketState, s.bias, s.confidence.toFixed(3),
+    s.entryLow.toFixed(6), s.entryHigh.toFixed(6), s.sl.toFixed(6), s.tp1.toFixed(6), s.tp2.toFixed(6),
+    s.validityWindow, s.risk, '"'+s.reasons.replace(/"/g,'""')+'"'
+  ].join(',')).join('\n');
+  const blob = new Blob([header+rows], { type:'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `meridian_signals_${Date.now()}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* =========================================================
+   CLOCK
+   ========================================================= */
+function tickClock(){
+  document.getElementById('clock').textContent = new Date().toUTCString().slice(17,25) + ' UTC';
+}
+
+/* =========================================================
+   BOOTSTRAP
+   ========================================================= */
+function init(){
+  initWatchlist();
+  initTFSelector();
+  initChart();
+  document.getElementById('active-sym-title').textContent = State.activeSymbol;
+  document.getElementById('export-csv').addEventListener('click', exportSignalsCSV);
+  setInterval(tickClock, 1000); tickClock();
+  connect();
+  // If the socket hasn't opened within a reasonable window (offline/blocked
+  // network), degrade to simulation so the app is never a dead screen.
+  setTimeout(() => { if (!State.connected) enterSimulation(); }, 9000);
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

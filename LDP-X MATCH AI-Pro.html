@@ -1,0 +1,1893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>LDP-X MATCH AI</title>
+<meta name="theme-color" content="#0b0b0c">
+<link rel="manifest" href='data:application/json;charset=utf-8,{"name":"LDP-X%20MATCH%20AI","short_name":"LDP-X","start_url":".","display":"standalone","background_color":"%230b0b0c","theme_color":"%230b0b0c","icons":[]}'>
+<style>
+:root{
+  --bg:#0b0b0c; --surface:#141416; --surface2:#1b1b1e; --border:#2a2a2e;
+  --milk:#f6f4ee; --text:#f1efe8; --dim:#9a978f; --dim2:#6f6d68;
+  --gold:#d4af37; --gold-dim:#8f7a2e;
+  --up:#26c281; --down:#e5534b; --warn:#e0a83e; --info:#4a9de8;
+  --font-head:'Orbitron',sans-serif; --font-mono:'JetBrains Mono',monospace; --font-body:'Rajdhani',sans-serif;
+  --safe-b: env(safe-area-inset-bottom,0px); --safe-t: env(safe-area-inset-top,0px);
+}
+@font-face{font-family:'Orbitron';src:local('Orbitron');}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font-body);height:100%;overflow-x:hidden;}
+body{padding-top:var(--safe-t);}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-thumb{background:var(--gold-dim);border-radius:4px;}
+a,button{font-family:inherit;}
+.app{max-width:520px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;position:relative;}
+
+/* ===== TOP STATUS BAR ===== */
+.topbar{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,#0e0e10,#0b0b0c 90%);border-bottom:1px solid var(--border);padding:8px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.brand{display:flex;align-items:center;gap:8px;}
+.brand .logo{font-family:var(--font-head);font-weight:900;font-size:15px;letter-spacing:1px;color:var(--gold);}
+.brand .logo span{color:var(--milk);}
+.status-pills{display:flex;gap:6px;align-items:center;}
+.pill{display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:10px;padding:3px 7px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--dim);}
+.pill .dot{width:6px;height:6px;border-radius:50%;background:var(--dim2);}
+.pill.ok .dot{background:var(--up);box-shadow:0 0 6px var(--up);}
+.pill.bad .dot{background:var(--down);box-shadow:0 0 6px var(--down);}
+.pill.warn .dot{background:var(--warn);box-shadow:0 0 6px var(--warn);}
+
+/* ===== TABS CONTENT ===== */
+.content{flex:1;padding:10px 10px calc(78px + var(--safe-b));display:none;flex-direction:column;gap:10px;}
+.content.active{display:flex;}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;}
+.card-title{font-family:var(--font-head);font-size:11px;letter-spacing:1.5px;color:var(--gold);text-transform:uppercase;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+.card-title small{color:var(--dim2);font-family:var(--font-mono);letter-spacing:0;font-size:10px;text-transform:none;}
+
+/* market selector */
+.market-row{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;}
+.market-chip{flex:0 0 auto;padding:7px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);font-family:var(--font-mono);font-size:12px;color:var(--dim);white-space:nowrap;}
+.market-chip.active{background:var(--gold);color:#1a1300;border-color:var(--gold);font-weight:700;}
+select.mode-select{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-family:var(--font-mono);font-size:12px;}
+
+/* live price / tick tape */
+.price-row{display:flex;align-items:baseline;justify-content:space-between;}
+.price-main{font-family:var(--font-mono);font-size:30px;font-weight:700;letter-spacing:1px;}
+.price-main .lastdigit{color:var(--gold);text-decoration:underline;text-underline-offset:4px;}
+.price-meta{font-family:var(--font-mono);font-size:10px;color:var(--dim2);text-align:right;}
+.tick-tape{display:flex;gap:4px;overflow-x:auto;margin-top:8px;padding:2px;}
+.tick-chip{flex:0 0 auto;width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:12px;font-weight:700;background:var(--surface2);border:1px solid var(--border);color:var(--dim);}
+.tick-chip.hi{color:var(--gold);border-color:var(--gold-dim);}
+
+/* digit matrix / heatmap */
+.digit-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;}
+.digit-cell{aspect-ratio:1;border-radius:8px;background:var(--surface2);border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;}
+.digit-cell .d{font-family:var(--font-mono);font-weight:800;font-size:15px;}
+.digit-cell .p{font-family:var(--font-mono);font-size:8px;color:var(--dim2);}
+.digit-cell.top{border-color:var(--gold);box-shadow:0 0 10px rgba(212,175,55,.25) inset;}
+.digit-cell.top .d{color:var(--gold);}
+.heat-bar{height:4px;border-radius:2px;background:var(--border);position:absolute;bottom:3px;left:3px;right:3px;overflow:hidden;}
+.heat-bar i{display:block;height:100%;background:var(--gold);}
+
+/* window tabs */
+.win-tabs{display:flex;gap:4px;margin-bottom:8px;}
+.win-tab{flex:1;text-align:center;padding:5px 0;border-radius:8px;border:1px solid var(--border);font-family:var(--font-mono);font-size:11px;color:var(--dim);background:var(--surface2);}
+.win-tab.active{background:var(--gold);color:#1a1300;font-weight:700;border-color:var(--gold);}
+
+/* master signal card */
+.signal-card{border:1px solid var(--gold-dim);background:radial-gradient(circle at top right, rgba(212,175,55,.09), var(--surface));}
+.signal-top{display:flex;align-items:center;justify-content:space-between;}
+.signal-state{font-family:var(--font-mono);font-size:10px;padding:3px 9px;border-radius:20px;font-weight:700;letter-spacing:.5px;}
+.signal-state.forming{background:#2a2410;color:var(--warn);}
+.signal-state.confirmed{background:#0e2a1e;color:var(--up);}
+.signal-state.expired{background:#2a1414;color:var(--down);}
+.signal-state.notrade{background:#25252a;color:var(--dim);}
+.signal-body{display:flex;align-items:center;gap:16px;margin-top:10px;}
+.signal-digit{font-family:var(--font-head);font-size:52px;font-weight:900;color:var(--gold);text-shadow:0 0 20px rgba(212,175,55,.4);width:80px;text-align:center;}
+.signal-info{flex:1;}
+.signal-dir{font-family:var(--font-head);font-size:15px;letter-spacing:1px;}
+.signal-dir.match{color:var(--up);} .signal-dir.differs{color:var(--down);} .signal-dir.over{color:var(--info);} .signal-dir.under{color:var(--warn);}
+.conf-bar-wrap{margin-top:6px;height:8px;border-radius:6px;background:var(--surface2);overflow:hidden;border:1px solid var(--border);}
+.conf-bar{height:100%;background:linear-gradient(90deg,var(--gold-dim),var(--gold));}
+.signal-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px;}
+.stat-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 4px;text-align:center;}
+.stat-box .v{font-family:var(--font-mono);font-weight:700;font-size:13px;}
+.stat-box .l{font-size:9px;color:var(--dim2);text-transform:uppercase;letter-spacing:.5px;}
+.reason-list{margin-top:10px;font-family:var(--font-mono);font-size:10.5px;color:var(--dim);display:flex;flex-direction:column;gap:3px;max-height:110px;overflow-y:auto;}
+.reason-list li{list-style:none;padding-left:12px;position:relative;}
+.reason-list li:before{content:'▸';position:absolute;left:0;color:var(--gold-dim);}
+
+/* engine ensemble */
+.engine-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:11px;}
+.engine-row:last-child{border-bottom:none;}
+.engine-name{color:var(--dim);}
+.engine-vote{padding:2px 8px;border-radius:5px;font-weight:700;font-size:10px;}
+.engine-vote.buy{background:#0e2a1e;color:var(--up);} .engine-vote.sell{background:#2a1414;color:var(--down);} .engine-vote.flat{background:#25252a;color:var(--dim2);}
+
+/* strategy competition */
+.compete-bar{display:flex;height:22px;border-radius:6px;overflow:hidden;border:1px solid var(--border);margin-top:4px;}
+.compete-bar div{display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10px;font-weight:700;}
+
+/* gauges */
+.gauge-row{display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono);font-size:11px;margin-bottom:6px;}
+.gauge-track{height:6px;border-radius:4px;background:var(--surface2);overflow:hidden;border:1px solid var(--border);margin-bottom:10px;}
+.gauge-fill{height:100%;}
+
+/* Risk panel */
+.risk-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+.risk-box{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px;}
+.risk-box .v{font-family:var(--font-mono);font-weight:800;font-size:16px;}
+.risk-box .v.pos{color:var(--up);} .risk-box .v.neg{color:var(--down);}
+.risk-box .l{font-size:9px;color:var(--dim2);text-transform:uppercase;}
+
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:9px 2px;border-bottom:1px solid var(--border);}
+.toggle-row:last-child{border-bottom:none;}
+.toggle-row .lbl{font-size:13px;} .toggle-row .sub{font-size:10px;color:var(--dim2);}
+.switch{position:relative;width:42px;height:24px;flex:0 0 auto;}
+.switch input{opacity:0;width:0;height:0;}
+.slider{position:absolute;cursor:pointer;inset:0;background:var(--surface2);border:1px solid var(--border);border-radius:24px;transition:.2s;}
+.slider:before{content:"";position:absolute;height:18px;width:18px;left:2px;top:2px;background:var(--dim);border-radius:50%;transition:.2s;}
+input:checked + .slider{background:var(--gold-dim);border-color:var(--gold);}
+input:checked + .slider:before{transform:translateX(18px);background:var(--gold);}
+
+input[type=number],input[type=text],input[type=password]{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 10px;font-family:var(--font-mono);font-size:13px;}
+label.field-label{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;margin-top:10px;}
+.btn{width:100%;padding:12px;border-radius:10px;border:none;font-family:var(--font-head);font-size:12px;letter-spacing:1px;font-weight:700;cursor:pointer;}
+.btn-gold{background:linear-gradient(180deg,#e6c85a,var(--gold));color:#1a1300;}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text);}
+.btn-danger{background:linear-gradient(180deg,#f16b63,var(--down));color:#2a0a08;}
+.btn-row{display:flex;gap:8px;}
+.btn-row .btn{flex:1;}
+
+.kill-zone{border:1px solid #4a1c1c;background:#160b0b;}
+.kill-zone .card-title{color:var(--down);}
+
+/* execution / trade log */
+.trade-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:11px;}
+.trade-row:last-child{border-bottom:none;}
+.trade-row .win{color:var(--up);} .trade-row .loss{color:var(--down);} .trade-row .pending{color:var(--warn);}
+
+/* bottom nav */
+.bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:50;max-width:520px;margin:0 auto;background:rgba(14,14,16,.97);backdrop-filter:blur(10px);border-top:1px solid var(--border);display:flex;padding-bottom:var(--safe-b);}
+.navbtn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 0 7px;background:none;border:none;color:var(--dim2);font-size:9px;font-family:var(--font-mono);letter-spacing:.5px;}
+.navbtn .ic{font-size:18px;}
+.navbtn.active{color:var(--gold);}
+
+.toast-wrap{position:fixed;top:calc(52px + var(--safe-t));left:0;right:0;z-index:100;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;}
+.toast{max-width:480px;width:92%;background:var(--surface);border:1px solid var(--gold-dim);border-left:4px solid var(--gold);border-radius:10px;padding:10px 12px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.5);animation:slidein .25s ease;}
+.toast.danger{border-color:var(--down);border-left-color:var(--down);}
+.toast.success{border-color:var(--up);border-left-color:var(--up);}
+@keyframes slidein{from{transform:translateY(-14px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+
+.autotrade-banner{position:sticky;top:39px;z-index:39;background:linear-gradient(90deg,#241d09,#1a1600);border-bottom:1px solid var(--gold-dim);padding:5px 12px;font-family:var(--font-mono);font-size:10px;color:var(--gold);display:none;align-items:center;justify-content:space-between;}
+.autotrade-banner.show{display:flex;}
+.blinker{display:inline-block;width:6px;height:6px;background:var(--up);border-radius:50%;margin-right:5px;animation:blink 1s infinite;}
+@keyframes blink{50%{opacity:.2;}}
+
+.section-divider{font-family:var(--font-mono);font-size:9px;color:var(--dim2);text-transform:uppercase;letter-spacing:1.5px;margin:4px 2px -2px;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.small-note{font-size:10px;color:var(--dim2);margin-top:6px;line-height:1.4;}
+
+/* console */
+.log-row{padding:4px 6px;border-bottom:1px solid var(--border);white-space:pre-wrap;word-break:break-word;}
+.log-row .lt{color:var(--dim2);}
+.log-row .lc{padding:1px 6px;border-radius:4px;font-weight:700;margin:0 5px;font-size:9px;}
+.log-row .lc.WS{background:#0e2030;color:var(--info);}
+.log-row .lc.ENGINE{background:#241d09;color:var(--gold);}
+.log-row .lc.SIGNAL{background:#1d2409;color:#c9d84a;}
+.log-row .lc.TRADE{background:#0e2a1e;color:var(--up);}
+.log-row .lc.RISK{background:#2a1414;color:var(--warn);}
+.log-row .lc.ERROR{background:#2a1010;color:var(--down);}
+.log-row .lc.SYSTEM{background:#20202a;color:var(--dim);}
+.log-row.ERROR{background:rgba(229,83,75,.06);}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <div class="topbar">
+    <div class="brand"><span class="logo">LDP-X <span>MATCH AI</span></span></div>
+    <div class="status-pills">
+      <div class="pill" id="pillConn"><span class="dot"></span><span id="pillConnTxt">OFFLINE</span></div>
+      <div class="pill" id="pillMode"><span class="dot"></span><span id="pillModeTxt">DEMO</span></div>
+    </div>
+  </div>
+  <div class="autotrade-banner" id="autoBanner"><span><span class="blinker"></span>AUTO-TRADE ENGAGED</span><span id="autoBannerInfo">—</span></div>
+
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <!-- ============ DASHBOARD ============ -->
+  <div class="content active" id="tab-dashboard">
+
+    <div class="card">
+      <div class="card-title">Market <small id="tickRateTxt">0.0 ticks/s</small></div>
+      <div class="market-row" id="marketRow"></div>
+      <div class="market-row" style="margin-top:6px;">
+        <select class="mode-select" id="windowModeSel">
+          <option value="25">Window 25</option>
+          <option value="50" selected>Window 50</option>
+          <option value="100">Window 100</option>
+          <option value="250">Window 250</option>
+          <option value="500">Window 500</option>
+        </select>
+        <select class="mode-select" id="dataModeSel">
+          <option value="live">Live Feed</option>
+          <option value="sim">Simulation Mode</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="price-row">
+        <div class="price-main">Spot: <span id="priceMain">—</span><span class="lastdigit" id="priceLastDigit"></span></div>
+        <div class="price-meta">Symbol<br><b id="symbolTxt">1HZ10V</b></div>
+      </div>
+      <div class="tick-tape" id="tickTape"></div>
+    </div>
+
+    <div class="card signal-card" id="signalCard">
+      <div class="signal-top">
+        <div class="card-title" style="margin-bottom:0;">Master Signal</div>
+        <div class="signal-state notrade" id="signalState">NO-TRADE</div>
+      </div>
+      <div class="signal-body">
+        <div class="signal-digit" id="signalDigit">–</div>
+        <div class="signal-info">
+          <div class="signal-dir" id="signalDir">Awaiting confluence</div>
+          <div class="conf-bar-wrap"><div class="conf-bar" id="confBar" style="width:0%"></div></div>
+          <div class="small-note" id="signalSub">Confidence 0% · Coverage 0%</div>
+        </div>
+      </div>
+      <div class="signal-stats">
+        <div class="stat-box"><div class="v" id="statProb">–</div><div class="l">Probability</div></div>
+        <div class="stat-box"><div class="v" id="statCalib">–</div><div class="l">Calibrated</div></div>
+        <div class="stat-box"><div class="v" id="statEV">–</div><div class="l">EV Rate</div></div>
+        <div class="stat-box"><div class="v" id="statMaster">–</div><div class="l">Master Score</div></div>
+      </div>
+      <div class="small-note" id="edgeNote"></div>
+      <ul class="reason-list" id="reasonList"></ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Digit Distribution<small id="digitWinTxt">W50</small></div>
+      <div class="win-tabs">
+        <div class="win-tab active" data-w="25">25</div>
+        <div class="win-tab" data-w="50">50</div>
+        <div class="win-tab" data-w="100">100</div>
+        <div class="win-tab" data-w="250">250</div>
+      </div>
+      <div class="digit-grid" id="digitGrid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Differs / Match Engine</div>
+      <div class="gauge-row"><span>Predicted digit <b id="differsDigit">–</b></span><span id="differsProb">–</span></div>
+      <div class="gauge-track"><div class="gauge-fill" id="differsGauge" style="width:0%;background:var(--down);"></div></div>
+      <div class="small-note">Match = trade wins if next digit equals prediction. Differs = wins on any other digit.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Over / Under Engine</div>
+      <div class="gauge-row"><span>Over 2 probability</span><span id="over2Prob">–</span></div>
+      <div class="gauge-track"><div class="gauge-fill" id="over2Gauge" style="width:0%;background:var(--info);"></div></div>
+      <div class="gauge-row"><span>Under 7 probability</span><span id="under7Prob">–</span></div>
+      <div class="gauge-track"><div class="gauge-fill" id="under7Gauge" style="width:0%;background:var(--warn);"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Strategy Competition</div>
+      <div class="compete-bar" id="competeBar"></div>
+      <div class="small-note" id="competeNote">Waiting for data…</div>
+    </div>
+
+  </div>
+
+  <!-- ============ SIGNALS / ENGINES TAB ============ -->
+  <div class="content" id="tab-signals">
+
+    <div class="card">
+      <div class="card-title">Model Ensemble<small id="ensembleFired">0/0 fired</small></div>
+      <div id="engineList"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Entropy & Randomness</div>
+      <div class="gauge-row"><span>Normalized entropy</span><span id="entropyVal">–</span></div>
+      <div class="gauge-track"><div class="gauge-fill" id="entropyGauge" style="width:0%;background:var(--gold);"></div></div>
+      <div class="gauge-row"><span>Structure confidence</span><span id="structureVal">–</span></div>
+      <div class="gauge-track"><div class="gauge-fill" id="structureGauge" style="width:0%;background:var(--up);"></div></div>
+      <div class="small-note">Low entropy + high structure = stronger statistical edge. Near-uniform entropy suppresses signal confidence automatically.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Market Regime</div>
+      <div class="signal-stats" style="grid-template-columns:1fr 1fr;">
+        <div class="stat-box"><div class="v" id="regimeName">NORMAL</div><div class="l">Classification</div></div>
+        <div class="stat-box"><div class="v" id="regimeConf">–</div><div class="l">Confidence</div></div>
+      </div>
+      <div class="small-note" id="regimeNote">Analyzing tick velocity, concentration and transition stability…</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Signal Lifecycle</div>
+      <div class="signal-stats" style="grid-template-columns:repeat(3,1fr);">
+        <div class="stat-box"><div class="v" id="lifeAge">0</div><div class="l">Age (ticks)</div></div>
+        <div class="stat-box"><div class="v" id="lifeStability">–</div><div class="l">Stability</div></div>
+        <div class="stat-box"><div class="v" id="lifeFreshness">–</div><div class="l">Freshness</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Gap / Streak Intelligence</div>
+      <div id="gapStreakList" class="small-note"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Calibration & Learning</div>
+      <div class="signal-stats" style="grid-template-columns:1fr 1fr;">
+        <div class="stat-box"><div class="v" id="calibBrier">–</div><div class="l">Brier score</div></div>
+        <div class="stat-box"><div class="v" id="calibWinrate">–</div><div class="l">Model win rate</div></div>
+      </div>
+      <div class="small-note">Adaptive weights re-balance every closed trade based on rolling accuracy — see Settings → Learning.</div>
+    </div>
+
+  </div>
+
+  <!-- ============ RISK / EXECUTION TAB ============ -->
+  <div class="content" id="tab-risk">
+
+    <div class="card">
+      <div class="card-title">Session Capital</div>
+      <div class="risk-summary">
+        <div class="risk-box"><div class="v" id="rBalance">$0.00</div><div class="l">Balance</div></div>
+        <div class="risk-box"><div class="v" id="rPnl">$0.00</div><div class="l">Session P&L</div></div>
+        <div class="risk-box"><div class="v" id="rDrawdown">0.0%</div><div class="l">Drawdown</div></div>
+        <div class="risk-box"><div class="v" id="rWinrate">0%</div><div class="l">Win rate</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Stake & Risk Controls</div>
+      <label class="field-label">Base Stake (USD)</label>
+      <input type="number" id="cfgBaseStake" value="1" min="0.35" step="0.1">
+      <label class="field-label">Max Daily Drawdown (%)</label>
+      <input type="number" id="cfgMaxDD" value="15" min="1" max="100">
+      <label class="field-label">Max Trades / Session</label>
+      <input type="number" id="cfgMaxTrades" value="40" min="1">
+      <label class="field-label">Contract Duration (ticks)</label>
+      <input type="number" id="cfgDuration" value="1" min="1" max="10">
+    </div>
+
+    <div class="card">
+      <div class="card-title">Recovery Engine</div>
+      <div class="toggle-row"><div><div class="lbl">Enable recovery mode</div><div class="sub">Bounded stake escalation after a loss</div></div><label class="switch"><input type="checkbox" id="cfgRecoveryOn" checked><span class="slider"></span></label></div>
+      <label class="field-label">Recovery Multiplier</label>
+      <input type="number" id="cfgRecoveryMult" value="2.1" min="1" step="0.1">
+      <label class="field-label">Max Recovery Steps</label>
+      <input type="number" id="cfgRecoverySteps" value="3" min="1" max="8">
+      <div class="small-note" id="recoveryStatus">Recovery idle. Level 0/3.</div>
+    </div>
+
+    <div class="card kill-zone">
+      <div class="card-title">Kill Switch & Halt Conditions</div>
+      <div class="toggle-row"><div><div class="lbl">Halt on daily DD limit</div></div><label class="switch"><input type="checkbox" id="cfgHaltDD" checked><span class="slider"></span></label></div>
+      <div class="toggle-row"><div><div class="lbl">Halt on connection instability</div></div><label class="switch"><input type="checkbox" id="cfgHaltConn" checked><span class="slider"></span></label></div>
+      <div class="toggle-row"><div><div class="lbl">Halt after N consecutive losses</div></div><label class="switch"><input type="checkbox" id="cfgHaltLoss" checked><span class="slider"></span></label></div>
+      <input type="number" id="cfgHaltLossN" value="5" min="1" style="margin-top:6px;">
+      <button class="btn btn-danger" style="margin-top:10px;" id="btnKillNow">🛑 EMERGENCY STOP — HALT ALL TRADING</button>
+      <div class="small-note" id="haltStatusNote"></div>
+      <button class="btn btn-outline" style="margin-top:8px;display:none;" id="btnResumeTrading">Resume Trading (clear halt)</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Execution</div>
+      <div class="btn-row">
+        <button class="btn btn-outline" id="btnManualTrade">Place Manual Trade</button>
+        <button class="btn btn-gold" id="btnAutoToggle">Enable Auto-Trade</button>
+      </div>
+      <label class="field-label">Min Master Score to Auto-Fire (0-100)</label>
+      <input type="number" id="cfgMinConf" value="72" min="0" max="100">
+      <label class="field-label">Min EV Rate (%)</label>
+      <input type="number" id="cfgMinEV" value="2" min="-100" max="200">
+      <label class="field-label">Min Signal Age (ticks) <small style="color:var(--dim2)">— 0 fires on the very next qualifying tick</small></label>
+      <input type="number" id="cfgMinAge" value="0" min="0" max="30">
+      <div class="small-note" id="autoGateStatus">Auto-trade gate: waiting for first signal…</div>
+      <div class="small-note">Execution quality score gates every order: connection health, data freshness, signal freshness, quote freshness and account sync must all clear threshold before submission.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Trade Log</div>
+      <div id="tradeLog"><div class="small-note">No trades this session yet.</div></div>
+    </div>
+
+  </div>
+
+  <!-- ============ SETTINGS TAB ============ -->
+  <div class="content" id="tab-settings">
+
+    <div class="card">
+      <div class="card-title">Connection <small id="authFlowTxt">PAT / OTP</small></div>
+      <label class="field-label">Deriv App ID <small style="color:var(--dim2)">(registered at developers.deriv.com — legacy IDs like 1089 no longer work)</small></label>
+      <input type="text" id="cfgAppId" placeholder="Your registered App ID">
+      <label class="field-label">Personal Access Token (PAT) — optional, leave blank for public read-only feed</label>
+      <input type="password" id="cfgApiToken" placeholder="Paste PAT with trade + account_manage scopes">
+      <label class="field-label">Account Type</label>
+      <select class="mode-select" id="cfgAccountType" style="width:100%;">
+        <option value="demo" selected>Demo</option>
+        <option value="real">Real</option>
+      </select>
+      <label class="field-label">Account ID <small style="color:var(--dim2)">(optional — auto-detected from your token if left blank)</small></label>
+      <input type="text" id="cfgAccountId" placeholder="e.g. DOT90004580">
+      <div class="toggle-row"><div><div class="lbl">Remember token on this device</div><div class="sub">Off by default. If enabled, the PAT is written to localStorage and survives reloads — only enable on a device you trust, never on a shared/public machine.</div></div><label class="switch"><input type="checkbox" id="cfgRememberToken"><span class="slider"></span></label></div>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn btn-outline" id="btnConnect">Connect</button>
+        <button class="btn btn-outline" id="btnDisconnect">Disconnect</button>
+      </div>
+      <div class="small-note" id="connFlowNote">With a PAT: fetches your account list → requests a short-lived OTP → opens an OTP-authenticated WebSocket (no legacy app_id query param, no authorize command). Without a PAT: connects to Deriv's public no-auth market-data socket. By default the token lives only in page memory for this tab and is cleared on reload — it is only written to localStorage if "Remember token" is enabled above. PAT/OAuth architecture notes: a PAT in a browser is inherently exposable via XSS; for a publicly distributed app, OAuth 2.0 + PKCE with server-side token exchange is the recommended architecture instead.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Notifications</div>
+      <div class="toggle-row"><div><div class="lbl">Push notifications</div><div class="sub">Signal fired, trade result, halt events</div></div><label class="switch"><input type="checkbox" id="cfgNotifOn"><span class="slider"></span></label></div>
+      <div class="toggle-row"><div><div class="lbl">Vibrate on signal</div></div><label class="switch"><input type="checkbox" id="cfgVibrateOn" checked><span class="slider"></span></label></div>
+      <div class="toggle-row"><div><div class="lbl">Sound alert</div></div><label class="switch"><input type="checkbox" id="cfgSoundOn"><span class="slider"></span></label></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">App Behavior</div>
+      <div class="toggle-row"><div><div class="lbl">Auto-reconnect</div><div class="sub">Restore feed & subscriptions after drop</div></div><label class="switch"><input type="checkbox" id="cfgAutoReconnect" checked><span class="slider"></span></label></div>
+      <div class="toggle-row"><div><div class="lbl">Auto-restart engines on crash</div></div><label class="switch"><input type="checkbox" id="cfgAutoRestart" checked><span class="slider"></span></label></div>
+      <div class="toggle-row"><div><div class="lbl">Persist session across reloads</div></div><label class="switch"><input type="checkbox" id="cfgPersist" checked><span class="slider"></span></label></div>
+      <div class="toggle-row"><div><div class="lbl">Shadow mode (analyze only, no execution)</div></div><label class="switch"><input type="checkbox" id="cfgShadow"><span class="slider"></span></label></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Learning / Adaptive Weights</div>
+      <div class="toggle-row"><div><div class="lbl">Adaptive model weighting</div><div class="sub">Re-weight engines by rolling accuracy</div></div><label class="switch"><input type="checkbox" id="cfgAdaptive" checked><span class="slider"></span></label></div>
+      <label class="field-label">Learning aggressiveness</label>
+      <input type="number" id="cfgLearnRate" value="15" min="1" max="100">
+      <div class="small-note">Bounded weight smoothing prevents any single engine from dominating regardless of a short hot streak.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Reset</div>
+      <div class="btn-row">
+        <button class="btn btn-outline" id="btnResetStats">Reset Session Stats</button>
+        <button class="btn btn-danger" id="btnResetAll">Full Reset</button>
+      </div>
+    </div>
+
+    <div class="small-note" style="text-align:center;">LDP-X MATCH AI · Digit Options Intelligence Terminal · v1.0 MVP</div>
+
+  </div>
+
+  <!-- ============ CONSOLE TAB ============ -->
+  <div class="content" id="tab-console">
+
+    <div class="card">
+      <div class="card-title">System Console <small id="logCountTxt">0 events</small></div>
+      <div class="market-row" id="logFilterRow">
+        <div class="market-chip active" data-lf="ALL">ALL</div>
+        <div class="market-chip" data-lf="WS">WS</div>
+        <div class="market-chip" data-lf="ENGINE">ENGINE</div>
+        <div class="market-chip" data-lf="SIGNAL">SIGNAL</div>
+        <div class="market-chip" data-lf="TRADE">TRADE</div>
+        <div class="market-chip" data-lf="RISK">RISK</div>
+        <div class="market-chip" data-lf="ERROR">ERROR</div>
+        <div class="market-chip" data-lf="SYSTEM">SYSTEM</div>
+      </div>
+      <div class="toggle-row"><div><div class="lbl">Auto-scroll</div></div><label class="switch"><input type="checkbox" id="cfgLogAutoscroll" checked><span class="slider"></span></label></div>
+      <div class="toggle-row"><div><div class="lbl">Pause capture</div></div><label class="switch"><input type="checkbox" id="cfgLogPause"><span class="slider"></span></label></div>
+      <div class="toggle-row"><div><div class="lbl">Verbose (log every tick)</div><div class="sub">Off by default — ticks are high-volume</div></div><label class="switch"><input type="checkbox" id="cfgLogVerbose"><span class="slider"></span></label></div>
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn btn-outline" id="btnLogCopy">Copy</button>
+        <button class="btn btn-outline" id="btnLogExport">Export .log</button>
+        <button class="btn btn-danger" id="btnLogClear">Clear</button>
+      </div>
+    </div>
+
+    <div class="card" style="padding:8px;">
+      <div id="logView" style="max-height:56vh;overflow-y:auto;font-family:var(--font-mono);font-size:10.5px;line-height:1.5;"></div>
+    </div>
+
+  </div>
+
+  <div class="bottomnav">
+    <button class="navbtn active" data-tab="dashboard"><span class="ic">◆</span>DASHBOARD</button>
+    <button class="navbtn" data-tab="signals"><span class="ic">⚙</span>ENGINES</button>
+    <button class="navbtn" data-tab="risk"><span class="ic">⛨</span>RISK</button>
+    <button class="navbtn" data-tab="settings"><span class="ic">☰</span>SETTINGS</button>
+    <button class="navbtn" data-tab="console"><span class="ic">▤</span>CONSOLE</button>
+  </div>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   CONFIG
+============================================================ */
+const MARKETS = [
+  {sym:"1HZ10V", name:"Vol 10 (1s)"},
+  {sym:"1HZ25V", name:"Vol 25 (1s)"},
+  {sym:"1HZ50V", name:"Vol 50 (1s)"},
+  {sym:"1HZ75V", name:"Vol 75 (1s)"},
+  {sym:"1HZ100V", name:"Vol 100 (1s)"},
+  {sym:"R_10", name:"Vol 10"},
+  {sym:"R_25", name:"Vol 25"},
+  {sym:"R_50", name:"Vol 50"},
+  {sym:"R_75", name:"Vol 75"},
+  {sym:"R_100", name:"Vol 100"},
+];
+
+const STORE_KEY = "ldpx_match_ai_state_v1";
+let reqIdCounter = 0;
+const nextId = () => ++reqIdCounter;
+
+let ws = null;
+let connected = false;
+let authorized = false;
+let currentSymbol = "1HZ10V";
+let dataMode = "sim"; // 'live' | 'sim'
+let subMap = new Map(); // req_id -> {type,symbol}
+let tickSubId = null;        // req_id of the outstanding ticks subscribe request
+let tickSubscriptionId = null; // ACTUAL Deriv subscription id — required for `forget`
+let pendingForgetSymbol = null;
+let contractSubscriptionId = null; // ACTUAL Deriv subscription id for proposal_open_contract — required for `forget`
+let intentionalDisconnect = false; // set true by the Disconnect button so onclose does not auto-reconnect
+let symbolGeneration = 0; // bumped on every switchSymbol() so stale in-flight tick/proposal messages can be discarded
+let lastExecutedSignalId = null; // idempotency guard — one trade per distinct signal, not just a time throttle
+let proposalTimeoutHandle = null; // watchdog for a proposal/buy round-trip that never responds
+const ORDER_TIMEOUT_MS = 10000;
+let brierHistory = []; // rolling {p, outcome} pairs for a real Brier score
+
+/* rolling buffers of last digits, keyed by window size */
+const MAX_BUFFER = 600;
+let digitBuffer = []; // array of {digit, price, t}
+let tickTimes = [];
+
+let activeWindow = 50;      // digit distribution window
+let engineWindow = 50;      // engine computation window (from windowModeSel)
+
+let simTimer = null;
+let lastPrice = 5000 + Math.random()*3000;
+
+/* signal state machine */
+let signal = {
+  state:"NO_TRADE", // FORMING | CONFIRMED | EXPIRED | NO_TRADE
+  digit:null, direction:null, confidence:0, coverage:0, probability:0,
+  calibrated:0, ev:0, age:0, stability:0, freshness:1, reasons:[], id:null
+};
+let signalGenCounter = 0;
+
+/* risk state */
+let risk = {
+  balance:1000, startBalance:1000, pnl:0, wins:0, losses:0, trades:0,
+  peak:1000, peakDate:new Date().toDateString(), drawdownPct:0, consecLosses:0, recoveryLevel:0, halted:false,
+  haltReason:null, manualKill:false, // manualKill / hard-stop halts require explicit Resume — Enable Auto-Trade cannot clear them
+  lastTradeTime:0, lock:false
+};
+const MAX_STAKE_PCT_OF_BALANCE = 0.05; // hard ceiling: no single stake may exceed 5% of current balance
+let tradeLog = [];
+let autoTradeOn = false;
+// Cached real payout ratios from Deriv's own proposal responses (Step 13 §13.39: never hard-code payout).
+// Falls back to published approximate net-odds only until a live proposal is observed.
+let lastKnownPayout = { MATCH:null, DIFFERS:null };
+function getPayoutRatio(direction){
+  if(lastKnownPayout[direction]!==null) return lastKnownPayout[direction];
+  return direction==="MATCH" ? 8.5 : 0.11; // fallback approximations pending a live quote
+}
+
+/* model weights (adaptive) */
+let modelWeights = {
+  frequency:1.0, bayesian:1.2, markov1:1.3, markov2:1.0, streak:0.9,
+  gap:0.9, entropy:0.8, regime:0.7
+};
+let modelPerf = {}; // engineId -> {wins, total}
+Object.keys(modelWeights).forEach(k=>modelPerf[k]={wins:0,total:0});
+
+/* ============================================================
+   PERSISTENCE
+============================================================ */
+function saveState(){
+  if(!$("#cfgPersist").checked) return;
+  try{
+    const cfg = readConfig();
+    // Security: the PAT is only ever written to localStorage if the user explicitly
+    // opted in via "Remember token on this device". Otherwise it lives in memory only.
+    if(!$("#cfgRememberToken") || !$("#cfgRememberToken").checked) delete cfg.apiToken;
+    const data = {
+      symbol: currentSymbol, dataMode, engineWindow, activeWindow,
+      cfg, risk, tradeLog: tradeLog.slice(-40), modelWeights, modelPerf, brierHistory: brierHistory.slice(-200)
+    };
+    localStorage.setItem(STORE_KEY, JSON.stringify(data));
+  }catch(e){}
+}
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(!raw) return;
+    const data = JSON.parse(raw);
+    if(data.symbol) currentSymbol = data.symbol;
+    if(data.dataMode) dataMode = data.dataMode;
+    if(data.engineWindow) engineWindow = data.engineWindow;
+    if(data.risk) risk = Object.assign(risk, data.risk);
+    if(data.tradeLog) tradeLog = data.tradeLog;
+    if(data.modelWeights) modelWeights = data.modelWeights;
+    if(data.modelPerf) modelPerf = data.modelPerf;
+    if(data.brierHistory) brierHistory = data.brierHistory;
+    if(data.cfg) applyConfig(data.cfg);
+  }catch(e){}
+}
+function readConfig(){
+  return {
+    baseStake:+$("#cfgBaseStake").value, maxDD:+$("#cfgMaxDD").value,
+    maxTrades:+$("#cfgMaxTrades").value, duration:+$("#cfgDuration").value,
+    recoveryOn:$("#cfgRecoveryOn").checked, recoveryMult:+$("#cfgRecoveryMult").value,
+    recoverySteps:+$("#cfgRecoverySteps").value, haltDD:$("#cfgHaltDD").checked,
+    haltConn:$("#cfgHaltConn").checked, haltLoss:$("#cfgHaltLoss").checked,
+    haltLossN:+$("#cfgHaltLossN").value, minConf:+$("#cfgMinConf").value,
+    minEV:+$("#cfgMinEV").value, minAge:+$("#cfgMinAge").value, notifOn:$("#cfgNotifOn").checked,
+    vibrateOn:$("#cfgVibrateOn").checked, soundOn:$("#cfgSoundOn").checked,
+    autoReconnect:$("#cfgAutoReconnect").checked, autoRestart:$("#cfgAutoRestart").checked,
+    persist:$("#cfgPersist").checked, shadow:$("#cfgShadow").checked,
+    adaptive:$("#cfgAdaptive").checked, learnRate:+$("#cfgLearnRate").value,
+    apiToken:$("#cfgApiToken").value, appId:$("#cfgAppId").value, rememberToken:$("#cfgRememberToken").checked,
+    accountType:$("#cfgAccountType").value, accountId:$("#cfgAccountId").value,
+    logAutoscroll:$("#cfgLogAutoscroll").checked, logPause:$("#cfgLogPause").checked, logVerbose:$("#cfgLogVerbose").checked
+  };
+}
+function applyConfig(c){
+  for(const k in c){
+    const el = document.getElementById("cfg"+k.charAt(0).toUpperCase()+k.slice(1));
+    if(!el) continue;
+    if(el.type==="checkbox") el.checked = !!c[k]; else el.value = c[k];
+  }
+}
+
+/* ============================================================
+   SYSTEM CONSOLE — captures every WS/engine/signal/trade/risk/error event
+============================================================ */
+const MAX_LOG = 800;
+let logBuf = [];
+let logFilter = "ALL";
+
+function log(category, msg, data){
+  if(document.getElementById("cfgLogPause") && $("#cfgLogPause").checked) return;
+  if(category==="TICK" && !( $("#cfgLogVerbose") && $("#cfgLogVerbose").checked )) return;
+  const entry = {
+    t: new Date().toLocaleTimeString(undefined,{hour12:false})+"."+String(new Date().getMilliseconds()).padStart(3,"0"),
+    category, msg: msg + (data!==undefined ? " "+safeStringify(data) : "")
+  };
+  logBuf.push(entry);
+  if(logBuf.length>MAX_LOG) logBuf.shift();
+  renderLogIncremental(entry);
+}
+function safeStringify(data){
+  try{ return typeof data==="string" ? data : JSON.stringify(data); }
+  catch(e){ return String(data); }
+}
+function renderLogIncremental(entry){
+  const view = document.getElementById("logView");
+  if(!view) return;
+  if(logFilter!=="ALL" && entry.category!==logFilter) return;
+  const row = document.createElement("div");
+  row.className = "log-row"+(entry.category==="ERROR"?" ERROR":"");
+  row.innerHTML = `<span class="lt">${entry.t}</span><span class="lc ${entry.category}">${entry.category}</span>${escapeHtml(entry.msg)}`;
+  view.appendChild(row);
+  while(view.children.length>MAX_LOG) view.removeChild(view.firstChild);
+  const cnt = document.getElementById("logCountTxt");
+  if(cnt) cnt.textContent = logBuf.length+" events";
+  if($("#cfgLogAutoscroll") && $("#cfgLogAutoscroll").checked) view.scrollTop = view.scrollHeight;
+}
+function escapeHtml(s){ return String(s).replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+function renderLogFull(){
+  const view = document.getElementById("logView");
+  if(!view) return;
+  const rows = logFilter==="ALL" ? logBuf : logBuf.filter(e=>e.category===logFilter);
+  view.innerHTML = rows.map(entry=>
+    `<div class="log-row${entry.category==="ERROR"?" ERROR":""}"><span class="lt">${entry.t}</span><span class="lc ${entry.category}">${entry.category}</span>${escapeHtml(entry.msg)}</div>`
+  ).join("");
+  const cnt = document.getElementById("logCountTxt");
+  if(cnt) cnt.textContent = logBuf.length+" events";
+  if($("#cfgLogAutoscroll") && $("#cfgLogAutoscroll").checked) view.scrollTop = view.scrollHeight;
+}
+
+/* ============================================================
+   DOM HELPERS
+============================================================ */
+function $(sel){return document.querySelector(sel);}
+function $all(sel){return document.querySelectorAll(sel);}
+function toast(msg, type){
+  log("SYSTEM", msg);
+  const el = document.createElement("div");
+  el.className = "toast"+(type?(" "+type):"");
+  el.textContent = msg;
+  $("#toastWrap").appendChild(el);
+  setTimeout(()=>{el.style.opacity="0"; el.style.transition="opacity .3s"; setTimeout(()=>el.remove(),320);}, 3400);
+  if($("#cfgVibrateOn") && $("#cfgVibrateOn").checked && navigator.vibrate) navigator.vibrate(type==="danger"?[80,40,80]:40);
+  if($("#cfgNotifOn") && $("#cfgNotifOn").checked && "Notification" in window && Notification.permission==="granted"){
+    try{ new Notification("LDP-X MATCH AI", {body:msg}); }catch(e){}
+  }
+}
+
+/* tab nav */
+$all(".navbtn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    $all(".navbtn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    $all(".content").forEach(c=>c.classList.remove("active"));
+    document.getElementById("tab-"+btn.dataset.tab).classList.add("active");
+  });
+});
+
+/* build market chips */
+function buildMarketRow(){
+  const row = $("#marketRow"); row.innerHTML="";
+  MARKETS.forEach(m=>{
+    const chip = document.createElement("div");
+    chip.className = "market-chip"+(m.sym===currentSymbol?" active":"");
+    chip.textContent = m.name;
+    chip.dataset.sym = m.sym;
+    chip.addEventListener("click", ()=>switchSymbol(m.sym));
+    row.appendChild(chip);
+  });
+}
+function switchSymbol(sym){
+  if(sym===currentSymbol) return;
+  symbolGeneration++; // any tick/proposal tagged with an older generation is now stale
+  currentSymbol = sym;
+  $("#symbolTxt").textContent = sym;
+  digitBuffer = []; tickTimes = [];
+  $all(".market-chip").forEach(c=>c.classList.toggle("active", c.dataset.sym===sym));
+  if(dataMode==="live" && connected){
+    if(tickSubscriptionId){
+      sendReq({forget: tickSubscriptionId});
+      tickSubscriptionId = null; tickSubId = null;
+    }
+    seedAndSubscribe(sym);
+  }
+  saveState();
+}
+
+/* window tabs (digit distribution) */
+$all(".win-tab").forEach(t=>{
+  t.addEventListener("click", ()=>{
+    $all(".win-tab").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
+    activeWindow = +t.dataset.w;
+    $("#digitWinTxt").textContent = "W"+activeWindow;
+    render();
+  });
+});
+$("#windowModeSel").addEventListener("change", e=>{engineWindow=+e.target.value; render();});
+$("#dataModeSel").addEventListener("change", e=>{
+  dataMode = e.target.value;
+  restartDataSource();
+});
+
+/* ============================================================
+   CONNECTION LAYER (Deriv WebSocket)
+============================================================ */
+function sendReq(obj){
+  if(!ws || ws.readyState!==1) return;
+  obj.req_id = nextId();
+  log("WS", "→ "+Object.keys(obj).filter(k=>k!=="req_id")[0], obj);
+  ws.send(JSON.stringify(obj));
+  return obj.req_id;
+}
+
+function connectLive(){
+  intentionalDisconnect = false;
+  // any subscription id from a previous socket is dead the moment we open a new one
+  tickSubId = null; tickSubscriptionId = null; contractSubscriptionId = null;
+  const token = $("#cfgApiToken").value.trim();
+  const appId = $("#cfgAppId").value.trim();
+  log("SYSTEM", "Connect requested", {mode: token?"PAT/OTP":"public", appId: appId||"(none)"});
+
+  if(!token){
+    // no PAT — public, no-auth, read-only market data socket
+    authorized = false; setModePill("READ-ONLY");
+    openSocket("wss://api.derivws.com/trading/v1/options/ws/public");
+    return;
+  }
+
+  if(!appId){
+    log("ERROR", "Missing App ID — cannot start OTP flow");
+    toast("Enter your registered Deriv App ID in Settings (legacy 1089 is not accepted by the new API)","danger");
+    return;
+  }
+
+  setConnPill(false); $("#pillConnTxt").textContent = "AUTH…";
+  fetchOtpAndConnect(token, appId).catch(err=>{
+    log("ERROR", "Auth flow failed", err.message);
+    // "Failed to fetch" is usually a transient network blip (e.g. right after a
+    // socket drop) rather than a real credential problem — retry once before giving up
+    if(err.message==="Failed to fetch" && $("#cfgAutoReconnect").checked && !window.__authRetried){
+      window.__authRetried = true;
+      toast("Network hiccup during auth — retrying…","warn");
+      setTimeout(()=>{ window.__authRetried=false; connectLive(); }, 2500);
+      return;
+    }
+    toast("Auth failed: "+err.message, "danger");
+    setConnPill(false);
+  });
+}
+
+/* REST layer: PAT -> account list -> OTP -> authenticated WS URL */
+async function restCall(path, token, appId, method, body){
+  log("WS", "REST "+(method||"GET")+" "+path);
+  const res = await fetch("https://api.derivws.com"+path, {
+    method: method||"GET",
+    headers: Object.assign(
+      {"Authorization":"Bearer "+token, "Deriv-App-ID": appId},
+      body ? {"Content-Type":"application/json"} : {}
+    ),
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const json = await res.json().catch(()=>({}));
+  if(!res.ok){
+    const err = (json.errors && json.errors[0]) || {};
+    const msg = REST_ERROR_HINTS[err.code] || err.message || (res.status+" "+res.statusText);
+    log("ERROR", "REST "+path+" failed", {status:res.status, code:err.code, msg});
+    throw new Error(msg);
+  }
+  log("WS", "REST "+path+" OK");
+  return json;
+}
+const REST_ERROR_HINTS = {
+  Unauthorized: "401 — token missing/expired or App ID is a legacy ID. Register a new App ID at developers.deriv.com.",
+  UnauthorizedAccess: "403 — token is missing the trade/account_manage scope. Regenerate the PAT with both scopes.",
+  AccessDenied: "403 — token is missing the trade/account_manage scope. Regenerate the PAT with both scopes.",
+  AccountNotFound: "Account ID not found on this token — leave Account ID blank to auto-detect.",
+  RateLimit: "Rate-limited by Deriv — wait a moment before retrying."
+};
+
+async function fetchOtpAndConnect(token, appId){
+  const manualAccountId = $("#cfgAccountId").value.trim();
+  let accountId = manualAccountId;
+
+  if(!accountId){
+    const accountsResp = await restCall("/trading/v1/options/accounts", token, appId);
+    const accounts = accountsResp.data || accountsResp.accounts || [];
+    const wantType = $("#cfgAccountType").value;
+    const match = accounts.find(a=>a.account_type===wantType) || accounts[0];
+    if(!match) throw new Error("No accounts returned for this token — create a "+wantType+" account first.");
+    accountId = match.account_id;
+  }
+
+  const otpResp = await restCall("/trading/v1/options/accounts/"+encodeURIComponent(accountId)+"/otp", token, appId, "POST");
+  const wsUrl = (otpResp.data && otpResp.data.url) || otpResp.url;
+  if(!wsUrl) throw new Error("OTP response did not include a WebSocket URL.");
+
+  authorized = true;
+  setModePill($("#cfgAccountType").value==="real" ? "REAL" : "DEMO");
+  log("SYSTEM", "OTP acquired for account", accountId);
+  openSocket(wsUrl);
+}
+
+function openSocket(url){
+  log("WS", "Opening socket");
+  try{
+    ws = new WebSocket(url);
+  }catch(e){ log("ERROR","WebSocket construction failed", e.message); setConnPill(false); toast("WebSocket init failed","danger"); return; }
+
+  let heartbeat = null;
+
+  ws.onopen = ()=>{
+    connected = true; setConnPill(true);
+    log("WS", "Socket OPEN");
+    if(authorized){ sendReq({balance:1, subscribe:1}); }
+    seedAndSubscribe(currentSymbol);
+    clearInterval(heartbeat);
+    heartbeat = setInterval(()=>{
+      if(!ws || ws.readyState!==1) return;
+      window.__pingAckPending = true;
+      sendReq({ping:1});
+      setTimeout(()=>{
+        if(window.__pingAckPending){ log("ERROR","Heartbeat timeout — forcing reconnect"); try{ ws.close(); }catch(e){} }
+      }, 12000);
+    }, 20000);
+    ws.__heartbeat = heartbeat;
+  };
+  ws.onmessage = (ev)=>{
+    let data; try{ data = JSON.parse(ev.data); }catch(e){ log("ERROR","Malformed WS message", ev.data); return; }
+    if(data.ping==="pong") window.__pingAckPending = false;
+    if(!data.tick) log("WS", "← "+(data.msg_type||Object.keys(data)[0]), data);
+    if(data.error){ handleApiError(data.error, data.echo_req||{}); return; }
+    routeMessage(data);
+  };
+  ws.onclose = (ev)=>{
+    connected = false; setConnPill(false);
+    log("WS", "Socket CLOSED", {code:ev.code, reason:ev.reason||"(none)"});
+    tickSubId = null; tickSubscriptionId = null; // stale — do not try to forget on the new socket
+    if(ws && ws.__heartbeat) clearInterval(ws.__heartbeat);
+    if(intentionalDisconnect){
+      log("SYSTEM", "Socket closed intentionally — auto-reconnect suppressed");
+    } else if($("#cfgAutoReconnect").checked && dataMode==="live"){
+      toast("Connection lost — reconnecting…","warn");
+      // an OTP is short-lived and single-use for reconnect purposes, so re-run the
+      // full PAT -> OTP flow rather than reopening the expired URL
+      setTimeout(()=>{ if(dataMode==="live" && !intentionalDisconnect) connectLive(); }, 3000);
+    }
+    checkConnectionHalt();
+  };
+  ws.onerror = (e)=>{ log("ERROR","WebSocket error event"); /* onclose will follow */ };
+}
+
+function handleApiError(err, echoReq){
+  const code = err.code||"";
+  log("ERROR", "WS API error", err);
+  // any failed proposal/buy must release the trade lock, or every future
+  // manual AND auto-trade attempt silently no-ops forever after the first error
+  if(echoReq && (echoReq.proposal || echoReq.buy)){
+    risk.lock = false;
+    window.__pendingTrade = null;
+    log("RISK", "Trade lock released after failed "+(echoReq.proposal?"proposal":"buy"));
+  }
+  if(code==="InvalidAppID"){
+    toast("Invalid App ID — register one at developers.deriv.com and enter it in Settings","danger");
+    dataMode="sim"; $("#dataModeSel").value="sim"; restartDataSource();
+    return;
+  }
+  if(code==="AlreadySubscribed"){
+    // benign — happens if forget raced a resubscribe; ignore
+    return;
+  }
+  toast("API error: "+(err.message||code||"unknown"), "danger");
+}
+
+function routeMessage(data){
+  if(data.authorize){ authorized = true; setModePill(data.authorize.is_virtual? "DEMO":"REAL");
+    if(data.authorize.balance!==undefined){ risk.balance = +data.authorize.balance; risk.startBalance = risk.balance; risk.peak = risk.balance; }
+    sendReq({balance:1, subscribe:1});
+    render();
+  }
+  if(data.balance){ risk.balance = +data.balance.balance; updateDrawdown(); render(); }
+  if(data.msg_type==="ticks_history" || data.history){
+    const echoSym = data.echo_req && data.echo_req.ticks_history;
+    if(echoSym && echoSym!==currentSymbol){
+      log("WS", "Discarding stale ticks_history for "+echoSym+" (now on "+currentSymbol+")");
+    } else {
+      const prices = data.history ? data.history.prices : null;
+      const times = data.history ? data.history.times : null;
+      if(prices){
+        // preserve real historical epochs (times[i], seconds) instead of stamping Date.now()
+        // on every bar — that destroyed tick-spacing/velocity information downstream.
+        digitBuffer = prices.slice(-MAX_BUFFER).map((p,i)=>{
+          const idx = times ? (times.length-prices.length+i) : -1;
+          const epochSec = (times && times[idx]!==undefined) ? times[idx] : null;
+          return {digit: lastDigitOf(p), price:+p, t: epochSec!==null ? epochSec*1000 : Date.now()};
+        });
+      }
+    }
+    render();
+  }
+  if(data.tick){
+    const tickSym = data.tick.symbol;
+    if(tickSym && tickSym!==currentSymbol){
+      log("WS", "Discarding stale tick for "+tickSym+" (now on "+currentSymbol+")");
+    } else {
+      if(data.subscription && data.subscription.id) tickSubscriptionId = data.subscription.id;
+      onTick(+data.tick.quote, data.tick.epoch);
+    }
+  }
+  if(data.proposal){
+    handleProposal(data.proposal, data.req_id);
+  }
+  if(data.buy){
+    handleBuyResult(data.buy);
+  }
+  if(data.proposal_open_contract){
+    if(data.subscription && data.subscription.id) contractSubscriptionId = data.subscription.id;
+    handleContractUpdate(data.proposal_open_contract);
+  }
+}
+
+function seedAndSubscribe(sym){
+  sendReq({ticks_history: sym, end:"latest", count:200, style:"ticks"});
+  const id = sendReq({ticks: sym, subscribe:1});
+  tickSubId = id;
+}
+
+function setConnPill(ok){
+  const p = $("#pillConn");
+  p.className = "pill "+(ok?"ok":"bad");
+  $("#pillConnTxt").textContent = ok ? "LIVE" : "OFFLINE";
+}
+function setModePill(txt){
+  const p = $("#pillMode"); p.className = "pill "+(txt==="REAL"?"warn":"ok");
+  $("#pillModeTxt").textContent = txt;
+}
+
+/* ============================================================
+   SIMULATION DATA SOURCE (same downstream interface)
+============================================================ */
+function startSim(){
+  stopSim();
+  setConnPill(true); $("#pillConnTxt").textContent="SIM";
+  if(digitBuffer.length===0){
+    for(let i=0;i<120;i++){
+      lastPrice += (Math.random()-0.5)*2;
+      digitBuffer.push({digit:lastDigitOf(lastPrice), price:lastPrice, t:Date.now()});
+    }
+  }
+  simTimer = setInterval(()=>{
+    lastPrice = Math.max(1, lastPrice + (Math.random()-0.5)*2.2);
+    onTick(lastPrice, Date.now()/1000);
+  }, 550);
+}
+function stopSim(){ if(simTimer){ clearInterval(simTimer); simTimer=null; } }
+
+function restartDataSource(){
+  stopSim();
+  intentionalDisconnect = true; // suppress the old socket's onclose reconnect before we replace it
+  if(ws){ try{ ws.close(); }catch(e){} ws=null; }
+  connected = false; setConnPill(false);
+  if(dataMode==="live"){ connectLive(); } // connectLive() clears intentionalDisconnect again
+  else { intentionalDisconnect = false; startSim(); }
+}
+
+/* ============================================================
+   TICK HANDLING / DIGIT EXTRACTION
+============================================================ */
+function lastDigitOf(price){
+  const s = (+price).toFixed(2).replace(".", "");
+  return +s[s.length-1];
+}
+function onTick(price, epoch){
+  const d = lastDigitOf(price);
+  log("TICK", "digit "+d, {price});
+  digitBuffer.push({digit:d, price:price, t:Date.now()});
+  if(digitBuffer.length>MAX_BUFFER) digitBuffer.shift();
+  tickTimes.push(Date.now());
+  tickTimes = tickTimes.filter(t=>Date.now()-t < 10000);
+  lastPrice = price;
+  runEngines();
+  render();
+  maybeAutoTrade();
+}
+
+/* ============================================================
+   ANALYSIS ENGINES (pure functions on digitBuffer window)
+============================================================ */
+function windowSlice(n){ return digitBuffer.slice(-n).map(x=>x.digit); }
+
+function freqDistribution(arr){
+  const counts = new Array(10).fill(0);
+  arr.forEach(d=>counts[d]++);
+  const total = arr.length || 1;
+  return counts.map(c=>c/total);
+}
+
+// 1. Frequency engine
+function engineFrequency(arr){
+  if(arr.length<20) return {engineId:"frequency", fired:false};
+  const dist = freqDistribution(arr);
+  let maxD=0; for(let i=1;i<10;i++) if(dist[i]>dist[maxD]) maxD=i;
+  const edge = dist[maxD]-0.10;
+  const conf = Math.min(1, Math.max(0, edge*8));
+  return {engineId:"frequency", fired:true, digit:maxD, confidence:conf, signal: edge>0?"BUY":"NEUTRAL",
+    rationale:`Digit ${maxD} freq ${(dist[maxD]*100).toFixed(1)}% vs 10% baseline`};
+}
+
+// 2. Bayesian smoothed frequency (Beta-ish with prior alpha=1)
+function engineBayesian(arr){
+  if(arr.length<15) return {engineId:"bayesian", fired:false};
+  const counts = new Array(10).fill(0);
+  arr.forEach(d=>counts[d]++);
+  const alpha=2, total=arr.length;
+  const probs = counts.map(c=>(c+alpha)/(total+alpha*10));
+  let maxD=0; for(let i=1;i<10;i++) if(probs[i]>probs[maxD]) maxD=i;
+  const edge = probs[maxD]-0.10;
+  const conf = Math.min(1, Math.max(0, edge*9));
+  return {engineId:"bayesian", fired:true, digit:maxD, confidence:conf, signal:edge>0?"BUY":"NEUTRAL",
+    probs, rationale:`Bayesian-smoothed P(${maxD})=${(probs[maxD]*100).toFixed(1)}%`};
+}
+
+// 3. First-order Markov
+function engineMarkov1(arr){
+  if(arr.length<40) return {engineId:"markov1", fired:false};
+  const trans = Array.from({length:10},()=>new Array(10).fill(0));
+  for(let i=1;i<arr.length;i++) trans[arr[i-1]][arr[i]]++;
+  const prev = arr[arr.length-1];
+  const row = trans[prev];
+  const rowTotal = row.reduce((a,b)=>a+b,0);
+  if(rowTotal<5) return {engineId:"markov1", fired:false};
+  const probs = row.map(c=>(c+0.5)/(rowTotal+5));
+  let maxD=0; for(let i=1;i<10;i++) if(probs[i]>probs[maxD]) maxD=i;
+  const edge = probs[maxD]-0.10;
+  const conf = Math.min(1, Math.max(0, edge*8));
+  return {engineId:"markov1", fired:true, digit:maxD, confidence:conf, signal:edge>0?"BUY":"NEUTRAL",
+    rationale:`After digit ${prev}, digit ${maxD} follows ${(probs[maxD]*100).toFixed(1)}% of time`};
+}
+
+// 4. Second-order Markov
+function engineMarkov2(arr){
+  if(arr.length<80) return {engineId:"markov2", fired:false};
+  const key = (a,b)=>a+"_"+b;
+  const trans = {};
+  for(let i=2;i<arr.length;i++){
+    const k = key(arr[i-2],arr[i-1]);
+    trans[k] = trans[k] || new Array(10).fill(0);
+    trans[k][arr[i]]++;
+  }
+  const k = key(arr[arr.length-2], arr[arr.length-1]);
+  const row = trans[k];
+  if(!row) return {engineId:"markov2", fired:false};
+  const rowTotal = row.reduce((a,b)=>a+b,0);
+  if(rowTotal<4) return {engineId:"markov2", fired:false};
+  const probs = row.map(c=>(c+0.5)/(rowTotal+5));
+  let maxD=0; for(let i=1;i<10;i++) if(probs[i]>probs[maxD]) maxD=i;
+  const edge = probs[maxD]-0.10;
+  const conf = Math.min(1, Math.max(0, edge*7));
+  return {engineId:"markov2", fired:true, digit:maxD, confidence:conf, signal:edge>0?"BUY":"NEUTRAL",
+    rationale:`2nd-order state ${k} favors digit ${maxD}`};
+}
+
+// 5. Streak engine — is the last digit's identity or parity on a streak, and is continuation/termination favored?
+function engineStreak(arr){
+  if(arr.length<10) return {engineId:"streak", fired:false};
+  let streakLen=1;
+  for(let i=arr.length-1;i>0;i--){ if(arr[i]===arr[i-1]) streakLen++; else break; }
+  const last = arr[arr.length-1];
+  if(streakLen>=2){
+    // longer streaks of an identical digit statistically favor termination (differs)
+    const conf = Math.min(1, 0.25*streakLen);
+    return {engineId:"streak", fired:true, digit:last, confidence:conf, signal:"SELL",
+      rationale:`Digit ${last} streak length ${streakLen} → termination favored (Differs)`};
+  }
+  return {engineId:"streak", fired:true, digit:last, confidence:0.1, signal:"NEUTRAL", rationale:"No active streak"};
+}
+
+// 6. Gap engine — digits absent longest are "due"
+function engineGap(arr){
+  if(arr.length<30) return {engineId:"gap", fired:false};
+  const lastSeen = new Array(10).fill(-1);
+  arr.forEach((d,i)=>{lastSeen[d]=i;});
+  const gaps = lastSeen.map(li=>li<0?arr.length:(arr.length-1-li));
+  let maxD=0; for(let i=1;i<10;i++) if(gaps[i]>gaps[maxD]) maxD=i;
+  const expected = 10; // expected gap under uniform
+  const conf = Math.min(1, Math.max(0,(gaps[maxD]-expected)/20));
+  return {engineId:"gap", fired:true, digit:maxD, confidence:conf, signal: conf>0.15?"BUY":"NEUTRAL",
+    rationale:`Digit ${maxD} absent for ${gaps[maxD]} ticks (expected ~${expected})`};
+}
+
+// 7. Entropy engine — measures randomness; suppresses confidence when near-uniform
+function engineEntropy(arr){
+  if(arr.length<30) return {engineId:"entropy", fired:false, norm:1};
+  const dist = freqDistribution(arr);
+  let H=0; dist.forEach(p=>{ if(p>0) H -= p*Math.log2(p); });
+  const norm = H/Math.log2(10); // 0..1, 1=max uncertainty
+  const structure = 1-norm;
+  const conf = Math.min(1, structure*1.6);
+  return {engineId:"entropy", fired:true, confidence:conf, signal: structure>0.12?"BUY":"NEUTRAL",
+    norm, structure, rationale:`Normalized entropy ${(norm*100).toFixed(1)}% (structure ${(structure*100).toFixed(1)}%)`};
+}
+
+// 8. Regime engine — simplified classification from tick speed + concentration + entropy
+function engineRegime(arr){
+  if(arr.length<30) return {engineId:"regime", fired:false, name:"NORMAL", confidence:0.3};
+  const dist = freqDistribution(arr);
+  const hhi = dist.reduce((s,p)=>s+p*p,0); // Herfindahl concentration, uniform=0.10
+  const speed = tickTimes.length; // ticks in last 10s
+  let name = "NORMAL";
+  if(hhi>0.14) name = "CONCENTRATED";
+  else if(hhi<0.095) name = "ENTROPIC";
+  if(speed>=16) name = "HIGH-SPEED";
+  else if(speed>0 && speed<=4) name = "LOW-SPEED";
+  const conf = Math.min(1, Math.abs(hhi-0.10)*10 + 0.3);
+  const compatible = (name==="CONCENTRATED");
+  return {engineId:"regime", fired:true, confidence: compatible?conf:conf*0.5, signal: compatible?"BUY":"NEUTRAL",
+    name, hhi, speed, rationale:`Regime=${name} (HHI ${hhi.toFixed(3)}, ${speed} ticks/10s)`};
+}
+
+function runEngines(){
+  const arr = windowSlice(engineWindow);
+  const results = [
+    engineFrequency(arr), engineBayesian(arr), engineMarkov1(arr),
+    engineMarkov2(arr), engineStreak(arr), engineGap(arr),
+    engineEntropy(arr), engineRegime(arr)
+  ];
+  if($("#cfgLogVerbose") && $("#cfgLogVerbose").checked){
+    results.filter(r=>r.fired).forEach(r=>log("ENGINE", r.engineId, {digit:r.digit, conf:+r.confidence.toFixed(3), signal:r.signal}));
+  }
+  window.__lastEngineResults = results;
+  fuseSignal(results, arr);
+}
+
+/* ============================================================
+   FUSION / SCORING LAYER (weighted confluence + coverage penalty)
+============================================================ */
+function fuseSignal(results, arr){
+  const fired = results.filter(r=>r.fired);
+  const coverage = fired.length/results.length;
+
+  // digit voting — tally weighted confidence per predicted digit (Match/Differ style engines)
+  const digitVotes = new Array(10).fill(0);
+  let totalWeight = 0;
+  fired.forEach(r=>{
+    if(r.digit===undefined || r.digit===null) return;
+    const w = (modelWeights[r.engineId]||1) * r.confidence;
+    if(r.signal==="SELL"){
+      // streak termination — spread weight against that digit, favors DIFFERS not a specific digit
+      return;
+    }
+    digitVotes[r.digit]+=w;
+    totalWeight+=w;
+  });
+
+  let bestDigit=0; for(let i=1;i<10;i++) if(digitVotes[i]>digitVotes[bestDigit]) bestDigit=i;
+  const rawConfidence = totalWeight>0 ? digitVotes[bestDigit]/Math.max(totalWeight,0.001) : 0;
+
+  const coveragePenalty = coverage<0.3 ? 0 : Math.sqrt(coverage);
+  let voteConfidence = Math.min(1, rawConfidence*coveragePenalty* (fired.length? (fired.reduce((s,r)=>s+r.confidence,0)/fired.length)*1.4 : 0));
+  voteConfidence = Math.max(0, Math.min(1, voteConfidence));
+
+  // streak-driven DIFFERS override when streak engine confidence dominant
+  const streakEngine = results.find(r=>r.engineId==="streak");
+  let direction = "MATCH";
+  if(streakEngine && streakEngine.fired && streakEngine.signal==="SELL" && streakEngine.confidence>voteConfidence){
+    direction = "DIFFERS"; bestDigit = streakEngine.digit; voteConfidence = streakEngine.confidence*coveragePenalty;
+  }
+
+  const entropyEngine = results.find(r=>r.engineId==="entropy");
+  const entropyStructure = entropyEngine && entropyEngine.fired ? entropyEngine.structure : 0;
+  const regimeEngine = results.find(r=>r.engineId==="regime");
+
+  const dist = freqDistribution(arr);
+  const digitProb = dist[bestDigit]||0.1;
+  // P(win) differs by contract direction: MATCH wins when the digit occurs, DIFFERS
+  // wins when it doesn't. Using the raw digit probability for both (the old bug) made
+  // the EV/edge math for every DIFFERS trade wrong.
+  const rawProb = direction==="DIFFERS" ? (1-digitProb) : digitProb;
+  // Calibration: shrink the raw empirical probability toward the *correct* uniform-digit
+  // prior for this direction (0.1 for MATCH, 0.9 for DIFFERS) — not toward an unrelated
+  // "overall engine win rate", which mixed two statistically incompatible quantities and
+  // could inflate the apparent probability of rare digits. Shrink strength falls as the
+  // sample window fills up (more data → trust the empirical estimate more).
+  const uniformPrior = direction==="DIFFERS" ? 0.9 : 0.1;
+  const shrink = Math.min(0.35, 12/(arr.length+12));
+  const calibrated = rawProb*(1-shrink) + uniformPrior*shrink; // P_cal
+  const engineAcc = modelPerf; let calibShift=0, n=0, totalCalibSamples=0;
+  Object.values(engineAcc).forEach(p=>{ if(p.total>5){ calibShift += (p.wins/p.total); n++; totalCalibSamples+=p.total; } });
+  const calibFactor = n>0 ? (calibShift/n) : 0.5; // still used as a separate "Learning Health" score component below, not blended into P_cal anymore
+
+  // --- Economic layer (Step 13 §13.39-13.42): break-even prob, EV, EVRate, Edge ---
+  const R = getPayoutRatio(direction);         // net odds — profit per $1 staked on a win
+  const S = 1;                                  // normalized stake
+  const pBE = 1/(1+R);                          // P_BE
+  const ev = calibrated*R - (1-calibrated)*S;   // EV
+  const evRate = ev/S;                          // EVRate — must be > 0 to trade
+  const edge = calibrated - pBE;                // Edge
+  const evPct = Math.max(-100, Math.min(200, evRate*100));
+
+  // Probability Strength Score (§13.42): calibrated prob normalized against break-even, 0-100
+  const probStrength = Math.max(0, Math.min(100, 50 + 50*(edge/(1-pBE || 0.0001))));
+
+  // signal lifecycle
+  const isSameSignal = (signal.digit===bestDigit && signal.direction===direction);
+  if(!isSameSignal) signalGenCounter++; // a new (digit,direction) pair is a genuinely new signal instance
+  const signalId = "sig_"+signalGenCounter;
+  signal.age = isSameSignal ? signal.age+1 : 0;
+  signal.stability = Math.min(1, signal.age/12);
+  signal.freshness = Math.max(0, 1 - signal.age/60);
+
+  // --- Master Score (§13.48): weighted 0-100 composite across 9 components ---
+  const compP  = calibrated*100;                                          // Calibrated Probability   20%
+  const compE  = probStrength;                                            // Economic Edge / EV        20%
+  const modelAgreement = fired.length ? fired.filter(r=>r.digit===bestDigit || (r.signal==="SELL" && direction==="DIFFERS")).length/fired.length : 0;
+  const compA  = modelAgreement*100;                                      // Model Agreement           15%
+  const compC  = Math.min(100, totalCalibSamples*4);                      // Calibration Quality       10%
+  const compRg = regimeEngine && regimeEngine.fired ? regimeEngine.confidence*100 : 30; // Regime Compat  10%
+  const compT  = signal.stability*100;                                    // Temporal Stability        10%
+  const compD  = coverage*100;                                            // Data Quality               5%
+  const compX  = executionQualityOK()*100;                                // Execution Quality          5%
+  const compL  = calibFactor*100;                                         // Learning Health            5%
+  const masterScore = 0.20*compP + 0.20*compE + 0.15*compA + 0.10*compC + 0.10*compRg + 0.10*compT + 0.05*compD + 0.05*compX + 0.05*compL;
+  const grade = masterScore>=90?"A+":masterScore>=85?"A":masterScore>=80?"B+":masterScore>=75?"B":masterScore>=65?"C":masterScore>=50?"D":"F";
+
+  // confidence (used for stake sizing / display) tracks Master Score directly
+  let confidence = Math.max(0, Math.min(1, masterScore/100));
+
+  let state = "NO_TRADE";
+  const evGatePassed = evRate>0; // §13.40 hard decision requirement
+  if(coverage<0.3 || !evGatePassed) state="NO_TRADE";
+  else if(masterScore>=75 && signal.age>=3) state="CONFIRMED";
+  else if(masterScore>=50) state="FORMING";
+  else if(signal.age>50) state="EXPIRED";
+  else state = "NO_TRADE";
+
+  const reasons = fired.filter(r=>r.rationale).sort((a,b)=>b.confidence-a.confidence).slice(0,6).map(r=>r.rationale);
+  if(!evGatePassed) reasons.unshift(`EV gate failed (EVRate ${(evRate*100).toFixed(1)}% ≤ 0) — no trade regardless of score`);
+
+  const prevState = signal.state;
+  signal = Object.assign(signal, {
+    state, digit:bestDigit, direction, confidence, coverage, probability:rawProb,
+    calibrated, ev: evPct, reasons, masterScore, grade, edge: edge*100, pBE: pBE*100, payoutR: R, id: signalId
+  });
+
+  if(prevState!==state){
+    log("SIGNAL", prevState+" → "+state, {digit:bestDigit, direction, conf:+confidence.toFixed(3), coverage:+coverage.toFixed(2)});
+  }
+  if(prevState!=="CONFIRMED" && state==="CONFIRMED"){
+    toast(`Signal CONFIRMED — Digit ${bestDigit} (${direction}) · Master Score ${masterScore.toFixed(0)} (${grade})`, "success");
+  }
+}
+
+/* ============================================================
+   RENDER
+============================================================ */
+function render(){
+  // price
+  const last = digitBuffer[digitBuffer.length-1];
+  if(last){
+    const priceStr = (+last.price).toFixed(2);
+    $("#priceMain").textContent = priceStr.slice(0,-1);
+    $("#priceLastDigit").textContent = priceStr.slice(-1);
+  }
+  const ticksPerSec = (tickTimes.length/10).toFixed(1);
+  $("#tickRateTxt").textContent = ticksPerSec+" ticks/s";
+
+  // tick tape
+  const tape = $("#tickTape"); tape.innerHTML="";
+  digitBuffer.slice(-24).forEach(x=>{
+    const c=document.createElement("div");
+    c.className="tick-chip"+(x.digit>=7?" hi":"");
+    c.textContent=x.digit;
+    tape.appendChild(c);
+  });
+
+  // digit grid
+  const arr = windowSlice(activeWindow);
+  const dist = freqDistribution(arr);
+  let maxD=0; for(let i=1;i<10;i++) if(dist[i]>dist[maxD]) maxD=i;
+  const grid = $("#digitGrid"); grid.innerHTML="";
+  for(let d=0;d<10;d++){
+    const cell=document.createElement("div");
+    cell.className="digit-cell"+(d===maxD?" top":"");
+    cell.innerHTML = `<div class="d">${d}</div><div class="p">${(dist[d]*100).toFixed(1)}%</div><div class="heat-bar"><i style="width:${Math.min(100,dist[d]*300)}%"></i></div>`;
+    grid.appendChild(cell);
+  }
+
+  // signal card
+  const stateEl = $("#signalState");
+  stateEl.className = "signal-state "+({FORMING:"forming",CONFIRMED:"confirmed",EXPIRED:"expired",NO_TRADE:"notrade"}[signal.state]);
+  stateEl.textContent = signal.state.replace("_","-");
+  $("#signalDigit").textContent = signal.digit!==null? signal.digit : "–";
+  const dirEl = $("#signalDir");
+  const dirClass = signal.direction==="MATCH"?"match":(signal.direction==="DIFFERS"?"differs":"over");
+  dirEl.className = "signal-dir "+dirClass;
+  dirEl.textContent = signal.digit!==null ? `${signal.direction} · Digit ${signal.digit}` : "Awaiting confluence";
+  $("#confBar").style.width = (signal.confidence*100).toFixed(0)+"%";
+  $("#signalSub").textContent = `Confidence ${(signal.confidence*100).toFixed(0)}% · Coverage ${(signal.coverage*100).toFixed(0)}%`;
+  $("#statProb").textContent = (signal.probability*100).toFixed(1)+"%";
+  $("#statCalib").textContent = (signal.calibrated*100).toFixed(1)+"%";
+  $("#statEV").textContent = (signal.ev>=0?"+":"")+signal.ev.toFixed(1)+"%";
+  $("#statMaster").textContent = (signal.masterScore||0).toFixed(0)+" "+(signal.grade||"");
+  $("#edgeNote").textContent = signal.digit!==null
+    ? `Edge ${(signal.edge||0)>=0?"+":""}${(signal.edge||0).toFixed(1)}% over break-even ${(signal.pBE||0).toFixed(1)}% · payout R=${(signal.payoutR||0).toFixed(2)}${lastKnownPayout[signal.direction]===null?" (est.)":" (live)"}`
+    : "";
+  $("#reasonList").innerHTML = signal.reasons.map(r=>`<li>${r}</li>`).join("") || "<li>Insufficient data</li>";
+
+  // differs / match panel
+  $("#differsDigit").textContent = signal.digit!==null? signal.digit : "–";
+  $("#differsProb").textContent = signal.probability? (signal.probability*100).toFixed(1)+"%" : "–";
+  $("#differsGauge").style.width = (signal.probability*100).toFixed(0)+"%";
+
+  // over/under
+  const over2 = arr.length? arr.filter(d=>d>2).length/arr.length : 0;
+  const under7 = arr.length? arr.filter(d=>d<7).length/arr.length : 0;
+  $("#over2Prob").textContent = (over2*100).toFixed(1)+"%";
+  $("#over2Gauge").style.width = (over2*100).toFixed(0)+"%";
+  $("#under7Prob").textContent = (under7*100).toFixed(1)+"%";
+  $("#under7Gauge").style.width = (under7*100).toFixed(0)+"%";
+
+  // strategy competition bar
+  const results = window.__lastEngineResults || [];
+  const buys = results.filter(r=>r.fired && r.signal==="BUY").length;
+  const sells = results.filter(r=>r.fired && r.signal==="SELL").length;
+  const flat = results.filter(r=>r.fired && r.signal==="NEUTRAL").length;
+  const totalV = Math.max(1,buys+sells+flat);
+  $("#competeBar").innerHTML = `
+    <div style="width:${buys/totalV*100}%;background:var(--up);color:#04150e;">${buys?buys:''}</div>
+    <div style="width:${sells/totalV*100}%;background:var(--down);color:#1a0505;">${sells?sells:''}</div>
+    <div style="width:${flat/totalV*100}%;background:var(--surface2);color:var(--dim2);">${flat?flat:''}</div>`;
+  $("#competeNote").textContent = `${buys} engines favor MATCH-side, ${sells} favor DIFFERS/termination, ${flat} neutral.`;
+
+  // engines tab
+  $("#ensembleFired").textContent = `${results.filter(r=>r.fired).length}/${results.length} fired`;
+  $("#engineList").innerHTML = results.map(r=>{
+    const vc = !r.fired?"flat":(r.signal==="BUY"?"buy":(r.signal==="SELL"?"sell":"flat"));
+    const label = !r.fired?"WAIT":(r.signal||"FLAT");
+    return `<div class="engine-row"><span class="engine-name">${r.engineId}${r.fired?` (w${(modelWeights[r.engineId]||1).toFixed(1)})`:''}</span><span class="engine-vote ${vc}">${label}${r.fired?" "+(r.confidence*100).toFixed(0)+"%":""}</span></div>`;
+  }).join("");
+
+  const entropyR = results.find(r=>r.engineId==="entropy");
+  if(entropyR && entropyR.fired){
+    $("#entropyVal").textContent = (entropyR.norm*100).toFixed(1)+"%";
+    $("#entropyGauge").style.width = (entropyR.norm*100).toFixed(0)+"%";
+    $("#structureVal").textContent = (entropyR.structure*100).toFixed(1)+"%";
+    $("#structureGauge").style.width = (entropyR.structure*100).toFixed(0)+"%";
+  }
+  const regimeR = results.find(r=>r.engineId==="regime");
+  if(regimeR && regimeR.fired){
+    $("#regimeName").textContent = regimeR.name;
+    $("#regimeConf").textContent = (regimeR.confidence*100).toFixed(0)+"%";
+    $("#regimeNote").textContent = regimeR.rationale;
+  }
+  $("#lifeAge").textContent = signal.age;
+  $("#lifeStability").textContent = (signal.stability*100).toFixed(0)+"%";
+  $("#lifeFreshness").textContent = (signal.freshness*100).toFixed(0)+"%";
+
+  const gapR = results.find(r=>r.engineId==="gap");
+  const streakR = results.find(r=>r.engineId==="streak");
+  $("#gapStreakList").innerHTML = [
+    gapR && gapR.fired ? `▸ ${gapR.rationale}` : "▸ Gap engine warming up",
+    streakR && streakR.fired ? `▸ ${streakR.rationale}` : "▸ Streak engine warming up"
+  ].join("<br>");
+
+  // calibration
+  let totalTrades=0, totalWins=0;
+  Object.values(modelPerf).forEach(p=>{totalTrades+=p.total; totalWins+=p.wins;});
+  $("#calibWinrate").textContent = totalTrades? ((totalWins/totalTrades)*100).toFixed(1)+"%" : "–";
+  // Real Brier score: BS = mean((p_predicted - outcome)^2) over actual settled trades —
+  // not a heuristic derived from win rate. Lower is better; 0 is perfect, 0.25 is the
+  // score of a model that always predicts p=0.5.
+  if(brierHistory.length){
+    const bs = brierHistory.reduce((s,e)=>s+Math.pow(e.p-e.outcome,2),0)/brierHistory.length;
+    $("#calibBrier").textContent = bs.toFixed(3);
+  } else {
+    $("#calibBrier").textContent = "–";
+  }
+
+  // risk tab
+  $("#rBalance").textContent = "$"+risk.balance.toFixed(2);
+  const pnlEl = $("#rPnl"); pnlEl.textContent = (risk.pnl>=0?"+$":"-$")+Math.abs(risk.pnl).toFixed(2);
+  pnlEl.className = "v "+(risk.pnl>=0?"pos":"neg");
+  $("#rDrawdown").textContent = risk.drawdownPct.toFixed(1)+"%";
+  $("#rWinrate").textContent = risk.trades? ((risk.wins/risk.trades)*100).toFixed(0)+"%":"0%";
+  $("#recoveryStatus").textContent = risk.recoveryLevel>0
+    ? `Recovery ACTIVE — level ${risk.recoveryLevel}/${+$("#cfgRecoverySteps").value}`
+    : `Recovery idle. Level 0/${+$("#cfgRecoverySteps").value}`;
+
+  $("#autoBanner").classList.toggle("show", autoTradeOn);
+  $("#autoBannerInfo").textContent = `${risk.trades} trades · ${risk.wins}W/${risk.losses}L`;
+  updateHaltUI();
+}
+
+/* ============================================================
+   RISK / RECOVERY ENGINE
+============================================================ */
+function updateDrawdown(){
+  const today = new Date().toDateString();
+  if(risk.peakDate!==today){
+    // new calendar day — "Max Daily Drawdown" must reset its peak baseline, not carry
+    // over an accumulated peak-to-current drawdown across multiple sessions/days
+    risk.peak = risk.balance;
+    risk.peakDate = today;
+    log("RISK", "Daily drawdown baseline reset for "+today);
+  }
+  if(risk.balance>risk.peak) risk.peak = risk.balance;
+  risk.drawdownPct = risk.peak>0 ? Math.max(0,(risk.peak-risk.balance)/risk.peak*100) : 0;
+}
+function computeStake(){
+  const base = +$("#cfgBaseStake").value || 1;
+  let stake = base;
+  if($("#cfgRecoveryOn").checked && risk.recoveryLevel>0){
+    stake = base * Math.pow(+$("#cfgRecoveryMult").value||2, risk.recoveryLevel);
+  }
+  // confidence multiplier
+  stake *= (0.7 + signal.confidence*0.6);
+  stake = Math.max(0.35, stake);
+  // hard ceiling: recovery escalation × confidence scaling must never push a single
+  // stake past a fixed % of current balance, regardless of how deep recovery has gone
+  const ceiling = Math.max(0.35, risk.balance * MAX_STAKE_PCT_OF_BALANCE);
+  if(stake>ceiling){
+    log("RISK", "Stake capped by balance ceiling", {wanted:+stake.toFixed(2), capped:+ceiling.toFixed(2)});
+    stake = ceiling;
+  }
+  return +stake.toFixed(2);
+}
+function checkHaltConditions(){
+  if(risk.halted) return true;
+  if($("#cfgHaltDD").checked && risk.drawdownPct >= (+$("#cfgMaxDD").value||15)){
+    haltTrading("Daily drawdown limit reached", true); return true;
+  }
+  if($("#cfgHaltLoss").checked && risk.consecLosses >= (+$("#cfgHaltLossN").value||5)){
+    haltTrading("Consecutive loss limit reached", true); return true;
+  }
+  if(risk.trades >= (+$("#cfgMaxTrades").value||40)){
+    haltTrading("Max trades per session reached", true); return true;
+  }
+  return false;
+}
+function checkConnectionHalt(){
+  if($("#cfgHaltConn").checked && dataMode==="live" && !connected && autoTradeOn){
+    haltTrading("Connection instability", true);
+  }
+}
+// hard-stop halts (drawdown, consec losses, max trades, manual kill) require an explicit
+// Resume action — they can never be silently cleared by pressing Enable Auto-Trade again.
+function haltTrading(reason, isHardStop){
+  risk.halted = true; risk.haltReason = reason; autoTradeOn=false;
+  if(isHardStop) risk.manualKill = true;
+  log("RISK", "HALT", reason);
+  $("#btnAutoToggle").textContent = "Enable Auto-Trade";
+  toast("HALTED: "+reason, "danger");
+  updateHaltUI();
+  saveState();
+}
+function resumeTrading(){
+  risk.halted = false; risk.manualKill = false; risk.haltReason = null;
+  log("RISK", "Trading resumed by explicit user action");
+  toast("Trading resumed — halt cleared", "success");
+  updateHaltUI();
+  saveState();
+}
+function updateHaltUI(){
+  const note = $("#haltStatusNote"); const btn = $("#btnResumeTrading");
+  if(!note || !btn) return;
+  if(risk.halted){
+    note.textContent = "HALTED: "+(risk.haltReason||"unknown reason")+". Auto-trade cannot be re-enabled until you explicitly resume.";
+    btn.style.display = "block";
+  } else {
+    note.textContent = "";
+    btn.style.display = "none";
+  }
+}
+$("#btnKillNow").addEventListener("click", ()=>{
+  haltTrading("Manual emergency stop", true);
+  // an emergency stop must also neutralize any order already in flight — a proposal
+  // that arrives after the button is pressed must not be bought, and a contract that
+  // already bought must still be tracked through to settlement (Deriv has no cancel-buy).
+  if(window.__pendingTrade){
+    window.__pendingTrade.killed = true;
+    log("RISK", "Emergency stop: in-flight order flagged — will not be bought if still pending proposal");
+  }
+  clearOrderTimeout();
+});
+$("#btnResumeTrading").addEventListener("click", resumeTrading);
+
+/* ============================================================
+   EXECUTION ENGINE
+============================================================ */
+function executionQualityOK(){
+  if(dataMode==="sim") return true; // sim always "healthy"
+  if(!connected) return false;
+  if(signal.freshness<0.15) return false;
+  return true;
+}
+function maybeAutoTrade(){
+  updateAutoGateStatus();
+  if(!autoTradeOn || risk.halted || risk.lock) return;
+  if(signal.digit===null || signal.coverage<0.3) return;
+  if(signal.masterScore < (+$("#cfgMinConf").value||0)) return;
+  if(signal.ev < (+$("#cfgMinEV").value||-999)) return;
+  if(signal.age < (+$("#cfgMinAge").value||0)) return;
+  if(!executionQualityOK()) return;
+  if(Date.now()-risk.lastTradeTime < 1200) return; // basic rate guard
+  if(signal.id && signal.id===lastExecutedSignalId) return; // one trade per distinct signal instance
+  placeTrade(true);
+}
+function updateAutoGateStatus(){
+  const el = $("#autoGateStatus");
+  if(!el) return;
+  if(!autoTradeOn){ el.textContent = "Auto-trade is OFF."; return; }
+  if(risk.halted){ el.textContent = "Blocked: trading is HALTED — clear it in Risk tab."; return; }
+  if(risk.lock){ el.textContent = "Blocked: an order is in flight."; return; }
+  if(signal.digit===null || signal.coverage<0.3){ el.textContent = `Blocked: insufficient engine coverage (${((signal.coverage||0)*100).toFixed(0)}% of 30% needed).`; return; }
+  const needScore = +$("#cfgMinConf").value||0, needEV = +$("#cfgMinEV").value||-999, needAge = +$("#cfgMinAge").value||0;
+  if(signal.masterScore < needScore){ el.textContent = `Waiting: Master Score ${signal.masterScore.toFixed(0)} < required ${needScore}.`; return; }
+  if(signal.ev < needEV){ el.textContent = `Waiting: EV Rate ${signal.ev.toFixed(1)}% < required ${needEV}%.`; return; }
+  if(signal.age < needAge){ el.textContent = `Waiting: signal age ${signal.age} < required ${needAge} ticks.`; return; }
+  if(!executionQualityOK()){ el.textContent = "Blocked: execution quality check failed (connection/freshness)."; return; }
+  el.textContent = "Gate clear — next qualifying tick will fire.";
+}
+function clearOrderTimeout(){
+  if(proposalTimeoutHandle){ clearTimeout(proposalTimeoutHandle); proposalTimeoutHandle=null; }
+}
+function armOrderTimeout(label){
+  clearOrderTimeout();
+  proposalTimeoutHandle = setTimeout(()=>{
+    log("ERROR", "Order timeout — no "+label+" response within "+ORDER_TIMEOUT_MS+"ms, releasing lock");
+    toast("Order timed out — no response from Deriv, releasing lock", "danger");
+    if(window.__pendingTrade) updateTradeLogResult(window.__pendingTrade.orderId, false, 0, true);
+    window.__pendingTrade = null;
+    risk.lock = false;
+    render();
+  }, ORDER_TIMEOUT_MS);
+}
+
+function placeTrade(isAuto){
+  if(risk.lock){ toast("An order is already in flight — please wait","warn"); return; }
+  if(checkHaltConditions()) return;
+  // Manual trades get the same validation gate as auto-trade — the button previously
+  // only checked halt/lock/shadow and could fire on a null/stale signal.
+  if(signal.digit===null || signal.direction===null){
+    toast("No valid signal to trade on yet","warn"); return;
+  }
+  if(signal.coverage<0.3){ toast("Insufficient engine coverage to trade this signal","warn"); return; }
+  if($("#cfgShadow").checked){ log("TRADE","Shadow — no order sent",{digit:signal.digit,direction:signal.direction}); toast("Shadow mode: signal would have fired but no order sent","warn"); return; }
+
+  risk.lock = true; risk.lastTradeTime = Date.now();
+  lastExecutedSignalId = signal.id;
+  const stake = computeStake();
+  const contractType = signal.direction==="MATCH" ? "DIGITMATCH" : "DIGITDIFF";
+  const duration = +$("#cfgDuration").value || 1;
+  const orderId = "ord_"+Date.now()+"_"+Math.random().toString(36).slice(2,8);
+
+  // Prediction snapshot captured NOW, at decision time — this is what the learning
+  // engine scores against at settlement, independent of whatever the live engines say later.
+  const prediction = {
+    digit: signal.digit, direction: signal.direction, calibrated: signal.calibrated,
+    engineResults: (window.__lastEngineResults||[]).map(r=>({
+      engineId:r.engineId, fired:r.fired, digit:r.digit, signal:r.signal, confidence:r.confidence
+    })),
+    signalId: signal.id
+  };
+
+  window.__pendingTrade = {
+    orderId, stake, contractType, digit:signal.digit, direction:signal.direction,
+    symbol:currentSymbol, symbolGeneration, proposalReqId:null, contractId:null,
+    killed:false, prediction
+  };
+
+  if(dataMode==="live" && connected && authorized){
+    const reqId = sendReq({
+      proposal:1, amount:stake, basis:"stake", contract_type:contractType,
+      currency:"USD", duration:duration, duration_unit:"t",
+      underlying_symbol: currentSymbol, barrier: String(signal.digit)
+    });
+    window.__pendingTrade.proposalReqId = reqId;
+    logTradeEntry(orderId, stake, contractType, "PENDING", signal.digit);
+    armOrderTimeout("proposal");
+  } else {
+    // simulated / read-only execution
+    logTradeEntry(orderId, stake, contractType, "PENDING", signal.digit);
+    setTimeout(()=>{
+      if(!window.__pendingTrade || window.__pendingTrade.orderId!==orderId){ risk.lock=false; return; }
+      settleSimulatedTrade(orderId, stake, contractType, prediction);
+      window.__pendingTrade = null;
+      risk.lock=false;
+    }, duration*550+400);
+  }
+  toast(`${isAuto?"AUTO":"MANUAL"} order: ${contractType} digit ${signal.digit} · $${stake.toFixed(2)}`);
+  log("TRADE", (isAuto?"AUTO":"MANUAL")+" order placed", {orderId, contractType, digit:signal.digit, stake, duration});
+}
+$("#btnManualTrade").addEventListener("click", ()=>placeTrade(false));
+$("#btnAutoToggle").addEventListener("click", ()=>{
+  if(!autoTradeOn && risk.halted){
+    toast("Trading is halted: "+(risk.haltReason||"")+" — use Resume Trading first","danger");
+    updateAutoGateStatus();
+    return;
+  }
+  autoTradeOn = !autoTradeOn;
+  $("#btnAutoToggle").textContent = autoTradeOn ? "Disable Auto-Trade" : "Enable Auto-Trade";
+  toast(autoTradeOn ? "Auto-trade engaged" : "Auto-trade disabled", autoTradeOn?"success":undefined);
+  updateAutoGateStatus();
+});
+
+function handleProposal(p, reqId){
+  const pt = window.__pendingTrade;
+  if(!pt) return;
+  // must match the exact request that originated it — an unrelated/late proposal
+  // response must never be bought against the currently pending trade
+  if(pt.proposalReqId===null || reqId!==pt.proposalReqId){
+    log("WS", "Discarding proposal — req_id mismatch", {expected:pt.proposalReqId, got:reqId});
+    return;
+  }
+  if(pt.symbolGeneration!==symbolGeneration){
+    log("WS", "Discarding proposal — symbol changed since order was placed");
+    window.__pendingTrade = null; risk.lock=false; clearOrderTimeout(); render();
+    return;
+  }
+  if(pt.killed || (risk.halted && risk.manualKill)){
+    log("RISK", "Emergency stop — proposal received but will NOT be bought");
+    window.__pendingTrade = null; risk.lock=false; clearOrderTimeout(); render();
+    return;
+  }
+  if(p.ask_price>0 && p.payout>0){
+    const direction = pt.contractType==="DIGITMATCH" ? "MATCH" : "DIFFERS";
+    lastKnownPayout[direction] = (p.payout - p.ask_price)/p.ask_price; // live net-odds R
+    log("SYSTEM", "Live payout ratio cached", {direction, R:+lastKnownPayout[direction].toFixed(3)});
+  }
+  // buy against a maximum price equal to the fresh proposal's own ask — prevents an
+  // unexpectedly worse fill if price moves between proposal and buy
+  sendReq({buy: p.id, price: p.ask_price});
+  armOrderTimeout("buy confirmation");
+}
+function handleBuyResult(b){
+  const pt = window.__pendingTrade;
+  clearOrderTimeout();
+  if(pt) pt.contractId = b.contract_id;
+  sendReq({proposal_open_contract:1, contract_id:b.contract_id, subscribe:1});
+}
+function handleContractUpdate(c){
+  if(!c.is_sold) return;
+  // prefer an explicit status/outcome field over a bare profit>=0 check — a zero-profit
+  // or special-settlement contract shouldn't default to "win"
+  const won = c.status ? (c.status==="won") : (+c.profit > 0);
+  const actualDigit = c.exit_tick_display_value!==undefined
+    ? lastDigitOf(c.exit_tick_display_value)
+    : (c.exit_tick!==undefined ? lastDigitOf(c.exit_tick) : null);
+  settleTradeResult(won, +c.profit, c.contract_id, actualDigit, window.__pendingTrade && window.__pendingTrade.orderId, window.__pendingTrade && window.__pendingTrade.prediction);
+  // release the contract subscription now that it has settled — otherwise long sessions
+  // accumulate stale server-side subscriptions
+  if(contractSubscriptionId){ sendReq({forget: contractSubscriptionId}); contractSubscriptionId = null; }
+  window.__pendingTrade = null;
+  risk.lock = false;
+}
+
+function settleSimulatedTrade(orderId, stake, contractType, prediction){
+  // A proper simulator must NOT use the model's own calibrated probability to decide the
+  // outcome (that's self-fulfilling — "the model predicted 70% so I'll make it win ~70%
+  // of the time"). Instead, draw the next digit uniformly at random, independent of the
+  // prediction, then check the prediction against that independently-generated digit.
+  const actualDigit = Math.floor(Math.random()*10);
+  const direction = contractType==="DIGITMATCH" ? "MATCH" : "DIFFERS";
+  const predictedDigit = prediction.digit;
+  const won = direction==="MATCH" ? (actualDigit===predictedDigit) : (actualDigit!==predictedDigit);
+  const payout = contractType==="DIGITMATCH" ? stake*9 : stake*(10/9);
+  const profit = won ? (payout-stake) : -stake;
+  settleTradeResult(won, profit, null, actualDigit, orderId, prediction);
+}
+
+function settleTradeResult(won, profit, contractId, actualDigit, orderId, prediction){
+  log("TRADE", won?"WIN":"LOSS", {profit:+profit.toFixed(2), contractId:contractId||"(sim)", actualDigit});
+  risk.trades++; risk.pnl += profit; risk.balance += profit;
+  updateDrawdown();
+  if(won){ risk.wins++; risk.consecLosses=0; risk.recoveryLevel=0; }
+  else{ risk.losses++; risk.consecLosses++;
+    if($("#cfgRecoveryOn").checked && risk.recoveryLevel < (+$("#cfgRecoverySteps").value||3)) risk.recoveryLevel++;
+    else risk.recoveryLevel=0;
+  }
+  // Adaptive learning: score EACH engine independently against the actual settled digit,
+  // using the prediction snapshot captured at order time — not "every fired engine gets
+  // credit whenever the overall trade won" (the old bug), and not the live engine state
+  // (which has moved on since the trade was placed).
+  if($("#cfgAdaptive").checked && prediction && prediction.engineResults && actualDigit!==null){
+    const tradeDirection = prediction.direction;
+    prediction.engineResults.forEach(r=>{
+      if(!r.fired || r.digit===undefined || r.digit===null) return;
+      // was THIS engine's own prediction correct, given the actual digit and direction?
+      let engineCorrect;
+      if(r.signal==="SELL"){
+        // streak/termination engines predict "this digit will NOT repeat" — correct if it didn't
+        engineCorrect = (actualDigit!==r.digit);
+      } else if(tradeDirection==="DIFFERS"){
+        engineCorrect = (actualDigit!==r.digit);
+      } else {
+        engineCorrect = (actualDigit===r.digit);
+      }
+      modelPerf[r.engineId] = modelPerf[r.engineId] || {wins:0,total:0};
+      modelPerf[r.engineId].total++;
+      if(engineCorrect) modelPerf[r.engineId].wins++;
+      const rate = +$("#cfgLearnRate").value/1000;
+      const acc = modelPerf[r.engineId].wins/modelPerf[r.engineId].total;
+      modelWeights[r.engineId] = Math.max(0.3, Math.min(2.5, modelWeights[r.engineId]*(1-rate) + (acc*2)*rate));
+    });
+  }
+  // Real Brier score input: predicted win-probability at entry time vs actual binary outcome
+  if(prediction && prediction.calibrated!==undefined){
+    brierHistory.push({p:prediction.calibrated, outcome: won?1:0});
+    if(brierHistory.length>500) brierHistory.shift();
+  }
+  updateTradeLogResult(orderId, won, profit);
+  toast(won?`WIN +$${profit.toFixed(2)}`:`LOSS $${profit.toFixed(2)}`, won?"success":"danger");
+  checkHaltConditions();
+  saveState();
+  render();
+}
+
+function logTradeEntry(orderId, stake, type, status, digit){
+  tradeLog.unshift({id:orderId, time:new Date().toLocaleTimeString(), stake, type, status, digit});
+  tradeLog = tradeLog.slice(0,60);
+  renderTradeLog();
+}
+function updateTradeLogResult(id, won, profit, timedOut){
+  // match on the stable orderId captured at placement time — the old code matched
+  // "the first PENDING row", which silently misattributes results when more than one
+  // pending trade exists
+  const t = id ? tradeLog.find(t=>t.id===id) : null;
+  if(t){ t.status = timedOut ? "TIMEOUT" : (won?"WIN":"LOSS"); t.profit = profit; }
+  renderTradeLog();
+}
+function renderTradeLog(){
+  const el = $("#tradeLog");
+  if(tradeLog.length===0){ el.innerHTML = '<div class="small-note">No trades this session yet.</div>'; return; }
+  el.innerHTML = tradeLog.slice(0,20).map(t=>{
+    const cls = t.status==="WIN"?"win":(t.status==="LOSS"||t.status==="TIMEOUT"?"loss":"pending");
+    const pf = t.profit!==undefined ? (t.profit>=0?"+$":"-$")+Math.abs(t.profit).toFixed(2) : "…";
+    return `<div class="trade-row"><span>${t.time} · ${t.type} d${t.digit}</span><span class="${cls}">${t.status} ${pf}</span></div>`;
+  }).join("");
+}
+
+/* ============================================================
+   SETTINGS / BUTTONS
+============================================================ */
+$("#btnConnect").addEventListener("click", ()=>{
+  $("#dataModeSel").value="live"; dataMode="live"; restartDataSource();
+});
+$("#btnDisconnect").addEventListener("click", ()=>{
+  intentionalDisconnect = true;
+  if(ws){ try{ws.close();}catch(e){} }
+  connected=false; setConnPill(false);
+  toast("Disconnected");
+});
+$("#btnResetStats").addEventListener("click", ()=>{
+  risk = {balance:risk.balance, startBalance:risk.balance, pnl:0, wins:0, losses:0, trades:0,
+    peak:risk.balance, peakDate:new Date().toDateString(), drawdownPct:0, consecLosses:0, recoveryLevel:0,
+    halted:false, haltReason:null, manualKill:false, lastTradeTime:0, lock:false};
+  tradeLog=[]; window.__pendingTrade=null; lastExecutedSignalId=null;
+  renderTradeLog(); updateHaltUI(); render(); toast("Session stats reset");
+});
+$("#btnResetAll").addEventListener("click", ()=>{
+  localStorage.removeItem(STORE_KEY);
+  location.reload();
+});
+$("#cfgNotifOn").addEventListener("change", (e)=>{
+  if(e.target.checked && "Notification" in window && Notification.permission!=="granted"){
+    Notification.requestPermission().then(p=>{ if(p!=="granted") e.target.checked=false; });
+  }
+});
+$all("input,select").forEach(el=>el.addEventListener("change", saveState));
+
+/* console controls */
+document.querySelectorAll("#logFilterRow .market-chip").forEach(chip=>{
+  chip.addEventListener("click", ()=>{
+    document.querySelectorAll("#logFilterRow .market-chip").forEach(c=>c.classList.remove("active"));
+    chip.classList.add("active");
+    logFilter = chip.dataset.lf;
+    renderLogFull();
+  });
+});
+$("#btnLogClear").addEventListener("click", ()=>{ logBuf=[]; renderLogFull(); toast("Console cleared"); });
+$("#btnLogCopy").addEventListener("click", ()=>{
+  const text = logBuf.map(e=>`[${e.t}] ${e.category} ${e.msg}`).join("\n");
+  if(navigator.clipboard){ navigator.clipboard.writeText(text).then(()=>toast("Log copied to clipboard")); }
+});
+$("#btnLogExport").addEventListener("click", ()=>{
+  const text = logBuf.map(e=>`[${e.t}] ${e.category} ${e.msg}`).join("\n");
+  const blob = new Blob([text], {type:"text/plain"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "ldpx-match-ai-console-"+Date.now()+".log";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+});
+
+/* global error capture — surfaces uncaught exceptions in the console too */
+window.addEventListener("error", (e)=>{ log("ERROR","Uncaught exception", e.message+" @ "+e.filename+":"+e.lineno); });
+window.addEventListener("unhandledrejection", (e)=>{ log("ERROR","Unhandled promise rejection", e.reason && e.reason.message ? e.reason.message : String(e.reason)); });
+
+/* ============================================================
+   INIT
+============================================================ */
+function init(){
+  log("SYSTEM", "App init");
+  loadState();
+  buildMarketRow();
+  $("#symbolTxt").textContent = currentSymbol;
+  $("#dataModeSel").value = dataMode;
+  renderTradeLog();
+  restartDataSource();
+  setInterval(saveState, 8000);
+  setInterval(()=>{ if(dataMode==="sim"){} render(); }, 1000);
+}
+document.addEventListener("visibilitychange", ()=>{
+  if(!document.hidden && $("#cfgAutoRestart").checked){
+    if(dataMode==="live" && !connected) connectLive();
+    if(dataMode==="sim" && !simTimer) startSim();
+  }
+});
+window.addEventListener("beforeunload", saveState);
+
+init();
+
+})();
+</script>
+</body>
+</html>

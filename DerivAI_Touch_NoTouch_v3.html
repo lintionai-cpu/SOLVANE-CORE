@@ -453,6 +453,29 @@ canvas.tick-chart{width:100%;height:180px;display:block}
         </div>
       </div>
 
+      <div class="grid-4" style="margin-bottom:14px">
+        <div class="stat-card">
+          <div class="stat-label">Lifetime P&L</div>
+          <div class="stat-value gold" id="stat-lifetime-pnl">$0.00</div>
+          <div class="stat-change" id="stat-lifetime-chg">Across all cycles</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">TP Cycles Completed</div>
+          <div class="stat-value" id="stat-cycles">0</div>
+          <div class="stat-change" id="stat-cycles-chg">Auto-restart: —</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Lifetime Trades</div>
+          <div class="stat-value" id="stat-lifetime-trades">0</div>
+          <div class="stat-change" id="stat-lifetime-wr">0% win rate</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Current Cycle Status</div>
+          <div class="stat-value" id="stat-cycle-status">Idle</div>
+          <div class="stat-change" id="stat-cycle-status-chg">—</div>
+        </div>
+      </div>
+
       <!-- MARKET OVERVIEW -->
       <div class="card" style="margin-bottom:14px">
         <div class="card-title"><span class="ct-icon">◈</span>Live Market Overview</div>
@@ -847,18 +870,32 @@ canvas.tick-chart{width:100%;height:180px;display:block}
               <input class="form-input" id="rm-max-consec" type="number" value="5" min="1" max="20"/>
             </div>
             <div class="form-row">
-              <div class="form-label">Take Profit Target ($)</div>
+              <div class="form-label">Session Take Profit ($)</div>
               <input class="form-input" id="rm-take-profit" type="number" value="30" min="1"/>
             </div>
             <div class="form-row">
               <div class="form-label">Enable Stop Loss</div>
-              <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="rm-enable-sl" checked><div class="toggle-slider"></div></label><span class="toggle-label">Active</span></div>
+              <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="rm-enable-sl" checked><div class="toggle-slider"></div></label><span class="toggle-label">Active — hard stop, manual restart required</span></div>
             </div>
             <div class="form-row">
               <div class="form-label">Enable Take Profit</div>
               <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="rm-enable-tp" checked><div class="toggle-slider"></div></label><span class="toggle-label">Active</span></div>
             </div>
             <button class="btn btn-gold" onclick="saveRiskSettings()" style="width:100%;margin-top:8px">Save Risk Settings</button>
+          </div>
+          <div class="card">
+            <div class="card-title"><span class="ct-icon">⟲</span>Auto Reset & Restart</div>
+            <div class="form-row">
+              <div class="form-label">Auto Reset & Restart on TP</div>
+              <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="rm-auto-restart" checked><div class="toggle-slider"></div></label><span class="toggle-label">Seamlessly restart to chase the next Take Profit</span></div>
+            </div>
+            <div class="form-row">
+              <div class="form-label">Restart Buffer (s)</div>
+              <input class="form-input" id="rm-restart-delay" type="number" value="2" min="0" max="15" step="1"/>
+            </div>
+            <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text4);margin-top:2px">
+              When Session Take Profit is hit: session P&L, martingale state, and pending-proposal locks reset cleanly; lifetime stats accumulate the cycle; the engine and (if it was active) AI trading resume automatically after the buffer above. Stop Loss always hard-stops and requires manual restart — it never auto-resets.
+            </div>
           </div>
         </div>
         <div>
@@ -995,6 +1032,10 @@ canvas.tick-chart{width:100%;height:180px;display:block}
               <div><div style="font-size:13px;font-weight:500;color:var(--text)">Dashboard Statistics</div><div style="font-size:11px;color:var(--text4)">Reset P&L, win rate, and session stats</div></div>
             </label>
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+              <input type="checkbox" id="reset-lifetime" style="accent-color:var(--gold)"/>
+              <div><div style="font-size:13px;font-weight:500;color:var(--text)">Lifetime Stats & Cycle Count</div><div style="font-size:11px;color:var(--text4)">Clear the cumulative P&L/cycles that persist across auto-restarts</div></div>
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
               <input type="checkbox" id="reset-market-data" style="accent-color:var(--gold)"/>
               <div><div style="font-size:13px;font-weight:500;color:var(--text)">Market Data Cache</div><div style="font-size:11px;color:var(--text4)">Clear stored tick and analysis data</div></div>
             </label>
@@ -1060,6 +1101,9 @@ let wsRetries = 0;
 let isConnected = false;
 let engineRunning = false;
 let aiTradingActive = false;
+// Auto Reset & Restart on Take Profit — single mutex prevents overlapping/duplicate cycles
+let autoResetInProgress = false;
+let autoResetTimer = null;
 let tradeMode = 'manual';
 let riskMode = 'manual';
 
@@ -1102,7 +1146,8 @@ function defaultState() {
     activePositions: [],
     logs: [],
     sessionStats: {pnl: 0, wins: 0, losses: 0, totalTrades: 0, maxActive: 0},
-    riskSettings: {maxLossTrade: 2, dailyLoss: 20, maxConsec: 5, takeProfit: 30, enableSL: true, enableTP: true, aiMinConf: 70, avoidLowLiq: true, aiSizing: true, barrierProb: 70},
+    lifetimeStats: {pnl: 0, wins: 0, losses: 0, totalTrades: 0, cycles: 0},
+    riskSettings: {maxLossTrade: 2, dailyLoss: 20, maxConsec: 5, takeProfit: 30, enableSL: true, enableTP: true, aiMinConf: 70, avoidLowLiq: true, aiSizing: true, barrierProb: 70, autoRestart: true, restartDelay: 2},
     mgSettings: {strategy:'classic', baseStake:1, multiplier:2, maxSteps:6, resetOnWin:true, enabled:false},
     mgState: {step:0, losses:0, currentStake:1, sequence:[]},
     theme: 'light',
@@ -1114,7 +1159,12 @@ function loadState() {
     const s = localStorage.getItem('deriv_ai_touch_state_v3');
     if(s) {
       const parsed = JSON.parse(s);
-      return Object.assign(defaultState(), parsed);
+      const merged = Object.assign(defaultState(), parsed);
+      // Shallow Object.assign would drop new nested defaults (e.g. autoRestart) if the
+      // saved state predates them — merge nested objects explicitly to stay forward-compatible.
+      merged.riskSettings = Object.assign(defaultState().riskSettings, parsed.riskSettings||{});
+      merged.lifetimeStats = Object.assign(defaultState().lifetimeStats, parsed.lifetimeStats||{});
+      return merged;
     }
   } catch(e){}
   return defaultState();
@@ -1330,6 +1380,9 @@ function onWSError(e) {
 }
 function disconnectWS() {
   clearTimeout(wsReconnectTimer);
+  clearTimeout(autoResetTimer);
+  autoResetTimer = null;
+  autoResetInProgress = false;
   clearHeartbeat();
   if(ws) { ws.onclose=null; if(ws.readyState===1){ wsSend({forget_all:'ticks'}); wsSend({forget_all:'proposal'}); wsSend({forget_all:'balance'}); } ws.close(); ws=null; }
   isConnected = false;
@@ -1746,16 +1799,126 @@ function closeAllTrades() {
   addLog(`Close all: ${appState.activePositions.length} positions sell request sent`,'trade');
 }
 function checkRiskLimits() {
-  const {pnl, losses} = appState.sessionStats;
+  // Single authoritative post-settlement decision point — never call this pre-trade.
+  // The mutex prevents a second settled contract (e.g. two markets closing back-to-back)
+  // from firing a duplicate reset while one is already in flight.
+  if (autoResetInProgress) return;
+  const {pnl} = appState.sessionStats;
   const rs = appState.riskSettings;
   if(rs.enableSL && pnl < -rs.dailyLoss) {
-    notify('⚠ Stop Loss','Daily loss limit reached. Trading paused.','warning');
-    stopAITrading(); addLog('STOP LOSS triggered — AI trading paused','warn');
+    notify('⚠ Stop Loss','Daily loss limit reached. Trading halted — manual restart required.','warning');
+    stopAITrading();
+    if(engineRunning) toggleEngine();
+    addLog('STOP LOSS triggered — trading HALTED. This never auto-restarts; restart manually when ready.','warn');
+    updateDashboard();
+    return;
   }
   if(rs.enableTP && pnl >= rs.takeProfit) {
-    notify('✓ Take Profit','Profit target reached. Trading paused.','success');
-    stopAITrading(); addLog('TAKE PROFIT triggered — AI trading paused','info');
+    if (rs.autoRestart) {
+      triggerAutoResetRestart();
+    } else {
+      notify('✓ Take Profit','Profit target reached. Trading paused.','success');
+      stopAITrading();
+      addLog('TAKE PROFIT triggered — AI trading paused (auto-restart disabled)','info');
+      updateDashboard();
+    }
   }
+}
+// Seamlessly resets the session and restarts all engine/AI-trading functions to
+// immediately chase the next Take Profit — with no manual intervention and no gap
+// in which stray proposals/subscriptions from the old cycle could leak into the new one.
+function triggerAutoResetRestart() {
+  if (autoResetInProgress) return; // mutex — this is the ONLY entry point that sets it
+  autoResetInProgress = true;
+  clearTimeout(autoResetTimer);
+
+  const rs = appState.riskSettings;
+  const wasEngineRunning = engineRunning;
+  const wasAiTradingActive = aiTradingActive;
+  const cycleNumber = appState.lifetimeStats.cycles + 1;
+
+  // 1. Fold this cycle's results into the lifetime tracker (persists across resets)
+  appState.lifetimeStats.pnl += appState.sessionStats.pnl;
+  appState.lifetimeStats.wins += appState.sessionStats.wins;
+  appState.lifetimeStats.losses += appState.sessionStats.losses;
+  appState.lifetimeStats.totalTrades += appState.sessionStats.totalTrades;
+  appState.lifetimeStats.cycles = cycleNumber;
+
+  notify('✓ Take Profit Reached', `Cycle #${cycleNumber} complete: +$${appState.sessionStats.pnl.toFixed(2)}. Auto-resetting…`, 'success');
+  addLog(`TAKE PROFIT reached — cycle #${cycleNumber} banked (+$${appState.sessionStats.pnl.toFixed(2)}). Auto reset & restart in ${rs.restartDelay}s…`,'info');
+  setCycleStatus('Resetting…');
+
+  // 2. Freeze new activity immediately so nothing races the reset. Existing open
+  //    positions are left to settle naturally — each settlement still runs through
+  //    this same checkRiskLimits() gate, but the mutex blocks re-entry meanwhile.
+  //    engineRunning is explicitly dropped (not just subscriptions stopped) so that if
+  //    a reconnect happens mid-buffer, onWSOpen won't race-resubscribe before this
+  //    function's own restart step does it cleanly.
+  aiTradingActive = false;
+  engineRunning = false;
+  const engBtn = document.getElementById('engine-state');
+  const engTopBtn = document.getElementById('engine-toggle-btn');
+  if(engBtn) engBtn.textContent = 'Start Engine';
+  if(engTopBtn) engTopBtn.classList.remove('gold');
+  const b1 = document.getElementById('btn-ai-trade'); if(b1) b1.disabled = true;
+  const b2 = document.getElementById('btn-ai-stop'); if(b2) b2.disabled = true;
+  stopAllSubscriptions();
+  activeMarketProposals = {};
+  pendingBuyMeta = {};
+  marketProposalPending = {};
+
+  // 3. Clean session reset — fresh cycle starts at $0, martingale ladder back to base
+  appState.sessionStats = {pnl: 0, wins: 0, losses: 0, totalTrades: 0, maxActive: 0};
+  appState.mgState = {step:0, losses:0, currentStake: appState.mgSettings.baseStake, sequence:[]};
+  renderMGSessionState();
+  renderPositions();
+  updateDashboard();
+  saveState();
+
+  // 4. Brief buffer purely to let the settlement UI/log render cleanly and to avoid
+  //    resubscribing mid-flight if more settlement messages are still inbound — not a
+  //    "cooldown", just enough for a clean handoff. Configurable down to 0s.
+  const delayMs = Math.max(0, (parseFloat(rs.restartDelay)||0)) * 1000;
+  autoResetTimer = setTimeout(() => {
+    autoResetTimer = null;
+    if (!isConnected) {
+      // Connection dropped mid-reset — the normal reconnect flow will call
+      // subscribeAllMarkets()/resume AI trading itself once back online.
+      addLog('Auto-restart deferred — WebSocket not connected. Will resume automatically on reconnect.','warn');
+      autoResetInProgress = false;
+      setCycleStatus('Waiting for connection');
+      return;
+    }
+    // Restart engine + subscriptions
+    if (wasEngineRunning) {
+      engineRunning = true;
+      const btn = document.getElementById('engine-state');
+      const topBtn = document.getElementById('engine-toggle-btn');
+      if(btn) btn.textContent = 'Stop Engine';
+      if(topBtn) topBtn.classList.add('gold');
+      subscribeAllMarkets();
+    }
+    // Restart AI auto-trading if it was active before the reset
+    if (wasAiTradingActive && wasEngineRunning) {
+      aiTradingActive = true;
+      if(b1) b1.disabled = true;
+      if(b2) b2.disabled = false;
+      addLog('AI auto-trading RESUMED for next cycle','ai');
+    } else {
+      if(b1) b1.disabled = false;
+      if(b2) b2.disabled = true;
+    }
+    autoResetInProgress = false;
+    setCycleStatus('Running — cycle #' + (cycleNumber+1));
+    addLog(`Auto reset & restart complete — engine and AI trading re-armed for cycle #${cycleNumber+1}`,'info');
+    notify('Restarted','All functions resumed — chasing next Take Profit','success');
+    updateDashboard();
+    saveState();
+  }, delayMs);
+}
+function setCycleStatus(text) {
+  const el = document.getElementById('stat-cycle-status');
+  if(el) el.textContent = text;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1917,6 +2080,30 @@ function updateDashboard() {
     const cnt = appState.activePositions.length;
     badge.textContent = cnt;
     badge.style.display = cnt>0?'inline':'none';
+  }
+  // Lifetime / auto-restart cycle stats
+  const ls = appState.lifetimeStats;
+  const rs = appState.riskSettings;
+  const ltPnlEl = document.getElementById('stat-lifetime-pnl');
+  if(ltPnlEl) {
+    ltPnlEl.textContent = `${ls.pnl>=0?'+':''}$${Math.abs(ls.pnl).toFixed(2)}`;
+    ltPnlEl.className = 'stat-value ' + (ls.pnl>0?'green':ls.pnl<0?'red':'gold');
+  }
+  const ltChgEl = document.getElementById('stat-lifetime-chg');
+  if(ltChgEl) ltChgEl.textContent = `${ls.cycles} cycle${ls.cycles===1?'':'s'} completed`;
+  const cyclesEl = document.getElementById('stat-cycles');
+  if(cyclesEl) cyclesEl.textContent = ls.cycles;
+  const cyclesChgEl = document.getElementById('stat-cycles-chg');
+  if(cyclesChgEl) cyclesChgEl.textContent = `Auto-restart: ${rs.autoRestart?'ON':'OFF'}`;
+  const ltTradesEl = document.getElementById('stat-lifetime-trades');
+  if(ltTradesEl) ltTradesEl.textContent = ls.totalTrades;
+  const ltWrEl = document.getElementById('stat-lifetime-wr');
+  if(ltWrEl) {
+    const ltTotal = ls.wins+ls.losses;
+    ltWrEl.textContent = `${ltTotal>0?Math.round(ls.wins/ltTotal*100):0}% win rate`;
+  }
+  if (!autoResetInProgress) {
+    setCycleStatus(engineRunning ? `Running — cycle #${ls.cycles+1}` : 'Idle');
   }
   renderMarketGrid();
   renderAIStatus();
@@ -2152,8 +2339,11 @@ function saveRiskSettings() {
     avoidLowLiq: document.getElementById('rm-avoid-low-liq').checked,
     aiSizing: document.getElementById('rm-ai-sizing').checked,
     barrierProb: parseInt(document.getElementById('rm-barrier-prob').value)||70,
+    autoRestart: document.getElementById('rm-auto-restart')?.checked ?? true,
+    restartDelay: parseFloat(document.getElementById('rm-restart-delay')?.value)??2,
   };
   saveState();
+  updateDashboard();
   notify('Risk Settings Saved','Risk management updated','success');
 }
 function renderAnalytics() {
@@ -2470,7 +2660,7 @@ function notify(title, msg, type='info', duration=4000) {
 //  RESET
 // ═══════════════════════════════════════════════════════════
 function selectAllReset() {
-  ['reset-history','reset-logs','reset-dashboard','reset-market-data','reset-settings'].forEach(id=>{
+  ['reset-history','reset-logs','reset-dashboard','reset-lifetime','reset-market-data','reset-settings'].forEach(id=>{
     const el = document.getElementById(id);
     if(el) el.checked = true;
   });
@@ -2480,6 +2670,7 @@ function executeReset() {
   if(document.getElementById('reset-history')?.checked) { appState.tradeHistory=[]; count++; }
   if(document.getElementById('reset-logs')?.checked) { appState.logs=[]; document.getElementById('main-log').innerHTML=''; count++; }
   if(document.getElementById('reset-dashboard')?.checked) { appState.sessionStats={pnl:0,wins:0,losses:0,totalTrades:0,maxActive:0}; appState.pnlHistory=[]; count++; }
+  if(document.getElementById('reset-lifetime')?.checked) { appState.lifetimeStats={pnl:0,wins:0,losses:0,totalTrades:0,cycles:0}; count++; }
   if(document.getElementById('reset-market-data')?.checked) {
     MARKETS.forEach(m=>{ marketData[m.sym].ticks=[]; marketData[m.sym].signals=[]; marketData[m.sym].signal=null; });
     count++;
@@ -2537,6 +2728,8 @@ function init() {
   if(document.getElementById('rm-take-profit')) document.getElementById('rm-take-profit').value = rs.takeProfit;
   if(document.getElementById('rm-enable-sl')) document.getElementById('rm-enable-sl').checked = rs.enableSL;
   if(document.getElementById('rm-enable-tp')) document.getElementById('rm-enable-tp').checked = rs.enableTP;
+  if(document.getElementById('rm-auto-restart')) document.getElementById('rm-auto-restart').checked = rs.autoRestart;
+  if(document.getElementById('rm-restart-delay')) document.getElementById('rm-restart-delay').value = rs.restartDelay;
   // MG settings
   const ms = appState.mgSettings;
   if(document.getElementById('mg-strategy')) document.getElementById('mg-strategy').value = ms.strategy;
