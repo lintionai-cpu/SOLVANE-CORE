@@ -261,8 +261,9 @@
       <h2>Session Risk Governor</h2>
       <div class="meterrow"><div class="mrhead"><span>Session Profit</span><b id="sessProfit">$0.00</b></div><div class="meter"><i id="sessProfitBar" style="width:0%"></i></div></div>
       <div class="meterrow"><div class="mrhead"><span>Drawdown vs. Max Loss</span><b id="sessLoss">$0.00</b></div><div class="meter risk"><i id="sessLossBar" style="width:0%"></i></div></div>
+      <div class="meterrow" id="tradeCountRow"><div class="mrhead"><span>Trade Count</span><b id="sessTradeCount">0 / ∞</b></div><div class="meter"><i id="sessTradeCountBar" style="width:0%"></i></div></div>
       <div class="grid3" style="margin-top:8px">
-        <div><div class="sub">Trades</div><div style="font-family:var(--mono);font-weight:700">0</div></div>
+        <div><div class="sub">Trades</div><div style="font-family:var(--mono);font-weight:700" id="sessTradesTotal">0</div></div>
         <div><div class="sub">Wins</div><div style="font-family:var(--mono);font-weight:700; color:var(--good)" id="sessWins">0</div></div>
         <div><div class="sub">Losses</div><div style="font-family:var(--mono);font-weight:700; color:var(--danger)" id="sessLosses">0</div></div>
       </div>
@@ -355,6 +356,11 @@
       <div class="grid2">
         <div class="field"><label>Max consecutive losses</label><input type="number" id="maxConsecLossInput" value="1" min="1" max="50" step="1"></div>
         <div class="field"><label>Cooldown between trades (sec)</label><input type="number" id="cooldownInput" value="0" min="0" max="3600" step="1"></div>
+      </div>
+      <div class="field">
+        <label>Trade count limit — stop after N trades (0 = unlimited)</label>
+        <input type="number" id="tradeCountLimitInput" value="0" min="0" max="100000" step="1">
+        <div class="sub" style="margin-top:4px">At 0, Meridian trades indefinitely until profit target / max loss / consecutive-loss limit is hit. Set above 0 to force an immediate full stop the instant that many trades have executed — win, loss, or either.</div>
       </div>
       <div class="row">
         <div><label>Auto-restart session</label><div class="sub">Re-arms automatically after cooldown once target/limit resets</div></div>
@@ -548,7 +554,8 @@ const LIMITS = {
   cooldown:         {min:0,     max:3600,  step:1,     def:0,    label:"Cooldown seconds"},
   autoRestartDelay: {min:1,     max:1440,  step:1,     def:1,    label:"Auto-restart delay"},
   gateThreshold:    {min:50,    max:99,    step:1,     def:50,   label:"Gate threshold %"},
-  maxConcurrent:    {min:1,     max:1,     step:1,     def:1,    label:"Max concurrent positions"}
+  maxConcurrent:    {min:1,     max:1,     step:1,     def:1,    label:"Max concurrent positions"},
+  tradeCountLimit:  {min:0,     max:100000, step:1,    def:0,    label:"Trade count limit"}
 };
 
 /** Clamp a raw value into [min,max], snap to step, and fall back to the
@@ -1365,6 +1372,9 @@ const Risk = {
     const target = enforce("sessTarget", store.get("sessTarget",LIMITS.sessTarget.min));
     const maxLoss = enforce("sessMaxLoss", store.get("sessMaxLoss",LIMITS.sessMaxLoss.min));
     const maxConsec = enforce("maxConsecLoss", store.get("maxConsecLoss",LIMITS.maxConsecLoss.min));
+    const tradeLimit = enforce("tradeCountLimit", store.get("tradeCountLimit",LIMITS.tradeCountLimit.def));
+    // A limit of 0 means unlimited by explicit design — every other value is a hard ceiling.
+    if(tradeLimit > 0 && this.trades >= tradeLimit) { this.lock("TRADE_COUNT_REACHED"); return false; }
     if(this.sessionProfit >= target) { this.lock("TARGET_REACHED"); return false; }
     if(this.sessionLoss >= maxLoss) { this.lock("MAX_LOSS_REACHED"); return false; }
     if(this.consecLosses >= maxConsec) { this.lock("MAX_CONSECUTIVE_LOSSES"); return false; }
@@ -1406,12 +1416,16 @@ const Risk = {
   renderAll(){
     const target = enforce("sessTarget", store.get("sessTarget",LIMITS.sessTarget.min));
     const maxLoss = enforce("sessMaxLoss", store.get("sessMaxLoss",LIMITS.sessMaxLoss.min));
+    const tradeLimit = enforce("tradeCountLimit", store.get("tradeCountLimit",LIMITS.tradeCountLimit.def));
     document.getElementById("sessProfit").textContent = "$"+this.sessionProfit.toFixed(2);
     document.getElementById("sessProfitBar").style.width = Math.min(100, (this.sessionProfit/target)*100)+"%";
     document.getElementById("sessLoss").textContent = "$"+this.sessionLoss.toFixed(2);
     document.getElementById("sessLossBar").style.width = Math.min(100, (this.sessionLoss/maxLoss)*100)+"%";
+    document.getElementById("sessTradesTotal").textContent = this.trades;
     document.getElementById("sessWins").textContent = this.wins;
     document.getElementById("sessLosses").textContent = this.losses;
+    document.getElementById("sessTradeCount").textContent = tradeLimit>0 ? (this.trades+" / "+tradeLimit) : (this.trades+" / ∞");
+    document.getElementById("sessTradeCountBar").style.width = tradeLimit>0 ? Math.min(100, (this.trades/tradeLimit)*100)+"%" : "0%";
     document.getElementById("sessLockNotice").style.display = this.locked? "block":"none";
   }
 };
@@ -1483,13 +1497,14 @@ function loadSettingsUI(){
   document.getElementById("sessMaxLossInput").value = enforce("sessMaxLoss", store.get("sessMaxLoss", LIMITS.sessMaxLoss.min));
   document.getElementById("maxConsecLossInput").value = enforce("maxConsecLoss", store.get("maxConsecLoss", LIMITS.maxConsecLoss.min));
   document.getElementById("cooldownInput").value = enforce("cooldown", store.get("cooldown", LIMITS.cooldown.min));
+  document.getElementById("tradeCountLimitInput").value = enforce("tradeCountLimit", store.get("tradeCountLimit", LIMITS.tradeCountLimit.def));
   document.getElementById("autoRestartSwitch").checked = store.get("autoRestart",false);
   document.getElementById("autoRestartDelay").value = enforce("autoRestartDelay", store.get("autoRestartDelay", LIMITS.autoRestartDelay.min));
   document.getElementById("gateThreshold").value = enforce("gateThreshold", store.get("gateThreshold", LIMITS.gateThreshold.min));
   document.getElementById("notifSwitch").checked = store.get("notif",false);
   document.getElementById("vibeSwitch").checked = store.get("vibe",true);
   // persist the enforced values back immediately so storage never holds a stale out-of-range number
-  ["stake","growth","tpPct","exitScoreTrigger","sessTarget","sessMaxLoss","maxConsecLoss","cooldown","autoRestartDelay","gateThreshold"]
+  ["stake","growth","tpPct","exitScoreTrigger","sessTarget","sessMaxLoss","maxConsecLoss","cooldown","autoRestartDelay","gateThreshold","tradeCountLimit"]
     .forEach(k=> store.set(k, enforce(k, store.get(k, LIMITS[k]? LIMITS[k].min : 0))));
 
   // symbol select, grouped by market family
@@ -1511,6 +1526,7 @@ function loadSettingsUI(){
   ["cooldownInput","cooldown"],
   ["autoRestartDelay","autoRestartDelay"],
   ["gateThreshold","gateThreshold"],
+  ["tradeCountLimitInput","tradeCountLimit"],
 ].forEach(([id,key])=>{
   const el = document.getElementById(id);
   el.addEventListener("change", e=>{ store.set(key, enforceField(e.target, key)); });
