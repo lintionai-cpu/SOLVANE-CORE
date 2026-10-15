@@ -885,10 +885,158 @@
         }
       }
 
+      /* ---------- passcode gate ---------- */
+      body.locked > *:not(#gate) { display: none !important; }
+      #gate { display: none; }
+      body.locked #gate {
+        display: flex; position: fixed; inset: 0; z-index: 9999;
+        align-items: center; justify-content: center; padding: 20px;
+        background: radial-gradient(900px 500px at 15% -10%, rgba(255,138,61,.10), transparent 60%),
+                    radial-gradient(900px 500px at 90% 10%, rgba(47,216,201,.08), transparent 60%), var(--bg);
+      }
+      .gate-card {
+        width: 100%; max-width: 380px; text-align: center;
+        background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+        padding: 32px 26px 24px; box-shadow: 0 24px 60px rgba(0,0,0,.5);
+      }
+      .gate-mark {
+        width: 46px; height: 46px; margin: 0 auto 14px; border-radius: 12px;
+        display: grid; place-items: center; font-family: var(--disp); font-weight: 700;
+        color: #1a0f04; background: linear-gradient(135deg, var(--amber), #ffb07a);
+      }
+      .gate-card h1 { margin: 0 0 4px; font: 700 18px var(--disp); letter-spacing: .08em; }
+      .gate-card p { margin: 0 0 20px; font-size: 12.5px; color: var(--text-dim); }
+      #gateInput {
+        width: 100%; padding: 14px 10px; text-align: center; background: var(--bg);
+        color: var(--text); border: 1px solid var(--border); border-radius: 10px;
+        font: 600 24px var(--mono); letter-spacing: .5em; text-indent: .5em;
+      }
+      #gateInput:focus { border-color: var(--cyan); outline: none; }
+      #gateInput:disabled { opacity: .5; }
+      .gate-keep { display: flex; gap: 8px; align-items: center; justify-content: center;
+        margin: 14px 0 0; font-size: 12px; color: var(--text-dim); cursor: pointer; }
+      #gateMsg { min-height: 18px; margin-top: 14px; font: 500 12px var(--mono); color: var(--red); }
+      .gate-card.shake { animation: gshake .35s; }
+      @keyframes gshake { 20%,60% { transform: translateX(-8px); } 40%,80% { transform: translateX(8px); } }
+      .lock-btn {
+        background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+        border-radius: 8px; padding: 4px 10px; font: 500 11px var(--mono); cursor: pointer; margin-left: 10px;
+      }
+      .lock-btn:hover { color: var(--text); border-color: var(--text-faint); }
+
     </style>
   </head>
 
-  <body>
+  <body class="locked">
+    <div id="gate" role="dialog" aria-modal="true" aria-label="Passcode required">
+      <div class="gate-card" id="gateCard">
+        <div class="gate-mark">SC</div>
+        <h1>SOLVANE CORE</h1>
+        <p>Enter your 8-digit passcode</p>
+        <input id="gateInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8"
+          autocomplete="off" autofocus aria-label="8-digit passcode" placeholder="••••••••">
+        <label class="gate-keep"><input type="checkbox" id="gateKeep"> Keep me signed in on this device (7 days)</label>
+        <div id="gateMsg" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <script>
+      /* ============ PASSCODE GATE ============
+         Stores only a salted SHA-256 hash (never the code itself).
+         To change the code, see README-PASSCODE.md. */
+      (function () {
+        var SALT = "adf14f7d79c98b15";
+        var HASH = "ac30f03022a6c153423ec5b2afa2df37653276b1e6c2261e52c7481a6dfc2003";
+        var KEY = "sc_auth", LOCK_KEY = "sc_fail";
+        var BASE = location.pathname.replace(/[^\/]*$/, "");   /* cookie shared with every page under this folder */
+        var MAX_TRIES = 5, KEEP_MS = 7 * 24 * 3600 * 1000;
+        var input = document.getElementById("gateInput");
+        var msg = document.getElementById("gateMsg");
+        var card = document.getElementById("gateCard");
+        var keep = document.getElementById("gateKeep");
+        var timer = null, booted = false;
+
+        function sha(str) {
+          return crypto.subtle.digest("SHA-256", new TextEncoder().encode(str)).then(function (b) {
+            return Array.from(new Uint8Array(b)).map(function (x) { return x.toString(16).padStart(2, "0"); }).join("");
+          });
+        }
+        function token() { return sha("session:" + HASH); }
+
+        function boot() {
+          if (booted) return; booted = true;
+          document.body.classList.remove("locked");
+          if (timer) clearInterval(timer);
+          bootApp();
+        }
+        function lock() {
+          document.cookie = KEY + "=; path=" + BASE + "; max-age=0; SameSite=Strict";
+          sessionStorage.removeItem(KEY); localStorage.removeItem(KEY);
+          location.reload();
+        }
+        window.solvaneLock = lock;
+
+        function getFail() { try { return JSON.parse(localStorage.getItem(LOCK_KEY)) || { n: 0, until: 0 }; } catch (e) { return { n: 0, until: 0 }; } }
+        function setFail(f) { localStorage.setItem(LOCK_KEY, JSON.stringify(f)); }
+
+        function showLockout() {
+          var f = getFail(); var left = Math.ceil((f.until - Date.now()) / 1000);
+          if (left <= 0) { input.disabled = false; msg.textContent = ""; input.focus(); if (timer) clearInterval(timer); timer = null; return false; }
+          input.disabled = true; input.value = "";
+          msg.textContent = "Too many attempts. Try again in " + left + "s";
+          if (!timer) timer = setInterval(showLockout, 500);
+          return true;
+        }
+
+        function fail() {
+          var f = getFail(); f.n++;
+          card.classList.remove("shake"); void card.offsetWidth; card.classList.add("shake");
+          input.value = "";
+          if (f.n >= MAX_TRIES) {
+            var step = f.n - MAX_TRIES;               /* 30s, 60s, 120s ... capped at 15 min */
+            f.until = Date.now() + Math.min(30000 * Math.pow(2, step), 900000);
+            setFail(f); showLockout();
+          } else {
+            setFail(f); msg.textContent = "Incorrect passcode (" + (MAX_TRIES - f.n) + " left)";
+          }
+        }
+
+        function attempt() {
+          if (showLockout()) return;
+          var v = input.value;
+          if (!/^\d{8}$/.test(v)) return;
+          sha(SALT + ":" + v).then(function (h) {
+            if (h !== HASH) return fail();
+            setFail({ n: 0, until: 0 });
+            token().then(function (t) {
+              document.cookie = KEY + "=" + t + "; path=" + BASE + "; SameSite=Strict" +
+                (location.protocol === "https:" ? "; Secure" : "") +
+                (keep.checked ? "; max-age=" + (KEEP_MS / 1000) : "");
+              boot();
+            });
+          });
+        }
+
+        input.addEventListener("input", function () {
+          input.value = input.value.replace(/\D/g, "").slice(0, 8);
+          if (input.value.length < 8) { if (!input.disabled) msg.textContent = ""; }
+          if (input.value.length === 8) attempt();
+        });
+
+        if (!(window.crypto && crypto.subtle)) {
+          input.disabled = true;
+          msg.textContent = "Secure context required: open this page over HTTPS.";
+          return;
+        }
+
+        /* already authenticated? */
+        token().then(function (t) {
+          var ok = document.cookie.split("; ").indexOf(KEY + "=" + t) !== -1;
+          if (ok) boot(); else { showLockout(); input.focus(); }
+        });
+      })();
+    </script>
+
     <div class="grid-veil"></div>
 
     <div class="ticker">
@@ -907,7 +1055,7 @@
           <li><a href="https://deriv.com" target="_blank" rel="noopener">Deriv ↗</a></li>
         </ul>
       </nav>
-      <div class="nav-cta"><span class="dot"></span>ALL SYSTEMS NOMINAL</div>
+      <div class="nav-cta"><span class="dot"></span>ALL SYSTEMS NOMINAL<button class="lock-btn" type="button" onclick="solvaneLock()">LOCK</button></div>
     </header>
 
     <section class="hero">
@@ -1008,6 +1156,7 @@
     </div>
 
     <script>
+      function bootApp() {
       document.getElementById('year').textContent = new Date().getFullYear();
 
       /* ============ CORE APP DATA (from current build fleet) ============ */
@@ -1660,6 +1809,7 @@
       buildTicker();
 
       renderAll();
+      }
     </script>
   </body>
 
